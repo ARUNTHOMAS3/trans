@@ -83,7 +83,7 @@ class RecurringJournal {
           (json['neverExpires'] ?? json['never_expires']) as bool? ?? true,
       referenceNumber:
           (json['referenceNumber'] ?? json['reference_number']) as String?,
-      notes: (json['notes'] ?? json['notes']) as String?,
+      notes: json['notes'] as String?,
       currency: (json['currency'] ?? json['currency_code']) as String? ?? 'INR',
       reportingMethod:
           (json['reportingMethod'] ?? json['reporting_method']) as String? ??

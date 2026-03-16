@@ -1427,7 +1427,12 @@ export class AccountantService {
 
         // 5. Post to transactions if requested
         if (normalizedStatus === "posted") {
-          await this.postJournalToTransactions(journal.id, orgId, tx);
+          // Pass the already-inserted journal + items directly to avoid a
+          // re-fetch via the regular db pool (which cannot see the uncommitted row).
+          await this.postJournalToTransactions(journal.id, orgId, tx, {
+            ...journal,
+            items: insertedItems,
+          });
         }
 
         // 6. Return mapped data directly from transaction values
@@ -1783,8 +1788,10 @@ export class AccountantService {
     }
   }
 
-  async postJournalToTransactions(journalId: string, orgId?: string, tx?: any) {
-    const journal = await this.findManualJournal(journalId, orgId);
+  async postJournalToTransactions(journalId: string, orgId?: string, tx?: any, preloadedJournal?: any) {
+    // When called from inside a db.transaction() the journal row is not yet committed
+    // and findManualJournal (regular pool) would return 404. Use preloadedJournal instead.
+    const journal = preloadedJournal ?? await this.findManualJournal(journalId, orgId);
     if (!journal) throw new NotFoundException("Journal not found.");
     const dbClient = tx || db;
     const items = journal.items || [];
@@ -2017,6 +2024,49 @@ export class AccountantService {
       );
     }
     return data;
+  }
+
+  async saveFiscalYear(
+    data: { startDate: string; name?: string },
+    orgId?: string,
+  ) {
+    const supabase = this.supabaseService.getClient();
+    const resolvedOrgId = orgId || this.defaultOrgId;
+
+    const start = new Date(data.startDate);
+    const end = new Date(start);
+    end.setFullYear(end.getFullYear() + 1);
+    end.setDate(end.getDate() - 1);
+
+    const name =
+      data.name ||
+      `FY ${start.getFullYear()}-${String(end.getFullYear()).slice(-2)}`;
+
+    // Deactivate existing active fiscal years for this org first
+    await supabase
+      .from("accounts_fiscal_years")
+      .update({ is_active: false })
+      .eq("org_id", resolvedOrgId)
+      .eq("is_active", true);
+
+    const { data: created, error } = await supabase
+      .from("accounts_fiscal_years")
+      .insert({
+        org_id: resolvedOrgId,
+        name,
+        start_date: start.toISOString().split("T")[0],
+        end_date: end.toISOString().split("T")[0],
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new BadRequestException(
+        `Unable to save fiscal year: ${error.message}`,
+      );
+    }
+    return created;
   }
 
   async findJournalNumberSettings(scopeInput?: any) {
@@ -3844,4 +3894,84 @@ export class AccountantService {
         warehouse: r.warehouse || "Default",
         stockOnHand: Number(r.stockOnHand || 0),
         assetValue: Number(r.assetValue || 0),
-    
+      })),
+    };
+  }
+
+  // --- Transaction Locking ---
+
+  async findTransactionLocks(orgId?: string) {
+    const resolvedOrgId = orgId || this.defaultOrgId;
+    const locks = await db
+      .select()
+      .from(transactionLocks)
+      .where(eq(transactionLocks.orgId, resolvedOrgId));
+
+    return locks.map((l) => ({
+      moduleName: l.moduleName,
+      lockDate: l.lockDate,
+      reason: l.reason,
+      updatedAt: l.updatedAt,
+    }));
+  }
+
+  async lockModule(
+    data: { moduleName: string; lockDate: string; reason: string },
+    orgId?: string,
+  ) {
+    const resolvedOrgId = orgId || this.defaultOrgId;
+
+    const existing = await db
+      .select()
+      .from(transactionLocks)
+      .where(
+        and(
+          eq(transactionLocks.orgId, resolvedOrgId),
+          eq(transactionLocks.moduleName, data.moduleName),
+        ),
+      );
+
+    if (existing.length > 0) {
+      // Update existing lock
+      const [updated] = await db
+        .update(transactionLocks)
+        .set({
+          lockDate: new Date(data.lockDate),
+          reason: data.reason,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(transactionLocks.orgId, resolvedOrgId),
+            eq(transactionLocks.moduleName, data.moduleName),
+          ),
+        )
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db
+      .insert(transactionLocks)
+      .values({
+        orgId: resolvedOrgId,
+        moduleName: data.moduleName,
+        lockDate: new Date(data.lockDate),
+        reason: data.reason,
+      })
+      .returning();
+    return created;
+  }
+
+  async unlockModule(moduleName: string, orgId?: string) {
+    const resolvedOrgId = orgId || this.defaultOrgId;
+    await db
+      .delete(transactionLocks)
+      .where(
+        and(
+          eq(transactionLocks.orgId, resolvedOrgId),
+          eq(transactionLocks.moduleName, moduleName),
+        ),
+      );
+    return { success: true };
+  }
+}

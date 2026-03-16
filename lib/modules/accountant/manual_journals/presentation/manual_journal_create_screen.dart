@@ -2506,6 +2506,9 @@ class _ManualJournalCreateScreenState
   }
 
   Widget _buildFooter() {
+    final isAlreadyPosted = isEditMode &&
+        widget.initialJournal?.status == ManualJournalStatus.posted;
+
     final primaryLabel = isEditMode ? 'Update and Post' : 'Save and Publish';
     final draftLabel = isEditMode ? 'Update Draft' : 'Save as Draft';
 
@@ -2522,32 +2525,47 @@ class _ManualJournalCreateScreenState
               spacing: 10,
               runSpacing: 8,
               children: [
-                Tooltip(
-                  message: 'Save and Publish (Ctrl+Enter)',
-                  child: ElevatedButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () => _save(ManualJournalStatus.posted),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.successGreen,
-                      foregroundColor: Colors.white,
+                if (isAlreadyPosted) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.successGreen),
                     ),
-                    child: Text(primaryLabel),
-                  ),
-                ),
-                Tooltip(
-                  message: 'Save as Draft (Ctrl+S)',
-                  child: OutlinedButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () => _save(ManualJournalStatus.draft),
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: AppTheme.bgDisabled,
-                      foregroundColor: AppTheme.textPrimary,
+                    child: const Text(
+                      'This journal is posted and cannot be edited. To make changes, reverse this journal.',
+                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                     ),
-                    child: Text(draftLabel),
                   ),
-                ),
+                ] else ...[
+                  Tooltip(
+                    message: 'Save and Publish (Ctrl+Enter)',
+                    child: ElevatedButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () => _save(ManualJournalStatus.posted),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.successGreen,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: Text(primaryLabel),
+                    ),
+                  ),
+                  Tooltip(
+                    message: 'Save as Draft (Ctrl+S)',
+                    child: OutlinedButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () => _save(ManualJournalStatus.draft),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: AppTheme.bgDisabled,
+                        foregroundColor: AppTheme.textPrimary,
+                      ),
+                      child: Text(draftLabel),
+                    ),
+                  ),
+                ],
                 Tooltip(
                   message: 'Cancel (Esc)',
                   child: TextButton(

@@ -148,6 +148,11 @@ export class AccountantController {
     return this.accountantService.findFiscalYears(orgId);
   }
 
+  @Post("fiscal-years")
+  saveFiscalYear(@Body() data: any, @Query("orgId") orgId?: string) {
+    return this.accountantService.saveFiscalYear(data, orgId);
+  }
+
   @Get("journal-number-settings")
   findJournalNumberSettings(
     @Query("orgId") orgId?: string,
@@ -364,4 +369,25 @@ export class AccountantController {
     @Query("orgId") orgId?: string,
     @Query("outletId") outletId?: string,
   ) {
-    return this.accountantService.getTransactions(id, limit, orgId, outlet
+    return this.accountantService.getTransactions(id, limit, orgId, outletId);
+  }
+
+  @Get(":id([0-9a-fA-F-]{36})/closing-balance")
+  getClosingBalance(
+    @Param("id") id: string,
+    @Query("orgId") orgId?: string,
+    @Query("outletId") outletId?: string,
+  ) {
+    return this.accountantService.getClosingBalance(id, orgId, outletId);
+  }
+
+  @Put(":id([0-9a-fA-F-]{36})")
+  update(@Param("id") id: string, @Body() data: any) {
+    return this.accountantService.update(id, data);
+  }
+
+  @Delete(":id([0-9a-fA-F-]{36})")
+  remove(@Param("id") id: string, @Query("orgId") orgId?: string) {
+    return this.accountantService.remove(id, orgId);
+  }
+}

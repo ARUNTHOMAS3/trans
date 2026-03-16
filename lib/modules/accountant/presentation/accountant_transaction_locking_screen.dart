@@ -400,7 +400,7 @@ class _AccountantTransactionLockingScreenState
         ),
         const SizedBox(width: AppTheme.space24),
         TextButton(
-          onPressed: () {},
+          onPressed: () => _showLockAllDialog(),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -419,6 +419,208 @@ class _AccountantTransactionLockingScreenState
         ),
       ],
     );
+  }
+
+  void _showLockAllDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => _LockAllDialog(
+        onConfirm: (date, reason) async {
+          final notifier = ref.read(transactionLockProvider.notifier);
+          for (final module in ['Sales', 'Purchases', 'Banking', 'Accountant']) {
+            await notifier.lockModule(
+              moduleName: module,
+              lockDate: date,
+              reason: reason,
+            );
+          }
+        },
+      ),
+    );
+  }
+}
+
+class _LockAllDialog extends ConsumerStatefulWidget {
+  final Future<void> Function(DateTime date, String reason) onConfirm;
+
+  const _LockAllDialog({required this.onConfirm});
+
+  @override
+  ConsumerState<_LockAllDialog> createState() => _LockAllDialogState();
+}
+
+class _LockAllDialogState extends ConsumerState<_LockAllDialog> {
+  final _dateKey = GlobalKey();
+  final _dateController = TextEditingController(
+    text: DateFormat('dd/MM/yyyy').format(DateTime.now()),
+  );
+  DateTime _selectedDate = DateTime.now();
+  final _reasonController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        width: 600,
+        padding: const EdgeInsets.symmetric(vertical: AppTheme.space24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.space24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Lock All Transactions',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(LucideIcons.x, size: 20),
+                    color: AppTheme.textMuted,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 32, color: AppTheme.borderColor),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.space24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'This will lock Sales, Purchases, Banking, and Accountant transactions up to the selected date.',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                  ),
+                  const SizedBox(height: AppTheme.space24),
+                  const Text(
+                    'Lock Date *',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFEF4444),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: 350,
+                    child: TextField(
+                      key: _dateKey,
+                      controller: _dateController,
+                      readOnly: true,
+                      onTap: () async {
+                        final date = await ZerpaiDatePicker.show(
+                          context,
+                          initialDate: _selectedDate,
+                          targetKey: _dateKey,
+                        );
+                        if (date != null) {
+                          setState(() {
+                            _selectedDate = date;
+                            _dateController.text =
+                                DateFormat('dd/MM/yyyy').format(date);
+                          });
+                        }
+                      },
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: AppTheme.borderColor),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: AppTheme.borderColor),
+                        ),
+                      ),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space24),
+                  const Text(
+                    'Reason *',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFEF4444),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _reasonController,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.all(12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            const BorderSide(color: AppTheme.borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            const BorderSide(color: AppTheme.borderColor),
+                      ),
+                    ),
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            const Divider(height: 0, color: AppTheme.borderColor),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              child: Row(
+                children: [
+                  ZButton.primary(
+                    onPressed: _isLoading
+                        ? null
+                        : () async {
+                            if (_reasonController.text.trim().isEmpty) return;
+                            setState(() => _isLoading = true);
+                            await widget.onConfirm(
+                                _selectedDate, _reasonController.text.trim());
+                            if (mounted) Navigator.pop(context);
+                          },
+                    label: _isLoading ? 'Locking...' : 'Lock All',
+                  ),
+                  const SizedBox(width: 8),
+                  ZButton.secondary(
+                    onPressed: () => Navigator.pop(context),
+                    label: 'Cancel',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _dateController.dispose();
+    _reasonController.dispose();
+    super.dispose();
   }
 }
 

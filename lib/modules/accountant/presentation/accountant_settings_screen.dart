@@ -9,6 +9,9 @@ import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:intl/intl.dart';
+import '../../../shared/utils/zerpai_toast.dart';
+import '../../auth/controller/auth_controller.dart';
+import '../../../core/api/dio_client.dart';
 
 class AccountantSettingsScreen extends ConsumerStatefulWidget {
   const AccountantSettingsScreen({super.key});
@@ -25,6 +28,37 @@ class _AccountantSettingsScreenState
   String _baseCurrency = 'INR';
   String _roundingType = 'Normal Rounding';
   bool _enableTax = true;
+  bool _isSaving = false;
+
+  Future<void> _save() async {
+    setState(() => _isSaving = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final authUser = ref.read(authUserProvider);
+      final orgId = authUser?.orgId;
+
+      await dio.post(
+        'accountant/fiscal-years',
+        data: {'startDate': _fiscalYearStart.toIso8601String()},
+        queryParameters: orgId != null ? {'orgId': orgId} : null,
+      );
+
+      if (mounted) ZerpaiToast.success(context, 'Settings saved');
+    } catch (e) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to save settings');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _resetToDefault() {
+    setState(() {
+      _fiscalYearStart = DateTime(DateTime.now().year, 4, 1);
+      _baseCurrency = 'INR';
+      _roundingType = 'Normal Rounding';
+      _enableTax = true;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -113,17 +147,14 @@ class _AccountantSettingsScreenState
             Row(
               children: [
                 ZButton.primary(
-                  label: 'Save Settings',
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Settings saved successfully'),
-                      ),
-                    );
-                  },
+                  label: _isSaving ? 'Saving...' : 'Save Settings',
+                  onPressed: _isSaving ? null : _save,
                 ),
                 const SizedBox(width: 12),
-                ZButton.secondary(label: 'Reset to Default', onPressed: () {}),
+                ZButton.secondary(
+                  label: 'Reset to Default',
+                  onPressed: _isSaving ? null : _resetToDefault,
+                ),
               ],
             ),
           ],
