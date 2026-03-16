@@ -1,0 +1,89 @@
+#000
+  - lib/modules/printing/repositories/print_template_repository.dart
+  - lib/modules/printing/widgets/template_editor.dart
+#0088FF
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+  - lib/core/theme/app_theme.dart
+#0175C2
+  - web/manifest.json
+#123
+  - PRD/prd_deployment.md
+#1F2633
+  - PRD/PRD.md
+#1F2933
+  - PRD/PRD.md
+#1F2937
+  - web/index.html
+#22A95E
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+#234
+  - PRD/prd_deployment.md
+#245
+  - PRD/prd_deployment.md
+#256
+  - PRD/prd_deployment.md
+#2563EB
+  - web/index.html
+#27C59A
+  - PRD/PRD.md
+#28A745
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+#2C3E50
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+#3B7CFF
+  - PRD/PRD.md
+#408DFB
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+#444444
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+#456
+  - PRD/prd_deployment.md
+#666666
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+#6B7280
+  - PRD/PRD.md
+  - web/index.html
+#BAC
+  - repowiki/en/content/Architecture & Design/Data Architecture.md
+#D32F2F
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+#D3D9E3
+  - PRD/PRD.md
+#DC2626
+  - web/index.html
+#DDD
+  - lib/modules/printing/repositories/print_template_repository.dart
+  - lib/modules/printing/widgets/template_editor.dart
+#E0E0E0
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+  - lib/core/theme/app_theme.dart
+#E5E7EB
+  - web/index.html
+#F0F7FF
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+#F2F2F2
+  - lib/modules/printing/repositories/print_template_repository.dart
+  - lib/modules/printing/widgets/template_editor.dart
+#F5F5F5
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+#F8FAFC
+  - web/index.html
+#F9F9F9
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+#FFFFFF
+  - PRD/PRD.md
+  - PRD/prd_ui.md
+  - lib/core/theme/app_theme.dart
+  - web/index.html

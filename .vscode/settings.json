@@ -1,0 +1,12 @@
+{
+    "pencil.mcp.integrations.claudeCode": false,
+    "pencil.mcp.integrations.claudeCodeCLI": false,
+    "pencil.mcp.integrations.codex": false,
+    "pencil.mcp.integrations.codexCLI": false,
+    "pencil.mcp.integrations.geminiCLI": false,
+    "pencil.mcp.integrations.windsurfIDE": false,
+    "pencil.mcp.integrations.antigravityIDE": false,
+    "pencil.mcp.integrations.openCodeCLI": false,
+    "pencil.mcp.integrations.kiroCLI": false,
+    "python.terminal.useEnvFile": true
+}

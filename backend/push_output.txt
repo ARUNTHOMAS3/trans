@@ -1,0 +1,18 @@
+
+> zerpai-erp-backend@1.0.0 db:push
+> drizzle-kit push
+
+No config path provided, using default 'drizzle.config.ts'
+Reading config file 'D:\K4NN4N\zerpai_erp\backend\drizzle.config.ts'
+Using 'pg' driver for database querying
+ReferenceError: brands is not defined
+    at <anonymous> (D:\K4NN4N\zerpai_erp\backend\src\db\schema.ts:857:24)
+    at getTableConfig (D:\K4NN4N\zerpai_erp\backend\node_modules\src\pg-core\utils.ts:34:23)
+    at D:\K4NN4N\zerpai_erp\backend\node_modules\drizzle-kit\bin.cjs:18808:63
+    at Array.map (<anonymous>)
+    at generatePgSnapshot (D:\K4NN4N\zerpai_erp\backend\node_modules\drizzle-kit\bin.cjs:18802:33)
+    at serializePg (D:\K4NN4N\zerpai_erp\backend\node_modules\drizzle-kit\bin.cjs:21404:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async pgPush (D:\K4NN4N\zerpai_erp\backend\node_modules\drizzle-kit\bin.cjs:84369:26)
+    at async Object.handler (D:\K4NN4N\zerpai_erp\backend\node_modules\drizzle-kit\bin.cjs:93871:9)
+    at async run (D:\K4NN4N\zerpai_erp\backend\node_modules\drizzle-kit\bin.cjs:93117:7)

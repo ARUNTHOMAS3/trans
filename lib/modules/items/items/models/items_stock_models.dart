@@ -1,0 +1,176 @@
+// lib/modules/items/items/models/items_stock_models.dart
+
+class WarehouseStockRow {
+  final String name;
+  final bool isPrimary;
+  final StockNumbers accounting;
+  final StockNumbers physical;
+
+  WarehouseStockRow({
+    required this.name,
+    required this.accounting,
+    required this.physical,
+    this.isPrimary = false,
+  });
+
+  factory WarehouseStockRow.fromJson(Map<String, dynamic> json) =>
+      WarehouseStockRow(
+        name: json['name'],
+        isPrimary: json['isPrimary'] ?? false,
+        accounting: StockNumbers.fromJson(json['accounting']),
+        physical: StockNumbers.fromJson(json['physical']),
+      );
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'isPrimary': isPrimary,
+    'accounting': accounting.toJson(),
+    'physical': physical.toJson(),
+  };
+}
+
+class StockNumbers {
+  final double onHand;
+  final double committed;
+
+  const StockNumbers({required this.onHand, required this.committed});
+
+  double get available => onHand - committed;
+
+  factory StockNumbers.fromJson(Map<String, dynamic> json) => StockNumbers(
+    onHand: (json['onHand'] as num).toDouble(),
+    committed: (json['committed'] as num).toDouble(),
+  );
+
+  Map<String, dynamic> toJson() => {'onHand': onHand, 'committed': committed};
+}
+
+enum OpeningStockMode { none, batches, serials }
+
+class BatchData {
+  final String batchReference;
+  final String manufacturerBatch;
+  final int unitPack;
+  final String manufacturedDate;
+  final String expiryDate;
+  final int quantityIn;
+  final int quantityAvailable;
+
+  BatchData({
+    required this.batchReference,
+    required this.manufacturerBatch,
+    required this.unitPack,
+    required this.manufacturedDate,
+    required this.expiryDate,
+    required this.quantityIn,
+    required this.quantityAvailable,
+  });
+
+  bool get isExpired {
+    if (expiryDate.isEmpty) return false;
+    try {
+      final parts = expiryDate.split('-');
+      if (parts.length != 3) return false;
+      final day = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final year = int.parse(parts[2]);
+      final expiry = DateTime(year, month, day);
+      return expiry.isBefore(DateTime.now());
+    } catch (e) {
+      return false;
+    }
+  }
+
+  factory BatchData.fromJson(Map<String, dynamic> json) => BatchData(
+    batchReference: json['batchReference'] ?? '',
+    manufacturerBatch: json['manufacturerBatch'] ?? '',
+    unitPack: json['unitPack'] ?? 0,
+    manufacturedDate: json['manufacturedDate'] ?? '',
+    expiryDate: json['expiryDate'] ?? '',
+    quantityIn: json['quantityIn'] ?? 0,
+    quantityAvailable: json['quantityAvailable'] ?? 0,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'batchReference': batchReference,
+    'manufacturerBatch': manufacturerBatch,
+    'unitPack': unitPack,
+    'manufacturedDate': manufacturedDate,
+    'expiryDate': expiryDate,
+    'quantityIn': quantityIn,
+    'quantityAvailable': quantityAvailable,
+  };
+}
+
+class SerialData {
+  final String serialNumber;
+  final String warehouseName;
+  final bool isAvailable;
+
+  SerialData({
+    required this.serialNumber,
+    required this.warehouseName,
+    required this.isAvailable,
+  });
+
+  factory SerialData.fromJson(Map<String, dynamic> json) => SerialData(
+    serialNumber: json['serialNumber'] ?? '',
+    warehouseName: json['warehouseName'] ?? '',
+    isAvailable: json['isAvailable'] ?? false,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'serialNumber': serialNumber,
+    'warehouseName': warehouseName,
+    'isAvailable': isAvailable,
+  };
+}
+
+class TransactionData {
+  final String date;
+  final String documentNumber;
+  final String customerName;
+  final double quantitySold;
+  final double price;
+  final double total;
+  final String status;
+  final String documentType;
+  final String? reference;
+
+  TransactionData({
+    required this.date,
+    required this.documentNumber,
+    required this.customerName,
+    required this.quantitySold,
+    required this.price,
+    required this.total,
+    required this.status,
+    required this.documentType,
+    this.reference,
+  });
+
+  factory TransactionData.fromJson(Map<String, dynamic> json) =>
+      TransactionData(
+        date: json['date'] ?? '',
+        documentNumber: json['documentNumber'] ?? '',
+        customerName: json['customerName'] ?? '',
+        quantitySold: (json['quantitySold'] as num?)?.toDouble() ?? 0.0,
+        price: (json['price'] as num?)?.toDouble() ?? 0.0,
+        total: (json['total'] as num?)?.toDouble() ?? 0.0,
+        status: json['status'] ?? '',
+        documentType: json['documentType'] ?? json['type'] ?? '',
+        reference: json['reference'],
+      );
+
+  Map<String, dynamic> toJson() => {
+    'date': date,
+    'documentNumber': documentNumber,
+    'customerName': customerName,
+    'quantitySold': quantitySold,
+    'price': price,
+    'total': total,
+    'status': status,
+    'documentType': documentType,
+    'reference': reference,
+  };
+}

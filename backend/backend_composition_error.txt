@@ -1,0 +1,1 @@
+Failed to save compositions: insert or update on table "product_contents" violates foreign key constraint "product_contents_content_id_fkey" | Code: 23503 | Details: Key (content_id)=(6ff7448d-64bc-4384-9343-9818ae3c9399) is not present in table "contents". | Hint: null

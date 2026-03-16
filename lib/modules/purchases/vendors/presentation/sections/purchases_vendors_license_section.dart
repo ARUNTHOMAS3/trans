@@ -1,0 +1,411 @@
+part of '../purchases_vendors_vendor_create.dart';
+
+extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
+  Widget _buildLicenseSection() {
+    const double inputWidth = 280.0;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drug License Section
+          _buildFormRow(
+            label: 'Drug Registered ?',
+            child: Row(
+              children: [
+                Checkbox(
+                  value: isDrugRegistered,
+                  activeColor: const Color(0xFF2563EB),
+                  onChanged: (v) => _state(() => isDrugRegistered = v ?? false),
+                ),
+                const Text(
+                  'This Vendor Is Registered Drug Licence',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                ),
+              ],
+            ),
+          ),
+          if (isDrugRegistered) ...[
+            SizedBox(height: _fieldSpacing),
+            _buildFormRow(
+              label: 'Drug Licence Type',
+              isRequired: true,
+              showInfo: true,
+              tooltip: 'Select the type of drug licence held by this vendor.',
+              child: SizedBox(
+                width: inputWidth,
+                child: FormDropdown<String>(
+                  height: _inputHeight,
+                  value: drugLicenceType,
+                  hint: 'Select licence type',
+                  items: const ['Wholesale', 'Retail', 'Wholesale and Retail'],
+                  onChanged: (v) => _state(() => drugLicenceType = v),
+                ),
+              ),
+            ),
+            SizedBox(height: _fieldSpacing),
+            // Show Retail licenses (20, 21) for Retail or Combined
+            if (drugLicenceType == 'Retail' ||
+                drugLicenceType == 'Wholesale and Retail') ...[
+              _buildFormRow(
+                label: 'Drug License 20',
+                isRequired: true,
+                showInfo: true,
+                tooltip:
+                    'Enter the Drug License Number (Form 20) for retail sale of drugs.',
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: inputWidth,
+                      child: CustomTextField(
+                        height: _inputHeight,
+                        controller: drugLicense20Ctrl,
+                        focusNode: drugLicense20Focus,
+                        errorText: drugLicense20Error,
+                        forceUppercase: true,
+                        hintText: 'Enter the License Number',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildLicenseAttachmentIcon(
+                      drugLicense20Docs,
+                      'drugLicense20',
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: _fieldSpacing),
+              _buildFormRow(
+                label: 'Drug License 21',
+                isRequired: true,
+                showInfo: true,
+                tooltip:
+                    'Enter the Drug License Number (Form 21) for retail sale of drugs.',
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: inputWidth,
+                      child: CustomTextField(
+                        height: _inputHeight,
+                        controller: drugLicense21Ctrl,
+                        focusNode: drugLicense21Focus,
+                        errorText: drugLicense21Error,
+                        forceUppercase: true,
+                        hintText: 'Enter the License Number',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildLicenseAttachmentIcon(
+                      drugLicense21Docs,
+                      'drugLicense21',
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: _fieldSpacing),
+            ],
+            // Show Wholesale licenses (20B, 21B) for Wholesale or Combined
+            if (drugLicenceType == 'Wholesale' ||
+                drugLicenceType == 'Wholesale and Retail') ...[
+              _buildFormRow(
+                label: 'Drug License 20B',
+                isRequired: true,
+                showInfo: true,
+                tooltip:
+                    'Enter the Drug License Number (Form 20B) for sale/distribution of drugs.',
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: inputWidth,
+                      child: CustomTextField(
+                        height: _inputHeight,
+                        controller: drugLicense20BCtrl,
+                        focusNode: drugLicense20BFocus,
+                        errorText: drugLicense20BError,
+                        forceUppercase: true,
+                        hintText: 'Enter the License Number',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildLicenseAttachmentIcon(
+                      drugLicense20BDocs,
+                      'drugLicense20B',
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: _fieldSpacing),
+              _buildFormRow(
+                label: 'Drug License 21B',
+                isRequired: true,
+                showInfo: true,
+                tooltip:
+                    'Enter the Drug License Number (Form 21B) for sale/distribution of drugs.',
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: inputWidth,
+                      child: CustomTextField(
+                        height: _inputHeight,
+                        controller: drugLicense21BCtrl,
+                        focusNode: drugLicense21BFocus,
+                        errorText: drugLicense21BError,
+                        forceUppercase: true,
+                        hintText: 'Enter the License Number',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildLicenseAttachmentIcon(
+                      drugLicense21BDocs,
+                      'drugLicense21B',
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: _fieldSpacing),
+            ],
+          ],
+
+          SizedBox(height: _fieldSpacing),
+
+          // Food & Standards
+          _buildFormRow(
+            label: 'FSSAI License Registered ?',
+            child: Row(
+              children: [
+                Checkbox(
+                  value: isFssaiRegistered,
+                  activeColor: const Color(0xFF2563EB),
+                  onChanged: (v) =>
+                      _state(() => isFssaiRegistered = v ?? false),
+                ),
+                const Text(
+                  'This Vendor Is Registered FSSAI License',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                ),
+              ],
+            ),
+          ),
+          if (isFssaiRegistered) ...[
+            SizedBox(height: _fieldSpacing),
+            _buildFormRow(
+              label: 'FSSAI Number',
+              isRequired: true,
+              showInfo: true,
+              tooltip:
+                  'Enter the 14-digit FSSAI (Food Safety and Standards Authority of India) license number.',
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: inputWidth,
+                    child: CustomTextField(
+                      height: _inputHeight,
+                      controller: fssaiCtrl,
+                      focusNode: fssaiFocus,
+                      errorText: fssaiError,
+                      forceUppercase: true,
+                      hintText: 'Enter the FSSAI Number',
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _buildLicenseAttachmentIcon(fssaiDocs, 'fssai'),
+                ],
+              ),
+            ),
+          ],
+
+          SizedBox(height: _fieldSpacing),
+
+          // MSME Registration
+          _buildFormRow(
+            label: 'MSME Registered ?',
+            child: Row(
+              children: [
+                Checkbox(
+                  value: _isMsmeRegistered,
+                  activeColor: const Color(0xFF2563EB),
+                  onChanged: (v) =>
+                      _state(() => _isMsmeRegistered = v ?? false),
+                ),
+                const Text(
+                  'This Vendor Is Registered MSME',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                ),
+              ],
+            ),
+          ),
+          if (_isMsmeRegistered) ...[
+            SizedBox(height: _fieldSpacing),
+            _buildFormRow(
+              label: 'MSME/Udyam Registration Type',
+              isRequired: true,
+              showInfo: true,
+              tooltip: 'Select the type of MSME/Udyam registration.',
+              child: SizedBox(
+                width: inputWidth,
+                child: FormDropdown<String>(
+                  height: _inputHeight,
+                  value: _msmeRegistrationType,
+                  hint: 'Select the Registration Type',
+                  items: const ['Micro', 'Small', 'Medium'],
+                  onChanged: (v) => _state(() => _msmeRegistrationType = v),
+                ),
+              ),
+            ),
+            SizedBox(height: _fieldSpacing),
+            _buildFormRow(
+              label: 'MSME/Udyam Registration Number',
+              isRequired: true,
+              showInfo: true,
+              tooltip:
+                  'Enter the MSME/Udyam Registration Number issued by the Ministry of MSME.',
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: inputWidth,
+                    child: CustomTextField(
+                      height: _inputHeight,
+                      controller: _msmeRegistrationNumberCtrl,
+                      focusNode: msmeFocus,
+                      errorText: msmeError,
+                      forceUppercase: true,
+                      hintText: 'Enter the Registration Number',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _buildLicenseAttachmentIcon(msmeDocs, 'msme'),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLicenseAttachmentIcon(List<PlatformFile> files, String field) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 32,
+          height: _inputHeight,
+          child: Tooltip(
+            message: 'Attach documents (PDF/Image)',
+            child: InkWell(
+              borderRadius: BorderRadius.circular(4),
+              onTap: () => _pickLicenseDocument(field),
+              child: const Center(
+                child: Icon(
+                  LucideIcons.upload,
+                  size: 18,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (files.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          CompositedTransformTarget(
+            link: _getLicenseLink(field),
+            child: Material(
+              color: const Color(0xFF3B82F6),
+              borderRadius: BorderRadius.circular(4),
+              child: InkWell(
+                onTap: () => _toggleLicenseOverlay(field),
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        LucideIcons.paperclip,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${files.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLicenseOverlay(String field) {
+    final files = _getLicenseFilesList(field);
+    final link = _getLicenseLink(field);
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: _removeLicenseOverlay,
+            behavior: HitTestBehavior.translucent,
+            child: Container(color: Colors.transparent),
+          ),
+        ),
+        CompositedTransformFollower(
+          link: link,
+          showWhenUnlinked: false,
+          offset: const Offset(0, 40),
+          child: Material(
+            elevation: 12,
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.transparent,
+            child: Container(
+              width: 300,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: files.asMap().entries.map((entry) {
+                    return _FileItemWidget(
+                      file: entry.value,
+                      onDelete: () =>
+                          _removeLicenseDocument(field, index: entry.key),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

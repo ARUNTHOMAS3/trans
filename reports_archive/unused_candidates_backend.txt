@@ -1,0 +1,3 @@
+backend/backend-err.log
+backend/backend-out.log
+backend/projects.json

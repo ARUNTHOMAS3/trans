@@ -1,0 +1,117 @@
+# Dependencies
+node_modules/
+dist/
+
+# Environment
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Build
+*.tsbuildinfo
+# ---------------------------------
+# 1. NODE.JS & NEXT.JS (Backend) - CRITICAL
+# ---------------------------------
+node_modules/
+.next/
+out/
+build/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.vercel
+
+# ---------------------------------
+# 2. AI AGENTS & IDEs (Vibe Coding Protection)
+# ---------------------------------
+# Ignore AI agent memory/cache to prevent bloat
+.cursor/
+.trae/
+.qoder/
+.gemini/
+.open_code/
+agent-skills/
+
+# Ignore large context dumps often created by agents
+analysis_output_*.txt
+*.gemini_cache
+repo_context.txt
+
+# IntelliJ / Android Studio
+*.iml
+.idea/
+*.iws
+
+# VS Code
+# For a team of 3 using AI, it is safer to IGNORE workspace settings
+# to prevent your agent's settings from overriding your friend's.
+.vscode/
+
+# ---------------------------------
+# 3. FLUTTER & DART (Frontend)
+# ---------------------------------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+
+# Generated files
+**/doc/api/
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+
+# Ephemeral (OS specific build files)
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+
+# Symbolication & Obfuscation
+app.*.symbols
+app.*.map.json
+
+# ---------------------------------
+# 4. ENVIRONMENT VARIABLES (Security)
+# ---------------------------------
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+assets/.env.local
+
+# ---------------------------------
+# 5. MISC & OS
+# ---------------------------------
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+Thumbs.db
+.vs/
+.claude/
+.opencode/
+.env*.local

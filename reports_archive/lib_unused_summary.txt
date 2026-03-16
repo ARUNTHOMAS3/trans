@@ -1,0 +1,7 @@
+package: zerpai_erp
+lib files: 305
+entrypoints: 1
+reachable from entrypoints: 188
+unused_all: 117
+unused_no_tests: 117
+unused_but_tested: 0

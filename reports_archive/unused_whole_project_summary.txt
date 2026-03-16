@@ -1,0 +1,7 @@
+total files: 661
+lib files: 305 | lib unused: 117
+backend src files: 50 | backend unused: 5
+referenced by path (code/config only): 264
+always used: 18
+platform files excluded: 53
+unused candidates (non-platform): 298

@@ -1,0 +1,8 @@
+Analyzing items...                                              
+
+warning - The declaration '_showPaginationMenu' isn't referenced - lib\modules\items\items\presentation\sections\items_item_detail_components.dart:735:8 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\modules\items\items\presentation\sections\items_item_detail_overview.dart:963:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\modules\items\items\presentation\sections\items_item_detail_overview.dart:1216:51 - deprecated_member_use
+  error - Missing concrete implementations of 'abstract class ItemRepository.getItemBatches', 'abstract class ItemRepository.getItemSerials', and 'abstract class ItemRepository.getItemStockTransactions' - lib\modules\items\items\repositories\supabase_item_repository.dart:6:7 - non_abstract_class_inherits_abstract_member
+
+4 issues found. (ran in 3.8s)

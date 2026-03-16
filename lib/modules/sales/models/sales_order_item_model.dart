@@ -1,0 +1,61 @@
+import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
+
+class SalesOrderItem {
+  final String? id;
+  final String itemId;
+  final String? description;
+  final double quantity;
+  final double rate;
+  final double discount;
+  final String? taxId;
+  final double taxAmount;
+  final double itemTotal;
+  final Item? item;
+
+  SalesOrderItem({
+    this.id,
+    required this.itemId,
+    this.description,
+    required this.quantity,
+    required this.rate,
+    this.discount = 0.0,
+    this.taxId,
+    this.taxAmount = 0.0,
+    this.itemTotal = 0.0,
+    this.item,
+  });
+
+  factory SalesOrderItem.fromJson(Map<String, dynamic> json) {
+    return SalesOrderItem(
+      id: json['id'],
+      itemId:
+          json['item_id'] ??
+          json['itemId'] ??
+          json['product_id'] ??
+          json['productId'] ??
+          '',
+      description: json['description'],
+      quantity: (json['quantity'] ?? 0.0).toDouble(),
+      rate: (json['rate'] ?? 0.0).toDouble(),
+      discount: (json['discount'] ?? 0.0).toDouble(),
+      taxId: json['tax_id'] ?? json['taxId'],
+      taxAmount: (json['tax_amount'] ?? json['taxAmount'] ?? 0.0).toDouble(),
+      itemTotal: (json['item_total'] ?? json['itemTotal'] ?? 0.0).toDouble(),
+      item: (json['item'] ?? json['product']) != null
+          ? Item.fromJson(json['item'] ?? json['product'])
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (id != null) 'id': id,
+      'itemId': itemId,
+      'description': description,
+      'quantity': quantity,
+      'rate': rate,
+      'discount': discount,
+      'taxId': taxId,
+    };
+  }
+}

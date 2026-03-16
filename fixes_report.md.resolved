@@ -1,0 +1,36 @@
+# Sync Guide for Items Module Fixes
+
+The following compilation errors reported by your co-developer are due to outdated Model, Service, and Controller files in the `lib/modules/items` module. This guide outlines the necessary updates.
+
+## 📁 Sync Folder: `co_dev_sync`
+
+I have prepared a folder named `co_dev_sync` in your root directory (`d:\zerpai-new\co_dev_sync`). This folder contains the latest versions of all required files with the correct directory structure.
+
+### **How to Apply:**
+Simply copy the `lib` folder from `co_dev_sync` and paste it into the project root. It will overwrite the outdated files with the correct ones.
+
+---
+
+## 🛠️ Key Fixes Included:
+
+### 1. **Model Updates (`lib/modules/items/items/models/`)**
+*   **`item_model.dart`**: Added new eCommerce fields: `storageDescription`, `about`, `usesDescription`, `howToUse`, `dosageDescription`, `missedDoseDescription`, `safetyAdvice`, `sideEffects`, and `faqText`.
+*   **`uqc_model.dart`**: Added the `displayName` getter: `String get displayName => '$uqcCode ($description)';`.
+*   **`unit_model.dart`**: Added the `unitSymbol` field and ensured `uqcId` is optional in the constructor to avoid "missing required argument" errors.
+
+### 2. **Service Updates (`lib/modules/items/items/services/`)**
+*   **`lookups_api_service.dart`**: Restored the `getUqc()` method to fetch Unique Quantity Codes from the backend.
+
+### 3. **Controller Updates (`lib/modules/items/items/controllers/`)**
+*   **`items_controller.dart`**: Updated to include the `getUqc()` call in the `loadLookupData()` batch process and ensured state is updated with `uqcList`.
+
+### 4. **UI & Presentation (`lib/modules/items/items/presentation/`)**
+*   **`items_item_create.dart`**: Updated the `Item` constructor call to pass the new eCommerce fields.
+*   **`items_item_detail.dart`**: Fixed the `Unit` initialization where `uqcId` was causing a "missing required argument" error.
+*   **`items_item_create_settings.dart`**: Fixed the `String?` to `String` type mismatch by adding proper null-checks when syncing units.
+*   **`bulk_update_dialog.dart`**: Fixed the reference to `unitSymbol` which was missing in older versions of the `Unit` model.
+
+---
+
+## ⚠️ Important Note:
+Ensure your co-developer runs `flutter pub get` after applying these changes to refresh any dependency links. If the errors persist in their IDE, they should try restarting the Dart Analysis Server or running `flutter clean`.

@@ -1,0 +1,245 @@
+// import 'package:flutter/foundation.dart';
+// import 'package:flutter_riverpod/flutter_riverpod.dart';
+// import '../models/sales_order_model.dart';
+// import '../models/sales_customer_model.dart';
+// import '../models/sales_payment_model.dart';
+// import '../models/sales_eway_bill_model.dart';
+// import '../models/sales_payment_link_model.dart';
+// import '../services/sales_order_api_service.dart';
+
+// final salesOrderApiServiceProvider = Provider((ref) => SalesOrderApiService());
+
+// final salesOrderControllerProvider =
+//     StateNotifierProvider<SalesOrderController, AsyncValue<List<SalesOrder>>>((
+//       ref,
+//     ) {
+//       return SalesOrderController(
+//         ref.watch(salesOrderApiServiceProvider),
+//         ref,
+//       );
+//     });
+
+// final salesCustomersProvider = FutureProvider<List<SalesCustomer>>((ref) async {
+//   final apiService = ref.watch(salesOrderApiServiceProvider);
+//   return apiService.getCustomers();
+// });
+
+// final salesQuotesProvider = FutureProvider<List<SalesOrder>>((ref) {
+//   return ref.watch(salesOrderApiServiceProvider).getSalesByType('quote');
+// });
+
+// final salesInvoicesProvider = FutureProvider<List<SalesOrder>>((ref) {
+//   return ref.watch(salesOrderApiServiceProvider).getSalesByType('invoice');
+// });
+
+// final salesPaymentsProvider = FutureProvider<List<SalesPayment>>((ref) {
+//   return ref.watch(salesOrderApiServiceProvider).getPayments();
+// });
+
+// final salesCreditNotesProvider = FutureProvider<List<SalesOrder>>((ref) {
+//   return ref.watch(salesOrderApiServiceProvider).getSalesByType('credit_note');
+// });
+
+// final salesChallansProvider = FutureProvider<List<SalesOrder>>((ref) {
+//   return ref.watch(salesOrderApiServiceProvider).getSalesByType('challan');
+// });
+
+// final salesRetainerInvoicesProvider = FutureProvider<List<SalesOrder>>((ref) {
+//   return ref
+//       .watch(salesOrderApiServiceProvider)
+//       .getSalesByType('retainer_invoice');
+// });
+
+// final salesRecurringInvoicesProvider = FutureProvider<List<SalesOrder>>((ref) {
+//   return ref
+//       .watch(salesOrderApiServiceProvider)
+//       .getSalesByType('recurring_invoice');
+// });
+
+// final salesEWayBillsProvider = FutureProvider<List<SalesEWayBill>>((ref) {
+//   return ref.watch(salesOrderApiServiceProvider).getEWayBills();
+// });
+
+// final salesPaymentLinksProvider = FutureProvider<List<SalesPaymentLink>>((ref) {
+//   return ref.watch(salesOrderApiServiceProvider).getPaymentLinks();
+// });
+
+// class SalesOrderController extends StateNotifier<AsyncValue<List<SalesOrder>>> {
+//   final SalesOrderApiService _apiService;
+//   final Ref ref;
+
+//   SalesOrderController(this._apiService, this.ref)
+//       : super(const AsyncValue.loading()) {
+//     loadSalesOrders();
+//   }
+
+//   Future<void> loadSalesOrders() async {
+//     state = const AsyncValue.loading();
+//     try {
+//       final sales = await _apiService.getSalesOrders();
+//       state = AsyncValue.data(sales);
+//     } catch (e, stack) {
+//       state = AsyncValue.error(e, stack);
+//     }
+//   }
+
+//   Future<SalesOrder?> createSalesOrder(SalesOrder sale) async {
+//     try {
+//       final newSale = await _apiService.createSalesOrder(sale);
+//       await loadSalesOrders(); // Refresh list
+//       return newSale;
+//     } catch (e) {
+//       debugPrint('Error creating sales order: $e');
+//       rethrow;
+//     }
+//   }
+
+//   Future<void> deleteSalesOrder(String id) async {
+//     try {
+//       await _apiService.deleteSalesOrder(id);
+//       await loadSalesOrders(); // Refresh list
+//     } catch (e) {
+//       debugPrint('Error deleting sales order: $e');
+//       rethrow;
+//     }
+//   }
+
+//   Future<SalesCustomer> createCustomer(SalesCustomer customer) async {
+//     try {
+//       final newCustomer = await _apiService.createCustomer(customer);
+//       // Refresh the customers provider so the UI updates
+//       ref.invalidate(salesCustomersProvider);
+//       return newCustomer;
+//     } catch (e) {
+//       debugPrint('Error creating customer: $e');
+//       rethrow;
+//     }
+//   }
+// }
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/sales_order_model.dart';
+import '../models/sales_customer_model.dart';
+import '../models/sales_payment_model.dart';
+import '../models/sales_eway_bill_model.dart';
+import '../models/sales_payment_link_model.dart';
+import '../services/sales_order_api_service.dart';
+
+final salesOrderApiServiceProvider = Provider((ref) => SalesOrderApiService());
+
+final salesOrderControllerProvider =
+    StateNotifierProvider<SalesOrderController, AsyncValue<List<SalesOrder>>>((
+      ref,
+    ) {
+      return SalesOrderController(ref.watch(salesOrderApiServiceProvider), ref);
+    });
+
+final salesCustomersProvider = FutureProvider<List<SalesCustomer>>((ref) async {
+  final apiService = ref.watch(salesOrderApiServiceProvider);
+  return apiService.getCustomers();
+});
+
+final salesQuotesProvider = FutureProvider<List<SalesOrder>>((ref) {
+  return ref.watch(salesOrderApiServiceProvider).getSalesByType('quote');
+});
+
+final salesInvoicesProvider = FutureProvider<List<SalesOrder>>((ref) {
+  return ref.watch(salesOrderApiServiceProvider).getSalesByType('invoice');
+});
+
+final salesPaymentsProvider = FutureProvider<List<SalesPayment>>((ref) {
+  return ref.watch(salesOrderApiServiceProvider).getPayments();
+});
+
+final salesCreditNotesProvider = FutureProvider<List<SalesOrder>>((ref) {
+  return ref.watch(salesOrderApiServiceProvider).getSalesByType('credit_note');
+});
+
+final salesChallansProvider = FutureProvider<List<SalesOrder>>((ref) {
+  return ref.watch(salesOrderApiServiceProvider).getSalesByType('challan');
+});
+
+final salesRetainerInvoicesProvider = FutureProvider<List<SalesOrder>>((ref) {
+  return ref
+      .watch(salesOrderApiServiceProvider)
+      .getSalesByType('retainer_invoice');
+});
+
+final salesRecurringInvoicesProvider = FutureProvider<List<SalesOrder>>((ref) {
+  return ref
+      .watch(salesOrderApiServiceProvider)
+      .getSalesByType('recurring_invoice');
+});
+
+final salesEWayBillsProvider = FutureProvider<List<SalesEWayBill>>((ref) {
+  return ref.watch(salesOrderApiServiceProvider).getEWayBills();
+});
+
+final salesPaymentLinksProvider = FutureProvider<List<SalesPaymentLink>>((ref) {
+  return ref.watch(salesOrderApiServiceProvider).getPaymentLinks();
+});
+
+class SalesOrderController extends StateNotifier<AsyncValue<List<SalesOrder>>> {
+  final SalesOrderApiService _apiService;
+  final Ref ref;
+
+  SalesOrderController(this._apiService, this.ref)
+    : super(const AsyncValue.loading()) {
+    loadSalesOrders();
+  }
+
+  Future<void> loadSalesOrders() async {
+    state = const AsyncValue.loading();
+    try {
+      final sales = await _apiService.getSalesOrders();
+      state = AsyncValue.data(sales);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<SalesOrder?> createSalesOrder(SalesOrder sale) async {
+    try {
+      final newSale = await _apiService.createSalesOrder(sale);
+      await loadSalesOrders(); // Refresh list
+      return newSale;
+    } catch (e) {
+      debugPrint('Error creating sales order: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteSalesOrder(String id) async {
+    try {
+      await _apiService.deleteSalesOrder(id);
+      await loadSalesOrders(); // Refresh list
+    } catch (e) {
+      debugPrint('Error deleting sales order: $e');
+      rethrow;
+    }
+  }
+
+  Future<SalesCustomer> createCustomer(SalesCustomer customer) async {
+    try {
+      final newCustomer = await _apiService.createCustomer(customer);
+      // Refresh the customers provider so the UI updates
+      ref.invalidate(salesCustomersProvider);
+      return newCustomer;
+    } catch (e) {
+      debugPrint('Error creating customer: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateCustomer(String id, Map<String, dynamic> data) async {
+    try {
+      await _apiService.updateCustomer(id, data);
+      // Refresh the customers provider so the UI updates
+      ref.invalidate(salesCustomersProvider);
+    } catch (e) {
+      debugPrint('Error updating customer: $e');
+      rethrow;
+    }
+  }
+}
