@@ -1,6 +1,0 @@
-2026/03/10-12:08:06.484 6350 Creating DB C:\Users\LENOVO\AppData\Local\Temp\flutter_tools.83042790\flutter_tools_chrome_device.54476864\Default\IndexedDB\https_zerpai-erp-one.vercel.app_0.indexeddb.leveldb since it was missing.
-2026/03/10-12:08:06.490 6350 Reusing MANIFEST C:\Users\LENOVO\AppData\Local\Temp\flutter_tools.83042790\flutter_tools_chrome_device.54476864\Default\IndexedDB\https_zerpai-erp-one.vercel.app_0.indexeddb.leveldb/MANIFEST-000001
-2026/03/10-12:34:36.742 4920 Level-0 table #5: started
-2026/03/10-12:34:36.745 4920 Level-0 table #5: 8976 bytes OK
-2026/03/10-12:34:36.748 4920 Delete type=0 #3
-2026/03/10-12:34:36.748 4920 Manual compaction at level-0 from (begin) .. (end); will stop at (end)
