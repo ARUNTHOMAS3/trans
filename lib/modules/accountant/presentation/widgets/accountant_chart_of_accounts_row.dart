@@ -197,11 +197,7 @@ class _AccountRowState extends ConsumerState<AccountRow> {
                                 fontWeight: (widget.node.isActive || isSelected)
                                     ? FontWeight.w600
                                     : FontWeight.normal,
-                                color: isSelected
-                                    ? AppTheme.primaryBlueDark
-                                    : widget.node.isSystem
-                                    ? AppTheme.primaryBlueDark
-                                    : AppTheme.textPrimary,
+                                color: AppTheme.primaryBlueDark,
                                 decoration: widget.node.isActive
                                     ? null
                                     : TextDecoration.lineThrough,
@@ -416,52 +412,19 @@ class _AccountRowState extends ConsumerState<AccountRow> {
 
                         ...columnWidgets,
 
-                        // 8. Actions (Gear Icon)
+                        // 8. Actions (Gear Icon) — shown on row hover only
                         SizedBox(
                           width: widget.compact ? 36 : 48,
                           child: Center(
-                            child:
-                                (widget.node.isDeletable &&
-                                    (_isHovered || _isMenuOpen))
-                                ? PopupMenuButton<String>(
-                                    tooltip: 'Actions',
-                                    color: Colors.white,
-                                    onOpened: () =>
+                            child: (widget.node.isDeletable && (_isHovered || _isMenuOpen))
+                                ? _ActionMenu(
+                                    node: widget.node,
+                                    onMenuOpen: () =>
                                         setState(() => _isMenuOpen = true),
-                                    onCanceled: () =>
+                                    onMenuClose: () =>
                                         setState(() => _isMenuOpen = false),
-                                    offset: const Offset(-100, 32),
-                                    elevation: 8,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 160,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      side: const BorderSide(
-                                        color: Color(0xFFE2E8F0),
-                                      ),
-                                    ),
-                                    icon: Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: _isMenuOpen
-                                            ? const Color(0xFFEFF6FF)
-                                            : const Color(0xFFF1F5F9),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        LucideIcons
-                                            .settings, // Solid Gear Icon as per spec
-                                        size: 14,
-                                        color: _isMenuOpen
-                                            ? const Color(0xFF3B82F6)
-                                            : const Color(0xFF64748B),
-                                      ),
-                                    ),
-                                    onSelected: (value) async {
-                                      if (mounted)
-                                        setState(() => _isMenuOpen = false);
+                                    isMenuOpen: _isMenuOpen,
+                                    onAction: (value) async {
                                       try {
                                         switch (value) {
                                           case 'edit':
@@ -491,55 +454,169 @@ class _AccountRowState extends ConsumerState<AccountRow> {
                                             }
                                             break;
                                           case 'delete':
-                                            final confirmed = await showDialog<bool>(
-                                              context: context,
-                                              builder: (context) => AlertDialog(
-                                                backgroundColor: Colors.white,
-                                                surfaceTintColor: Colors.white,
-                                                title: const Text(
-                                                  'Delete Account',
-                                                ),
-                                                content: Text(
-                                                  'Are you sure you want to delete "${widget.node.name}"?',
-                                                ),
-                                                actions: [
-                                                  ElevatedButton(
-                                                    onPressed: () =>
-                                                        context.pop(false),
-                                                    style:
-                                                        ElevatedButton.styleFrom(
-                                                          backgroundColor:
-                                                              AppTheme
-                                                                  .primaryBlue,
-                                                          foregroundColor:
-                                                              Colors.white,
+                                            final confirmed =
+                                                await showDialog<bool>(
+                                                  context: context,
+                                                  builder: (ctx) => Dialog(
+                                                    alignment:
+                                                        Alignment.topCenter,
+                                                    insetPadding:
+                                                        EdgeInsets.zero,
+                                                    backgroundColor:
+                                                        Colors.white,
+                                                    surfaceTintColor:
+                                                        Colors.white,
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
                                                         ),
-                                                    child: const Text('Cancel'),
+                                                    child: SizedBox(
+                                                      width: 420,
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.fromLTRB(
+                                                              24,
+                                                              20,
+                                                              24,
+                                                              16,
+                                                            ),
+                                                        child: Column(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Row(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .center,
+                                                            children: [
+                                                              const Icon(
+                                                                LucideIcons
+                                                                    .alertTriangle,
+                                                                size: 28,
+                                                                color: Color(
+                                                                  0xFFF59E0B,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                width: 12,
+                                                              ),
+                                                              Expanded(
+                                                                child: RichText(
+                                                                  text: TextSpan(
+                                                                    style: const TextStyle(
+                                                                      fontSize:
+                                                                          14,
+                                                                      color: Color(
+                                                                        0xFF111827,
+                                                                      ),
+                                                                    ),
+                                                                    children: [
+                                                                      const TextSpan(
+                                                                        text:
+                                                                            'Are you sure about deleting ',
+                                                                      ),
+                                                                      TextSpan(
+                                                                        text:
+                                                                            '"${widget.node.name}"',
+                                                                        style: const TextStyle(
+                                                                          fontWeight:
+                                                                              FontWeight.bold,
+                                                                        ),
+                                                                      ),
+                                                                      const TextSpan(
+                                                                        text:
+                                                                            '?',
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 16,
+                                                          ),
+                                                          Row(
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .end,
+                                                            children: [
+                                                              ElevatedButton(
+                                                                onPressed: () =>
+                                                                    ctx.pop(
+                                                                      true,
+                                                                    ),
+                                                                style: ElevatedButton.styleFrom(
+                                                                  backgroundColor:
+                                                                      AppTheme
+                                                                          .successGreen,
+                                                                  foregroundColor:
+                                                                      Colors
+                                                                          .white,
+                                                                  elevation: 0,
+                                                                  padding: const EdgeInsets.symmetric(
+                                                                    horizontal:
+                                                                        20,
+                                                                    vertical:
+                                                                        10,
+                                                                  ),
+                                                                ),
+                                                                child:
+                                                                    const Text(
+                                                                      'OK',
+                                                                    ),
+                                                              ),
+                                                              const SizedBox(
+                                                                width: 8,
+                                                              ),
+                                                              OutlinedButton(
+                                                                onPressed: () =>
+                                                                    ctx.pop(
+                                                                      false,
+                                                                    ),
+                                                                style: OutlinedButton.styleFrom(
+                                                                  foregroundColor:
+                                                                      const Color(
+                                                                        0xFF374151,
+                                                                      ),
+                                                                  side: const BorderSide(
+                                                                    color: Color(
+                                                                      0xFFD1D5DB,
+                                                                    ),
+                                                                  ),
+                                                                  padding: const EdgeInsets.symmetric(
+                                                                    horizontal:
+                                                                        20,
+                                                                    vertical:
+                                                                        10,
+                                                                  ),
+                                                                ),
+                                                                child:
+                                                                    const Text(
+                                                                      'Cancel',
+                                                                    ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
                                                   ),
-                                                  ElevatedButton(
-                                                    onPressed: () =>
-                                                        context.pop(true),
-                                                    style:
-                                                        ElevatedButton.styleFrom(
-                                                          backgroundColor:
-                                                              AppTheme.errorRed,
-                                                          foregroundColor:
-                                                              Colors.white,
-                                                        ),
-                                                    child: const Text('Delete'),
                                                   ),
-                                                ],
-                                              ),
-                                            );
+                                                );
                                             if (confirmed == true) {
                                               await ref
                                                   .read(
                                                     chartOfAccountsProvider
                                                         .notifier,
                                                   )
-                                                  .deleteAccount(
-                                                    widget.node.id,
-                                                  );
+                                                  .deleteAccount(widget.node.id);
                                             }
                                             break;
                                         }
@@ -560,68 +637,8 @@ class _AccountRowState extends ConsumerState<AccountRow> {
                                         }
                                       }
                                     },
-                                    itemBuilder: (context) => [
-                                      PopupMenuItem<String>(
-                                        value: 'edit',
-                                        height: 38,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            const Icon(
-                                              LucideIcons.edit,
-                                              size: 16,
-                                              color: Color(0xFF3B82F6),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            const Text(
-                                              'Edit',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                                color: Color(0xFF3B82F6),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      PopupMenuItem<String>(
-                                        value: 'inactive',
-                                        height: 34,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                        ),
-                                        child: Text(
-                                          widget.node.isActive
-                                              ? 'Mark as Inactive'
-                                              : 'Mark as Active',
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Color(0xFF374151),
-                                          ),
-                                        ),
-                                      ),
-                                      PopupMenuItem<String>(
-                                        value: 'delete',
-                                        height: 34,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                        ),
-                                        enabled: widget.node.isDeletable,
-                                        child: Text(
-                                          'Delete',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: widget.node.isDeletable
-                                                ? Colors.redAccent
-                                                : Colors.grey,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
                                   )
-                                : null,
+                                : const SizedBox.shrink(),
                           ),
                         ),
                       ],
@@ -669,6 +686,170 @@ class _AccountRowState extends ConsumerState<AccountRow> {
             );
           }),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Action menu — MenuAnchor with per-item hover highlight
+// ---------------------------------------------------------------------------
+class _ActionMenu extends StatefulWidget {
+  final AccountNode node;
+  final VoidCallback onMenuOpen;
+  final VoidCallback onMenuClose;
+  final bool isMenuOpen;
+  final Future<void> Function(String value) onAction;
+
+  const _ActionMenu({
+    required this.node,
+    required this.onMenuOpen,
+    required this.onMenuClose,
+    required this.isMenuOpen,
+    required this.onAction,
+  });
+
+  @override
+  State<_ActionMenu> createState() => _ActionMenuState();
+}
+
+class _ActionMenuState extends State<_ActionMenu> {
+  final MenuController _menuController = MenuController();
+
+  @override
+  Widget build(BuildContext context) {
+    return MenuAnchor(
+      controller: _menuController,
+      onOpen: widget.onMenuOpen,
+      onClose: widget.onMenuClose,
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: WidgetStatePropertyAll(Colors.white),
+        elevation: WidgetStatePropertyAll(8),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+        ),
+        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 4)),
+        minimumSize: WidgetStatePropertyAll(Size(160, 0)),
+      ),
+      menuChildren: [
+        _MenuItem(
+          label: 'Edit',
+          icon: LucideIcons.edit,
+          onTap: () {
+            _menuController.close();
+            widget.onAction('edit');
+          },
+        ),
+        _MenuItem(
+          label: widget.node.isActive ? 'Mark as Inactive' : 'Mark as Active',
+          onTap: () {
+            _menuController.close();
+            widget.onAction('inactive');
+          },
+        ),
+        if (widget.node.isDeletable)
+          _MenuItem(
+            label: 'Delete',
+            isDestructive: true,
+            onTap: () {
+              _menuController.close();
+              widget.onAction('delete');
+            },
+          ),
+      ],
+      child: GestureDetector(
+        onTap: () {
+          if (_menuController.isOpen) {
+            _menuController.close();
+          } else {
+            _menuController.open();
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: widget.isMenuOpen
+                ? const Color(0xFFEFF6FF)
+                : const Color(0xFFF1F5F9),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            LucideIcons.settings,
+            size: 14,
+            color: widget.isMenuOpen
+                ? const Color(0xFF3B82F6)
+                : const Color(0xFF64748B),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuItem extends StatefulWidget {
+  final String label;
+  final IconData? icon;
+  final bool isDestructive;
+  final VoidCallback onTap;
+
+  const _MenuItem({
+    required this.label,
+    this.icon,
+    this.isDestructive = false,
+    required this.onTap,
+  });
+
+  @override
+  State<_MenuItem> createState() => _MenuItemState();
+}
+
+class _MenuItemState extends State<_MenuItem> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color textColor = _hovered
+        ? Colors.white
+        : widget.isDestructive
+        ? AppTheme.errorRed
+        : const Color(0xFF374151);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? (widget.isDestructive
+                      ? AppTheme.errorRed
+                      : const Color(0xFF3B82F6))
+                : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              if (widget.icon != null) ...[
+                Icon(widget.icon, size: 14, color: textColor),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: textColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

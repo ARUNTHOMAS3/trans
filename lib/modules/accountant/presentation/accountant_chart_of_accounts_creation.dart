@@ -13,6 +13,7 @@ import '../../../core/routing/app_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../shared/utils/zerpai_toast.dart';
 import '../../../../shared/widgets/shortcut_handler.dart';
+import '../../../../core/api/dio_client.dart';
 
 class ChartOfAccountsCreationPage extends ConsumerStatefulWidget {
   final bool isIntegrationContext;
@@ -50,10 +51,13 @@ class _ChartOfAccountsCreationPageState
   String? _parentAccountId; // ID of the parent
   AccountNode? _editingAccount;
   bool _didInitFromExtra = false;
+  bool? _hasJournalEntries; // null = loading, true/false = fetched
 
   // Validation State
   bool _showErrors = false;
+  String? _nameErrorText;
   String? _codeErrorText;
+  String? _formErrorMessage; // inline top-of-form error banner
 
   // Constants
   String _getGroupForType(String type, AccountMetadata metadata) {
@@ -78,11 +82,12 @@ class _ChartOfAccountsCreationPageState
     // Default selection
     _selectedGroup = 'Assets';
     _selectedType = 'Other Asset';
-    // Clear code error on change
+    // Clear name/code error on change
+    _nameController.addListener(() {
+      if (_nameErrorText != null) setState(() => _nameErrorText = null);
+    });
     _codeController.addListener(() {
-      if (_codeErrorText != null) {
-        setState(() => _codeErrorText = null);
-      }
+      if (_codeErrorText != null) setState(() => _codeErrorText = null);
     });
   }
 
@@ -166,6 +171,20 @@ class _ChartOfAccountsCreationPageState
     return result;
   }
 
+  Future<void> _checkJournalUsage(String accountId) async {
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.get('accountant/$accountId/journal-usage');
+      if (mounted) {
+        setState(() {
+          _hasJournalEntries = response.data['hasJournalEntries'] == true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _hasJournalEntries = false);
+    }
+  }
+
   void _onFieldChanged() {
     if (!_isDirty) {
       setState(() => _isDirty = true);
@@ -182,8 +201,11 @@ class _ChartOfAccountsCreationPageState
 
   bool _onSaveInProgress = false;
   void _onSave() async {
-    setState(() => _showErrors = true);
-    setState(() => _codeErrorText = null);
+    setState(() {
+      _showErrors = true;
+      _nameErrorText = null;
+      _codeErrorText = null;
+    });
 
     final metadata = ref.read(chartOfAccountsProvider).accountMetadata;
     final String name = _nameController.text.trim();
@@ -209,11 +231,36 @@ class _ChartOfAccountsCreationPageState
       return;
     }
 
-    // Duplicate code check — runs against the already-loaded local tree.
-    final enteredCode = _codeController.text.trim().toUpperCase();
+    // Flatten all accounts once for duplicate checks.
     final allAccounts = _flattenAccounts(
       ref.read(chartOfAccountsProvider).roots,
     );
+
+    // Normalise a string: lowercase + strip all non-alphanumeric chars.
+    // This makes "My Account", "my_account", "MY ACCOUNT", "myaccount" equal.
+    String _norm(String s) =>
+        s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+    // Duplicate name check (case-insensitive, ignores spaces/underscores/etc).
+    final enteredNameNorm = _norm(name);
+    final isDuplicateName = enteredNameNorm.isNotEmpty &&
+        allAccounts.any((a) {
+          if (_editingAccount != null && a.id == _editingAccount!.id) {
+            return false;
+          }
+          return _norm(a.name) == enteredNameNorm;
+        });
+
+    if (isDuplicateName) {
+      setState(
+        () => _nameErrorText =
+            'An account with this name already exists. Please use a unique account name.',
+      );
+      return;
+    }
+
+    // Duplicate code check — runs against the already-loaded local tree.
+    final enteredCode = _codeController.text.trim().toUpperCase();
     final isDuplicateCode = allAccounts.any((a) {
       // Skip the account being edited so its own code doesn't trigger the error.
       if (_editingAccount != null && a.id == _editingAccount!.id) return false;
@@ -274,9 +321,9 @@ class _ChartOfAccountsCreationPageState
           ? (parentMatch['node'] as AccountNode).name
           : null;
       if (parentName != null && restrictedParentNames.contains(parentName)) {
-        ZerpaiToast.error(
-          context,
-          'Creation of sub account is not supported for this account.',
+        setState(
+          () => _formErrorMessage =
+              'Creation of sub account is not supported for this account.',
         );
         return;
       }
@@ -297,11 +344,9 @@ class _ChartOfAccountsCreationPageState
     final bool _createForcesNoParent = _editingAccount == null &&
         (accountType == 'Bank' ||
             accountType == 'Credit Card' ||
-            accountType == 'Other Expense' ||
             accountType == 'Other Income' ||
             accountType == 'Other Liability' ||
-            accountType == 'Accounts Receivable' ||
-            accountType == 'Fixed Asset');
+            accountType == 'Accounts Receivable');
     final String? parentId = (_isSubAccount && !_createForcesNoParent)
         ? _parentAccountId
         : null;
@@ -421,6 +466,11 @@ class _ChartOfAccountsCreationPageState
           _isSubAccount = true;
           _parentAccountId = account.parentId;
         }
+
+        // Fetch journal usage asynchronously so we know if type should be locked
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _checkJournalUsage(account.id),
+        );
       }
       _didInitFromExtra = true;
     }
@@ -438,10 +488,13 @@ class _ChartOfAccountsCreationPageState
     // 1. Account Name: Always editable (renaming is allowed for both system and user accounts)
     final bool isNameLocked = false;
 
-    // 2. Account Type: Locked if the account has transactions OR it's a system account (lock icon)
+    // 2. Account Type: Locked if the account has transactions, is a system/non-deletable account,
+    //    OR is used in any active (non-cancelled) manual journal.
     final bool isTypeLocked =
         isEditMode &&
-        (hasTransactions || _editingAccount?.isDeletable == false);
+        (hasTransactions ||
+            _editingAccount?.isDeletable == false ||
+            _hasJournalEntries == true);
 
     // 3. Sub-account toggle visibility.
     //    CREATE mode: driven entirely by metadata.nonSubAccountableTypes so the
@@ -471,23 +524,17 @@ class _ChartOfAccountsCreationPageState
                 'Deferred Tax Asset',
                 'Deferred Tax Liability',
                 'Overseas Tax Payable',
-                'Other Expense',
                 'Other Income',
                 'Other Liability',
                 'Accounts Receivable',
-                'Fixed Asset',
               ].contains(accType) ||
               [
-                'Furniture and Equipment',
-                'Furniture',
                 'Shipping Charge',
               ].contains(sysName))
         : !metadata.nonSubAccountableTypes.contains(_selectedType) &&
-            _selectedType != 'Other Expense' &&
             _selectedType != 'Other Income' &&
             _selectedType != 'Other Liability' &&
-            _selectedType != 'Accounts Receivable' &&
-            _selectedType != 'Fixed Asset';
+            _selectedType != 'Accounts Receivable';
 
     // 4. Parent Lock: Certain system accounts (Tax components) cannot have their parents moved.
     final bool isParentLocked =
@@ -610,15 +657,69 @@ class _ChartOfAccountsCreationPageState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // Inline form error banner (e.g. restricted sub-account)
+                            if (_formErrorMessage != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.errorRed.withValues(
+                                    alpha: 0.08,
+                                  ),
+                                  border: Border.all(
+                                    color: AppTheme.errorRed.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.alertCircle,
+                                      size: 14,
+                                      color: AppTheme.errorRed,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _formErrorMessage!,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.errorRed,
+                                        ),
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap:
+                                          () => setState(
+                                            () => _formErrorMessage = null,
+                                          ),
+                                      child: const Icon(
+                                        LucideIcons.x,
+                                        size: 14,
+                                        color: AppTheme.errorRed,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             // 1. Unified Account Type dropdown (Nested Group/Type)
                             _buildFormRow(
                               'Account Type',
                               tooltip:
                                   'Select the category that best describes this account. This determines where it appears in your financial reports.',
                               isLocked: isTypeLocked,
-                              lockedTooltip:
-                                  metadata.typeDefinitions[_selectedType] ??
-                                  'This is a system account and its type cannot be modified.',
+                              lockedTooltip: _hasJournalEntries == true
+                                  ? 'This account is used in a journal entry. To change the account type, remove it from all journals first.'
+                                  : hasTransactions
+                                  ? 'This account has existing transactions and its type cannot be changed.'
+                                  : metadata.typeDefinitions[_selectedType] ??
+                                      'This is a system account and its type cannot be modified.',
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -793,12 +894,14 @@ class _ChartOfAccountsCreationPageState
                                     enabled: !isNameLocked,
                                   ),
                                   if (_showErrors &&
-                                      _nameController.text.isEmpty)
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 4),
+                                      (_nameController.text.trim().isEmpty ||
+                                          _nameErrorText != null))
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
                                       child: Text(
-                                        'Enter the Account Name',
-                                        style: TextStyle(
+                                        _nameErrorText ??
+                                            'Enter the Account Name',
+                                        style: const TextStyle(
                                           color: AppTheme.errorRed,
                                           fontSize: 12,
                                         ),
@@ -812,7 +915,8 @@ class _ChartOfAccountsCreationPageState
                             if (_selectedType != null &&
                                 !isParentLocked &&
                                 !hideSubAccountSection &&
-                                subAccountOptionAvailable) ...[
+                                subAccountOptionAvailable &&
+                                eligibleParents.isNotEmpty) ...[
                               Padding(
                                 padding: const EdgeInsets.only(
                                   left:
@@ -892,6 +996,7 @@ class _ChartOfAccountsCreationPageState
                                         setState(() {
                                           _parentAccountId = val;
                                           _isDirty = true;
+                                          _formErrorMessage = null;
                                         });
                                       },
                                       errorText:

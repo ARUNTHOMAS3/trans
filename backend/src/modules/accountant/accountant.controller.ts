@@ -357,6 +357,14 @@ export class AccountantController {
 
   // --- Dynamic Accounts Routes (must be last) ---
 
+  @Get(":id([0-9a-fA-F-]{36})/journal-usage")
+  checkJournalUsage(
+    @Param("id") id: string,
+    @Query("orgId") orgId?: string,
+  ) {
+    return this.accountantService.checkAccountJournalUsage(id, orgId);
+  }
+
   @Get(":id([0-9a-fA-F-]{36})")
   findOne(@Param("id") id: string, @Query("orgId") orgId?: string) {
     return this.accountantService.findOne(id, orgId);

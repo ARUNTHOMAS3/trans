@@ -197,17 +197,41 @@ class ApiClient {
           if (error.response?.data is Map<String, dynamic>) {
             final data = error.response!.data as Map<String, dynamic>;
 
-            final msg = data['message'] ?? data['error'] ?? data['errors'];
+            // Support global exception filter shape: {data, meta: {error: {message}}, success}
+            final metaError = (data['meta'] is Map)
+                ? (data['meta'] as Map)['error']
+                : null;
+            final msg = data['message'] ??
+                data['error'] ??
+                data['errors'] ??
+                (metaError is Map ? metaError['message'] : null);
 
             if (msg is List) {
               message = msg.join(', ');
             } else if (msg is Map) {
               message = msg.values.join(', ');
+            } else if (msg != null && msg.toString().trim().isNotEmpty) {
+              message = msg.toString().trim();
             } else {
-              message = msg?.toString() ?? message;
+              // Fallback: show status code + raw body so it's never opaque
+              final status = error.response?.statusCode;
+              final raw = data.toString();
+              message = status != null
+                  ? 'Server error $status: $raw'
+                  : 'Server error: $raw';
             }
 
             code = data['error_code'] ?? data['code'] ?? code;
+          } else if (error.response != null) {
+            // Non-map response body (plain text, HTML, etc.)
+            final status = error.response!.statusCode;
+            final raw = error.response!.data?.toString() ?? '';
+            final preview =
+                raw.length > 200 ? '${raw.substring(0, 200)}…' : raw;
+            message = preview.isNotEmpty
+                ? 'Server error $status: $preview'
+                : 'Server error $status';
+            code = 'HTTP_$status';
           } else {
             switch (error.type) {
               case DioExceptionType.connectionTimeout:
@@ -227,7 +251,9 @@ class ApiClient {
                 code = 'CANCELLED';
                 break;
               default:
-                message = 'Network error';
+                message = error.message?.isNotEmpty == true
+                    ? error.message!
+                    : 'Network error';
                 code = 'NETWORK_ERROR';
             }
           }
@@ -281,6 +307,9 @@ class ApiClient {
           requestOptions: RequestOptions(path: normalizedPath),
         );
       }
+    } else {
+      // Force-refresh: evict stale entry so it cannot be served to subsequent reads
+      _responseCache.remove(key);
     }
 
     final response = await _dio.get(
@@ -288,22 +317,45 @@ class ApiClient {
       queryParameters: queryParameters,
     );
 
-    if (useCache && response.statusCode == 200) {
+    // Always write a fresh 200 response to cache, even on force-refresh,
+    // so subsequent reads see the updated data instead of a stale entry.
+    if (response.statusCode == 200) {
       _cacheResponse(key, response.data, response.statusCode!);
     }
 
     return response;
   }
 
-  Future<Response> post(String path, {dynamic data}) =>
-      _dio.post(_normalizePath(path), data: data);
+  /// Derive the base resource path from a URL to invalidate related cache.
+  /// e.g. "accountant/some-id/status" → "accountant"
+  void _invalidateCacheForPath(String path) {
+    final normalizedPath = _normalizePath(path);
+    // Extract first path segment as the resource key
+    final base = normalizedPath.split('/').first;
+    _responseCache.removeWhere((key, _) => key.contains(base));
+  }
 
-  Future<Response> put(String path, {dynamic data}) =>
-      _dio.put(_normalizePath(path), data: data);
+  Future<Response> post(String path, {dynamic data}) async {
+    final response = await _dio.post(_normalizePath(path), data: data);
+    _invalidateCacheForPath(path);
+    return response;
+  }
 
-  Future<Response> patch(String path, {dynamic data}) =>
-      _dio.patch(_normalizePath(path), data: data);
+  Future<Response> put(String path, {dynamic data}) async {
+    final response = await _dio.put(_normalizePath(path), data: data);
+    _invalidateCacheForPath(path);
+    return response;
+  }
 
-  Future<Response> delete(String path, {dynamic data}) =>
-      _dio.delete(_normalizePath(path), data: data);
+  Future<Response> patch(String path, {dynamic data}) async {
+    final response = await _dio.patch(_normalizePath(path), data: data);
+    _invalidateCacheForPath(path);
+    return response;
+  }
+
+  Future<Response> delete(String path, {dynamic data}) async {
+    final response = await _dio.delete(_normalizePath(path), data: data);
+    _invalidateCacheForPath(path);
+    return response;
+  }
 }

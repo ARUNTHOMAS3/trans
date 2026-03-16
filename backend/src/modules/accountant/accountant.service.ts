@@ -22,7 +22,7 @@ import {
   vendor,
   transactionLocks,
 } from "../../db/schema";
-import { eq, and, sql, desc, getTableColumns } from "drizzle-orm";
+import { eq, and, ne, sql, desc, getTableColumns } from "drizzle-orm";
 
 @Injectable()
 export class AccountantService {
@@ -611,6 +611,29 @@ export class AccountantService {
     }
   }
 
+  async checkAccountJournalUsage(
+    accountId: string,
+    orgId?: string,
+  ): Promise<{ hasJournalEntries: boolean }> {
+    const rows = await db
+      .select({ id: accountsManualJournalItems.id })
+      .from(accountsManualJournalItems)
+      .innerJoin(
+        accountsManualJournals,
+        eq(accountsManualJournalItems.manualJournalId, accountsManualJournals.id),
+      )
+      .where(
+        and(
+          eq(accountsManualJournalItems.accountId, accountId),
+          eq(accountsManualJournals.isDeleted, false),
+          orgId ? eq(accountsManualJournals.orgId, orgId) : undefined,
+        ),
+      )
+      .limit(1);
+
+    return { hasJournalEntries: rows.length > 0 };
+  }
+
   async findByGroup(group: string, orgId?: string, outletId?: string) {
     const supabase = this.supabaseService.getClient();
     let query = supabase
@@ -786,7 +809,6 @@ export class AccountantService {
         "Purchase Discounts",
         "Salaries and Employee Wages",
         "Uncategorized",
-        "Other Expense",
         "Other Income",
         "Other Liability",
         "Accounts Receivable",
@@ -794,8 +816,6 @@ export class AccountantService {
         "Reverse Charge Tax Input but not due",
         "Exchange Gain or Loss",
         "Dimension Adjustments",
-        "Fixed Asset",
-        "Furniture and Equipment",
         "Shipping Charge",
       ],
       // System account names whose parent account is immutable (cannot be re-parented).
@@ -1166,7 +1186,12 @@ export class AccountantService {
             eq(accountsManualJournalItems.contactType, "vendor"),
           ),
         )
-        .where(orgId ? eq(accountsManualJournals.orgId, orgId) : undefined)
+        .where(
+          and(
+            orgId ? eq(accountsManualJournals.orgId, orgId) : undefined,
+            eq(accountsManualJournals.isDeleted, false),
+          ),
+        )
         .orderBy(
           desc(accountsManualJournals.journalDate),
           desc(accountsManualJournals.createdAt),
@@ -1429,8 +1454,12 @@ export class AccountantService {
         if (normalizedStatus === "posted") {
           // Pass the already-inserted journal + items directly to avoid a
           // re-fetch via the regular db pool (which cannot see the uncommitted row).
+          // Bridge both naming conventions since postJournalToTransactions uses snake_case
+          // for some fields (journal_date, journal_number) while Drizzle returns camelCase.
           await this.postJournalToTransactions(journal.id, orgId, tx, {
             ...journal,
+            journal_date: journal.journalDate,
+            journal_number: journal.journalNumber,
             items: insertedItems,
           });
         }
@@ -1596,13 +1625,6 @@ export class AccountantService {
   }
 
   async deleteManualJournal(id: string, orgId?: string) {
-    const journal = await this.findManualJournal(id, orgId);
-    if (journal.status !== "draft") {
-      throw new BadRequestException(
-        "Only draft journals can be deleted. Published journals are immutable in the ledger.",
-      );
-    }
-
     try {
       // 1. Fetch attachment keys for R2 cleanup
       const supabase = this.supabaseService.getClient();
@@ -1611,35 +1633,23 @@ export class AccountantService {
         .select("file_path")
         .eq("manual_journal_id", id);
 
-      return await db.transaction(async (tx) => {
-        // 2. Clear transactions
-        await this.clearManualJournalTransactions(id, orgId, tx);
+      // 2. Soft-delete: set is_deleted = true (record stays in DB for audit)
+      const whereClause: any[] = [eq(accountsManualJournals.id, id)];
+      if (orgId) whereClause.push(eq(accountsManualJournals.orgId, orgId));
 
-        // 3. Delete attachments from DB
-        await supabase
-          .from("accounts_manual_journal_attachments")
-          .delete()
-          .eq("manual_journal_id", id);
+      await db
+        .update(accountsManualJournals)
+        .set({ isDeleted: true, updatedAt: new Date() })
+        .where(and(...whereClause));
 
-        // 4. Delete Journal Header
-        const deleteWhereClause: any[] = [eq(accountsManualJournals.id, id)];
-        if (orgId) {
-          deleteWhereClause.push(eq(accountsManualJournals.orgId, orgId));
+      // 3. Cleanup R2 attachment files (DB rows stay for audit)
+      if (attachments && attachments.length > 0) {
+        for (const att of attachments) {
+          await this.r2StorageService.deleteFile(att.file_path);
         }
+      }
 
-        await tx
-          .delete(accountsManualJournals)
-          .where(and(...deleteWhereClause));
-
-        // 5. Cleanup R2 Files
-        if (attachments && attachments.length > 0) {
-          for (const att of attachments) {
-            await this.r2StorageService.deleteFile(att.file_path);
-          }
-        }
-
-        return { success: true };
-      });
+      return { success: true };
     } catch (error) {
       console.error("Full DB Error in deleteManualJournal:", error);
       throw error;
@@ -1806,9 +1816,9 @@ export class AccountantService {
       accountId: item.account_id || item.accountId,
       orgId: journal.org_id || journal.orgId || orgId || this.defaultOrgId,
       outletId: journal.outlet_id || journal.outletId || null,
-      transactionDate: new Date(journal.journal_date),
+      transactionDate: new Date(journal.journal_date || journal.journalDate),
       transactionType: "Manual Journal",
-      referenceNumber: journal.journal_number,
+      referenceNumber: journal.journal_number || journal.journalNumber || null,
       description:
         item.contact_name || item.contactName
           ? `${item.contact_name || item.contactName} - ${item.description || journal.notes || ""}`

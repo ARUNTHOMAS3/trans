@@ -560,8 +560,8 @@ class ChartOfAccountsNotifier extends StateNotifier<ChartOfAccountsState> {
     try {
       await _repository.updateAccount(id, {'isActive': isActive});
       if (!mounted) return;
-      // Silent refresh to ensure sync with server
-      await _loadData(showLoading: false);
+      // Force-refresh so cache does not serve stale status
+      await _loadData(showLoading: false, forceRefresh: true);
     } catch (e) {
       if (!mounted) return;
       // Revert on failure

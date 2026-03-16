@@ -1135,7 +1135,7 @@ class _ManualJournalsListPanelState
       await notifier.deleteJournals(selectedIds);
       if (!mounted) return;
       setState(() => _checkedJournalIds.clear());
-      ZerpaiToast.success(context, 'Deleted ${selectedIds.length} journal(s).');
+      ZerpaiToast.success(context, 'Deleted ${selectedIds.length} journal(s)');
     } catch (e) {
       if (!mounted) return;
       final message = ErrorHandler.getFriendlyMessage(e);

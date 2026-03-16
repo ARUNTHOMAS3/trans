@@ -988,6 +988,7 @@ export const accountsManualJournals = pgTable("accounts_manual_journals", {
   totalAmount: numeric("total_amount", { precision: 15, scale: 2 }).default(
     "0.00",
   ),
+  isDeleted: boolean("is_deleted").default(false),
   recurringJournalId: uuid("recurring_journal_id"),
   createdById: uuid("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
