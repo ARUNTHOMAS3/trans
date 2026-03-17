@@ -108,6 +108,15 @@ class AppTheme {
   static const List<String> _fontFamilyFallback = <String>[
     'NotoSansFallback',
     'NotoSansSymbols',
+    'NotoSansDevanagari',
+    'NotoSansBengali',
+    'NotoSansGujarati',
+    'NotoSansGurmukhi',
+    'NotoSansKannada',
+    'NotoSansMalayalam',
+    'NotoSansOriya',
+    'NotoSansTamil',
+    'NotoSansTelugu',
   ];
 
   static TextStyle _baseTextStyle({

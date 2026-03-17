@@ -160,16 +160,20 @@ class _KpiCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textSecondary,
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ),
+                const SizedBox(width: AppTheme.space12),
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
@@ -423,21 +427,64 @@ class _ActionButton extends StatelessWidget {
           border: Border.all(color: AppTheme.borderColor),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-            ),
-            const Spacer(),
-            const Icon(
-              LucideIcons.chevronRight,
-              size: 14,
-              color: AppTheme.textSecondary,
-            ),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isCompact = constraints.maxWidth < 176;
+            if (isCompact) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, size: 18, color: color),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Icon(
+                      LucideIcons.chevronRight,
+                      size: 14,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  LucideIcons.chevronRight,
+                  size: 14,
+                  color: AppTheme.textSecondary,
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'zerpai_sidebar_item.dart';
 
 class ZerpaiSidebar extends StatefulWidget {
@@ -323,11 +324,7 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
             ? MainAxisAlignment.center
             : MainAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.receipt_long_outlined,
-            color: Colors.white,
-            size: 22,
-          ),
+          const _BrandMark(),
           if (!_isCollapsed) ...[
             const SizedBox(width: 10),
             const Text(
@@ -360,6 +357,32 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
     });
 
     widget.onNavigate?.call(route);
+  }
+}
+
+class _BrandMark extends StatelessWidget {
+  const _BrandMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        '₹',
+        style: AppTheme.bodyText.copyWith(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
+          height: 1,
+        ),
+      ),
+    );
   }
 }
 

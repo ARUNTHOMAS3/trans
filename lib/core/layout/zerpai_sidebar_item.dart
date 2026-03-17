@@ -43,18 +43,24 @@ class _ZerpaiSidebarItemState extends State<ZerpaiSidebarItem> {
   bool _hover = false;
 
   static const Color _hoverBg = Color(0xFF3A3F4F);
-  static const Color _activeParentBg = Color(0xFF2A3A55); // Subtle blue for active parents
-  static const Color _green = Color(0xFF10B981); // Green for active destinations
+  static const Color _activeParentBg = Color(
+    0xFF2A3A55,
+  ); // Subtle blue for active parents
+  static const Color _green = Color(
+    0xFF10B981,
+  ); // Green for active destinations
 
   @override
   Widget build(BuildContext context) {
     final bool collapsed = ZerpaiSidebarItem.isCollapsed;
 
-    final Color bgColor = widget.isActive
+    final Color bgColor = collapsed
+        ? (_hover ? _hoverBg.withValues(alpha: 0.35) : Colors.transparent)
+        : widget.isActive
         ? (widget.hasChildren ? _activeParentBg : _green)
         : _hover
-            ? _hoverBg
-            : Colors.transparent;
+        ? _hoverBg
+        : Colors.transparent;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -159,27 +165,32 @@ class _CollapsedView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool showActiveIconHighlight = widget.isActive && !widget.hasChildren;
+    final bool showActiveParentHighlight =
+        widget.isActive && widget.hasChildren;
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ICON
           Container(
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: widget.isActive
-                  ? const Color(0xFF2E344A)
+              color: showActiveIconHighlight
+                  ? const Color(0xFF10B981)
+                  : showActiveParentHighlight
+                  ? const Color(0xFF2A3A55)
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
+              border: showActiveParentHighlight
+                  ? Border.all(color: Colors.white.withValues(alpha: 0.08))
+                  : null,
             ),
             alignment: Alignment.center,
             child: Icon(widget.icon, size: 18, color: Colors.white),
           ),
-
           const SizedBox(height: 4),
-
-          // LABEL
           SizedBox(
             width: 56,
             height: 14,
@@ -197,31 +208,6 @@ class _CollapsedView extends StatelessWidget {
               ),
             ),
           ),
-
-          // CORNER INDICATOR (BOTTOM-RIGHT FEEL)
-          if (widget.hasChildren) ...[
-            const SizedBox(height: 4),
-            SizedBox(
-              width: 56,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(
-                      alpha:
-                          (widget.isActive ? 115 : 71) /
-                          255, // 0.45*255 , 0.28*255
-                    ),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(6),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );

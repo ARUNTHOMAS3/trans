@@ -1,7 +1,7 @@
 # 🗄️ PRD Schema Reference (Current Snapshot)
 
 **Source:** Supabase SQL Editor output (context-only, not executable)  
-**Generated:** 2026-03-06
+**Generated:** 2026-03-17
 **Status:** Informational snapshot
 
 ---
@@ -36,6 +36,8 @@
 - `accounts_recurring_journals`
 - `accounts_reporting_tags`
 - `associate_taxes`
+- `audit_logs`
+- `audit_logs_archive`
 - `batches`
 - `brands`
 - `buying_rules`
@@ -47,6 +49,7 @@
 - `currencies`
 - `customer_contact_persons`
 - `customers`
+- `hsn_sac_codes`
 - `item_vendor_mappings`
 - `manufacturers`
 - `organization`
@@ -64,6 +67,7 @@
 - `sales_payment_links`
 - `sales_payments`
 - `schedules`
+- `shipment_preferences`
 - `states`
 - `storage_locations`
 - `strengths`
@@ -73,12 +77,14 @@
 - `tds_groups`
 - `tds_rates`
 - `tds_sections`
+- `transaction_locks`
 - `transactional_sequences`
 - `units`
 - `uqc`
 - `vendor_bank_accounts`
 - `vendor_contact_persons`
 - `vendors`
+- `warehouses`
 
 ---
 
@@ -92,10 +98,58 @@ All creation/edit forms must:
 4. **Use transactional tables** for document flows (e.g., `sales_orders`, `sales_payments`, `sales_eway_bills`).
 5. **Use junction tables** for mappings (e.g., `item_vendor_mappings`, `product_contents`, `composite_item_parts`).
 
+---
+
+## Audit Rollout Delta (2026-03-17)
+
+This snapshot now includes the central audit rollout that was added after the earlier 2026-03-06 extract.
+
+### New audit tables
+
+- `audit_logs`
+  - hot/current audit rows
+- `audit_logs_archive`
+  - archived historical audit rows
+
+### Audit-read surface
+
+The live database also uses:
+- `audit_logs_all`
+  - a combined read view over current and archived audit records
+
+This view is not listed as a `CREATE TABLE` because it is a view, not a base table, but it is part of the reporting contract used by the backend audit endpoint.
+
+### Important schema changes reflected below
+
+- `account_transactions` includes tenancy/contact columns:
+  - `org_id`
+  - `outlet_id`
+  - `contact_id`
+  - `contact_type`
+- `accounts` includes tenancy columns:
+  - `org_id`
+  - `outlet_id`
+- `accounts_manual_journals` includes:
+  - `updated_at`
+  - `is_deleted`
+- central audit tables include:
+  - `schema_name`
+  - `record_pk`
+  - `changed_columns`
+  - `txid`
+  - `source`
+  - `module_name`
+  - `request_id`
+  - `archived_at` on archive rows
+
+### Development rule
+
+Any new backend or frontend work that reads audit data must target the combined audit reporting surface, not just the hot table, so archived logs remain visible in the product.
+
 ```sql
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
--- Schema last updated: 2026-03-06
+-- Schema last updated: 2026-03-17
 
 CREATE TABLE public.account_transactions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -109,6 +163,10 @@ CREATE TABLE public.account_transactions (
   created_at timestamp without time zone DEFAULT now(),
   source_id uuid,
   source_type character varying,
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  outlet_id uuid,
+  contact_id uuid,
+  contact_type character varying,
   CONSTRAINT account_transactions_pkey PRIMARY KEY (id),
   CONSTRAINT account_transactions_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
 );
@@ -134,6 +192,8 @@ CREATE TABLE public.accounts (
   is_deleted boolean DEFAULT false,
   modified_at timestamp with time zone DEFAULT now(),
   modified_by uuid,
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  outlet_id uuid,
   CONSTRAINT accounts_pkey PRIMARY KEY (id),
   CONSTRAINT fk_accounts_parent FOREIGN KEY (parent_id) REFERENCES public.accounts(id)
 );
@@ -243,6 +303,8 @@ CREATE TABLE public.accounts_manual_journals (
   created_by uuid,
   created_at timestamp without time zone DEFAULT now(),
   recurring_journal_id uuid,
+  updated_at timestamp with time zone DEFAULT now(),
+  is_deleted boolean NOT NULL DEFAULT false,
   CONSTRAINT accounts_manual_journals_pkey PRIMARY KEY (id),
   CONSTRAINT accounts_manual_journals_recurring_journal_id_fkey FOREIGN KEY (recurring_journal_id) REFERENCES public.accounts_recurring_journals(id),
   CONSTRAINT accounts_manual_journals_fiscal_year_id_fkey FOREIGN KEY (fiscal_year_id) REFERENCES public.accounts_fiscal_years(id)
@@ -298,6 +360,49 @@ CREATE TABLE public.associate_taxes (
   is_active boolean DEFAULT true,
   created_at timestamp without time zone DEFAULT now(),
   CONSTRAINT associate_taxes_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.audit_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  table_name character varying NOT NULL,
+  record_id uuid NOT NULL,
+  action character varying NOT NULL,
+  old_values jsonb,
+  new_values jsonb,
+  user_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  outlet_id uuid,
+  actor_name text NOT NULL DEFAULT 'system'::text,
+  schema_name text NOT NULL DEFAULT 'public'::text,
+  record_pk text,
+  changed_columns ARRAY,
+  txid bigint NOT NULL DEFAULT txid_current(),
+  source text NOT NULL DEFAULT 'system'::text,
+  module_name text,
+  request_id text,
+  CONSTRAINT audit_logs_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.audit_logs_archive (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  table_name character varying NOT NULL,
+  record_id uuid NOT NULL,
+  action character varying NOT NULL,
+  old_values jsonb,
+  new_values jsonb,
+  user_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  outlet_id uuid,
+  actor_name text NOT NULL DEFAULT 'system'::text,
+  schema_name text NOT NULL DEFAULT 'public'::text,
+  record_pk text,
+  changed_columns ARRAY,
+  txid bigint NOT NULL DEFAULT txid_current(),
+  source text NOT NULL DEFAULT 'system'::text,
+  module_name text,
+  request_id text,
+  archived_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT audit_logs_archive_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.batches (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

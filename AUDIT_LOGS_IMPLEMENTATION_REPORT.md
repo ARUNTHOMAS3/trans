@@ -502,3 +502,138 @@ This is the first complete end-to-end audit browsing implementation in the repo,
 - DB triggers as source of truth
 - archived history preserved
 - auth-free now, auth-ready later
+
+## Post-Implementation Validation Fixes
+
+After the first full integration pass, a second validation pass was done in the running app. That pass surfaced a few real-world issues that were then corrected.
+
+### 1. Backend watch/runtime stability improvement
+
+During backend runtime verification, the Nest watch process hit a stale-module load problem in `dist` for a DTO import under the products module. The source file existed correctly, but the running watch state was inconsistent.
+
+To reduce recurrence of that issue, backend dev/watch startup was hardened so `dist` is cleared before dev startup.
+
+**File changed**
+- [backend/package.json](/e:/zerpai-new/backend/package.json)
+
+**Change made**
+- added `predev`
+- added `prestart:dev`
+- both clear `dist/` before startup
+
+This was a runtime stability fix, not an audit-specific behavior change, but it came out of validating the full audit-page rollout in the live app.
+
+### 2. Audit API permission issue discovered and resolved path identified
+
+When the frontend first hit:
+- `GET /api/v1/reports/audit-logs`
+
+the backend returned `500` with:
+- `permission denied for view audit_logs_all`
+
+This confirmed:
+- the frontend route and repository wiring were correct
+- the backend endpoint existed and was being called
+- the actual failure was DB permission on the audit view
+
+The required operational follow-up identified was:
+- grant `SELECT` on:
+  - `public.audit_logs`
+  - `public.audit_logs_archive`
+  - `public.audit_logs_all`
+- if needed, add matching RLS read policies on the underlying audit tables
+
+This was an environment/data-access issue, not a Flutter or route bug.
+
+### 3. Audit page visual polish pass
+
+After the page was loaded with live data, a UI polish pass was completed to tighten the screen and make it feel more production-finished.
+
+**File changed**
+- [lib/modules/reports/presentation/reports_audit_logs_screen.dart](/e:/zerpai-new/lib/modules/reports/presentation/reports_audit_logs_screen.dart)
+
+**Visual refinements made**
+- tightened the spacing between the page title area and the main card
+- reduced vertical padding in the summary/filter stack
+- renamed:
+  - `Modules and Sub Modules`
+  - to
+  - `Modules and Submodules`
+- widened the main table area relative to the inspector on desktop
+- strengthened the selected-state contrast in the left module tree
+- improved the explorer card spacing and readability
+- converted the inspector into a better-behaved side panel with:
+  - fixed/sticky-feeling header treatment
+  - stronger content structure
+  - internally scrollable JSON blocks for old/new values
+
+**Result**
+- better balance between table and inspector
+- less dead vertical space
+- clearer left-rail hierarchy
+- more usable detail inspection for large payloads
+
+### 4. Collapsed sidebar active-state correction
+
+The collapsed sidebar active highlight looked awkward, especially for long labels like `Audit Logs`.
+
+The original collapsed state mixed:
+- a full active row treatment
+- a second icon chip treatment
+- extra corner indicators for parent items
+
+That produced visual noise.
+
+**File changed**
+- [lib/core/layout/zerpai_sidebar_item.dart](/e:/zerpai-new/lib/core/layout/zerpai_sidebar_item.dart)
+
+**Fix applied**
+- simplified collapsed-mode highlighting
+- removed the corner indicator blocks
+- active leaf items now highlight the icon cleanly
+- active parent items keep a subtler contained treatment
+- hover no longer visually fights with active state
+
+**Result**
+- cleaner collapsed navigation
+- clearer active destination state
+- better handling for the new `Audit Logs` entry in narrow mode
+
+### 5. Broader India-friendly font fallback expansion
+
+Repeated Noto warnings during runtime showed that the earlier fallback stack was still too narrow for multilingual content rendered by the app.
+
+Rather than guessing one single script, the repo was expanded to a broader India-friendly fallback set while keeping `Inter` as the primary typeface.
+
+**Files changed**
+- [pubspec.yaml](/e:/zerpai-new/pubspec.yaml)
+- [lib/core/theme/app_theme.dart](/e:/zerpai-new/lib/core/theme/app_theme.dart)
+
+**Font assets added**
+- `assets/fonts/NotoSansDevanagari-Regular.ttf`
+- `assets/fonts/NotoSansBengali-Regular.ttf`
+- `assets/fonts/NotoSansGujarati-Regular.ttf`
+- `assets/fonts/NotoSansGurmukhi-Regular.ttf`
+- `assets/fonts/NotoSansKannada-Regular.ttf`
+- `assets/fonts/NotoSansMalayalam-Regular.ttf`
+- `assets/fonts/NotoSansOriya-Regular.ttf`
+- `assets/fonts/NotoSansTamil-Regular.ttf`
+- `assets/fonts/NotoSansTelugu-Regular.ttf`
+
+**Theme change**
+- extended `_fontFamilyFallback` so `Inter` remains primary, but common Indian-language scripts have explicit fallback coverage
+
+**Important runtime note**
+- a full Flutter restart is required after adding font assets
+- hot restart alone is not sufficient for reliable font asset pickup
+
+### 6. Additional verification completed after the polish/fix pass
+
+Ran successfully:
+- `dart analyze lib/modules/reports/presentation/reports_audit_logs_screen.dart`
+- `dart analyze lib/core/layout/zerpai_sidebar_item.dart lib/core/layout/zerpai_sidebar.dart`
+- `dart analyze lib/core/theme/app_theme.dart`
+- `npm run build --prefix backend`
+- `npm test --prefix backend -- --runInBand`
+
+These follow-up checks passed after the validation-phase fixes above.
