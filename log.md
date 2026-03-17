@@ -1807,3 +1807,245 @@ If another developer needs to continue from this point, the most logical next ta
 - Result: no issues found
 
 **Timestamp of Log Update:** March 17, 2026 - 21:05 (IST)
+
+### Central Audit System Rollout and Audit Logs Page
+
+- Finalized the repo direction for audit/history:
+  - keep soft delete for manual journals
+  - do not reuse deleted journal numbers
+  - use one central DB-backed audit system instead of per-table log tables
+  - keep the project auth-free for now; missing actor context falls back to zero UUID + `system`
+
+#### 1. Database audit system rollout
+
+The audit system was moved to database-trigger logging so that inserts, updates, deletes, and truncates are captured centrally at the table level rather than through scattered app-layer logging.
+
+The DB side now includes:
+- `audit_logs` as the hot/current audit table
+- `audit_logs_archive` as the archive/history table
+- `audit_logs_all` as the combined view that should be used by the UI
+- row-level audit triggers across the current `public` schema
+- truncate audit triggers
+- append-only protection on audit tables
+- a monthly archive job through `pg_cron`
+
+Important behavioral rule:
+- archived logs are not lost
+- old rows move from `audit_logs` to `audit_logs_archive`
+- the future/current audit UI must read from `audit_logs_all` so both recent and historical logs remain visible together
+
+Important operational note:
+- the event-trigger function for future tables had to be corrected to parse `object_identity` rather than a non-existent `object_name` field in this Postgres environment
+- once fixed, future `CREATE TABLE` operations in `public` will auto-attach audit triggers
+
+Verified DB outcomes reported during rollout:
+- all current `public` tables show both row-audit and truncate-audit attached
+- monthly archive cron job was created successfully
+- archive schedule confirmed active
+
+#### 2. Backend audit source-of-truth cleanup
+
+Because the DB trigger system is now the audit source of truth, the old Nest interceptor-based audit logging was removed to avoid double-logging.
+
+**File changed**
+- `backend/src/app.module.ts`
+
+**Change made**
+- removed `APP_INTERCEPTOR`
+- removed `AuditInterceptor` provider wiring
+- left the backend running with DB-trigger audit as the only audit source
+
+**Verification**
+- backend Jest tests passed after removal
+
+#### 3. Backend API endpoint for audit page
+
+Added a backend reporting endpoint to serve audit-log data to the frontend:
+- `GET /reports/audit-logs`
+
+This endpoint was added under the reports module and reads from `audit_logs_all` so recent and archived rows are served from one place.
+
+**Supported filters**
+- `page`
+- `pageSize`
+- `search`
+- `tables`
+- `actions`
+- `requestId`
+- `source`
+- `orgId`
+- `outletId`
+- `fromDate`
+- `toDate`
+- `scope`
+
+**Scope behavior**
+- `recent` = current/hot rows
+- `archived` = archived rows
+- default/blank = all rows from the combined audit view
+
+**Response shape**
+- `items`
+- `total`
+- `page`
+- `pageSize`
+- `summary`
+
+**Summary includes**
+- `insertCount`
+- `updateCount`
+- `deleteCount`
+- `truncateCount`
+- `archivedCount`
+- `visibleItems`
+
+**Files changed**
+- `backend/src/modules/reports/reports.controller.ts`
+- `backend/src/modules/reports/reports.service.ts`
+
+**Important correction made during implementation**
+- the first version accidentally used Dart-style syntax in the NestJS controller/service
+- this was corrected to proper TypeScript parsing/filtering logic before final verification
+
+**Verification**
+- `npm run build --prefix backend` passed
+- `npm test --prefix backend -- --runInBand` passed
+
+#### 4. Frontend route and sidebar integration
+
+Added a new top-level route for the audit page and placed it after `Documents` in the main left sidebar.
+
+**Files changed**
+- `lib/core/routing/app_routes.dart`
+- `lib/core/routing/app_router.dart`
+- `lib/core/layout/zerpai_sidebar.dart`
+
+**Routing added**
+- `/audit-logs`
+
+**Sidebar behavior**
+- `Audit Logs` appears after `Documents`
+- route-matching highlights the sidebar item correctly when the user is on `/audit-logs`
+
+#### 5. Frontend repository integration
+
+Added a reports repository method for fetching audit-log data from the backend.
+
+**File changed**
+- `lib/modules/reports/repositories/reports_repository.dart`
+
+**Method added**
+- `getAuditLogs(...)`
+
+This forwards query parameters to:
+- `reports/audit-logs`
+
+#### 6. Audit Logs page UI implementation
+
+Added a new audit logs screen under the reports module, designed to match the current Zerpai visual language rather than looking like a generic admin console.
+
+**File added**
+- `lib/modules/reports/presentation/reports_audit_logs_screen.dart`
+
+**UI layout**
+- left filter rail / activity explorer
+- center audit table
+- right-side detail inspector
+
+**Left panel**
+- styled hero header
+- scope cards:
+  - `All Logs`
+  - `Recent`
+  - `Archived`
+- nested module and sub-module tree
+- designed as a cleaner, project-matched interpretation of the image references provided during the task
+
+**Module tree coverage currently includes**
+- System
+- Items
+- Inventory
+- Sales
+- Purchases
+- Accountant
+- Tax and Compliance
+
+Each module/submodule maps to underlying audited table names so filtering is table-driven rather than cosmetic only.
+
+**Center section**
+- audit summary cards for:
+  - visible rows
+  - inserted rows
+  - updated rows
+  - deleted rows
+  - archived rows
+- search and filter controls
+- server-side pagination
+- table view of audit entries
+
+**Right inspector**
+- selected row metadata
+- changed columns
+- old values JSON
+- new values JSON
+
+**Key UX behavior**
+- reads from the backend audit endpoint, not direct DB access from Flutter
+- recent and historical logs are both accessible through the same page because backend reads from `audit_logs_all`
+- supports:
+  - search
+  - request id filtering
+  - source filtering
+  - date range filtering
+  - action filtering
+  - module/submodule table filtering
+  - recent vs archived scope selection
+
+#### 7. Verification completed for the audit page work
+
+**Flutter verification**
+- ran `dart format` on the touched route/sidebar/repository/screen files
+- ran `dart analyze` on:
+  - `lib/modules/reports/presentation/reports_audit_logs_screen.dart`
+  - `lib/core/routing/app_router.dart`
+  - `lib/core/routing/app_routes.dart`
+  - `lib/core/layout/zerpai_sidebar.dart`
+  - `lib/modules/reports/repositories/reports_repository.dart`
+- result: no issues found
+
+**Backend verification**
+- ran backend Jest tests
+- ran backend build
+- result: passed after correcting the initial TypeScript mistakes in the audit endpoint implementation
+
+#### 8. Important follow-up note for co-dev
+
+The audit page is now wired end-to-end, but final visual tuning should still be done against live audit data in the running app.
+
+Recommended manual follow-up checks:
+1. Open `/audit-logs` in the app.
+2. Confirm the sidebar entry appears after `Documents`.
+3. Confirm recent and archived scopes both return data.
+4. Confirm nested module filters reduce the result set correctly.
+5. Confirm selected rows show old/new JSON in the inspector.
+6. Confirm older archived logs and recent logs both remain visible through the combined view-backed API.
+
+Also note:
+- this page depends on the DB audit system already being applied in the target environment
+- if the SQL audit rollout is missing in another environment, the screen route will load but the dataset will not be meaningful
+
+#### 9. Future planned work recorded
+
+A TODO was added separately for building a fuller dedicated audit page/audit experience later if more advanced filtering, exports, or timeline visualizations are required.
+
+**Files changed in this audit-page phase**
+- `backend/src/app.module.ts`
+- `backend/src/modules/reports/reports.controller.ts`
+- `backend/src/modules/reports/reports.service.ts`
+- `lib/core/routing/app_routes.dart`
+- `lib/core/routing/app_router.dart`
+- `lib/core/layout/zerpai_sidebar.dart`
+- `lib/modules/reports/repositories/reports_repository.dart`
+- `lib/modules/reports/presentation/reports_audit_logs_screen.dart`
+
+**Timestamp of Log Update:** March 17, 2026 - 22:10 (IST)

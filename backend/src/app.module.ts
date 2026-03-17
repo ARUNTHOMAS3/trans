@@ -1,7 +1,5 @@
 import { Module } from "@nestjs/common";
-import { APP_INTERCEPTOR } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
-import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 import { SupabaseModule } from "./modules/supabase/supabase.module";
 import { PriceListModule } from "./modules/products/pricelist/pricelist.module";
 import { ProductsModule } from "./modules/products/products.module";
@@ -35,11 +33,6 @@ import { TransactionLockingModule } from "./modules/transaction-locking/transact
     TransactionLockingModule,
   ],
   controllers: [],
-  providers: [
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: AuditInterceptor,
-    },
-  ],
+  providers: [],
 })
 export class AppModule {}

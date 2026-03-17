@@ -130,6 +130,47 @@ class ReportsRepository {
       rethrow;
     }
   }
+
+  Future<Map<String, dynamic>> getAuditLogs({
+    int page = 1,
+    int pageSize = 25,
+    String? search,
+    List<String>? tables,
+    List<String>? actions,
+    String? requestId,
+    String? source,
+    String? fromDate,
+    String? toDate,
+    String? scope,
+  }) async {
+    try {
+      final response = await _apiClient.get(
+        'reports/audit-logs',
+        queryParameters: {
+          'page': page,
+          'pageSize': pageSize,
+          if (search != null && search.trim().isNotEmpty) 'search': search,
+          if (tables != null && tables.isNotEmpty) 'tables': tables.join(','),
+          if (actions != null && actions.isNotEmpty)
+            'actions': actions.join(','),
+          if (requestId != null && requestId.trim().isNotEmpty)
+            'requestId': requestId,
+          if (source != null && source.trim().isNotEmpty) 'source': source,
+          if (fromDate != null && fromDate.isNotEmpty) 'fromDate': fromDate,
+          if (toDate != null && toDate.isNotEmpty) 'toDate': toDate,
+          if (scope != null && scope.isNotEmpty) 'scope': scope,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error(
+        'Failed to fetch audit logs',
+        error: e,
+        module: 'reports',
+      );
+      rethrow;
+    }
+  }
 }
 
 final reportsRepositoryProvider = Provider<ReportsRepository>((ref) {

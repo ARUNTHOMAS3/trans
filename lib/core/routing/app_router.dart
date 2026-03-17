@@ -47,6 +47,7 @@ import 'package:zerpai_erp/modules/accountant/presentation/accountant_opening_ba
 import 'package:zerpai_erp/modules/accountant/presentation/accountant_transaction_locking_screen.dart';
 import 'package:zerpai_erp/modules/accountant/presentation/accountant_settings_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_audit_logs_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/reports_sales_sales_daily.dart';
 import 'package:zerpai_erp/modules/home/presentation/home_dashboard_overview.dart';
 import 'package:zerpai_erp/modules/reports/presentation/reports_profit_and_loss_screen.dart';
@@ -557,7 +558,8 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.expenses,
-          builder: (context, state) => const PlaceholderScreen(title: 'Expenses'),
+          builder: (context, state) =>
+              const PlaceholderScreen(title: 'Expenses'),
         ),
         GoRoute(
           path: AppRoutes.bills,
@@ -565,11 +567,13 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.paymentsMade,
-          builder: (context, state) => const PlaceholderScreen(title: 'Payments Made'),
+          builder: (context, state) =>
+              const PlaceholderScreen(title: 'Payments Made'),
         ),
         GoRoute(
           path: AppRoutes.vendorCredits,
-          builder: (context, state) => const PlaceholderScreen(title: 'Vendor Credits'),
+          builder: (context, state) =>
+              const PlaceholderScreen(title: 'Vendor Credits'),
         ),
         GoRoute(
           path: AppRoutes.purchasesPurchaseOrdersCreate,
@@ -580,6 +584,10 @@ final GoRouter appRouter = GoRouter(
           path: AppRoutes.documents,
           builder: (context, state) =>
               const PlaceholderScreen(title: 'Documents'),
+        ),
+        GoRoute(
+          path: AppRoutes.auditLogs,
+          builder: (context, state) => const AuditLogsScreen(),
         ),
 
         // Reports
@@ -651,8 +659,8 @@ final GoRouter appRouter = GoRouter(
                 opaque: false,
                 transitionsBuilder:
                     (context, animation, secondaryAnimation, child) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
+                      return FadeTransition(opacity: animation, child: child);
+                    },
               ),
             ),
             GoRoute(
@@ -704,7 +712,8 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: AppRoutes.accountantTransactionLocking,
-          builder: (context, state) => const AccountantTransactionLockingScreen(),
+          builder: (context, state) =>
+              const AccountantTransactionLockingScreen(),
         ),
 
         GoRoute(
@@ -762,4 +771,3 @@ final GoRouter appRouter = GoRouter(
     ),
   ],
 );
-

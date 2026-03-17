@@ -83,6 +83,7 @@ class AppRoutes {
   // Other top-level modules
   static const String purchases = '/purchases';
   static const String documents = '/documents';
+  static const String auditLogs = '/audit-logs';
 
   // Purchases - Vendors
   static const String vendors = '/purchases/vendors';
@@ -162,7 +163,8 @@ class AppRoutes {
   static const String accountantBulkUpdate = '/accountant/bulk-update';
   static const String accountantTransactionLocking =
       '/accountant/transaction-locking';
-  static const String accountantOpeningBalances = '/accountant/opening-balances';
+  static const String accountantOpeningBalances =
+      '/accountant/opening-balances';
   static const String accountantOpeningBalancesUpdate =
       '/accountant/opening-balances/update';
   static const String accountantSettings = '/accountant/settings';

@@ -3,6 +3,21 @@ import { SupabaseService } from "../supabase/supabase.service";
 import { db } from "../../db/db";
 import { sql } from "drizzle-orm";
 
+type AuditLogsParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  tables?: string[];
+  actions?: string[];
+  requestId?: string;
+  source?: string;
+  orgId?: string;
+  outletId?: string;
+  fromDate?: string;
+  toDate?: string;
+  scope?: string;
+};
+
 @Injectable()
 export class ReportsService {
   constructor(private readonly supabaseService: SupabaseService) {}
@@ -365,6 +380,81 @@ export class ReportsService {
         stockOnHand: Number(r.stockOnHand || 0),
         assetValue: Number(r.assetValue || 0),
       })),
+    };
+  }
+
+  async getAuditLogs(params: AuditLogsParams) {
+    const supabase = this.supabaseService.getClient();
+    const page = Math.max(1, params.page ?? 1);
+    const pageSize = Math.min(100, Math.max(10, params.pageSize ?? 25));
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from("audit_logs_all")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (params.orgId) query = query.eq("org_id", params.orgId);
+    if (params.outletId) query = query.eq("outlet_id", params.outletId);
+    if (params.requestId) query = query.eq("request_id", params.requestId);
+    if (params.source) query = query.eq("source", params.source);
+    if (params.tables?.length) query = query.in("table_name", params.tables);
+    if (params.actions?.length) query = query.in("action", params.actions);
+    if (params.fromDate) {
+      query = query.gte(
+        "created_at",
+        new Date(params.fromDate).toISOString(),
+      );
+    }
+    if (params.toDate) {
+      query = query.lte("created_at", new Date(params.toDate).toISOString());
+    }
+
+    if (params.scope == "archived") {
+      query = query.not("archived_at", "is", null);
+    } else if (params.scope == "recent") {
+      query = query.is("archived_at", null);
+    }
+
+    if (params.search?.trim().length) {
+      const term = params.search.trim().replaceAll(",", " ");
+      query = query.or(
+        [
+          "table_name.ilike.%${term}%",
+          "record_pk.ilike.%${term}%",
+          "actor_name.ilike.%${term}%",
+          "module_name.ilike.%${term}%",
+          "request_id.ilike.%${term}%",
+          "source.ilike.%${term}%",
+          "action.ilike.%${term}%",
+        ].join(","),
+      );
+    }
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    const logs = Array.isArray(data)
+      ? (data as Array<Record<string, unknown>>)
+      : [];
+    const visibleItems = logs.length;
+    const summary = {
+      insertCount: logs.filter((log) => log["action"] === "INSERT").length,
+      updateCount: logs.filter((log) => log["action"] === "UPDATE").length,
+      deleteCount: logs.filter((log) => log["action"] === "DELETE").length,
+      truncateCount: logs.filter((log) => log["action"] === "TRUNCATE").length,
+      archivedCount: logs.filter((log) => log["archived_at"] != null).length,
+      visibleItems,
+    };
+
+    return {
+      items: logs,
+      total: count ?? visibleItems,
+      page,
+      pageSize,
+      summary,
     };
   }
 }

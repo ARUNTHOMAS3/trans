@@ -76,4 +76,48 @@ export class ReportsController {
   getInventoryValuation(@Query("orgId") orgId?: string) {
     return this.reportsService.getInventoryValuationReport(orgId);
   }
+
+  @Get("audit-logs")
+  getAuditLogs(
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("search") search?: string,
+    @Query("tables") tables?: string,
+    @Query("actions") actions?: string,
+    @Query("requestId") requestId?: string,
+    @Query("source") source?: string,
+    @Query("orgId") orgId?: string,
+    @Query("outletId") outletId?: string,
+    @Query("fromDate") fromDate?: string,
+    @Query("toDate") toDate?: string,
+    @Query("scope") scope?: string,
+  ) {
+    const parsedPage = page ? Number.parseInt(page, 10) : undefined;
+    const parsedPageSize = pageSize
+      ? Number.parseInt(pageSize, 10)
+      : undefined;
+    const parsedTables = tables
+      ?.split(",")
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+    const parsedActions = actions
+      ?.split(",")
+      .map((value) => value.trim().toUpperCase())
+      .filter((value) => value.length > 0);
+
+    return this.reportsService.getAuditLogs({
+      page: Number.isNaN(parsedPage) ? undefined : parsedPage,
+      pageSize: Number.isNaN(parsedPageSize) ? undefined : parsedPageSize,
+      search,
+      tables: parsedTables,
+      actions: parsedActions,
+      requestId,
+      source,
+      orgId,
+      outletId,
+      fromDate,
+      toDate,
+      scope,
+    });
+  }
 }

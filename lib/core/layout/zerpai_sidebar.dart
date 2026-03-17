@@ -172,6 +172,7 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
     'Purchases': LucideIcons.truck,
     'Reports': LucideIcons.barChart2,
     'Documents': LucideIcons.fileText,
+    'Audit Logs': LucideIcons.history,
   };
 
   // ---------------- STATE ----------------
@@ -193,8 +194,9 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
   }
 
   void _updateActiveMenuFromRoute() {
-    final String location =
-        GoRouter.of(context).routerDelegate.currentConfiguration.last.matchedLocation;
+    final String location = GoRouter.of(
+      context,
+    ).routerDelegate.currentConfiguration.last.matchedLocation;
 
     String? currentMatchedMenu;
 
@@ -205,6 +207,8 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
       currentMatchedMenu = 'Reports';
     } else if (location.startsWith(AppRoutes.documents)) {
       currentMatchedMenu = 'Documents';
+    } else if (location.startsWith(AppRoutes.auditLogs)) {
+      currentMatchedMenu = 'Audit Logs';
     } else {
       // Check Accountant and Accounts module sub-routes generically
       if (location.startsWith('/accountant/')) {
@@ -269,6 +273,7 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
 
                 _leaf('Reports', AppRoutes.reports),
                 _leaf('Documents', AppRoutes.documents),
+                _leaf('Audit Logs', AppRoutes.auditLogs),
               ],
             ),
           ),
