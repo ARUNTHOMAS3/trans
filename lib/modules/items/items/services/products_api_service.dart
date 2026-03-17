@@ -593,4 +593,99 @@ class ProductsApiService {
       throw ApiException('Error fetching product quick stats: $e');
     }
   }
+
+  // =====================================
+  // PRICE LISTS
+  // =====================================
+
+  Future<List<Map<String, dynamic>>> getAssociatedPriceLists(
+    String productId,
+  ) async {
+    try {
+      final response = await _apiClient.get('/price-lists/product/$productId');
+      if (response.statusCode == 200) {
+        final payload = response.data;
+        if (payload is List) {
+          return payload
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+        if (payload is Map<String, dynamic>) {
+          final nested = payload['data'];
+          if (nested is List) {
+            return nested
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+          }
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching associated price lists: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllPriceLists() async {
+    try {
+      final response = await _apiClient.get('/price-lists');
+      if (response.statusCode == 200) {
+        final payload = response.data;
+        if (payload is List) {
+          return payload
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+        if (payload is Map<String, dynamic>) {
+          final nested = payload['data'];
+          if (nested is List) {
+            return nested
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+          }
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching all price lists: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> associatePriceList({
+    required String productId,
+    required String priceListId,
+    double? customRate,
+    double? discountPercentage,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '/price-lists/associate',
+        data: {
+          'product_id': productId,
+          'price_list_id': priceListId,
+          if (customRate != null) 'custom_rate': customRate,
+          if (discountPercentage != null)
+            'discount_percentage': discountPercentage,
+        },
+      );
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final payload = response.data;
+        if (payload is Map<String, dynamic>) {
+          if (payload['data'] is Map<String, dynamic>) {
+            return payload['data'] as Map<String, dynamic>;
+          }
+          return payload;
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error associating price list: $e');
+      return null;
+    }
+  }
 }

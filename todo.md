@@ -2,8 +2,8 @@
 
 ## 🔍 Search & Navigation
 
-- [ ] **Navbar Global Search**: Enhance the central search in `ZerpaiNavbar` to support full-module searching and redirects.
-- [ ] **Advanced Filtering**: Implement the backend logic for the local Search Popup in the Chart of Accounts (Account Name/Code matching).
+- [x] **Navbar Global Search**: Enhance the central search in `ZerpaiNavbar` to support full-module searching and redirects.
+- [x] **Advanced Filtering**: Implement the backend logic for the local Search Popup in the Chart of Accounts (Account Name/Code matching).
 - [ ] **Persistent State**: Ensure the 'Account View' filter and search results remain active when navigating back to the CoA page.
 
 ## 🏗️ Missing Modules (Placeholders needed)
@@ -11,18 +11,18 @@
 The following modules are listed in the Search Switcher but lack routes or implementations:
 
 - [ ] **Banking**: Create routes and placeholder screens for Banking transactions and statements.
-- [ ] **Expenses**: Implement Expense tracking module.
-- [ ] **Bills**: Add vendor bill management under Purchases.
-- [ ] **Payments Made**: Implement payment tracking for vendor bills.
-- [ ] **Vendor Credits**: Add support for purchase returns and vendor credits.
+- [x] **Expenses**: Implement Expense tracking module. *(Mapped to PlaceholderScreen)*
+- [x] **Bills**: Add vendor bill management under Purchases. *(Mapped to PlaceholderScreen)*
+- [x] **Payments Made**: Implement payment tracking for vendor bills. *(Mapped to PlaceholderScreen)*
+- [x] **Vendor Credits**: Add support for purchase returns and vendor credits. *(Mapped to PlaceholderScreen)*
 - [ ] **Projects**: (CRM/Service) Implement project management and tracking.
 - [ ] **Timesheet**: Add time tracking functionality.
 - [ ] **Tasks**: Implement task management within modules.
 
 ## 📈 Charts & Data
 
-- [ ] **Account Transactions Graph**: Wire up the "Closing Balance" and "Recent Transactions" data to visual sparklines or bar charts in the `ChartOfAccountsDetailPanel`.
-- [ ] **Dashboard Widgets**: Connect dashboard placeholders to real-time aggregations from the backend.
+- [x] **Account Transactions Graph**: Wire up the "Closing Balance" and "Recent Transactions" data to visual sparklines or bar charts in the `ChartOfAccountsDetailPanel`.
+- [x] **Dashboard Widgets**: Connect dashboard placeholders to real-time aggregations from the backend.
 
 ## 🧹 Code Quality & Cleanup
 

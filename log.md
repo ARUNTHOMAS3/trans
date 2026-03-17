@@ -1319,3 +1319,73 @@ Full cross-file verification of all work implemented in sections 26–29 by the 
 - **Hierarchical Sidebar Highlighting**: Refined the navigation UI to distinguish between module paths and active destinations. Main modules (Parents) now use a subtle blue highlight when active/expanded, while final destinations (Sub-modules and top-level leaves like Home) receive the signature bold green highlight for clear focus.
 - **Persistent Transaction Locking**: Implemented full-stack persistence for the module-level transaction locking feature. Created a new `transaction_locks` table in PostgreSQL, a dedicated NestJS service/controller/module for managing lock states, and updated the Flutter `TransactionLockNotifier` to synchronize state with the backend. This ensures transaction locks are preserved across sessions and devices.
 - **Smart Sidebar Auto-Expansion**: Enhanced the sidebar's route matching logic to generically detect and expand parent modules ('Accountant', 'Accounts') when viewing sub-pages or secondary reports that are not explicitly listed in the side menu.
+
+---
+
+## 31. Accountant UI, Manual Journal Stability, and Item Detail Hydration (March 17, 2026)
+
+This session focused on accounting UI consistency, clearer manual journal error handling, and direct-link reliability in the Items module.
+
+### Accountant Module: Manual Journals & Recurring Journals
+
+- **Manual Journal Soft Delete Alignment**: Re-aligned backend manual journal behavior to use `is_deleted` consistently again in schema and service logic, restoring filtered reads and soft-delete behavior instead of hard deletion.
+- **Manual Journal Bulk Delete Dialog**: Replaced the old Material `AlertDialog` with the same custom top-centered confirmation modal style used in Chart of Accounts for consistent spacing, warning treatment, colors, and action layout.
+- **Recurring Journal Bulk Delete Dialog**: Applied the same custom confirmation modal style to recurring journals bulk deletion.
+- **Bulk Selection Bar Cleanup**: Removed the visible `Esc` text from bulk-selection action bars and retained only a compact red `X` clear-selection control.
+- **Bulk Selection X Placement Fix**: Corrected the clear-selection button alignment so it sits flush to the far right edge of the table action bar instead of drifting toward the center.
+- **Manual Journal Create Validation Tightening**: Marked posting-critical `account_transactions` fields as required and added stronger frontend checks for account selection, positive debit/credit amounts, and invalid dual-sided row entry before publish/save.
+- **Friendly Manual Journal Error Messages**: Added targeted error translation so backend schema mismatch failures in `account_transactions` now surface as a plain user message rather than a raw SQL/HTTP dump.
+
+**Files Changed:**
+
+- `backend/src/db/schema.ts`
+- `backend/src/modules/accountant/accountant.service.ts`
+- `lib/modules/accountant/manual_journals/presentation/widgets/manual_journals_list_panel.dart`
+- `lib/modules/accountant/recurring_journals/presentation/widgets/recurring_journals_list_panel.dart`
+- `lib/modules/accountant/presentation/accountant_chart_of_accounts_overview.dart`
+- `lib/modules/accountant/manual_journals/presentation/manual_journal_create_screen.dart`
+- `lib/shared/utils/error_handler.dart`
+- `lib/modules/accountant/manual_journals/providers/manual_journal_provider.dart`
+- `lib/modules/accountant/manual_journals/presentation/manual_journals_overview_screen.dart`
+
+### Chart of Accounts
+
+- **Grouped Account Type Search Preservation**: Updated the create/edit account type dropdown so searching keeps the same grouped nesting headers (Assets, Liabilities, etc.) instead of flattening results.
+
+**Files Changed:**
+
+- `lib/modules/accountant/presentation/accountant_chart_of_accounts_creation.dart`
+
+### Items Module: Detail Overview Enhancements
+
+- **Salt Composition in Overview**: Added `Salt Composition` directly below `Manufacturer/Patent` in the item overview using saved `product_contents` data, formatting entries as a single joined line like `Aceclofenac(100mg) + Thiocolchicoside(4mg)`.
+- **Buying Rule & Schedule of Drug in Overview**: Added both rows immediately after `Salt Composition`, using the saved item metadata so the overview mirrors edit-screen composition details more accurately.
+- **Deprecated Dropdown Fix**: Replaced deprecated `DropdownButtonFormField.value` usage with `initialValue` in the item detail price list UI.
+
+**Files Changed:**
+
+- `lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_price_lists.dart`
+
+### Items Module: Direct Link / Refresh Reliability
+
+- **Direct Edit Hydration Fix**: Fixed the item edit screen so opening `/items/edit/:id` directly no longer renders a blank form while background item loading is still in progress.
+- **Proper Loading / Retry States**: The screen now stays in a loading state until the requested item is hydrated by ID, and shows a retry state on failure instead of falling through to empty controls.
+- **Associated Price Lists Parser Fix**: Corrected price list response parsing in the shared products API service. The client was double-unwrapping already-standardized `data`, causing `type 'String' is not a subtype of type 'int'` during associated price list loading.
+
+**Files Changed:**
+
+- `lib/modules/items/items/presentation/items_item_create.dart`
+- `lib/modules/items/items/services/products_api_service.dart`
+
+### General Cleanup
+
+- **Unused Local Removal**: Removed an unused `outletId` local variable in the home dashboard overview screen.
+
+**Files Changed:**
+
+- `lib/modules/home/presentation/home_dashboard_overview.dart`
+
+---
+
+**Timestamp of Log Update:** March 17, 2026 - 18:20 (IST)

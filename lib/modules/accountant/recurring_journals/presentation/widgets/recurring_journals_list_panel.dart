@@ -391,7 +391,7 @@ class _RecurringJournalsListPanelState
                 final d = DateFormat('dd/MM/yyyy');
 
                 return InkWell(
-                   onTap: () => context.go(
+                  onTap: () => context.go(
                     AppRoutes.accountantRecurringJournalsDetail.replaceAll(
                       ':id',
                       journal.id,
@@ -663,9 +663,9 @@ class _RecurringJournalsListPanelState
   }) {
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.bgLight,
+        color: Colors.white,
         border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(6),
       ),
@@ -707,18 +707,28 @@ class _RecurringJournalsListPanelState
             ),
           ),
           const Spacer(),
-          TextButton(
-            onPressed: isMutating
-                ? null
-                : () => setState(() => _checkedJournalIds.clear()),
-            child: const Text('Esc'),
-          ),
-          IconButton(
-            tooltip: 'Clear selection',
-            onPressed: isMutating
-                ? null
-                : () => setState(() => _checkedJournalIds.clear()),
-            icon: const Icon(LucideIcons.x, size: 16, color: AppTheme.errorRed),
+          Tooltip(
+            message: 'Clear selection',
+            child: InkWell(
+              onTap: isMutating
+                  ? null
+                  : () => setState(() => _checkedJournalIds.clear()),
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  color: AppTheme.errorRed.withValues(alpha: 0.06),
+                ),
+                child: Icon(
+                  LucideIcons.x,
+                  size: 16,
+                  color: isMutating ? AppTheme.textMuted : AppTheme.errorRed,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -734,22 +744,98 @@ class _RecurringJournalsListPanelState
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete recurring journals?'),
-        content: Text(
-          'This will delete ${selectedIds.length} selected journal(s).',
+      builder: (dialogContext) => Dialog(
+        alignment: Alignment.topCenter,
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: SizedBox(
+          width: 420,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      LucideIcons.alertTriangle,
+                      size: 28,
+                      color: Color(0xFFF59E0B),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF111827),
+                          ),
+                          children: [
+                            const TextSpan(
+                              text: 'Are you sure about deleting ',
+                            ),
+                            TextSpan(
+                              text:
+                                  '${selectedIds.length} recurring journal(s)',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const TextSpan(text: '?'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'This will delete ${selectedIds.length} selected journal(s).',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF4B5563),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => dialogContext.pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.successGreen,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                      ),
+                      child: const Text('OK'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      onPressed: () => dialogContext.pop(false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF374151),
+                        side: const BorderSide(color: Color(0xFFD1D5DB)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
-            child: const Text('Delete'),
-          ),
-        ],
       ),
     );
 

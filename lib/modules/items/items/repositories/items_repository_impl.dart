@@ -616,4 +616,46 @@ class ItemsRepositoryImpl implements ItemRepository {
       return {'current_stock': 0, 'last_purchase_price': 0.0};
     }
   }
+
+  @override
+  Future<List<Map<String, dynamic>>> getAssociatedPriceLists(
+    String productId,
+  ) async {
+    try {
+      return await _apiService.getAssociatedPriceLists(productId);
+    } catch (e) {
+      AppLogger.warning('Failed to fetch associated price lists', error: e);
+      return [];
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getAllPriceLists() async {
+    try {
+      return await _apiService.getAllPriceLists();
+    } catch (e) {
+      AppLogger.warning('Failed to fetch all price lists', error: e);
+      return [];
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> associatePriceList({
+    required String productId,
+    required String priceListId,
+    double? customRate,
+    double? discountPercentage,
+  }) async {
+    try {
+      return await _apiService.associatePriceList(
+        productId: productId,
+        priceListId: priceListId,
+        customRate: customRate,
+        discountPercentage: discountPercentage,
+      );
+    } catch (e) {
+      AppLogger.error('Failed to associate price list', error: e);
+      rethrow;
+    }
+  }
 }

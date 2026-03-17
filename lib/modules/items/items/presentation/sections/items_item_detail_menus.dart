@@ -15,7 +15,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
 
   void _openMoreMenu() {
     if (_moreMenuEntry != null) return;
-    final overlay = Overlay.of(context);
+    final overlay = Overlay.of(context, rootOverlay: true);
 
     final RenderBox buttonBox =
         _moreButtonKey.currentContext!.findRenderObject() as RenderBox;
@@ -332,7 +332,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
   void _openSortMenu() {
     if (_sortMenuEntry != null) return;
 
-    final overlay = Overlay.of(context);
+    final overlay = Overlay.of(context, rootOverlay: true);
     if (_moreMenuTopLeft == null) return;
 
     final double left = _moreMenuTopLeft!.dx - 220 - 8;
@@ -400,8 +400,8 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
   }
 
   void _openImportMenu(BuildContext rowContext) {
-    final overlay = Overlay.of(context);
-
+    final overlay = Overlay.of(context, rootOverlay: true);
+ 
     final RenderBox? box = rowContext.findRenderObject() as RenderBox?;
     if (box == null) return;
     final Offset offset = box.localToGlobal(Offset.zero);
@@ -456,8 +456,8 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
   }
 
   void _openExportMenu(BuildContext rowContext) {
-    final OverlayState overlay = Overlay.of(context);
-
+    final OverlayState overlay = Overlay.of(context, rootOverlay: true);
+ 
     final RenderBox? box = rowContext.findRenderObject() as RenderBox?;
     if (box == null) return;
     final Offset offset = box.localToGlobal(Offset.zero);

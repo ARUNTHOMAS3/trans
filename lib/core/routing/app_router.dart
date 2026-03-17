@@ -55,13 +55,13 @@ import 'package:zerpai_erp/modules/reports/presentation/reports_trial_balance_sc
 import 'package:zerpai_erp/modules/reports/presentation/reports_sales_by_customer_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/reports_inventory_valuation_screen.dart';
 
-// Purchases Module
+// Purchasing Module
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_list.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart';
 
 // Shared
-import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/widgets/placeholder_screen.dart';
 import 'package:zerpai_erp/core/layout/zerpai_shell.dart';
 import 'package:zerpai_erp/core/pages/error_page.dart';
 import 'app_routes.dart';
@@ -556,6 +556,22 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const PurchaseOrderOverviewScreen(),
         ),
         GoRoute(
+          path: AppRoutes.expenses,
+          builder: (context, state) => const PlaceholderScreen(title: 'Expenses'),
+        ),
+        GoRoute(
+          path: AppRoutes.bills,
+          builder: (context, state) => const PlaceholderScreen(title: 'Bills'),
+        ),
+        GoRoute(
+          path: AppRoutes.paymentsMade,
+          builder: (context, state) => const PlaceholderScreen(title: 'Payments Made'),
+        ),
+        GoRoute(
+          path: AppRoutes.vendorCredits,
+          builder: (context, state) => const PlaceholderScreen(title: 'Vendor Credits'),
+        ),
+        GoRoute(
           path: AppRoutes.purchasesPurchaseOrdersCreate,
           builder: (context, state) =>
               const PlaceholderScreen(title: 'New Purchase Order'),
@@ -747,38 +763,3 @@ final GoRouter appRouter = GoRouter(
   ],
 );
 
-/// Placeholder screen for Coming Soon features
-class PlaceholderScreen extends StatelessWidget {
-  final String title;
-  const PlaceholderScreen({super.key, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return ZerpaiLayout(
-      pageTitle: title,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.construction, size: 48, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              '$title Coming Soon',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This section is visible but locked for the current delivery cycle.',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

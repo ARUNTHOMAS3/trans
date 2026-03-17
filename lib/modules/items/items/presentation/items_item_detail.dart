@@ -170,6 +170,14 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
       } else {
         _primaryImageIndex = 0;
       }
+
+      // Trigger quick stats fetch for the selected item to get real stock and status data
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(itemsControllerProvider.notifier).fetchQuickStats(item.id!);
+        ref
+            .read(itemsControllerProvider.notifier)
+            .fetchAssociatedPriceLists(item.id!);
+      });
     }
 
     if (item == null) {
@@ -579,7 +587,11 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
     final RenderBox renderBox =
         _reorderPointKey.currentContext!.findRenderObject() as RenderBox;
     final size = renderBox.size;
-    final offset = renderBox.localToGlobal(Offset.zero);
+
+    final overlay = Overlay.of(context);
+    final RenderBox overlayBox =
+        overlay.context.findRenderObject() as RenderBox;
+    final offset = renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
 
     final TextEditingController controller = TextEditingController(
       text: current > 0 ? current.toString() : '',
@@ -761,7 +773,11 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
     final RenderBox renderBox =
         _reorderTermsKey.currentContext!.findRenderObject() as RenderBox;
     final size = renderBox.size;
-    final offset = renderBox.localToGlobal(Offset.zero);
+
+    final overlay = Overlay.of(context);
+    final RenderBox overlayBox =
+        overlay.context.findRenderObject() as RenderBox;
+    final offset = renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
 
     String? selectedId = currentId;
 
@@ -1000,7 +1016,11 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
     final RenderBox renderBox =
         dropdownKey.currentContext!.findRenderObject() as RenderBox;
     final size = renderBox.size;
-    final offset = renderBox.localToGlobal(Offset.zero);
+
+    final overlay = Overlay.of(context);
+    final RenderBox overlayBox =
+        overlay.context.findRenderObject() as RenderBox;
+    final offset = renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
 
     String searchQuery = '';
 

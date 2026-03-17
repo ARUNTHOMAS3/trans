@@ -811,7 +811,6 @@ class _ManualJournalCreateScreenState
     );
   }
 
-
   void _addRow({ManualJournalItem? item, bool notify = true}) {
     final row = ManualJournalRow();
     if (item != null) {
@@ -857,7 +856,8 @@ class _ManualJournalCreateScreenState
 
   void _saveDraft() {
     if (!mounted || isEditMode) return;
-    final hasContent = referenceCtrl.text.isNotEmpty ||
+    final hasContent =
+        referenceCtrl.text.isNotEmpty ||
         notesCtrl.text.isNotEmpty ||
         rows.any(
           (r) =>
@@ -1593,6 +1593,22 @@ class _ManualJournalCreateScreenState
     );
   }
 
+  double _parseRowAmount(TextEditingController controller) {
+    return double.tryParse(controller.text.trim()) ?? 0;
+  }
+
+  bool _rowHasAmount(ManualJournalRow row) {
+    return _parseRowAmount(row.debitCtrl) > 0 ||
+        _parseRowAmount(row.creditCtrl) > 0;
+  }
+
+  bool _rowHasAnyInput(ManualJournalRow row) {
+    return row.accountId != null ||
+        row.descriptionCtrl.text.trim().isNotEmpty ||
+        row.contactId != null ||
+        _rowHasAmount(row);
+  }
+
   Widget _buildItemsTable(List<coa.AccountNode> roots) {
     final mappedNodes = _mapNodes(roots);
     final bool enableRowScroll = rows.length > 8;
@@ -1782,6 +1798,11 @@ class _ManualJournalCreateScreenState
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'^\d*\.?\d{0,2}'),
+                          ),
+                        ],
                         hintText: '0',
                         onTap: () {
                           row.debitCtrl.selection = TextSelection(
@@ -1816,6 +1837,11 @@ class _ManualJournalCreateScreenState
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'^\d*\.?\d{0,2}'),
+                          ),
+                        ],
                         hintText: '0',
                         onTap: () {
                           row.creditCtrl.selection = TextSelection(
@@ -1975,85 +2001,107 @@ class _ManualJournalCreateScreenState
       },
     );
 
-    final tableContainer = Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: AppTheme.borderColor),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: EdgeInsets.zero, // Padding handled by cells
-            color: AppTheme.bgLight,
-            height: 40,
-            child: Row(
-              children: [
-                _cell(width: 32, child: const SizedBox()),
-                _cell(flex: 4, child: _headerText('ACCOUNT', required: true)),
-                _cell(
-                  flex: 4,
-                  child: _headerText('DESCRIPTION'),
-                ), // Increased flex to 4
-                _cell(
-                  flex: 3,
-                  child: _headerText(contactHeader),
-                ), // Increased flex to 3
-                _cell(
-                  flex: 2,
-                  child: _headerText(debitHeader, textAlign: TextAlign.right),
-                ),
-                _cell(
-                  flex: 2,
-                  child: _headerText(creditHeader, textAlign: TextAlign.right),
-                ),
-                _cell(
-                  width: 80,
-                  child: Center(
-                    child: PopupMenuButton<String>(
-                      icon: const Icon(
-                        LucideIcons.moreVertical,
-                        size: 16,
-                        color: AppTheme.textMuted,
-                      ),
-                      splashRadius: 20,
-                      padding: EdgeInsets.zero,
-                      onSelected: (value) {
-                        setState(() {
-                          final expand = value == 'show';
-                          for (var row in rows) {
-                            row.isExpanded = expand;
-                          }
-                        });
-                      },
-                      itemBuilder: (context) {
-                        final allExpanded =
-                            rows.isNotEmpty && rows.every((r) => r.isExpanded);
-                        return [
-                          PopupMenuItem<String>(
-                            value: allExpanded ? 'hide' : 'show',
-                            child: Text(
-                              allExpanded
-                                  ? 'Hide All Additional Information'
-                                  : 'Show All Additional Information',
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                        ];
-                      },
-                    ),
-                  ),
-                  isLast: true,
-                ),
-              ],
+    final tableContainer = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 8),
+          child: Text(
+            '* Required to post this journal to account_transactions.',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.errorRed,
             ),
           ),
-          if (enableRowScroll)
-            SizedBox(height: 440, child: rowsList)
-          else
-            rowsList,
-        ],
-      ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppTheme.borderColor),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: EdgeInsets.zero, // Padding handled by cells
+                color: AppTheme.bgLight,
+                height: 40,
+                child: Row(
+                  children: [
+                    _cell(width: 32, child: const SizedBox()),
+                    _cell(
+                      flex: 4,
+                      child: _headerText('ACCOUNT', required: true),
+                    ),
+                    _cell(flex: 4, child: _headerText('DESCRIPTION')),
+                    _cell(flex: 3, child: _headerText(contactHeader)),
+                    _cell(
+                      flex: 2,
+                      child: _headerText(
+                        debitHeader,
+                        textAlign: TextAlign.right,
+                        required: true,
+                      ),
+                    ),
+                    _cell(
+                      flex: 2,
+                      child: _headerText(
+                        creditHeader,
+                        textAlign: TextAlign.right,
+                        required: true,
+                      ),
+                    ),
+                    _cell(
+                      width: 80,
+                      child: Center(
+                        child: PopupMenuButton<String>(
+                          icon: const Icon(
+                            LucideIcons.moreVertical,
+                            size: 16,
+                            color: AppTheme.textMuted,
+                          ),
+                          splashRadius: 20,
+                          padding: EdgeInsets.zero,
+                          onSelected: (value) {
+                            setState(() {
+                              final expand = value == 'show';
+                              for (var row in rows) {
+                                row.isExpanded = expand;
+                              }
+                            });
+                          },
+                          itemBuilder: (context) {
+                            final allExpanded =
+                                rows.isNotEmpty &&
+                                rows.every((r) => r.isExpanded);
+                            return [
+                              PopupMenuItem<String>(
+                                value: allExpanded ? 'hide' : 'show',
+                                child: Text(
+                                  allExpanded
+                                      ? 'Hide All Additional Information'
+                                      : 'Show All Additional Information',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ];
+                          },
+                        ),
+                      ),
+                      isLast: true,
+                    ),
+                  ],
+                ),
+              ),
+              if (enableRowScroll)
+                SizedBox(height: 440, child: rowsList)
+              else
+                rowsList,
+            ],
+          ),
+        ),
+      ],
     );
 
     return Column(
@@ -2506,7 +2554,8 @@ class _ManualJournalCreateScreenState
   }
 
   Widget _buildFooter() {
-    final isAlreadyPosted = isEditMode &&
+    final isAlreadyPosted =
+        isEditMode &&
         widget.initialJournal?.status == ManualJournalStatus.posted;
 
     final primaryLabel = isEditMode ? 'Update and Post' : 'Save and Publish';
@@ -2527,7 +2576,10 @@ class _ManualJournalCreateScreenState
               children: [
                 if (isAlreadyPosted) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF0FDF4),
                       borderRadius: BorderRadius.circular(6),
@@ -2535,7 +2587,10 @@ class _ManualJournalCreateScreenState
                     ),
                     child: const Text(
                       'This journal is posted and cannot be edited. To make changes, reverse this journal.',
-                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                   ),
                 ] else ...[
@@ -2577,7 +2632,9 @@ class _ManualJournalCreateScreenState
                           },
                     style: TextButton.styleFrom(
                       foregroundColor: AppTheme.textSecondary,
-                      textStyle: const TextStyle(decoration: TextDecoration.none),
+                      textStyle: const TextStyle(
+                        decoration: TextDecoration.none,
+                      ),
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -2603,13 +2660,7 @@ class _ManualJournalCreateScreenState
 
   ManualJournal _buildJournalFromForm(ManualJournalStatus status) {
     final validRows = rows
-        .where(
-          (r) =>
-              r.accountId != null &&
-              (double.tryParse(r.debitCtrl.text) ?? 0) +
-                      (double.tryParse(r.creditCtrl.text) ?? 0) >
-                  0,
-        )
+        .where((r) => r.accountId != null && _rowHasAmount(r))
         .toList();
 
     final manualItems = validRows.asMap().entries.map((entry) {
@@ -2770,11 +2821,22 @@ class _ManualJournalCreateScreenState
 
     for (int i = 0; i < rows.length; i++) {
       final row = rows[i];
-      final d = double.tryParse(row.debitCtrl.text) ?? 0;
-      final c = double.tryParse(row.creditCtrl.text) ?? 0;
+      final d = _parseRowAmount(row.debitCtrl);
+      final c = _parseRowAmount(row.creditCtrl);
+      final hasAnyInput = _rowHasAnyInput(row);
+      final hasAmount = _rowHasAmount(row);
 
-      if (!isDraftAction && (d > 0 || c > 0) && row.accountId == null) {
-        errors.add('Please select an account for row ${i + 1}');
+      if (!isDraftAction && hasAnyInput) {
+        if (row.accountId == null) {
+          errors.add(
+            'Row ${i + 1}: Account is required to post this journal to account_transactions.',
+          );
+        }
+        if (!hasAmount) {
+          errors.add(
+            'Row ${i + 1}: Enter either a debit or a credit amount greater than 0.',
+          );
+        }
       }
       if (d > 0 && c > 0) {
         errors.add('Row ${i + 1} cannot have both Debit and Credit values.');

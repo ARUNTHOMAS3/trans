@@ -8,6 +8,7 @@ import '../models/manual_journal_model.dart';
 import '../providers/manual_journal_provider.dart';
 import 'widgets/manual_journals_list_panel.dart';
 import 'widgets/manual_journals_detail_panel.dart';
+import 'package:zerpai_erp/shared/utils/error_handler.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 class ManualJournalOverviewScreen extends ConsumerStatefulWidget {
@@ -55,7 +56,7 @@ class _ManualJournalOverviewScreenState
       }
     } catch (e) {
       if (mounted) {
-        ZerpaiToast.error(context, e.toString());
+        ZerpaiToast.error(context, ErrorHandler.getFriendlyMessage(e));
       }
     }
   }
@@ -92,7 +93,7 @@ class _ManualJournalOverviewScreenState
       }
     } catch (e) {
       if (mounted) {
-        ZerpaiToast.error(context, e.toString());
+        ZerpaiToast.error(context, ErrorHandler.getFriendlyMessage(e));
       }
     }
   }
@@ -131,7 +132,7 @@ class _ManualJournalOverviewScreenState
       }
     } catch (e) {
       if (mounted) {
-        ZerpaiToast.error(context, e.toString());
+        ZerpaiToast.error(context, ErrorHandler.getFriendlyMessage(e));
       }
     }
   }

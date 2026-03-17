@@ -11,6 +11,7 @@ import '../../providers/accountant_chart_of_accounts_provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../shared/utils/zerpai_toast.dart';
 import '../../models/account_transaction_model.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class AccountOverviewPanel extends ConsumerStatefulWidget {
   final AccountNode account;
@@ -484,6 +485,9 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
             ),
           ),
 
+          _buildBalanceTrend(state),
+          const SizedBox(height: AppTheme.space8),
+
           // Recent Transactions Section
           Padding(
             padding: const EdgeInsets.all(AppTheme.space16),
@@ -561,6 +565,75 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                   fontWeight: FontWeight.w500,
                   decoration: TextDecoration.underline,
                 ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBalanceTrend(ChartOfAccountsState state) {
+    if (state.recentTransactions.isEmpty) return const SizedBox.shrink();
+
+    // Mock trend based on recent transactions (reverse them for chronological order)
+    double currentBal = state.closingBalance;
+    final List<FlSpot> spots = [];
+    final txs = state.recentTransactions.take(12).toList();
+    
+    // Last spot is the current balance
+    spots.add(FlSpot(txs.length.toDouble(), currentBal));
+    
+    for (int i = 0; i < txs.length; i++) {
+      final tx = txs[i];
+      final amount = tx.debit - tx.credit;
+      currentBal -= amount;
+      spots.add(FlSpot((txs.length - 1 - i).toDouble(), currentBal));
+    }
+
+    final sortedSpots = spots..sort((a, b) => a.x.compareTo(b.x));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Balance Trend',
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 140,
+            decoration: BoxDecoration(
+              color: AppTheme.bgLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 24, 12, 12),
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: false),
+                titlesData: const FlTitlesData(show: false),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: sortedSpots,
+                    isCurved: true,
+                    color: AppTheme.primaryBlue,
+                    barWidth: 2,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: AppTheme.primaryBlue.withAlpha(20),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

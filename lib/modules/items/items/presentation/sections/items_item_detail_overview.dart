@@ -48,6 +48,18 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                       'Manufacturer/Patent',
                       _buildTextValue(manufacturerName),
                     ),
+                    _buildInfoRow(
+                      'Salt Composition',
+                      _buildSaltCompositionValue(item),
+                    ),
+                    _buildInfoRow(
+                      'Buying Rule',
+                      _buildTextValue(item.buyingRuleName),
+                    ),
+                    _buildInfoRow(
+                      'Schedule of Drug',
+                      _buildTextValue(item.drugScheduleName),
+                    ),
                     _buildInfoRow('Brand', _buildTextValue(brandName)),
                     _buildInfoRow(
                       'Tax Preference',
@@ -133,12 +145,20 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                     _buildInfoRow(
                       'Dimensions',
                       _buildTextValue(
-                        '${item.length ?? 0} x ${item.width ?? 0} x ${item.height ?? 0} ${item.dimensionUnit}',
+                        (item.length == null &&
+                                item.width == null &&
+                                item.height == null)
+                            ? 'n/a'
+                            : '${item.length ?? 0} x ${item.width ?? 0} x ${item.height ?? 0} ${item.dimensionUnit}',
                       ),
                     ),
                     _buildInfoRow(
                       'Weight',
-                      _buildTextValue('${item.weight ?? 0} ${item.weightUnit}'),
+                      _buildTextValue(
+                        item.weight == null
+                            ? 'n/a'
+                            : '${item.weight} ${item.weightUnit}',
+                      ),
                     ),
                   ]),
                   const SizedBox(height: 32),
@@ -149,20 +169,8 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                     _buildInfoRow('ISBN', _buildTextValue(item.isbn)),
                     _buildInfoRow('EAN', _buildTextValue(item.ean)),
                   ]),
-                  if (item.compositions != null &&
-                      item.compositions!.isNotEmpty) ...[
-                    const SizedBox(height: 32),
-                    _buildSectionTitle('Active Ingredients (Compositions)'),
-                    const SizedBox(height: 16),
-                    ...item.compositions!.map((comp) {
-                      return _buildInfoRow(
-                        comp.contentName ?? 'Unknown',
-                        _buildTextValue(comp.strengthName ?? 'N/A'),
-                      );
-                    }).toList(),
-                  ],
                   const SizedBox(height: 24),
-                  _buildAssociatedPriceLists(),
+                  _buildAssociatedPriceLists(state),
                 ],
               );
 
@@ -250,7 +258,47 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
 
   Widget _buildTextValue(String? value) {
     return Text(
-      (value == null || value.isEmpty) ? 'N/A' : value,
+      (value == null || value.isEmpty || value.toLowerCase() == 'n/a')
+          ? 'n/a'
+          : value,
+      style: const TextStyle(
+        fontSize: 13,
+        color: Color(0xFF111827),
+        fontWeight: FontWeight.w500,
+      ),
+    );
+  }
+
+  Widget _buildSaltCompositionValue(Item item) {
+    final compositions =
+        item.compositions
+            ?.where(
+              (comp) =>
+                  (comp.contentName?.trim().isNotEmpty ?? false) ||
+                  (comp.strengthName?.trim().isNotEmpty ?? false),
+            )
+            .toList() ??
+        const [];
+
+    if (compositions.isEmpty) {
+      return _buildTextValue('n/a');
+    }
+
+    final entries = compositions.map((comp) {
+      final contentName = comp.contentName?.trim();
+      final strengthName = comp.strengthName?.trim();
+
+      if (contentName != null &&
+          contentName.isNotEmpty &&
+          strengthName != null &&
+          strengthName.isNotEmpty) {
+        return '$contentName($strengthName)';
+      }
+      return contentName?.isNotEmpty == true ? contentName! : strengthName!;
+    }).toList();
+
+    return Text(
+      entries.join(' + '),
       style: const TextStyle(
         fontSize: 13,
         color: Color(0xFF111827),
@@ -268,6 +316,12 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
         color: Color(0xFF111827),
       ),
     );
+  }
+
+  String _formatStatsValue(double? value) {
+    if (value == null) return 'n/a';
+    if (value == 0) return '0';
+    return _formatQty(value);
   }
 
   Widget _buildOpeningStockSection(Item item) {
@@ -320,8 +374,11 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
         ),
         const SizedBox(height: 16),
         _buildStockMiniRow('Stock on Hand', item.stockOnHand ?? 0.0),
-        _buildStockMiniRow('Committed Stock', 0.0),
-        _buildStockMiniRow('Available for Sale', item.stockOnHand ?? 0.0),
+        _buildStockMiniRow('Committed Stock', item.committedStock ?? 0.0),
+        _buildStockMiniRow(
+          'Available for Sale',
+          (item.stockOnHand ?? 0.0) - (item.committedStock ?? 0.0),
+        ),
       ],
     );
   }
@@ -346,8 +403,11 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
         ),
         const SizedBox(height: 16),
         _buildStockMiniRow('Stock on Hand', item.stockOnHand ?? 0.0),
-        _buildStockMiniRow('Committed Stock', 0.0),
-        _buildStockMiniRow('Available for Sale', item.stockOnHand ?? 0.0),
+        _buildStockMiniRow('Committed Stock', item.committedStock ?? 0.0),
+        _buildStockMiniRow(
+          'Available for Sale',
+          (item.stockOnHand ?? 0.0) - (item.committedStock ?? 0.0),
+        ),
       ],
     );
   }
@@ -361,10 +421,26 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
       crossAxisSpacing: 12,
       childAspectRatio: 1.6,
       children: [
-        _buildStockStatusCard('0', 'Qty', 'To be Shipped'),
-        _buildStockStatusCard('0', 'Qty', 'To be Received'),
-        _buildStockStatusCard('0', 'Qty', 'To be Invoiced'),
-        _buildStockStatusCard('0', 'Qty', 'To be Billed'),
+        _buildStockStatusCard(
+          _formatStatsValue(item.toBeShipped),
+          'Qty',
+          'To be Shipped',
+        ),
+        _buildStockStatusCard(
+          _formatStatsValue(item.toBeReceived),
+          'Qty',
+          'To be Received',
+        ),
+        _buildStockStatusCard(
+          _formatStatsValue(item.toBeInvoiced),
+          'Qty',
+          'To be Invoiced',
+        ),
+        _buildStockStatusCard(
+          _formatStatsValue(item.toBeBilled),
+          'Qty',
+          'To be Billed',
+        ),
       ],
     );
   }
@@ -753,7 +829,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                               ),
                               const SizedBox(height: 4),
                               const Text(
-                                '₹0.00',
+                                'n/a',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Color(0xFF111827),
@@ -790,7 +866,11 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
     final RenderBox renderBox =
         key.currentContext!.findRenderObject() as RenderBox;
     final size = renderBox.size;
-    final offset = renderBox.localToGlobal(Offset.zero);
+
+    final overlay = Overlay.of(context);
+    final RenderBox overlayBox =
+        overlay.context.findRenderObject() as RenderBox;
+    final offset = renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
 
     _periodDropdownEntry?.remove();
     _periodDropdownEntry = OverlayEntry(

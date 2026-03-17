@@ -1,7 +1,7 @@
 part of '../items_item_detail.dart';
 
 extension _ItemDetailPriceLists on _ItemDetailScreenState {
-  Widget _buildAssociatedPriceLists() {
+  Widget _buildAssociatedPriceLists(ItemsState state) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -113,35 +113,8 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                   ),
                   const SizedBox(height: 12),
 
-                  // Empty state message
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: RichText(
-                        textAlign: TextAlign.center,
-                        text: TextSpan(
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF6B7280),
-                          ),
-                          children: [
-                            TextSpan(
-                              text: _selectedPriceListTab == 0
-                                  ? 'The sales price lists associated with this item will be displayed here. '
-                                  : 'The purchase price lists associated with this item will be displayed here. ',
-                            ),
-                            TextSpan(
-                              text: 'Create Price List',
-                              style: const TextStyle(
-                                color: Color(0xFF2563EB),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  // Price List Rows
+                  _buildPriceListRows(state),
 
                   const SizedBox(height: 8),
 
@@ -208,173 +181,305 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
     );
   }
 
-  void _showAssociatePriceListDialog() {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
-      builder: (context) => Stack(
-        children: [
-          Positioned(
-            top: 0,
-            left:
-                MediaQuery.of(context).size.width / 2 -
-                190, // Center horizontally (380/2 = 190)
-            child: Material(
-              color: Colors.transparent,
-              child: Dialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+  Widget _buildPriceListRows(ItemsState state) {
+    final type = _selectedPriceListTab == 0 ? 'sales' : 'purchase';
+    final filtered = state.associatedPriceLists.where((assoc) {
+      final pl = assoc['price_lists'] as Map<String, dynamic>?;
+      if (pl == null) return false;
+      return pl['transaction_type']?.toString().toLowerCase() == type;
+    }).toList();
+
+    if (filtered.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              children: [
+                TextSpan(
+                  text: _selectedPriceListTab == 0
+                      ? 'The sales price lists associated with this item will be displayed here. '
+                      : 'The purchase price lists associated with this item will be displayed here. ',
                 ),
-                child: Container(
-                  width: 380,
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Associate Price List',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 20),
-                            onPressed: () => Navigator.of(context).pop(),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
+                const TextSpan(
+                  text: 'Create Price List',
+                  style: TextStyle(
+                    color: Color(0xFF2563EB),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
-                      // Label and Dropdown in same row
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const SizedBox(
-                            width: 110,
-                            child: Text(
-                              'Select Price List',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF374151),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: SizedBox(
-                              height: 36,
-                              child: DropdownButtonFormField<String>(
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF374151),
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'Select a Price List',
-                                  hintStyle: const TextStyle(fontSize: 12),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFFD1D5DB),
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFFD1D5DB),
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF2563EB),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                items: const [],
-                                onChanged: (value) {},
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+    return Column(
+      children: filtered.map((assoc) {
+        final pl = assoc['price_lists'] as Map<String, dynamic>;
+        final name = pl['name'] ?? 'Unnamed';
+        final rate = assoc['custom_rate'] ?? 'N/A';
+        final discount = assoc['discount_percentage'] ?? '0.00%';
 
-                      const SizedBox(height: 16),
-
-                      // Buttons - Save first, then Cancel
-                      Row(
-                        children: [
-                          ElevatedButton(
-                            onPressed: () {
-                              // Handle save
-                              Navigator.of(context).pop();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF10B981),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 9,
-                              ),
-                            ),
-                            child: const Text(
-                              'Save',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          OutlinedButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF374151),
-                              side: const BorderSide(color: Color(0xFFD1D5DB)),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 9,
-                              ),
-                            ),
-                            child: const Text(
-                              'Cancel',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF374151),
                   ),
                 ),
               ),
-            ),
+              Expanded(
+                child: Text(
+                  rate.toString(),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF374151),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  discount.toString(),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF374151),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _showAssociatePriceListDialog() {
+    String? selectedId;
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setPopupState) {
+            final state = ref.watch(itemsControllerProvider);
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(color: Colors.transparent),
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  left: MediaQuery.of(context).size.width / 2 - 190,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Dialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Container(
+                        width: 380,
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Associate Price List',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 20),
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const SizedBox(
+                                  width: 110,
+                                  child: Text(
+                                    'Select Price List',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFF374151),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 36,
+                                    child: DropdownButtonFormField<String>(
+                                      initialValue: selectedId,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF374151),
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: 'Select a Price List',
+                                        hintStyle: const TextStyle(
+                                          fontSize: 12,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFFD1D5DB),
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFFD1D5DB),
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFF2563EB),
+                                          ),
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
+                                      ),
+                                      items: state.priceLists.map((pl) {
+                                        return DropdownMenuItem<String>(
+                                          value: pl['id']?.toString(),
+                                          child: Text(
+                                            pl['name'] ?? 'Unnamed',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        setPopupState(() {
+                                          selectedId = value;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    if (selectedId != null) {
+                                      final success = await ref
+                                          .read(
+                                            itemsControllerProvider.notifier,
+                                          )
+                                          .associatePriceList(
+                                            productId: widget.itemId!,
+                                            priceListId: selectedId!,
+                                          );
+                                      if (success && mounted) {
+                                        Navigator.of(context).pop();
+                                      }
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF10B981),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 9,
+                                    ),
+                                  ),
+                                  child: state.isSaving
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Save',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                ),
+                                const SizedBox(width: 12),
+                                OutlinedButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF374151),
+                                    side: const BorderSide(
+                                      color: Color(0xFFD1D5DB),
+                                    ),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 9,
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Cancel',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

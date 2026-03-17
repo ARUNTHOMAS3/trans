@@ -28,6 +28,8 @@ class ChartOfAccountsState {
   final bool showParentName;
   final bool isTextWrapped;
   final List<String> columnOrder;
+  final bool isBackendSearch;
+  final List<AccountNode> backendSearchResults;
   final AccountMetadata accountMetadata;
 
   const ChartOfAccountsState({
@@ -59,6 +61,8 @@ class ChartOfAccountsState {
       'parent',
       'balance',
     ],
+    this.isBackendSearch = false,
+    this.backendSearchResults = const [],
     this.accountMetadata = const AccountMetadata(),
   });
 
@@ -85,6 +89,8 @@ class ChartOfAccountsState {
     bool? showParentName,
     bool? isTextWrapped,
     List<String>? columnOrder,
+    bool? isBackendSearch,
+    List<AccountNode>? backendSearchResults,
     AccountMetadata? accountMetadata,
   }) {
     return ChartOfAccountsState(
@@ -109,11 +115,16 @@ class ChartOfAccountsState {
       showParentName: showParentName ?? this.showParentName,
       isTextWrapped: isTextWrapped ?? this.isTextWrapped,
       columnOrder: columnOrder ?? this.columnOrder,
+      isBackendSearch: isBackendSearch ?? this.isBackendSearch,
+      backendSearchResults: backendSearchResults ?? this.backendSearchResults,
       accountMetadata: accountMetadata ?? this.accountMetadata,
     );
   }
 
   List<AccountNode> get filteredRoots {
+    if (isBackendSearch) {
+      return backendSearchResults;
+    }
     List<AccountNode> results = roots;
 
     // 1. Filter by View
@@ -392,6 +403,33 @@ class ChartOfAccountsNotifier extends StateNotifier<ChartOfAccountsState> {
       advancedSearchCode: code ?? state.advancedSearchCode,
       selectedView: view ?? state.selectedView,
     );
+    // If we have a query and it's long enough, trigger backend search
+    if ((name?.length ?? 0) > 2 || (code?.length ?? 0) > 2) {
+      performBackendSearch(name ?? code ?? '');
+    }
+  }
+
+  Future<void> performBackendSearch(String query) async {
+    if (query.isEmpty) {
+      state = state.copyWith(
+        isBackendSearch: false,
+        backendSearchResults: [],
+      );
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, isBackendSearch: true);
+    try {
+      final results = await _repository.searchAccounts(query);
+      if (!mounted) return;
+      state = state.copyWith(
+        isLoading: false,
+        backendSearchResults: results,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(isLoading: false);
+    }
   }
 
   void clearAdvancedSearch() {
@@ -399,6 +437,8 @@ class ChartOfAccountsNotifier extends StateNotifier<ChartOfAccountsState> {
       advancedSearchName: '',
       advancedSearchCode: '',
       selectedView: 'All Accounts',
+      isBackendSearch: false,
+      backendSearchResults: [],
     );
   }
 

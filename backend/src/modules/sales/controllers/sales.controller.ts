@@ -1,9 +1,19 @@
 import { Controller, Get, Query, BadRequestException } from "@nestjs/common";
 import { HsnSacService } from "../services/hsn-sac.service";
+import { SalesService } from "../services/sales.service";
 
 @Controller("sales")
 export class SalesController {
-  constructor(private readonly hsnSacService: HsnSacService) {}
+  constructor(
+    private readonly hsnSacService: HsnSacService,
+    private readonly salesService: SalesService,
+  ) {}
+
+  @Get()
+  async getList(@Query("type") type: string) {
+    if (!type) throw new BadRequestException("Type is required");
+    return this.salesService.getSalesByType(type);
+  }
 
   @Get("hsn/search")
   async searchHsn(@Query("query") query: string) {

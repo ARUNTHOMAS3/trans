@@ -154,6 +154,8 @@ class ItemsState {
   final List<Map<String, dynamic>> buyingRules;
   final List<Map<String, dynamic>> drugSchedules;
   final List<CompositeItem> compositeItems;
+  final List<Map<String, dynamic>> priceLists;
+  final List<Map<String, dynamic>> associatedPriceLists;
 
   final String? selectedItemId;
 
@@ -189,6 +191,8 @@ class ItemsState {
     this.buyingRules = const [],
     this.drugSchedules = const [],
     this.compositeItems = const [],
+    this.priceLists = const [],
+    this.associatedPriceLists = const [],
     this.validationErrors = const {},
     this.lookupCache = const {},
   });
@@ -221,6 +225,8 @@ class ItemsState {
     List<Map<String, dynamic>>? buyingRules,
     List<Map<String, dynamic>>? drugSchedules,
     List<CompositeItem>? compositeItems,
+    List<Map<String, dynamic>>? priceLists,
+    List<Map<String, dynamic>>? associatedPriceLists,
     Map<String, String>? validationErrors,
     Map<String, String>? lookupCache,
   }) {
@@ -254,6 +260,8 @@ class ItemsState {
       buyingRules: buyingRules ?? this.buyingRules,
       drugSchedules: drugSchedules ?? this.drugSchedules,
       compositeItems: compositeItems ?? this.compositeItems,
+      priceLists: priceLists ?? this.priceLists,
+      associatedPriceLists: associatedPriceLists ?? this.associatedPriceLists,
       validationErrors: validationErrors ?? this.validationErrors,
       lookupCache: lookupCache ?? this.lookupCache,
     );

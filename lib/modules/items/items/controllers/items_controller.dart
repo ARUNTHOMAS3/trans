@@ -35,7 +35,12 @@ class ItemsController extends StateNotifier<ItemsState> {
   }
 
   Future<void> _initializeData() async {
-    await Future.wait([loadItems(), loadCompositeItems(), loadLookupData()]);
+    await Future.wait([
+      loadItems(),
+      loadCompositeItems(),
+      loadLookupData(),
+      loadAllPriceLists(),
+    ]);
   }
 
   Future<void> loadItems() async {
@@ -283,6 +288,34 @@ class ItemsController extends StateNotifier<ItemsState> {
     try {
       final stats = await repo.getQuickStats(itemId);
       _statsCache[itemId] = stats;
+
+      // Update the item in the state if it exists
+      final index = state.items.indexWhere((i) => i.id == itemId);
+      if (index != -1) {
+        final currentItem = state.items[index];
+        final updatedItem = currentItem.copyWith(
+          stockOnHand: double.tryParse(stats['current_stock']?.toString() ?? '0'),
+          committedStock:
+              double.tryParse(stats['committed_stock']?.toString() ?? '0'),
+          toBeShipped: stats['to_be_shipped'] != null
+              ? double.tryParse(stats['to_be_shipped'].toString())
+              : null,
+          toBeReceived: stats['to_be_received'] != null
+              ? double.tryParse(stats['to_be_received'].toString())
+              : null,
+          toBeInvoiced: stats['to_be_invoiced'] != null
+              ? double.tryParse(stats['to_be_invoiced'].toString())
+              : null,
+          toBeBilled: stats['to_be_billed'] != null
+              ? double.tryParse(stats['to_be_billed'].toString())
+              : null,
+        );
+
+        final newItems = List<Item>.from(state.items);
+        newItems[index] = updatedItem;
+        state = state.copyWith(items: newItems);
+      }
+
       return stats;
     } catch (e) {
       AppLogger.error(
@@ -430,6 +463,10 @@ class ItemsController extends StateNotifier<ItemsState> {
         uqcList: uqcList,
         isLoadingLookups: false,
       );
+      
+      // Load all price lists into state
+      await loadAllPriceLists();
+
       AppLogger.debug(
         'State updated with lookup data',
         module: 'items',
@@ -1691,6 +1728,66 @@ class ItemsController extends StateNotifier<ItemsState> {
     final newCache = _getUpdatedCache(item);
     if (!mapEquals(newCache, state.lookupCache)) {
       state = state.copyWith(lookupCache: newCache);
+    }
+  }
+
+  // =====================================
+  // PRICE LISTS
+  // =====================================
+
+  Future<void> loadAllPriceLists() async {
+    try {
+      final priceLists = await repo.getAllPriceLists();
+      state = state.copyWith(priceLists: priceLists);
+    } catch (e) {
+      AppLogger.error('Failed to load all price lists', error: e);
+    }
+  }
+
+  Future<void> fetchAssociatedPriceLists(String productId) async {
+    try {
+      state = state.copyWith(isLoading: true);
+      final associated = await repo.getAssociatedPriceLists(productId);
+      state = state.copyWith(
+        associatedPriceLists: associated,
+        isLoading: false,
+      );
+    } catch (e) {
+      AppLogger.error('Failed to fetch associated price lists', error: e);
+      state = state.copyWith(isLoading: false);
+    }
+  }
+
+  Future<bool> associatePriceList({
+    required String productId,
+    required String priceListId,
+    double? customRate,
+    double? discountPercentage,
+  }) async {
+    try {
+      state = state.copyWith(isSaving: true);
+      final result = await repo.associatePriceList(
+        productId: productId,
+        priceListId: priceListId,
+        customRate: customRate,
+        discountPercentage: discountPercentage,
+      );
+
+      if (result != null) {
+        // Refresh associated list
+        await fetchAssociatedPriceLists(productId);
+        state = state.copyWith(isSaving: false);
+        return true;
+      }
+      state = state.copyWith(isSaving: false);
+      return false;
+    } catch (e) {
+      AppLogger.error('Failed to associate price list', error: e);
+      state = state.copyWith(
+        isSaving: false,
+        error: "Failed to associate price list",
+      );
+      return false;
     }
   }
 }

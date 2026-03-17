@@ -1834,12 +1834,18 @@ export class ProductsService {
     const inventoryData = await db
       .select({
         stock: sql<number>`sum(${outletInventory.currentStock})::int`,
+        committed: sql<number>`sum(${outletInventory.reservedStock})::int`,
       })
       .from(outletInventory)
       .where(eq(outletInventory.productId, productId));
 
     return {
       current_stock: inventoryData[0]?.stock || 0,
+      committed_stock: inventoryData[0]?.committed || 0,
+      to_be_shipped: null, // Placeholder for future sales implementation
+      to_be_received: null, // Placeholder for future purchases implementation
+      to_be_invoiced: null, // Placeholder for future sales implementation
+      to_be_billed: null, // Placeholder for future purchases implementation
       last_purchase_price: productData.last_purchase_price || 0,
     };
   }

@@ -31,6 +31,31 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
   // PWA State
   bool _canInstall = false;
 
+  final Map<String, String> _categoryRoutes = {
+    'Customers': AppRoutes.salesCustomers,
+    'Items': AppRoutes.itemsReport,
+    'Composite Items': AppRoutes.compositeItems,
+    'Assemblies': AppRoutes.assemblies,
+    'Price Lists': AppRoutes.priceLists,
+    'Inventory Adjustments': AppRoutes.inventoryAdjustments,
+    'Transfer Orders': AppRoutes.transferOrders,
+    'Retainer Invoices': AppRoutes.salesRetainerInvoices,
+    'Sales Orders': AppRoutes.salesOrders,
+    'Invoices': AppRoutes.salesInvoices,
+    'Sales Returns': AppRoutes.salesReturns,
+    'Credit Notes': AppRoutes.salesCreditNotes,
+    'Vendors': AppRoutes.vendors,
+    'Purchase Orders': AppRoutes.purchaseOrders,
+    'Bills': AppRoutes.bills,
+    'Payments Made': AppRoutes.paymentsMade,
+    'Vendor Credits': AppRoutes.vendorCredits,
+    'Documents': AppRoutes.documents,
+    'Picklists': AppRoutes.picklists,
+    'Packages': AppRoutes.packages,
+    'Shipments': AppRoutes.shipments,
+    'Delivery Challans': AppRoutes.salesDeliveryChallans,
+  };
+
   final List<String> _searchCategories = [
     'Customers',
     'Items',
@@ -46,7 +71,6 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
     'Credit Notes',
     'Vendors',
     'Purchase Orders',
-    'Purchase Receives',
     'Bills',
     'Payments Made',
     'Vendor Credits',
@@ -376,7 +400,16 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
                   Expanded(
                     child: TextField(
                       onSubmitted: (value) {
-                        // swallowing Enter to prevent layout break on Web
+                        if (value.trim().isEmpty) return;
+                        final route = _categoryRoutes[_selectedCategory];
+                        if (route != null) {
+                          context.go(
+                            Uri(
+                              path: route,
+                              queryParameters: {'q': value.trim()},
+                            ).toString(),
+                          );
+                        }
                         FocusScope.of(context).unfocus();
                       },
                       textInputAction: TextInputAction.search,

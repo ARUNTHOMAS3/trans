@@ -107,6 +107,11 @@ class Item {
   final double? stockOnHand;
   final double? openingStock;
   final double? openingStockValue;
+  final double? committedStock;
+  final double? toBeShipped;
+  final double? toBeReceived;
+  final double? toBeInvoiced;
+  final double? toBeBilled;
 
   // eCommerce Fields
   final String? storageDescription;
@@ -203,6 +208,11 @@ class Item {
     this.stockOnHand = 0,
     this.openingStock = 0,
     this.openingStockValue = 0,
+    this.committedStock,
+    this.toBeShipped,
+    this.toBeReceived,
+    this.toBeInvoiced,
+    this.toBeBilled,
     this.storageDescription,
     this.about,
     this.usesDescription,
@@ -328,6 +338,21 @@ class Item {
       openingStockValue: json['opening_stock_value'] != null
           ? double.tryParse(json['opening_stock_value'].toString())
           : 0,
+      committedStock: json['committed_stock'] != null
+          ? double.tryParse(json['committed_stock'].toString())
+          : null,
+      toBeShipped: json['to_be_shipped'] != null
+          ? double.tryParse(json['to_be_shipped'].toString())
+          : null,
+      toBeReceived: json['to_be_received'] != null
+          ? double.tryParse(json['to_be_received'].toString())
+          : null,
+      toBeInvoiced: json['to_be_invoiced'] != null
+          ? double.tryParse(json['to_be_invoiced'].toString())
+          : null,
+      toBeBilled: json['to_be_billed'] != null
+          ? double.tryParse(json['to_be_billed'].toString())
+          : null,
       storageDescription: json['storage_description'],
       about: json['about'],
       usesDescription: json['uses_description'],
@@ -422,9 +447,14 @@ class Item {
       'is_active': isActive,
       'is_lock': isLock,
       'compositions': compositions?.map((c) => c.toJson()).toList(),
-      if (stockOnHand != null) 'stock_on_hand': stockOnHand,
-      if (openingStock != null) 'opening_stock': openingStock,
-      if (openingStockValue != null) 'opening_stock_value': openingStockValue,
+      'stock_on_hand': stockOnHand,
+      'opening_stock': openingStock,
+      'opening_stock_value': openingStockValue,
+      'committed_stock': committedStock,
+      'to_be_shipped': toBeShipped,
+      'to_be_received': toBeReceived,
+      'to_be_invoiced': toBeInvoiced,
+      'to_be_billed': toBeBilled,
       if (storageDescription != null) 'storage_description': storageDescription,
       if (about != null) 'about': about,
       if (usesDescription != null) 'uses_description': usesDescription,
@@ -499,8 +529,14 @@ class Item {
     bool? isActive,
     bool? isLock,
     List<ItemComposition>? compositions,
+    double? stockOnHand,
     double? openingStock,
     double? openingStockValue,
+    double? committedStock,
+    double? toBeShipped,
+    double? toBeReceived,
+    double? toBeInvoiced,
+    double? toBeBilled,
     String? storageDescription,
     String? about,
     String? usesDescription,
@@ -578,6 +614,11 @@ class Item {
       stockOnHand: stockOnHand ?? this.stockOnHand,
       openingStock: openingStock ?? this.openingStock,
       openingStockValue: openingStockValue ?? this.openingStockValue,
+      committedStock: committedStock ?? this.committedStock,
+      toBeShipped: toBeShipped ?? this.toBeShipped,
+      toBeReceived: toBeReceived ?? this.toBeReceived,
+      toBeInvoiced: toBeInvoiced ?? this.toBeInvoiced,
+      toBeBilled: toBeBilled ?? this.toBeBilled,
       storageDescription: storageDescription ?? this.storageDescription,
       about: about ?? this.about,
       usesDescription: usesDescription ?? this.usesDescription,

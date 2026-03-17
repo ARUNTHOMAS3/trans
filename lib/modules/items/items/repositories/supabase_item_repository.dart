@@ -144,4 +144,31 @@ class SupabaseItemRepository implements ItemRepository {
       return {'current_stock': 0, 'last_purchase_price': 0.0};
     }
   }
+
+  @override
+  Future<List<Map<String, dynamic>>> getAssociatedPriceLists(
+    String productId,
+  ) async {
+    return await _apiService.getAssociatedPriceLists(productId);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getAllPriceLists() async {
+    return await _apiService.getAllPriceLists();
+  }
+
+  @override
+  Future<Map<String, dynamic>?> associatePriceList({
+    required String productId,
+    required String priceListId,
+    double? customRate,
+    double? discountPercentage,
+  }) async {
+    return await _apiService.associatePriceList(
+      productId: productId,
+      priceListId: priceListId,
+      customRate: customRate,
+      discountPercentage: discountPercentage,
+    );
+  }
 }

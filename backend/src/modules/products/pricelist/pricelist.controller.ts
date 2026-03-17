@@ -107,4 +107,52 @@ export class PriceListController {
     if (error) throw error;
     return { data };
   }
+
+  @Get("product/:productId")
+  async findByProduct(@Param("productId") productId: string) {
+    try {
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .from("price_list_items")
+        .select(`
+          id,
+          custom_rate,
+          discount_percentage,
+          price_lists (
+            id,
+            name,
+            currency,
+            transaction_type,
+            pricing_scheme
+          )
+        `)
+        .eq("product_id", productId);
+
+      if (error) {
+        console.error("Supabase Error (findByProduct):", error);
+        throw error;
+      }
+      return { data };
+    } catch (e) {
+      console.error("Exception in findByProduct:", e);
+      throw new InternalServerErrorException(e.message);
+    }
+  }
+
+  @Post("associate")
+  async associate(@Body() body: { product_id: string; price_list_id: string; custom_rate?: number; discount_percentage?: number }) {
+    try {
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .from("price_list_items")
+        .insert(body)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data };
+    } catch (e) {
+      throw new InternalServerErrorException(e.message);
+    }
+  }
 }

@@ -481,25 +481,25 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
             style: TextStyle(color: AppTheme.textPrimary, fontSize: 13),
           ),
           const Spacer(),
-          TextButton(
-            onPressed: () => notifier.toggleSelectAll(),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              minimumSize: Size.zero,
-            ),
-            child: Row(
-              children: [
-                const Text(
-                  'Esc',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+          Tooltip(
+            message: 'Clear selection',
+            child: InkWell(
+              onTap: () => notifier.toggleSelectAll(),
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  color: AppTheme.errorRed.withValues(alpha: 0.06),
                 ),
-                const SizedBox(width: 4),
-                Icon(
+                child: Icon(
                   LucideIcons.x,
-                  size: 18,
-                  color: AppTheme.errorRed.withValues(alpha: 0.7),
+                  size: 16,
+                  color: AppTheme.errorRed.withValues(alpha: 0.85),
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -1080,9 +1080,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
           ),
           if (useFixed)
             Expanded(
-              child: Row(
-                children: visibleOrder.map(buildHeaderFor).toList(),
-              ),
+              child: Row(children: visibleOrder.map(buildHeaderFor).toList()),
             ),
           const VerticalDivider(width: 1, color: AppTheme.borderColor),
           SizedBox(
@@ -2058,11 +2056,16 @@ class _AccountTableWidths {
     final double wCode = math.max(minCode, unit * codeWeight);
     final double wBalance = math.max(minBalance, unit * balanceWeight);
     final double wType = math.max(minType, unit * typeWeight);
-    final double wDocs = showDocuments ? math.max(minDocs, unit * docsWeight) : 0;
-    final double wParent = showParentName ? math.max(minParent, unit * parentWeight) : 0;
+    final double wDocs = showDocuments
+        ? math.max(minDocs, unit * docsWeight)
+        : 0;
+    final double wParent = showParentName
+        ? math.max(minParent, unit * parentWeight)
+        : 0;
 
     // FINAL TOTAL: sum of all parts (prevents internal Row overflows)
-    final double finalTotal = reserved + wName + wCode + wBalance + wType + wDocs + wParent;
+    final double finalTotal =
+        reserved + wName + wCode + wBalance + wType + wDocs + wParent;
 
     return _AccountTableWidths(
       name: wName,

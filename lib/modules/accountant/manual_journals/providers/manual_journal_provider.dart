@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/api/dio_client.dart';
+import '../../../../shared/utils/error_handler.dart';
 import '../../../auth/controller/auth_controller.dart';
 import '../models/manual_journal_model.dart';
 import '../repositories/manual_journal_repository.dart';
@@ -134,7 +135,10 @@ class ManualJournalNotifier extends StateNotifier<ManualJournalState> {
       state = state.copyWith(journals: journals, isLoading: false);
     } catch (e) {
       if (!mounted) return;
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: ErrorHandler.getFriendlyMessage(e),
+      );
     }
   }
 
@@ -174,7 +178,7 @@ class ManualJournalNotifier extends StateNotifier<ManualJournalState> {
       final newFailedSet = Set<String>.from(state.failedJournalIds)..add(id);
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: ErrorHandler.getFriendlyMessage(e),
         failedJournalIds: newFailedSet,
       );
     }
@@ -194,7 +198,10 @@ class ManualJournalNotifier extends StateNotifier<ManualJournalState> {
       return created;
     } catch (e) {
       if (!mounted) rethrow;
-      state = state.copyWith(isMutating: false, error: e.toString());
+      state = state.copyWith(
+        isMutating: false,
+        error: ErrorHandler.getFriendlyMessage(e),
+      );
       rethrow;
     }
   }
@@ -210,7 +217,10 @@ class ManualJournalNotifier extends StateNotifier<ManualJournalState> {
       return updated;
     } catch (e) {
       if (!mounted) rethrow;
-      state = state.copyWith(isMutating: false, error: e.toString());
+      state = state.copyWith(
+        isMutating: false,
+        error: ErrorHandler.getFriendlyMessage(e),
+      );
       rethrow;
     }
   }
@@ -229,7 +239,10 @@ class ManualJournalNotifier extends StateNotifier<ManualJournalState> {
       return updated;
     } catch (e) {
       if (!mounted) rethrow;
-      state = state.copyWith(isMutating: false, error: e.toString());
+      state = state.copyWith(
+        isMutating: false,
+        error: ErrorHandler.getFriendlyMessage(e),
+      );
       rethrow;
     }
   }
@@ -247,7 +260,10 @@ class ManualJournalNotifier extends StateNotifier<ManualJournalState> {
       state = state.copyWith(isMutating: false);
     } catch (e) {
       if (!mounted) rethrow;
-      state = state.copyWith(isMutating: false, error: e.toString());
+      state = state.copyWith(
+        isMutating: false,
+        error: ErrorHandler.getFriendlyMessage(e),
+      );
       rethrow;
     }
   }
@@ -276,7 +292,10 @@ class ManualJournalNotifier extends StateNotifier<ManualJournalState> {
       state = state.copyWith(isMutating: false);
     } catch (e) {
       if (!mounted) return;
-      state = state.copyWith(isMutating: false, error: e.toString());
+      state = state.copyWith(
+        isMutating: false,
+        error: ErrorHandler.getFriendlyMessage(e),
+      );
       rethrow;
     }
   }
@@ -300,7 +319,10 @@ class ManualJournalNotifier extends StateNotifier<ManualJournalState> {
       state = state.copyWith(isMutating: false);
     } catch (e) {
       if (!mounted) return;
-      state = state.copyWith(isMutating: false, error: e.toString());
+      state = state.copyWith(
+        isMutating: false,
+        error: ErrorHandler.getFriendlyMessage(e),
+      );
       rethrow;
     }
   }
@@ -315,7 +337,10 @@ class ManualJournalNotifier extends StateNotifier<ManualJournalState> {
       return created;
     } catch (e) {
       if (!mounted) rethrow;
-      state = state.copyWith(isMutating: false, error: e.toString());
+      state = state.copyWith(
+        isMutating: false,
+        error: ErrorHandler.getFriendlyMessage(e),
+      );
       rethrow;
     }
   }
@@ -330,7 +355,10 @@ class ManualJournalNotifier extends StateNotifier<ManualJournalState> {
       return reversed;
     } catch (e) {
       if (!mounted) rethrow;
-      state = state.copyWith(isMutating: false, error: e.toString());
+      state = state.copyWith(
+        isMutating: false,
+        error: ErrorHandler.getFriendlyMessage(e),
+      );
       rethrow;
     }
   }
@@ -344,7 +372,10 @@ class ManualJournalNotifier extends StateNotifier<ManualJournalState> {
       return template;
     } catch (e) {
       if (!mounted) rethrow;
-      state = state.copyWith(isMutating: false, error: e.toString());
+      state = state.copyWith(
+        isMutating: false,
+        error: ErrorHandler.getFriendlyMessage(e),
+      );
       rethrow;
     }
   }

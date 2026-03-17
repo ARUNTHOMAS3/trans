@@ -69,6 +69,43 @@ class _ChartOfAccountsCreationPageState
     return 'Assets';
   }
 
+  List<String> _buildAccountTypeDropdownItems(
+    AccountMetadata metadata, {
+    required bool isEditMode,
+    String query = '',
+  }) {
+    final normalizedQuery = query.trim().toLowerCase();
+    final items = <String>[];
+
+    bool isAllowedType(String type) {
+      return (type != 'Accounts Payable' &&
+              type != 'Accounts Receivable' &&
+              type != 'Construction Loans' &&
+              type != 'Mortgages' &&
+              type != 'Home Equity Loans') ||
+          (isEditMode && _selectedType == type);
+    }
+
+    for (final group in metadata.groupToTypes.keys) {
+      final allowedTypes = metadata.groupToTypes[group]!
+          .where(isAllowedType)
+          .where(
+            (type) =>
+                normalizedQuery.isEmpty ||
+                type.toLowerCase().contains(normalizedQuery) ||
+                group.toLowerCase().contains(normalizedQuery),
+          )
+          .toList();
+
+      if (allowedTypes.isEmpty) continue;
+
+      items.add('HEADER:$group');
+      items.addAll(allowedTypes);
+    }
+
+    return items;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -243,7 +280,8 @@ class _ChartOfAccountsCreationPageState
 
     // Duplicate name check (case-insensitive, ignores spaces/underscores/etc).
     final enteredNameNorm = _norm(name);
-    final isDuplicateName = enteredNameNorm.isNotEmpty &&
+    final isDuplicateName =
+        enteredNameNorm.isNotEmpty &&
         allAccounts.any((a) {
           if (_editingAccount != null && a.id == _editingAccount!.id) {
             return false;
@@ -341,11 +379,11 @@ class _ChartOfAccountsCreationPageState
         : _codeController.text.trim();
     // Safety guard (CREATE only): Bank and Credit Card must never be sub-accounts,
     // even if the UI state was somehow left in a stale _isSubAccount = true condition.
-    final bool _createForcesNoParent = _editingAccount == null &&
+    final bool _createForcesNoParent =
+        _editingAccount == null &&
         (accountType == 'Bank' ||
             accountType == 'Credit Card' ||
             accountType == 'Other Income' ||
-            accountType == 'Other Liability' ||
             accountType == 'Accounts Receivable');
     final String? parentId = (_isSubAccount && !_createForcesNoParent)
         ? _parentAccountId
@@ -525,16 +563,12 @@ class _ChartOfAccountsCreationPageState
                 'Deferred Tax Liability',
                 'Overseas Tax Payable',
                 'Other Income',
-                'Other Liability',
                 'Accounts Receivable',
               ].contains(accType) ||
-              [
-                'Shipping Charge',
-              ].contains(sysName))
-        : !metadata.nonSubAccountableTypes.contains(_selectedType) &&
-            _selectedType != 'Other Income' &&
-            _selectedType != 'Other Liability' &&
-            _selectedType != 'Accounts Receivable';
+              ['Shipping Charge'].contains(sysName))
+        : !metadata.nonSubAccountableTypes.contains(_selectedType) ||
+              _selectedType == 'Other Liability' ||
+              _selectedType == 'Accounts Receivable';
 
     // 4. Parent Lock: Certain system accounts (Tax components) cannot have their parents moved.
     final bool isParentLocked =
@@ -695,10 +729,9 @@ class _ChartOfAccountsCreationPageState
                                       ),
                                     ),
                                     GestureDetector(
-                                      onTap:
-                                          () => setState(
-                                            () => _formErrorMessage = null,
-                                          ),
+                                      onTap: () => setState(
+                                        () => _formErrorMessage = null,
+                                      ),
                                       child: const Icon(
                                         LucideIcons.x,
                                         size: 14,
@@ -719,7 +752,7 @@ class _ChartOfAccountsCreationPageState
                                   : hasTransactions
                                   ? 'This account has existing transactions and its type cannot be changed.'
                                   : metadata.typeDefinitions[_selectedType] ??
-                                      'This is a system account and its type cannot be modified.',
+                                        'This is a system account and its type cannot be modified.',
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -727,34 +760,16 @@ class _ChartOfAccountsCreationPageState
                                     value: _selectedType,
                                     showSearch: true,
                                     enabled: !isTypeLocked,
-                                    items: [
-                                      for (var group
-                                          in metadata.groupToTypes.keys) ...[
-                                        if (metadata.groupToTypes[group]!.any(
-                                          (t) =>
-                                              (t != 'Accounts Payable' &&
-                                                  t != 'Accounts Receivable' &&
-                                                  t != 'Construction Loans' &&
-                                                  t != 'Mortgages' &&
-                                                  t != 'Home Equity Loans') ||
-                                              (isEditMode &&
-                                                  _selectedType == t),
-                                        )) ...[
-                                          'HEADER:$group',
-                                          ...metadata.groupToTypes[group]!.where(
-                                            (t) =>
-                                                (t != 'Accounts Payable' &&
-                                                    t !=
-                                                        'Accounts Receivable' &&
-                                                    t != 'Construction Loans' &&
-                                                    t != 'Mortgages' &&
-                                                    t != 'Home Equity Loans') ||
-                                                (isEditMode &&
-                                                    _selectedType == t),
-                                          ),
-                                        ],
-                                      ],
-                                    ],
+                                    items: _buildAccountTypeDropdownItems(
+                                      metadata,
+                                      isEditMode: isEditMode,
+                                    ),
+                                    onSearch: (query) async =>
+                                        _buildAccountTypeDropdownItems(
+                                          metadata,
+                                          isEditMode: isEditMode,
+                                          query: query,
+                                        ),
                                     hint: 'Select Account Type',
                                     isItemEnabled: (item) =>
                                         !item.startsWith('HEADER:'),

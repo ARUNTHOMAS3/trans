@@ -34,6 +34,14 @@ abstract class ItemRepository {
   Future<List<BatchData>> getItemBatches(String itemId);
   Future<List<TransactionData>> getItemStockTransactions(String itemId);
   Future<Map<String, dynamic>> getQuickStats(String itemId);
+  Future<List<Map<String, dynamic>>> getAssociatedPriceLists(String productId);
+  Future<List<Map<String, dynamic>>> getAllPriceLists();
+  Future<Map<String, dynamic>?> associatePriceList({
+    required String productId,
+    required String priceListId,
+    double? customRate,
+    double? discountPercentage,
+  });
 }
 
 // Mock repo for development
@@ -181,5 +189,27 @@ class MockItemRepository implements ItemRepository {
   @override
   Future<Map<String, dynamic>> getQuickStats(String itemId) async {
     return {'current_stock': 0, 'last_purchase_price': 0};
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getAssociatedPriceLists(
+    String productId,
+  ) async {
+    return [];
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getAllPriceLists() async {
+    return [];
+  }
+
+  @override
+  Future<Map<String, dynamic>?> associatePriceList({
+    required String productId,
+    required String priceListId,
+    double? customRate,
+    double? discountPercentage,
+  }) async {
+    return null;
   }
 }

@@ -74,6 +74,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   // Edit mode - stores the item being edited
   Item? editingItem;
   bool isEditMode = false;
+  bool _isHydratingInitialItem = false;
 
   // Ghost Draft
   static const _draftKey = 'item_create';
@@ -283,24 +284,45 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
         _initializeWithItem(widget.item!, isClone: widget.isClone);
       }
 
+      await _hydrateInitialItem(forceRefresh: true);
+    } else if (widget.item != null) {
+      // New item but with initial data
+      _initializeWithItem(widget.item!, isClone: widget.isClone);
+    }
+  }
+
+  Future<void> _hydrateInitialItem({bool forceRefresh = false}) async {
+    final itemId = widget.itemId ?? widget.item?.id;
+    if (itemId == null ||
+        _isHydratingInitialItem ||
+        editingItem?.id == itemId ||
+        !mounted) {
+      return;
+    }
+
+    final controller = ref.read(itemsControllerProvider.notifier);
+    setState(() => _isHydratingInitialItem = true);
+
+    try {
       final freshItem = await controller.ensureItemLoaded(
         itemId,
-        forceRefresh: true,
+        forceRefresh: forceRefresh,
       );
 
-      if (freshItem != null && mounted) {
-        // Wait a frame to ensure state/lookupCache is propagated
+      if (!mounted) return;
+
+      if (freshItem != null) {
         await Future.delayed(Duration.zero);
         if (mounted) {
           _initializeWithItem(freshItem, isClone: widget.isClone);
         }
-      } else if (widget.item != null && mounted) {
-        // Fallback to initial row if fetch fails
+      } else if (widget.item != null) {
         _initializeWithItem(widget.item!, isClone: widget.isClone);
       }
-    } else if (widget.item != null) {
-      // New item but with initial data
-      _initializeWithItem(widget.item!, isClone: widget.isClone);
+    } finally {
+      if (mounted) {
+        setState(() => _isHydratingInitialItem = false);
+      }
     }
   }
 
@@ -573,12 +595,52 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   Widget build(BuildContext context) {
     final itemsState = ref.watch(itemsControllerProvider);
     final itemsController = ref.read(itemsControllerProvider.notifier);
+    final isDirectEditLoadPending =
+        widget.itemId != null && editingItem == null && !widget.isClone;
 
-    // Deep link loading: If we should be editing but have no items yet, show loading
-    if (widget.itemId != null && editingItem == null && itemsState.isLoading) {
+    if (isDirectEditLoadPending &&
+        !_isHydratingInitialItem &&
+        !itemsState.isLoading &&
+        !itemsState.isLoadingLookups &&
+        itemsState.error == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _hydrateInitialItem();
+      });
+    }
+
+    if (isDirectEditLoadPending && itemsState.error == null) {
       return const ZerpaiLayout(
         pageTitle: 'Loading Item...',
         child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (isDirectEditLoadPending && itemsState.error != null) {
+      return ZerpaiLayout(
+        pageTitle: 'Loading Item...',
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                itemsState.error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16, color: Color(0xFF374151)),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => _hydrateInitialItem(forceRefresh: true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 

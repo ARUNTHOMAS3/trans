@@ -809,9 +809,6 @@ export class AccountantService {
         "Purchase Discounts",
         "Salaries and Employee Wages",
         "Uncategorized",
-        "Other Income",
-        "Other Liability",
-        "Accounts Receivable",
         "Late Fee Income",
         "Reverse Charge Tax Input but not due",
         "Exchange Gain or Loss",
@@ -1161,7 +1158,8 @@ export class AccountantService {
             userAccountName: account.userAccountName,
             systemAccountName: account.systemAccountName,
           },
-          contactName: sql<string>`COALESCE(${customer.displayName}, ${vendor.displayName}, ${accountsManualJournalItems.contactName})`,
+          customerName: customer.displayName,
+          vendorName: vendor.displayName,
         })
         .from(accountsManualJournals)
         .innerJoin(
@@ -1211,7 +1209,8 @@ export class AccountantService {
         journalsMap.get(jId).items.push({
           ...row.item,
           account: row.account,
-          contact_name: row.contactName,
+          contact_name:
+            row.customerName || row.vendorName || row.item.contactName || "",
         });
       }
 
@@ -1237,7 +1236,8 @@ export class AccountantService {
             userAccountName: account.userAccountName,
             systemAccountName: account.systemAccountName,
           },
-          contactName: sql<string>`COALESCE(${customer.displayName}, ${vendor.displayName}, ${accountsManualJournalItems.contactName})`,
+          customerName: customer.displayName,
+          vendorName: vendor.displayName,
         })
         .from(accountsManualJournals)
         .innerJoin(
@@ -1279,7 +1279,8 @@ export class AccountantService {
         items: rows.map((row) => ({
           ...row.item,
           account: row.account,
-          contact_name: row.contactName,
+          contact_name:
+            row.customerName || row.vendorName || row.item.contactName || "",
         })),
       };
 
@@ -1633,7 +1634,7 @@ export class AccountantService {
         .select("file_path")
         .eq("manual_journal_id", id);
 
-      // 2. Soft-delete: set is_deleted = true (record stays in DB for audit)
+      // 2. Hard-delete the journal. Child items and attachment rows cascade.
       const whereClause: any[] = [eq(accountsManualJournals.id, id)];
       if (orgId) whereClause.push(eq(accountsManualJournals.orgId, orgId));
 
@@ -1642,7 +1643,7 @@ export class AccountantService {
         .set({ isDeleted: true, updatedAt: new Date() })
         .where(and(...whereClause));
 
-      // 3. Cleanup R2 attachment files (DB rows stay for audit)
+      // 3. Cleanup R2 attachment files (DB rows stay for audit).
       if (attachments && attachments.length > 0) {
         for (const att of attachments) {
           await this.r2StorageService.deleteFile(att.file_path);
