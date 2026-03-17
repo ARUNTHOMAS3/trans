@@ -182,7 +182,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
 
     if (item == null) {
       if (effectiveId != null &&
-          !state.isLoading &&
+          !state.isHydratingItem &&
           !_isLoadingItem &&
           state.error == null) {
         _isLoadingItem = true;
@@ -196,7 +196,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
     }
 
     Widget contentArea;
-    if (state.isLoading && item == null) {
+    if ((state.isHydratingItem || _isLoadingItem) && item == null) {
       contentArea = const DetailContentSkeleton();
     } else if (state.error != null && item == null) {
       contentArea = Center(

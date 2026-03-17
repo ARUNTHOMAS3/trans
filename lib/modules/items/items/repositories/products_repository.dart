@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:zerpai_erp/modules/items/items/services/products_api_service.dart';
-import 'package:zerpai_erp/shared/services/hive_service.dart';
+import 'package:zerpai_erp/core/services/hive_service.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 
 class ProductsRepository {

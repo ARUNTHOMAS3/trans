@@ -1,7 +1,7 @@
 // PATH: lib/modules/auth/controller/auth_controller.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import '../models/auth_state.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
@@ -10,18 +10,18 @@ class AuthController extends StateNotifier<AuthState> {
   final AuthRepository _authRepository;
 
   AuthController({required AuthRepository authRepository})
-      : _authRepository = authRepository,
-        super(AuthInitial());
+    : _authRepository = authRepository,
+      super(AuthInitial());
 
   /// Login user
   Future<void> login(String email, String password) async {
     state = AuthLoading();
-    
+
     try {
       final result = await _authRepository.login(email, password);
       final user = result['user'] as User;
       final token = result['token'] as String;
-      
+
       state = Authenticated(user: user, token: token);
     } catch (e) {
       state = Unauthenticated(errorMessage: e.toString());
@@ -31,7 +31,7 @@ class AuthController extends StateNotifier<AuthState> {
   /// Logout user
   Future<void> logout() async {
     state = AuthLoading();
-    
+
     try {
       await _authRepository.logout();
       state = Unauthenticated();
@@ -81,17 +81,17 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> checkAuthStatus() async {
     try {
       final isAuthenticated = await _authRepository.isAuthenticated();
-      
+
       if (isAuthenticated) {
         final user = await _authRepository.getCurrentUser();
         final token = await _authRepository.getToken();
-        
+
         if (user != null && token != null) {
           state = Authenticated(user: user, token: token);
           return;
         }
       }
-      
+
       state = Unauthenticated();
     } catch (e) {
       state = Unauthenticated();
@@ -104,10 +104,7 @@ class AuthController extends StateNotifier<AuthState> {
       final newToken = await _authRepository.refreshToken();
       if (newToken != null && state is Authenticated) {
         final authenticatedState = state as Authenticated;
-        state = Authenticated(
-          user: authenticatedState.user,
-          token: newToken,
-        );
+        state = Authenticated(user: authenticatedState.user, token: newToken);
       }
     } catch (e) {
       // Token refresh failed, logout user
@@ -122,10 +119,12 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(apiClient: apiClient);
 });
 
-final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
-  final authRepository = ref.read(authRepositoryProvider);
-  return AuthController(authRepository: authRepository);
-});
+final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
+  (ref) {
+    final authRepository = ref.read(authRepositoryProvider);
+    return AuthController(authRepository: authRepository);
+  },
+);
 
 // Utility providers for easy access
 final authUserProvider = Provider<User?>((ref) {

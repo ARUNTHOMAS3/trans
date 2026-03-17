@@ -1,8 +1,8 @@
 // FILE: lib/modules/inventory/repositories/adjustments_repository.dart
 // Repository pattern for Inventory Adjustments - Online-first with offline fallback (PRD Section 12.2)
 
-import 'package:zerpai_erp/shared/services/hive_service.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/hive_service.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/inventory/models/inventory_adjustment_model.dart';
 
@@ -21,17 +21,17 @@ class AdjustmentsRepository {
     try {
       // Online-first: Fetch from API
       final response = await _apiClient.get('/inventory-adjustments');
-      
+
       final List<InventoryAdjustment> adjustments = (response.data as List)
           .map((json) => InventoryAdjustment.fromJson(json))
           .toList();
-      
+
       // Cache to Hive for offline access
       await _hiveService.saveAdjustments(adjustments);
-      
+
       // Update last sync timestamp
       await _hiveService.updateLastSyncTime('adjustments');
-      
+
       return adjustments;
     } catch (e) {
       // Offline fallback: Return cached data
@@ -40,13 +40,13 @@ class AdjustmentsRepository {
         error: e,
         module: 'adjustments',
       );
-      
+
       final cachedAdjustments = _hiveService.getAdjustments();
-      
+
       if (cachedAdjustments.isEmpty) {
         rethrow;
       }
-      
+
       return cachedAdjustments;
     }
   }
@@ -58,12 +58,12 @@ class AdjustmentsRepository {
     if (cached != null) {
       return cached;
     }
-    
+
     // Not in cache, fetch from API
     try {
       final response = await _apiClient.get('/inventory-adjustments/$id');
       final adjustment = InventoryAdjustment.fromJson(response.data);
-      
+
       await _hiveService.saveAdjustment(adjustment);
       return adjustment;
     } catch (e) {
@@ -87,10 +87,10 @@ class AdjustmentsRepository {
         data: adjustmentData.toJson(),
       );
       final createdAdjustment = InventoryAdjustment.fromJson(response.data);
-      
+
       // Cache locally
       await _hiveService.saveAdjustment(createdAdjustment);
-      
+
       return createdAdjustment;
     } catch (e) {
       AppLogger.error(
@@ -113,10 +113,10 @@ class AdjustmentsRepository {
         data: adjustmentData.toJson(),
       );
       final updatedAdjustment = InventoryAdjustment.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.saveAdjustment(updatedAdjustment);
-      
+
       return updatedAdjustment;
     } catch (e) {
       AppLogger.error(
@@ -133,7 +133,7 @@ class AdjustmentsRepository {
   Future<void> deleteAdjustment(String id) async {
     try {
       await _apiClient.delete('/inventory-adjustments/$id');
-      
+
       // Remove from cache
       await _hiveService.adjustmentsBox.delete(id);
     } catch (e) {
@@ -154,10 +154,10 @@ class AdjustmentsRepository {
         '/inventory-adjustments/$id/approve',
       );
       final approvedAdjustment = InventoryAdjustment.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.saveAdjustment(approvedAdjustment);
-      
+
       return approvedAdjustment;
     } catch (e) {
       AppLogger.error(
@@ -178,10 +178,10 @@ class AdjustmentsRepository {
         data: {'reason': reason},
       );
       final rejectedAdjustment = InventoryAdjustment.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.saveAdjustment(rejectedAdjustment);
-      
+
       return rejectedAdjustment;
     } catch (e) {
       AppLogger.error(
@@ -239,7 +239,9 @@ class AdjustmentsRepository {
   }
 
   /// Get adjustments by reason
-  Future<List<InventoryAdjustment>> getAdjustmentsByReason(String reason) async {
+  Future<List<InventoryAdjustment>> getAdjustmentsByReason(
+    String reason,
+  ) async {
     try {
       final response = await _apiClient.get(
         '/inventory-adjustments/reason/$reason',
@@ -273,9 +275,7 @@ class AdjustmentsRepository {
       );
       // Fallback: Filter cached items
       final allAdjustments = _hiveService.getAdjustments();
-      return allAdjustments
-          .where((adj) => adj.status == 'draft')
-          .toList();
+      return allAdjustments.where((adj) => adj.status == 'draft').toList();
     }
   }
 
@@ -283,7 +283,7 @@ class AdjustmentsRepository {
   bool isCacheStale({Duration threshold = const Duration(hours: 24)}) {
     final lastSync = _hiveService.getLastSyncTime('adjustments');
     if (lastSync == null) return true;
-    
+
     return DateTime.now().difference(lastSync) > threshold;
   }
 
@@ -291,7 +291,7 @@ class AdjustmentsRepository {
   Map<String, dynamic> getCacheInfo() {
     final lastSync = _hiveService.getLastSyncTime('adjustments');
     final stats = _hiveService.getCacheStats();
-    
+
     return {
       'cached_adjustments': stats['adjustments'] ?? 0,
       'last_sync': lastSync?.toIso8601String(),

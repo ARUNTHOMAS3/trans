@@ -1,8 +1,8 @@
 // FILE: lib/modules/purchases/repositories/bills_repository.dart
 // Repository pattern for Purchase Bills - Online-first with offline fallback (PRD Section 12.2)
 
-import 'package:zerpai_erp/shared/services/hive_service.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/hive_service.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/purchases/models/purchase_bill_model.dart';
 
@@ -15,23 +15,21 @@ class BillsRepository {
       _hiveService = hiveService ?? HiveService();
 
   /// Fetch purchase bills - Online-first with offline fallback
-  Future<List<PurchaseBill>> getBills({
-    bool forceRefresh = false,
-  }) async {
+  Future<List<PurchaseBill>> getBills({bool forceRefresh = false}) async {
     try {
       // Online-first: Fetch from API
       final response = await _apiClient.get('/purchase-bills');
-      
+
       final List<PurchaseBill> bills = (response.data as List)
           .map((json) => PurchaseBill.fromJson(json))
           .toList();
-      
+
       // Cache to Hive for offline access
       await _hiveService.saveBills(bills);
-      
+
       // Update last sync timestamp
       await _hiveService.updateLastSyncTime('bills');
-      
+
       return bills;
     } catch (e) {
       // Offline fallback: Return cached data
@@ -40,13 +38,13 @@ class BillsRepository {
         error: e,
         module: 'bills',
       );
-      
+
       final cachedBills = _hiveService.getBills();
-      
+
       if (cachedBills.isEmpty) {
         rethrow;
       }
-      
+
       return cachedBills;
     }
   }
@@ -58,12 +56,12 @@ class BillsRepository {
     if (cached != null) {
       return cached;
     }
-    
+
     // Not in cache, fetch from API
     try {
       final response = await _apiClient.get('/purchase-bills/$id');
       final bill = PurchaseBill.fromJson(response.data);
-      
+
       await _hiveService.saveBill(bill);
       return bill;
     } catch (e) {
@@ -85,10 +83,10 @@ class BillsRepository {
         data: billData.toJson(),
       );
       final createdBill = PurchaseBill.fromJson(response.data);
-      
+
       // Cache locally
       await _hiveService.saveBill(createdBill);
-      
+
       return createdBill;
     } catch (e) {
       AppLogger.error(
@@ -108,10 +106,10 @@ class BillsRepository {
         data: billData.toJson(),
       );
       final updatedBill = PurchaseBill.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.saveBill(updatedBill);
-      
+
       return updatedBill;
     } catch (e) {
       AppLogger.error(
@@ -128,7 +126,7 @@ class BillsRepository {
   Future<void> deleteBill(String id) async {
     try {
       await _apiClient.delete('/purchase-bills/$id');
-      
+
       // Remove from cache
       await _hiveService.billsBox.delete(id);
     } catch (e) {
@@ -203,10 +201,10 @@ class BillsRepository {
         data: {'amount': amount},
       );
       final updatedBill = PurchaseBill.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.saveBill(updatedBill);
-      
+
       return updatedBill;
     } catch (e) {
       AppLogger.error(
@@ -223,7 +221,7 @@ class BillsRepository {
   bool isCacheStale({Duration threshold = const Duration(hours: 24)}) {
     final lastSync = _hiveService.getLastSyncTime('bills');
     if (lastSync == null) return true;
-    
+
     return DateTime.now().difference(lastSync) > threshold;
   }
 
@@ -231,7 +229,7 @@ class BillsRepository {
   Map<String, dynamic> getCacheInfo() {
     final lastSync = _hiveService.getLastSyncTime('bills');
     final stats = _hiveService.getCacheStats();
-    
+
     return {
       'cached_bills': stats['bills'] ?? 0,
       'last_sync': lastSync?.toIso8601String(),

@@ -1,8 +1,8 @@
 // FILE: lib/modules/inventory/repositories/stock_repository.dart
 // Repository pattern for Stock Management - Online-first with offline fallback (PRD Section 12.2)
 
-import 'package:zerpai_erp/shared/services/hive_service.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/hive_service.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/inventory/models/stock_model.dart';
 
@@ -15,23 +15,21 @@ class StockRepository {
       _hiveService = hiveService ?? HiveService();
 
   /// Fetch stock items - Online-first with offline fallback
-  Future<List<Stock>> getStockItems({
-    bool forceRefresh = false,
-  }) async {
+  Future<List<Stock>> getStockItems({bool forceRefresh = false}) async {
     try {
       // Online-first: Fetch from API
       final response = await _apiClient.get('/stock');
-      
+
       final List<Stock> stockItems = (response.data as List)
           .map((json) => Stock.fromJson(json))
           .toList();
-      
+
       // Cache to Hive for offline access
       await _hiveService.saveStockItems(stockItems);
-      
+
       // Update last sync timestamp
       await _hiveService.updateLastSyncTime('stock');
-      
+
       return stockItems;
     } catch (e) {
       // Offline fallback: Return cached data
@@ -40,13 +38,13 @@ class StockRepository {
         error: e,
         module: 'stock',
       );
-      
+
       final cachedStock = _hiveService.getStockItems();
-      
+
       if (cachedStock.isEmpty) {
         rethrow;
       }
-      
+
       return cachedStock;
     }
   }
@@ -58,12 +56,12 @@ class StockRepository {
     if (cached != null) {
       return cached;
     }
-    
+
     // Not in cache, fetch from API
     try {
       final response = await _apiClient.get('/stock/$id');
       final stockItem = Stock.fromJson(response.data);
-      
+
       await _hiveService.saveStockItem(stockItem);
       return stockItem;
     } catch (e) {
@@ -165,10 +163,10 @@ class StockRepository {
         },
       );
       final updatedStock = Stock.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.saveStockItem(updatedStock);
-      
+
       return updatedStock;
     } catch (e) {
       AppLogger.error(
@@ -189,7 +187,7 @@ class StockRepository {
   bool isCacheStale({Duration threshold = const Duration(hours: 1)}) {
     final lastSync = _hiveService.getLastSyncTime('stock');
     if (lastSync == null) return true;
-    
+
     return DateTime.now().difference(lastSync) > threshold;
   }
 
@@ -197,7 +195,7 @@ class StockRepository {
   Map<String, dynamic> getCacheInfo() {
     final lastSync = _hiveService.getLastSyncTime('stock');
     final stats = _hiveService.getCacheStats();
-    
+
     return {
       'cached_items': stats['stock'] ?? 0,
       'last_sync': lastSync?.toIso8601String(),

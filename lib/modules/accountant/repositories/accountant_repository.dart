@@ -2,8 +2,8 @@
 // Enhanced repository for Chart of Accounts with offline support (PRD Section 12.2)
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
-import 'package:zerpai_erp/shared/services/hive_service.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/core/services/hive_service.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import '../models/accountant_chart_of_accounts_account_model.dart';
 import '../models/account_transaction_model.dart';
@@ -90,7 +90,11 @@ class AccountantRepository {
 
       return createdAccount;
     } catch (e) {
-      AppLogger.error('Failed to create account', error: e, module: 'accountant');
+      AppLogger.error(
+        'Failed to create account',
+        error: e,
+        module: 'accountant',
+      );
       rethrow;
     }
   }

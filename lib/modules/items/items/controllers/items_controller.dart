@@ -50,6 +50,7 @@ class ItemsController extends StateNotifier<ItemsState> {
       AppLogger.info('Loading items', module: 'items');
       state = state.copyWith(
         isLoading: true,
+        isLoadingList: true,
         hasReachedMax: false,
         // Using explicit null to clear previous cursor
         nextCursor: null,
@@ -83,6 +84,7 @@ class ItemsController extends StateNotifier<ItemsState> {
         nextCursor: nextCursorStr,
         hasReachedMax: nextCursorStr == null || items.length < 50,
         isLoading: false,
+        isLoadingList: false,
         isSearching: false,
         // We do NOT pass error: null here to avoid clearing error
         // from a concurrent ensureItemLoaded call.
@@ -93,10 +95,18 @@ class ItemsController extends StateNotifier<ItemsState> {
       }
     } on NetworkException catch (e) {
       AppLogger.error('Network error loading items', error: e, module: 'items');
-      state = state.copyWith(error: e.userMessage, isLoading: false);
+      state = state.copyWith(
+        error: e.userMessage,
+        isLoading: false,
+        isLoadingList: false,
+      );
     } on AppException catch (e) {
       AppLogger.error('Failed to load items', error: e, module: 'items');
-      state = state.copyWith(error: e.userMessage, isLoading: false);
+      state = state.copyWith(
+        error: e.userMessage,
+        isLoading: false,
+        isLoadingList: false,
+      );
     } catch (e) {
       AppLogger.error(
         'Unexpected error loading items',
@@ -106,15 +116,18 @@ class ItemsController extends StateNotifier<ItemsState> {
       state = state.copyWith(
         error: "Failed to load items. Please try again.",
         isLoading: false,
+        isLoadingList: false,
       );
     }
   }
 
   Future<void> loadNextPage() async {
-    if (state.isLoading || state.hasReachedMax || state.isSearching) return;
+    if (state.isLoadingList || state.hasReachedMax || state.isSearching) {
+      return;
+    }
 
     try {
-      state = state.copyWith(isLoading: true);
+      state = state.copyWith(isLoading: true, isLoadingList: true);
 
       final data = await repo.getProductsCursor(
         limit: 50,
@@ -131,6 +144,7 @@ class ItemsController extends StateNotifier<ItemsState> {
         nextCursor: nextCursorStr,
         hasReachedMax: nextCursorStr == null || newItems.length < 50,
         isLoading: false,
+        isLoadingList: false,
       );
 
       for (final item in newItems) {
@@ -138,7 +152,7 @@ class ItemsController extends StateNotifier<ItemsState> {
       }
     } catch (e) {
       AppLogger.error('Failed to load next page', error: e, module: 'items');
-      state = state.copyWith(isLoading: false);
+      state = state.copyWith(isLoading: false, isLoadingList: false);
     }
   }
 
@@ -149,7 +163,12 @@ class ItemsController extends StateNotifier<ItemsState> {
 
     try {
       AppLogger.info('Searching items: $query', module: 'items');
-      state = state.copyWith(isSearching: true, isLoading: true, error: null);
+      state = state.copyWith(
+        isSearching: true,
+        isLoading: true,
+        isLoadingList: true,
+        error: null,
+      );
 
       final items = await repo.searchProducts(query.trim(), limit: 30);
 
@@ -159,6 +178,7 @@ class ItemsController extends StateNotifier<ItemsState> {
         nextCursor: null,
         hasReachedMax: true,
         isLoading: false,
+        isLoadingList: false,
         isSearching: true,
         error: null, // Clear error specifically for search context
       );
@@ -171,6 +191,7 @@ class ItemsController extends StateNotifier<ItemsState> {
       state = state.copyWith(
         error: "Search failed. Please try again.",
         isLoading: false,
+        isLoadingList: false,
       );
     }
   }
@@ -189,8 +210,9 @@ class ItemsController extends StateNotifier<ItemsState> {
   /// Ensures a specific item is loaded into the state.
   /// Used for deep links where the item might not be in the initial background chunk.
   Future<Item?> ensureItemLoaded(String id, {bool forceRefresh = false}) async {
-    // Guard 1: already loading — don't stack requests.
-    if (state.isLoading) return null;
+    if (state.isHydratingItem && state.hydratingItemId == id) {
+      return null;
+    }
 
     // Guard 2: this item already failed a previous fetch.
     // [forceRefresh] (Retry button) clears the failure so we can try again.
@@ -230,7 +252,11 @@ class ItemsController extends StateNotifier<ItemsState> {
         module: 'items',
       );
 
-      state = state.copyWith(isLoading: true, error: null);
+      state = state.copyWith(
+        isHydratingItem: true,
+        hydratingItemId: id,
+        error: null,
+      );
 
       final item = await repo.getItemById(id);
       if (item != null) {
@@ -251,7 +277,8 @@ class ItemsController extends StateNotifier<ItemsState> {
         state = state.copyWith(
           items: updatedItems,
           lookupCache: newCache,
-          isLoading: false,
+          isHydratingItem: false,
+          hydratingItemId: null,
           error: null,
         );
         return item;
@@ -261,7 +288,11 @@ class ItemsController extends StateNotifier<ItemsState> {
           module: 'items',
         );
         _failedItemIds.add(id);
-        state = state.copyWith(isLoading: false, error: "Item not found.");
+        state = state.copyWith(
+          isHydratingItem: false,
+          hydratingItemId: null,
+          error: "Item not found.",
+        );
       }
     } catch (e) {
       AppLogger.error(
@@ -271,7 +302,8 @@ class ItemsController extends StateNotifier<ItemsState> {
       );
       _failedItemIds.add(id); // ← loop breaker: future calls short-circuit
       state = state.copyWith(
-        isLoading: false,
+        isHydratingItem: false,
+        hydratingItemId: null,
         error: "Failed to load item. Please check your connection.",
       );
     }
@@ -294,9 +326,12 @@ class ItemsController extends StateNotifier<ItemsState> {
       if (index != -1) {
         final currentItem = state.items[index];
         final updatedItem = currentItem.copyWith(
-          stockOnHand: double.tryParse(stats['current_stock']?.toString() ?? '0'),
-          committedStock:
-              double.tryParse(stats['committed_stock']?.toString() ?? '0'),
+          stockOnHand: double.tryParse(
+            stats['current_stock']?.toString() ?? '0',
+          ),
+          committedStock: double.tryParse(
+            stats['committed_stock']?.toString() ?? '0',
+          ),
           toBeShipped: stats['to_be_shipped'] != null
               ? double.tryParse(stats['to_be_shipped'].toString())
               : null,
@@ -463,7 +498,7 @@ class ItemsController extends StateNotifier<ItemsState> {
         uqcList: uqcList,
         isLoadingLookups: false,
       );
-      
+
       // Load all price lists into state
       await loadAllPriceLists();
 

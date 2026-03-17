@@ -105,67 +105,110 @@ class AppTheme {
 
   // Custom font registration name in pubspec.yaml
   static const String _fontFamily = 'Inter';
+  static const List<String> _fontFamilyFallback = <String>[
+    'NotoSansFallback',
+    'NotoSansSymbols',
+  ];
+
+  static TextStyle _baseTextStyle({
+    required double fontSize,
+    required FontWeight fontWeight,
+    required Color color,
+    double? height,
+    TextDecoration? decoration,
+  }) {
+    return TextStyle(
+      fontFamily: _fontFamily,
+      fontFamilyFallback: _fontFamilyFallback,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      decoration: decoration,
+    );
+  }
+
+  static TextTheme _applyFontFallbackToTextTheme(TextTheme theme) {
+    TextStyle? withFallback(TextStyle? style) {
+      if (style == null) return null;
+      return style.copyWith(
+        fontFamily: _fontFamily,
+        fontFamilyFallback: _fontFamilyFallback,
+      );
+    }
+
+    return theme.copyWith(
+      displayLarge: withFallback(theme.displayLarge),
+      displayMedium: withFallback(theme.displayMedium),
+      displaySmall: withFallback(theme.displaySmall),
+      headlineLarge: withFallback(theme.headlineLarge),
+      headlineMedium: withFallback(theme.headlineMedium),
+      headlineSmall: withFallback(theme.headlineSmall),
+      titleLarge: withFallback(theme.titleLarge),
+      titleMedium: withFallback(theme.titleMedium),
+      titleSmall: withFallback(theme.titleSmall),
+      bodyLarge: withFallback(theme.bodyLarge),
+      bodyMedium: withFallback(theme.bodyMedium),
+      bodySmall: withFallback(theme.bodySmall),
+      labelLarge: withFallback(theme.labelLarge),
+      labelMedium: withFallback(theme.labelMedium),
+      labelSmall: withFallback(theme.labelSmall),
+    );
+  }
 
   // PRD Section 14.3 REQUIRED TYPOGRAPHY
   static TextStyle get pageTitle => TextStyle(
     fontFamily: _fontFamily,
+    fontFamilyFallback: _fontFamilyFallback,
     fontSize: 18,
     fontWeight: FontWeight.w600,
     color: textPrimary,
   );
 
-  static TextStyle get sectionHeader => TextStyle(
-    fontFamily: _fontFamily,
+  static TextStyle get sectionHeader => _baseTextStyle(
     fontSize: 15,
     fontWeight: FontWeight.w600,
     color: textPrimary,
   );
 
-  static TextStyle get tableHeader => TextStyle(
-    fontFamily: _fontFamily,
+  static TextStyle get tableHeader => _baseTextStyle(
     fontSize: 13,
     fontWeight: FontWeight.w600,
     color: textSecondary,
   );
 
-  static TextStyle get tableCell => TextStyle(
-    fontFamily: _fontFamily,
+  static TextStyle get tableCell => _baseTextStyle(
     fontSize: 13,
     fontWeight: FontWeight.w400,
     color: textPrimary,
   );
 
-  static TextStyle get metaHelper => TextStyle(
-    fontFamily: _fontFamily,
+  static TextStyle get metaHelper => _baseTextStyle(
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: textSecondary,
   );
 
   // Additional typography for complete coverage
-  static TextStyle get bodyText => TextStyle(
-    fontFamily: _fontFamily,
+  static TextStyle get bodyText => _baseTextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w400,
     color: textPrimary,
   );
 
-  static TextStyle get captionText => TextStyle(
-    fontFamily: _fontFamily,
+  static TextStyle get captionText => _baseTextStyle(
     fontSize: 11,
     fontWeight: FontWeight.w400,
     color: textSecondary,
   );
 
-  static TextStyle get buttonText => TextStyle(
-    fontFamily: _fontFamily,
+  static TextStyle get buttonText => _baseTextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w600,
     color: Colors.white,
   );
 
-  static TextStyle get linkText => TextStyle(
-    fontFamily: _fontFamily,
+  static TextStyle get linkText => _baseTextStyle(
     fontSize: 13,
     fontWeight: FontWeight.w500,
     color: primaryBlue,
@@ -178,21 +221,8 @@ class AppTheme {
 
   static ThemeData get lightTheme {
     final baseTheme = ThemeData.light(useMaterial3: true);
-
-    return baseTheme.copyWith(
-      scaffoldBackgroundColor: backgroundColor,
-
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryBlue,
-        primary: primaryBlue,
-        secondary: accentGreen,
-        surface: backgroundColor,
-      ),
-
-      // Applying Global Inter Font via apply() to ensure all text uses local assets.
-      // We add 'sans-serif' as a fallback to resolve "missing character" warnings for
-      // symbols like ₹ which might trigger Noto font searches.
-      textTheme: baseTheme.textTheme
+    final themedText = _applyFontFallbackToTextTheme(
+      baseTheme.textTheme
           .apply(
             fontFamily: _fontFamily,
             bodyColor: textPrimary,
@@ -206,6 +236,26 @@ class AppTheme {
             bodyMedium: bodyText,
             labelSmall: metaHelper,
           ),
+    );
+
+    return baseTheme.copyWith(
+      scaffoldBackgroundColor: backgroundColor,
+
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primaryBlue,
+        primary: primaryBlue,
+        secondary: accentGreen,
+        surface: backgroundColor,
+      ),
+
+      textTheme: themedText,
+      primaryTextTheme: _applyFontFallbackToTextTheme(
+        baseTheme.primaryTextTheme.apply(
+          fontFamily: _fontFamily,
+          bodyColor: textPrimary,
+          displayColor: textPrimary,
+        ),
+      ),
 
       appBarTheme: AppBarTheme(
         backgroundColor: backgroundColor,
@@ -335,8 +385,7 @@ class AppTheme {
 
   // Helper for text styles
   static TextStyle textPrimaryStyle(double size, FontWeight weight) {
-    return TextStyle(
-      fontFamily: _fontFamily,
+    return _baseTextStyle(
       fontSize: size,
       fontWeight: weight,
       color: textPrimary,

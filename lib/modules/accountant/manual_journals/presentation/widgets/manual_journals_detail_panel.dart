@@ -8,7 +8,7 @@ import '../../providers/manual_journal_provider.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
-import 'package:zerpai_erp/shared/utils/error_handler.dart';
+import 'package:zerpai_erp/core/utils/error_handler.dart';
 import 'dart:math' as math;
 
 class ManualJournalDetailPanel extends ConsumerWidget {
@@ -651,12 +651,14 @@ class ManualJournalDetailPanel extends ConsumerWidget {
                       onTap: () {
                         // Deep-link to Account Transactions Report filtered by contact
                         final startDateStr = DateFormat('yyyy-MM-dd').format(
-                          journal.journalDate.subtract(const Duration(days: 30)),
+                          journal.journalDate.subtract(
+                            const Duration(days: 30),
+                          ),
                         );
                         final endDateStr = DateFormat('yyyy-MM-dd').format(
                           journal.journalDate.add(const Duration(days: 30)),
                         );
-                        
+
                         final uri = Uri(
                           path: AppRoutes.accountantTransactionsReport,
                           queryParameters: {

@@ -3,7 +3,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/purchases_purchase_orders_order_model.dart';
 import '../repositories/purchases_purchase_orders_order_repository_impl.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 
 final purchaseOrderRepositoryProvider = Provider<PurchaseOrderRepositoryImpl>(
   (ref) => PurchaseOrderRepositoryImpl(ref.read(apiClientProvider)),

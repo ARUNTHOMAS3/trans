@@ -438,7 +438,7 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
       pageTitle: 'Items',
       enableBodyScroll: false,
       child: ItemsReportBody(
-        isLoading: state.isLoading,
+        isLoading: state.isLoadingList,
         filter: _currentFilter,
         items: _filteredItems, // Uses the computed property
         onFilterChanged: (f) {

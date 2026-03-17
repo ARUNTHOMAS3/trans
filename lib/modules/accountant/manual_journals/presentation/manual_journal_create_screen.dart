@@ -20,7 +20,7 @@ import '../../../../shared/widgets/shortcut_handler.dart';
 import '../../../../shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
-import 'package:zerpai_erp/shared/utils/error_handler.dart';
+import 'package:zerpai_erp/core/utils/error_handler.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/widgets/manual_journal_template_card.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';

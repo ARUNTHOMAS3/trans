@@ -1,4 +1,4 @@
-// FILE: lib/core/services/hive_service.dart
+// FILE: lib/shared/services/hive_service.dart
 // Centralized Hive service for offline data caching (PRD Section 12.2)
 
 import 'package:hive_flutter/hive_flutter.dart';
@@ -14,6 +14,7 @@ import 'package:zerpai_erp/modules/inventory/models/stock_model.dart';
 import 'package:zerpai_erp/modules/inventory/models/inventory_adjustment_model.dart';
 import 'package:zerpai_erp/modules/inventory/models/stock_transfer_model.dart';
 import 'package:zerpai_erp/modules/accountant/models/accountant_chart_of_accounts_account_model.dart';
+import 'package:zerpai_erp/modules/items/items/models/items_stock_models.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 
 class HiveService {
@@ -36,6 +37,10 @@ class HiveService {
       Hive.box<InventoryAdjustment>('adjustments');
   Box<StockTransfer> get transfersBox => Hive.box<StockTransfer>('transfers');
   Box<AccountNode> get accountsBox => Hive.box<AccountNode>('Accountant');
+  Box<BatchData> get stockBatchesBox => Hive.box<BatchData>('stock_batches');
+  Box<SerialData> get stockSerialsBox => Hive.box<SerialData>('stock_serials');
+  Box<TransactionData> get stockTransactionsBox =>
+      Hive.box<TransactionData>('stock_transactions');
   Box get configBox => Hive.box('config');
 
   static const int batchSizeThreshold = 50;
@@ -581,7 +586,50 @@ class HiveService {
       'adjustments': adjustmentsBox.length,
       'transfers': transfersBox.length,
       'Accountant': accountsBox.length,
+      'stock_batches': stockBatchesBox.length,
+      'stock_serials': stockSerialsBox.length,
+      'stock_transactions': stockTransactionsBox.length,
       'config': configBox.length,
     };
+  }
+
+  // ==================== STOCK DATA CACHING ====================
+
+  Future<void> saveItemSerials(String itemId, List<SerialData> serials) async {
+    final Map<String, SerialData> map = {};
+    for (var i = 0; i < serials.length; i++) {
+      map['${itemId}_$i'] = serials[i];
+    }
+    await stockSerialsBox.putAll(map);
+  }
+
+  Future<void> saveItemBatches(String itemId, List<BatchData> batches) async {
+    final Map<String, BatchData> map = {};
+    for (var i = 0; i < batches.length; i++) {
+      map['${itemId}_$i'] = batches[i];
+    }
+    await stockBatchesBox.putAll(map);
+  }
+
+  Future<void> saveItemStockTransactions(
+    String itemId,
+    List<TransactionData> transactions,
+  ) async {
+    final Map<String, TransactionData> map = {};
+    for (var i = 0; i < transactions.length; i++) {
+      map['${itemId}_$i'] = transactions[i];
+    }
+    await stockTransactionsBox.putAll(map);
+  }
+
+  List<SerialData> getItemSerials(String itemId) {
+    return stockSerialsBox.values
+        .where(
+          (s) => stockSerialsBox.keys.any(
+            (k) =>
+                k.toString().startsWith(itemId) && stockSerialsBox.get(k) == s,
+          ),
+        )
+        .toList();
   }
 }

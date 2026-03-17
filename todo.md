@@ -19,6 +19,17 @@ The following modules are listed in the Search Switcher but lack routes or imple
 - [ ] **Timesheet**: Add time tracking functionality.
 - [ ] **Tasks**: Implement task management within modules.
 
+### Planned Unfinished Scope: Exposed Placeholder Routes
+
+These are intentionally still under construction and should be tracked as planned unfinished scope, not as defects, unless they should already be hidden from users.
+
+- [ ] **Inventory placeholders exposed in live navigation**: Inventory Adjustments, Picklists, Packages, Shipments, and Transfer Orders currently resolve to `PlaceholderScreen` routes in `lib/core/routing/app_router.dart`.
+- [ ] **Items placeholders exposed in live navigation**: Item Groups and Item Mapping currently resolve to `PlaceholderScreen` routes in `lib/core/routing/app_router.dart`.
+- [ ] **Purchases/accounting placeholders exposed in live navigation**: Expenses, Bills, Payments Made, Vendor Credits, and some purchase creation/detail paths still resolve to placeholder screens.
+- [ ] **Interim UX decision for unfinished modules**: Choose one temporary strategy and apply it consistently:
+  Keep routes visible, but clearly label unfinished menu items/modules as `Coming Soon`.
+  Hide unfinished modules from sidebar/search/navigation until real screens are ready.
+
 ## 📈 Charts & Data
 
 - [x] **Account Transactions Graph**: Wire up the "Closing Balance" and "Recent Transactions" data to visual sparklines or bar charts in the `ChartOfAccountsDetailPanel`.
@@ -35,11 +46,14 @@ The following modules are listed in the Search Switcher but lack routes or imple
 - [ ] **Multi-Tenancy Headers**: Add `X-Org-Id` and `X-Outlet-Id` to API requests in `ApiClient`/Dio layer.
 - [ ] **Backend Tenant Enforcement**: Re-enable `TenantMiddleware` once auth is wired, and ensure endpoints derive org/outlet from token or headers.
 - [ ] **Supabase Migration Docs**: Align root `README.md` migration instructions with `supabase/migrations/README.md` (schema file mismatch).
+- [ ] **Audit Trail UI**: Build a dedicated audit/history page later to browse `audit_logs` and `audit_logs_archive`, with filters for table, record, action, org, outlet, actor, request ID, and date range.
 
 ## 🧩 Collected TODO/FIXME/HACK/XXX (grouped by module)
 
 **Frontend / Sales**
 
+- [ ] **Visible placeholder actions in Sales generic list UI**: The following controls are still exposed as active-looking UI but currently map to TODO-only or empty handlers in `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart`:
+  `Export Current View`, `Preferences`, `Refresh List`, bulk actions (`Bulk Update`, `Mark as Active`, `Mark as Inactive`, `Merge`, `Associate Templates`), and overflow actions (`Request GST Information`, `Delete`).
 - [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:226` Implement Export Current View.
 - [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:246` Open Preferences.
 - [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:258` Refresh List.
@@ -58,6 +72,7 @@ The following modules are listed in the Search Switcher but lack routes or imple
 
 **Frontend / Purchases**
 
+- [ ] **Purchase orders overview is still a structural shell**: In `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart`, the search field, filter button, row actions (`View`, `Edit`, `Delete`), empty-state create CTA, and error retry are still placeholder/TODO paths, and the vendor column is still hardcoded.
 - [ ] `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart:70` Implement search with debouncing.
 - [ ] `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart:77` Show filter dialog.
 - [ ] `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart:116` Fetch vendor name.
@@ -76,6 +91,8 @@ The following modules are listed in the Search Switcher but lack routes or imple
 
 **Frontend / Items**
 
+- [ ] **Visible placeholder actions in Items report UI**: In `lib/modules/items/items/presentation/sections/report/sections/items_report_body_actions.dart`, these controls still present as active UI but are not fully implemented: `Import Item Images`, `Export Current Item`, `Preferences`, `Refresh List`, sort action, selection overflow `Delete selected`, and selection overflow `Disable Bin location`.
+- [ ] **Visible placeholder actions in Item detail actions**: In `lib/modules/items/items/presentation/sections/items_item_detail_actions.dart`, `Import Item Images`, `Export Current Item`, and `Preferences` are still snackbar placeholders. `Refresh List` is wired and does not need placeholder tracking.
 - [ ] `lib/modules/items/pricelist/models/pricelist_model.dart:18` Add support for multi-currency conversion in calculations.
 - [ ] `lib/modules/items/pricelist/models/pricelist_model.dart:19` Implement item-group based pricing rules.
 - [ ] `lib/modules/items/pricelist/models/pricelist_model.dart:20` Add tax-inclusive/exclusive calculation flags.
@@ -122,6 +139,7 @@ The following modules are listed in the Search Switcher but lack routes or imple
 - [ ] `repowiki/en/content/Backend Development/Authentication & Security.md:126` Document development bypass and production TODO markers.
 - [ ] `repowiki/en/content/Backend Development/Authentication & Security.md:131` Production code TODOs for JWT parsing and role extraction.
 - [ ] `repowiki/en/content/Backend Development/Authentication & Security.md:308` Tenant middleware TODOs for JWT verification and role extraction.
+- [ ] **Repo hygiene rule**: Do not keep production source/config files with names like `(1)`, `copy`, `backup`, or `old`; remove or archive them after confirming the canonical source file.
 
 ## 🔮 Future Enhancements (Post-MVP)
 

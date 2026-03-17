@@ -14,7 +14,6 @@
 - [create-product.dto.ts](file://backend/src/products/dto/create-product.dto.ts)
 - [insert-dummy-data.ts](file://backend/scripts/insert-dummy-data.ts)
 - [insert-dummy-lookups.sql](file://backend/scripts/insert-dummy-lookups.sql)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql)
 </cite>
 
 ## Table of Contents
@@ -56,7 +55,6 @@ B2["db.ts"]
 B3["create-product.dto.ts"]
 S1["insert-dummy-data.ts"]
 S2["insert-dummy-lookups.sql"]
-S3["disable_rls_temp.sql"]
 end
 M1 --> B1
 M2 --> B1
@@ -69,12 +67,6 @@ B2 --> B1
 B3 --> B1
 S1 --> M7
 S2 --> M7
-S3 --> M1
-S3 --> M2
-S3 --> M3
-S3 --> M4
-S3 --> M5
-S3 --> M6
 ```
 
 **Diagram sources**
@@ -90,7 +82,6 @@ S3 --> M6
 - [create-product.dto.ts](file://backend/src/products/dto/create-product.dto.ts#L1-L265)
 - [insert-dummy-data.ts](file://backend/scripts/insert-dummy-data.ts#L1-L141)
 - [insert-dummy-lookups.sql](file://backend/scripts/insert-dummy-lookups.sql#L1-L94)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql#L1-L14)
 
 **Section sources**
 - [001_initial_schema_and_seed.sql](file://supabase/migrations/001_initial_schema_and_seed.sql#L1-L218)
@@ -372,7 +363,6 @@ SCHEMA --> DB
   - For user-dependent seeds, replace placeholder user IDs with actual auth.user IDs
 
 **Section sources**
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql#L1-L14)
 - [db.ts](file://backend/src/db/db.ts#L1-L13)
 - [002_seed_data.sql](file://supabase/migrations/002_seed_data.sql#L17-L27)
 

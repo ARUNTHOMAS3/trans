@@ -1,8 +1,8 @@
 // FILE: lib/modules/purchases/repositories/vendors_repository.dart
 // Repository pattern for Vendors - Online-first with offline fallback (PRD Section 12.2)
 
-import 'package:zerpai_erp/shared/services/hive_service.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/hive_service.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/purchases/models/vendor_model.dart';
 
@@ -15,23 +15,21 @@ class VendorsRepository {
       _hiveService = hiveService ?? HiveService();
 
   /// Fetch vendors - Online-first with offline fallback
-  Future<List<Vendor>> getVendors({
-    bool forceRefresh = false,
-  }) async {
+  Future<List<Vendor>> getVendors({bool forceRefresh = false}) async {
     try {
       // Online-first: Fetch from API
       final response = await _apiClient.get('/vendors');
-      
+
       final List<Vendor> vendors = (response.data as List)
           .map((json) => Vendor.fromJson(json))
           .toList();
-      
+
       // Cache to Hive for offline access
       await _hiveService.saveVendors(vendors);
-      
+
       // Update last sync timestamp
       await _hiveService.updateLastSyncTime('vendors');
-      
+
       return vendors;
     } catch (e) {
       // Offline fallback: Return cached data
@@ -40,13 +38,13 @@ class VendorsRepository {
         error: e,
         module: 'vendors',
       );
-      
+
       final cachedVendors = _hiveService.getVendors();
-      
+
       if (cachedVendors.isEmpty) {
         rethrow;
       }
-      
+
       return cachedVendors;
     }
   }
@@ -58,12 +56,12 @@ class VendorsRepository {
     if (cached != null) {
       return cached;
     }
-    
+
     // Not in cache, fetch from API
     try {
       final response = await _apiClient.get('/vendors/$id');
       final vendor = Vendor.fromJson(response.data);
-      
+
       await _hiveService.saveVendor(vendor);
       return vendor;
     } catch (e) {
@@ -85,17 +83,13 @@ class VendorsRepository {
         data: vendorData.toJson(),
       );
       final createdVendor = Vendor.fromJson(response.data);
-      
+
       // Cache locally
       await _hiveService.saveVendor(createdVendor);
-      
+
       return createdVendor;
     } catch (e) {
-      AppLogger.error(
-        'Failed to create vendor',
-        error: e,
-        module: 'vendors',
-      );
+      AppLogger.error('Failed to create vendor', error: e, module: 'vendors');
       rethrow;
     }
   }
@@ -108,10 +102,10 @@ class VendorsRepository {
         data: vendorData.toJson(),
       );
       final updatedVendor = Vendor.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.saveVendor(updatedVendor);
-      
+
       return updatedVendor;
     } catch (e) {
       AppLogger.error(
@@ -128,7 +122,7 @@ class VendorsRepository {
   Future<void> deleteVendor(String id) async {
     try {
       await _apiClient.delete('/vendors/$id');
-      
+
       // Remove from cache
       await _hiveService.vendorsBox.delete(id);
     } catch (e) {
@@ -164,7 +158,7 @@ class VendorsRepository {
   bool isCacheStale({Duration threshold = const Duration(hours: 24)}) {
     final lastSync = _hiveService.getLastSyncTime('vendors');
     if (lastSync == null) return true;
-    
+
     return DateTime.now().difference(lastSync) > threshold;
   }
 
@@ -172,7 +166,7 @@ class VendorsRepository {
   Map<String, dynamic> getCacheInfo() {
     final lastSync = _hiveService.getLastSyncTime('vendors');
     final stats = _hiveService.getCacheStats();
-    
+
     return {
       'cached_vendors': stats['vendors'] ?? 0,
       'last_sync': lastSync?.toIso8601String(),

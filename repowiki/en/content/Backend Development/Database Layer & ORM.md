@@ -16,7 +16,6 @@
 - [main.ts](file://backend/src/main.ts)
 - [package.json](file://backend/package.json)
 - [fix_rls.sql](file://backend/fix_rls.sql)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql)
 - [verify-rls.js](file://backend/verify-rls.js)
 </cite>
 
@@ -231,7 +230,6 @@ RLS verification and remediation:
 - [supabase.module.ts](file://backend/src/supabase/supabase.module.ts#L1-L12)
 - [verify-rls.js](file://backend/verify-rls.js#L1-L44)
 - [fix_rls.sql](file://backend/fix_rls.sql#L1-L16)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql#L1-L14)
 
 ### Database Operations, Joins, and Complex Queries
 The backend performs rich joins and aggregations through Supabase’s query builder. Example patterns include:
@@ -379,7 +377,6 @@ Verification utilities:
 
 **Section sources**
 - [fix_rls.sql](file://backend/fix_rls.sql#L1-L16)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql#L1-L14)
 - [verify-rls.js](file://backend/verify-rls.js#L1-L44)
 - [products.service.ts](file://backend/src/products/products.service.ts#L47-L51)
 - [main.ts](file://backend/src/main.ts#L26-L42)

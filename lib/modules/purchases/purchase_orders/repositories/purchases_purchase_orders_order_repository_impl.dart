@@ -1,4 +1,4 @@
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import '../models/purchases_purchase_orders_order_model.dart';
 import 'purchases_purchase_orders_order_repository.dart';
 import '../../../../core/constants/api_endpoints.dart';

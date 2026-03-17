@@ -1,25 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { gotoFlutterRoute } from './helpers/flutter';
 
 test.describe('Home Page', () => {
   test.beforeEach(async ({ page }) => {
-    // 1. Navigate with the query param to force accessibility (Semantics) on
-    // This is more reliable than clicking the "Enable Accessibility" button manually
-    await page.goto('http://localhost:3000/?enable-accessibility=true', { 
-      waitUntil: 'domcontentloaded', 
-      timeout: 60000 
-    });
-    
-    // 2. Wait for the splash screen to be removed
-    await page.waitForSelector('#loading_indicator', { state: 'detached', timeout: 60000 });
-
-    // 3. Wait for the Flutter Glass Pane to be ready
-    // This element is the root of all Flutter Web apps
-    const glassPane = page.locator('flt-glass-pane');
-    await glassPane.waitFor({ state: 'attached', timeout: 30000 });
-    
-    // 4. Wait for a specific text to appear in the accessibility tree
-    // We'll look for "Home" as it's the default route
-    await page.getByText('Home').first().waitFor({ state: 'visible', timeout: 30000 });
+    await gotoFlutterRoute(page, '/', { readyText: 'Business Overview' });
   });
 
   test('should load the home dashboard', async ({ page }) => {
@@ -30,7 +14,7 @@ test.describe('Home Page', () => {
     await expect(brand).toBeVisible({ timeout: 15000 });
     
     // Dashboard title
-    const title = page.getByText('Dashboard', { exact: true }).first();
+    const title = page.getByText('Business Overview', { exact: true }).first();
     await expect(title).toBeVisible();
   });
 

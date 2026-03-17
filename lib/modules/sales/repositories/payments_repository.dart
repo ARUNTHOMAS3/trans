@@ -1,8 +1,8 @@
 // FILE: lib/modules/sales/repositories/payments_repository.dart
 // Repository pattern for Payments - Online-first with offline fallback (PRD Section 12.2)
 
-import 'package:zerpai_erp/shared/services/hive_service.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/hive_service.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_payment_model.dart';
 
@@ -15,23 +15,21 @@ class PaymentsRepository {
       _hiveService = hiveService ?? HiveService();
 
   /// Fetch payments - Online-first with offline fallback
-  Future<List<SalesPayment>> getPayments({
-    bool forceRefresh = false,
-  }) async {
+  Future<List<SalesPayment>> getPayments({bool forceRefresh = false}) async {
     try {
       // Online-first: Fetch from API
       final response = await _apiClient.get('/payments');
-      
+
       final List<SalesPayment> payments = (response.data as List)
           .map((json) => SalesPayment.fromJson(json))
           .toList();
-      
+
       // Cache to Hive for offline access
       await _hiveService.savePayments(payments);
-      
+
       // Update last sync timestamp
       await _hiveService.updateLastSyncTime('payments');
-      
+
       return payments;
     } catch (e) {
       // Offline fallback: Return cached data
@@ -40,13 +38,13 @@ class PaymentsRepository {
         error: e,
         module: 'payments',
       );
-      
+
       final cachedPayments = _hiveService.getPayments();
-      
+
       if (cachedPayments.isEmpty) {
         rethrow;
       }
-      
+
       return cachedPayments;
     }
   }
@@ -58,12 +56,12 @@ class PaymentsRepository {
     if (cached != null) {
       return cached;
     }
-    
+
     // Not in cache, fetch from API
     try {
       final response = await _apiClient.get('/payments/$id');
       final payment = SalesPayment.fromJson(response.data);
-      
+
       await _hiveService.savePayment(payment);
       return payment;
     } catch (e) {
@@ -85,33 +83,32 @@ class PaymentsRepository {
         data: paymentData.toJson(),
       );
       final createdPayment = SalesPayment.fromJson(response.data);
-      
+
       // Cache locally
       await _hiveService.savePayment(createdPayment);
-      
+
       return createdPayment;
     } catch (e) {
-      AppLogger.error(
-        'Failed to create payment',
-        error: e,
-        module: 'payments',
-      );
+      AppLogger.error('Failed to create payment', error: e, module: 'payments');
       rethrow;
     }
   }
 
   /// Update existing payment
-  Future<SalesPayment> updatePayment(String id, SalesPayment paymentData) async {
+  Future<SalesPayment> updatePayment(
+    String id,
+    SalesPayment paymentData,
+  ) async {
     try {
       final response = await _apiClient.put(
         '/payments/$id',
         data: paymentData.toJson(),
       );
       final updatedPayment = SalesPayment.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.savePayment(updatedPayment);
-      
+
       return updatedPayment;
     } catch (e) {
       AppLogger.error(
@@ -128,7 +125,7 @@ class PaymentsRepository {
   Future<void> deletePayment(String id) async {
     try {
       await _apiClient.delete('/payments/$id');
-      
+
       // Remove from cache
       await _hiveService.paymentsBox.delete(id);
     } catch (e) {
@@ -164,7 +161,7 @@ class PaymentsRepository {
   bool isCacheStale({Duration threshold = const Duration(hours: 24)}) {
     final lastSync = _hiveService.getLastSyncTime('payments');
     if (lastSync == null) return true;
-    
+
     return DateTime.now().difference(lastSync) > threshold;
   }
 
@@ -172,7 +169,7 @@ class PaymentsRepository {
   Map<String, dynamic> getCacheInfo() {
     final lastSync = _hiveService.getLastSyncTime('payments');
     final stats = _hiveService.getCacheStats();
-    
+
     return {
       'cached_payments': stats['payments'] ?? 0,
       'last_sync': lastSync?.toIso8601String(),

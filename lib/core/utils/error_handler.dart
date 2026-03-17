@@ -1,14 +1,93 @@
-// PATH: lib/core/utils/error_handler.dart
-
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../pages/not_found_page.dart';
-import '../pages/unauthorized_page.dart';
-import '../pages/maintenance_page.dart';
-import '../pages/error_page.dart';
+import 'package:zerpai_erp/core/pages/error_page.dart';
+import 'package:zerpai_erp/core/pages/maintenance_page.dart';
+import 'package:zerpai_erp/core/pages/not_found_page.dart';
+import 'package:zerpai_erp/core/pages/unauthorized_page.dart';
 
 class ErrorHandler {
-  /// Show 404 Not Found page
+  static const String _accountTransactionsSchemaMessage =
+      'We could not save the journal because the accounting transaction table is missing required fields. Contact support or update the database schema.';
+
+  static String? _mapBackendMessage(String? message) {
+    if (message == null) return null;
+
+    final normalized = message.toLowerCase();
+    final isAccountTransactionsInsert =
+        normalized.contains('account_transactions') &&
+        normalized.contains('failed query: insert into');
+    final isSchemaMismatch =
+        normalized.contains('contact_id') ||
+        normalized.contains('contact_type') ||
+        normalized.contains('missing required fields') ||
+        normalized.contains('does not exist');
+
+    if (isAccountTransactionsInsert && isSchemaMismatch) {
+      return _accountTransactionsSchemaMessage;
+    }
+
+    return null;
+  }
+
+  static String getFriendlyMessage(dynamic error) {
+    if (error is DioException) {
+      if (error.error is Map<String, dynamic>) {
+        final errorMap = error.error as Map<String, dynamic>;
+        final rawMessage = errorMap['message']?.toString();
+        return _mapBackendMessage(rawMessage) ??
+            rawMessage ??
+            'Something went wrong. Please try again.';
+      }
+
+      if (error.response?.data is Map) {
+        final data = error.response!.data as Map;
+        final message = data['message'] ?? data['error'];
+        if (message != null) {
+          final rawMessage = message is List
+              ? message.join(', ')
+              : message.toString();
+          return _mapBackendMessage(rawMessage) ?? rawMessage;
+        }
+      }
+
+      switch (error.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          return 'Connection timed out. Please check your internet.';
+        case DioExceptionType.connectionError:
+          return 'No internet connection.';
+        case DioExceptionType.badResponse:
+          final status = error.response?.statusCode;
+          if (status == 400) return 'Invalid request. Please check your data.';
+          if (status == 401) return 'Unauthorized. Please login again.';
+          if (status == 403) {
+            return 'You do not have permission for this action.';
+          }
+          if (status == 404) return 'Resource not found.';
+          if (status == 500) {
+            return 'Server error. Our team is looking into it.';
+          }
+          return 'Server returned an error ($status).';
+        default:
+          return 'Network error. Please try again.';
+      }
+    }
+
+    final errorMessage = error.toString();
+    final mappedMessage = _mapBackendMessage(errorMessage);
+    if (mappedMessage != null) {
+      return mappedMessage;
+    }
+
+    if (errorMessage.contains('Exception:')) {
+      return errorMessage.replaceFirst('Exception:', '').trim();
+    }
+
+    return 'An unexpected error occurred.';
+  }
+
   static void showNotFoundPage(BuildContext context, {String? requestedRoute}) {
     Navigator.pushReplacement(
       context,
@@ -18,7 +97,6 @@ class ErrorHandler {
     );
   }
 
-  /// Show 403 Unauthorized page
   static void showUnauthorizedPage(
     BuildContext context, {
     String? requiredPermission,
@@ -32,7 +110,6 @@ class ErrorHandler {
     );
   }
 
-  /// Show maintenance page
   static void showMaintenancePage(
     BuildContext context, {
     String? message,
@@ -49,7 +126,6 @@ class ErrorHandler {
     );
   }
 
-  /// Show generic error page
   static void showErrorPage(
     BuildContext context, {
     String? errorMessage,
@@ -70,15 +146,11 @@ class ErrorHandler {
     );
   }
 
-  /// Handle navigation errors
   static void handleNavigationError(BuildContext context, String route) {
-    // Log the error (in production, send to error tracking service)
     debugPrint('Navigation error: Route "$route" not found');
-
     showNotFoundPage(context, requestedRoute: route);
   }
 
-  /// Handle API errors
   static void handleApiError(
     BuildContext context,
     int statusCode, {
@@ -86,7 +158,6 @@ class ErrorHandler {
   }) {
     switch (statusCode) {
       case 401:
-        // Unauthorized - redirect to login
         context.go('/login');
         break;
       case 403:
@@ -109,20 +180,17 @@ class ErrorHandler {
     }
   }
 
-  /// Handle general exceptions
   static void handleException(
     BuildContext context,
     Object error, {
     StackTrace? stackTrace,
     String? userMessage,
   }) {
-    // Log the error
     debugPrint('Exception caught: $error');
     if (stackTrace != null) {
       debugPrint('Stack trace: $stackTrace');
     }
 
-    // Show user-friendly error message
     showErrorPage(
       context,
       errorMessage:
@@ -132,19 +200,18 @@ class ErrorHandler {
     );
   }
 
-  /// Show snack bar with error message
   static void showErrorSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.error_outline, color: Colors.white),
-            SizedBox(width: 8),
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 8),
             Expanded(child: Text(message)),
           ],
         ),
         backgroundColor: Colors.red,
-        duration: Duration(seconds: 4),
+        duration: const Duration(seconds: 4),
         action: SnackBarAction(
           label: 'Dismiss',
           textColor: Colors.white,
@@ -156,41 +223,38 @@ class ErrorHandler {
     );
   }
 
-  /// Show snack bar with success message
   static void showSuccessSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.white),
-            SizedBox(width: 8),
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
             Expanded(child: Text(message)),
           ],
         ),
         backgroundColor: Colors.green,
-        duration: Duration(seconds: 3),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
 
-  /// Show snack bar with warning message
   static void showWarningSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.warning_amber, color: Colors.white),
-            SizedBox(width: 8),
+            const Icon(Icons.warning_amber, color: Colors.white),
+            const SizedBox(width: 8),
             Expanded(child: Text(message)),
           ],
         ),
         backgroundColor: Colors.orange,
-        duration: Duration(seconds: 4),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
 
-  /// Show confirmation dialog
   static Future<bool> showConfirmationDialog(
     BuildContext context, {
     required String title,
@@ -218,7 +282,6 @@ class ErrorHandler {
         false;
   }
 
-  /// Show info dialog
   static Future<void> showInfoDialog(
     BuildContext context, {
     required String title,

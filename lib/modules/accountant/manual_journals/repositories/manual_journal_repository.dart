@@ -311,6 +311,69 @@ class MockManualJournalRepository implements ManualJournalRepository {
       updatedAt: DateTime.now(),
     ),
   ];
+  final List<ManualJournalTemplate> _templates = [];
+  int _nextJournalId = 3;
+  int _nextTemplateId = 1;
+  int _nextItemId = 6;
+
+  String _generateJournalId() => (_nextJournalId++).toString();
+
+  String _generateJournalNumber() =>
+      'MJ-${_nextJournalId.toString().padLeft(5, '0')}';
+
+  String _generateTemplateId() => (_nextTemplateId++).toString();
+
+  String _generateItemId() => 'i${_nextItemId++}';
+
+  ManualJournalItem _cloneItem(
+    ManualJournalItem item, {
+    double? debit,
+    double? credit,
+  }) {
+    return ManualJournalItem(
+      id: _generateItemId(),
+      accountId: item.accountId,
+      accountName: item.accountName,
+      description: item.description,
+      contactId: item.contactId,
+      contactType: item.contactType,
+      contactName: item.contactName,
+      projectId: item.projectId,
+      projectName: item.projectName,
+      reportingTags: item.reportingTags,
+      debit: debit ?? item.debit,
+      credit: credit ?? item.credit,
+      sortOrder: item.sortOrder,
+    );
+  }
+
+  ManualJournal _buildDerivedJournal(
+    ManualJournal source, {
+    required List<ManualJournalItem> items,
+    String? notes,
+    String? referenceNumber,
+  }) {
+    final now = DateTime.now();
+    return ManualJournal(
+      id: _generateJournalId(),
+      orgId: source.orgId,
+      outletId: source.outletId,
+      userId: source.userId,
+      journalDate: now,
+      journalNumber: _generateJournalNumber(),
+      fiscalYearId: source.fiscalYearId,
+      referenceNumber: referenceNumber ?? source.referenceNumber,
+      notes: notes,
+      currency: source.currency,
+      is13thMonthAdjustment: source.is13thMonthAdjustment,
+      reportingMethod: source.reportingMethod,
+      items: items,
+      status: ManualJournalStatus.draft,
+      createdAt: now,
+      updatedAt: now,
+      recurringJournalId: source.recurringJournalId,
+    );
+  }
 
   @override
   Future<List<ManualJournal>> getManualJournals({String? orgId}) async {
@@ -376,47 +439,144 @@ class MockManualJournalRepository implements ManualJournalRepository {
 
   @override
   Future<ManualJournal> cloneManualJournal(String id) async {
-    throw UnimplementedError();
+    final source = _journals.firstWhere((j) => j.id == id);
+    final cloned = _buildDerivedJournal(
+      source,
+      items: source.items.map((item) => _cloneItem(item)).toList(),
+      notes: source.notes,
+    );
+    _journals.add(cloned);
+    return cloned;
   }
 
   @override
   Future<ManualJournal> reverseManualJournal(String id) async {
-    throw UnimplementedError();
+    final source = _journals.firstWhere((j) => j.id == id);
+    final reversed = _buildDerivedJournal(
+      source,
+      items: source.items
+          .map(
+            (item) => _cloneItem(
+              item,
+              debit: item.credit,
+              credit: item.debit,
+            ),
+          )
+          .toList(),
+      notes: source.notes == null || source.notes!.trim().isEmpty
+          ? 'Reversal of ${source.journalNumber}'
+          : 'Reversal of ${source.journalNumber}: ${source.notes}',
+      referenceNumber: source.referenceNumber ?? source.journalNumber,
+    );
+    _journals.add(reversed);
+    return reversed;
   }
 
   @override
   Future<ManualJournalTemplate> createTemplateFromManualJournal(
     String id,
   ) async {
-    throw UnimplementedError();
+    final source = _journals.firstWhere((j) => j.id == id);
+    final now = DateTime.now();
+    final template = ManualJournalTemplate(
+      id: _generateTemplateId(),
+      templateName: '${source.journalNumber} Template',
+      referenceNumber: source.referenceNumber,
+      notes: source.notes,
+      reportingMethod: source.reportingMethod,
+      currency: source.currency,
+      enterAmount: false,
+      isActive: true,
+      items: source.items
+          .map(
+            (item) => ManualJournalTemplateItem(
+              id: _generateItemId(),
+              accountId: item.accountId,
+              accountName: item.accountName,
+              description: item.description,
+              contactId: item.contactId,
+              contactType: item.contactType,
+              contactName: item.contactName,
+              projectId: item.projectId,
+              reportingTags: item.reportingTags,
+              type: item.debit > 0 ? 'debit' : item.credit > 0 ? 'credit' : null,
+              debit: item.debit,
+              credit: item.credit,
+              sortOrder: item.sortOrder,
+            ),
+          )
+          .toList(),
+      createdAt: now,
+      updatedAt: now,
+    );
+    _templates.add(template);
+    return template;
   }
 
   @override
   Future<List<ManualJournalTemplate>> getJournalTemplates() async {
-    return [];
+    return List<ManualJournalTemplate>.from(_templates);
   }
 
   @override
   Future<ManualJournalTemplate> getJournalTemplate(String id) async {
-    throw UnimplementedError();
+    return _templates.firstWhere(
+      (template) => template.id == id,
+      orElse: () => throw Exception('Journal template not found'),
+    );
   }
 
   @override
   Future<ManualJournalTemplate> createJournalTemplate(
     ManualJournalTemplate template,
   ) async {
-    return template;
+    final now = DateTime.now();
+    final created = ManualJournalTemplate(
+      id: template.id.isEmpty ? _generateTemplateId() : template.id,
+      templateName: template.templateName,
+      referenceNumber: template.referenceNumber,
+      notes: template.notes,
+      reportingMethod: template.reportingMethod,
+      currency: template.currency,
+      enterAmount: template.enterAmount,
+      isActive: template.isActive,
+      items: template.items,
+      createdAt: template.createdAt ?? now,
+      updatedAt: now,
+    );
+    _templates.add(created);
+    return created;
   }
 
   @override
   Future<ManualJournalTemplate> updateJournalTemplate(
     ManualJournalTemplate template,
   ) async {
-    return template;
+    final index = _templates.indexWhere((t) => t.id == template.id);
+    final updated = ManualJournalTemplate(
+      id: template.id,
+      templateName: template.templateName,
+      referenceNumber: template.referenceNumber,
+      notes: template.notes,
+      reportingMethod: template.reportingMethod,
+      currency: template.currency,
+      enterAmount: template.enterAmount,
+      isActive: template.isActive,
+      items: template.items,
+      createdAt:
+          index != -1 ? _templates[index].createdAt : template.createdAt,
+      updatedAt: DateTime.now(),
+    );
+    if (index == -1) {
+      _templates.add(updated);
+    } else {
+      _templates[index] = updated;
+    }
+    return updated;
   }
 
   @override
   Future<void> deleteJournalTemplate(String id) async {
-    // mock implementation
+    _templates.removeWhere((template) => template.id == id);
   }
 }

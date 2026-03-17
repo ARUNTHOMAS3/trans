@@ -24,17 +24,46 @@ npx playwright install
 
 ## 🏃 Running Tests
 
-Before running E2E tests, ensure your **Flutter Web** application is running locally.
+Playwright can now start a local Flutter web server automatically when the target URL is local.
+If you do nothing, it will use `http://localhost:3000`.
+The current setup builds Flutter web and serves `build/web` through Playwright's `webServer` hook.
 
-```bash
-# Start Flutter Web on the default port (3000)
-flutter run -d chrome --web-renderer canvaskit --web-port 3000
-```
-
-Once the app is running, use the following commands:
+Once the target URL is decided, use the following commands:
 
 ### Run all tests
 ```bash
+npm run test:e2e
+```
+
+### Run Flutter unit tests
+```bash
+npm run test:flutter
+```
+
+### Run backend Jest tests
+```bash
+npm run test:backend
+```
+
+### Run the whole suite
+```bash
+npm run test:all
+```
+
+If your app is running on a different port, set the Playwright base URL first.
+
+PowerShell:
+```powershell
+$env:PLAYWRIGHT_BASE_URL = 'http://localhost:53431'
+npm run test:e2e
+```
+
+If `PLAYWRIGHT_BASE_URL` points to `localhost` or `127.0.0.1`, Playwright will try to start Flutter automatically with the matching port unless something is already running there.
+
+Optional direct item-route validation:
+```powershell
+$env:PLAYWRIGHT_BASE_URL = 'http://localhost:53431'
+$env:PW_ITEM_ID = 'your-item-id'
 npm run test:e2e
 ```
 
@@ -59,6 +88,15 @@ npm run test:e2e:report
 
 - `tests/e2e/`: Contains all E2E test files.
   - `home.spec.ts`: Basic smoke tests for the dashboard and sidebar.
+  - `accountant.spec.ts`: Smoke tests for manual journals, recurring journals, chart of accounts, and transaction locking.
+  - `items.spec.ts`: Smoke tests for item report/create routes and optional direct item detail/edit route hydration.
+  - `helpers/flutter.ts`: Shared route/bootstrap helper for Flutter Web hash routes.
+- `test/`: Flutter unit tests.
+  - `core/utils/error_handler_test.dart`
+  - `modules/accountant/manual_journals/models/manual_journal_model_test.dart`
+- `backend/src/**/*.spec.ts`: backend Jest tests.
+  - `common/interceptors/standard_response.interceptor.spec.ts`
+  - `modules/health/health.controller.spec.ts`
 - `playwright.config.ts`: Configuration file for Playwright (timeouts, browsers, baseURL).
 
 ---

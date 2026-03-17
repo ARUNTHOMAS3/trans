@@ -1389,3 +1389,421 @@ This session focused on accounting UI consistency, clearer manual journal error 
 ---
 
 **Timestamp of Log Update:** March 17, 2026 - 18:20 (IST)
+
+### Repo Hygiene Cleanup
+
+- Removed stale duplicate source/config files that had `(1)` in the filename and were not used as active sources.
+- Canonical files remain the non-`(1)` versions:
+  - `lib/core/theme/app_theme.dart`
+  - `backend/src/db/schema.ts`
+  - `backend/src/lookups/lookups.controller.ts`
+  - `backend/vercel.json`
+- Removed matching stale generated backend `dist/` artifacts for the duplicate TypeScript files.
+
+**Files Removed:**
+
+- `lib/core/theme/app_theme (1).dart`
+- `backend/src/db/schema (1).ts`
+- `backend/src/lookups/lookups (1).controller.ts`
+- `backend/vercel (1).json`
+- `backend/dist/db/schema (1).js`
+- `backend/dist/db/schema (1).js.map`
+- `backend/dist/lookups/lookups (1).controller.js`
+- `backend/dist/lookups/lookups (1).controller.js.map`
+
+**Timestamp of Log Update:** March 17, 2026 - 20:25 (IST)
+
+## 32. March 17, 2026 - Detailed Co-Dev Handoff: Accountant, Items, Infrastructure, Repo Hygiene
+
+This section is intended as a practical handoff for another developer working on the same repo. It consolidates the full set of changes completed after the earlier summary entries, including implementation intent, behavioral impact, and where follow-up work should continue.
+
+### A. Accountant Module: Manual Journals, Recurring Journals, and Chart of Accounts
+
+#### 1. Manual journal backend/database alignment
+
+- Investigated `500` failures on:
+  - `GET /api/v1/accountant/manual-journals`
+  - `POST /api/v1/accountant/manual-journals`
+- Root issue identified during debugging:
+  - `accounts_manual_journals.is_deleted` was expected by backend logic but was absent in the actual table at the time of failure.
+  - `account_transactions` schema mismatch also caused journal-post failures when backend attempted to insert fields not present in the live table.
+- Immediate database guidance provided during debugging:
+  - add `is_deleted boolean not null default false` to `accounts_manual_journals`
+  - add `contact_id` and `contact_type` to `account_transactions` if backend expects them
+- Backend behavior was re-aligned to the intended soft-delete model for manual journals.
+
+**Result**
+- Manual journal reads once again filter on `is_deleted = false`
+- manual journal delete path returns to soft-delete semantics instead of hard delete
+- journal-related account checks ignore deleted journals consistently
+
+**Files touched**
+- `backend/src/db/schema.ts`
+- `backend/src/modules/accountant/accountant.service.ts`
+
+#### 2. Manual journals and recurring journals delete dialog standardization
+
+- Replaced the old generic `AlertDialog` implementations with the same styled confirmation modal used in Chart of Accounts:
+  - top-centered custom `Dialog`
+  - warning icon
+  - white surface
+  - green primary confirmation button
+  - gray outlined cancel button
+- Applied this consistently to:
+  - manual journals bulk delete
+  - recurring journals bulk delete
+
+**Files touched**
+- `lib/modules/accountant/manual_journals/presentation/widgets/manual_journals_list_panel.dart`
+- `lib/modules/accountant/recurring_journals/presentation/widgets/recurring_journals_list_panel.dart`
+
+#### 3. Bulk selection action bar cleanup
+
+- Removed visible `Esc` text from selection bars
+- kept only the clear-selection `X`
+- moved the `X` flush to the far right edge of the table toolbar
+- cleaned up spacing and presentation so the bar looks intentional rather than placeholder-like
+
+This was applied to the accountant list/table selection bars to match the product’s UI standard more closely.
+
+**Files touched**
+- `lib/modules/accountant/manual_journals/presentation/widgets/manual_journals_list_panel.dart`
+- `lib/modules/accountant/recurring_journals/presentation/widgets/recurring_journals_list_panel.dart`
+- `lib/modules/accountant/presentation/accountant_chart_of_accounts_overview.dart`
+
+#### 4. Manual journal create validation hardening
+
+- Tightened the frontend validation before save/publish in the manual journal create screen
+- Posting-critical row data now behaves as required UI:
+  - account required for entered row
+  - either debit or credit must be positive
+  - a row cannot have both debit and credit populated
+  - amount input handling is stricter for invalid numeric entry
+- Added required visual treatment to fields that feed `account_transactions`
+
+This was done deliberately on the Flutter side without adjusting backend behavior, to stop obviously invalid rows from reaching the API.
+
+**File touched**
+- `lib/modules/accountant/manual_journals/presentation/manual_journal_create_screen.dart`
+
+#### 5. Friendly error messaging for journal-post schema failures
+
+- Replaced raw SQL/HTTP dump style errors shown to end users with a readable message path
+- Added targeted translation for `account_transactions` schema mismatch errors so users see a meaningful explanation instead of the raw backend response
+
+Example of user-facing messaging now supported:
+- `We could not save the journal because the accounting transaction table is missing required fields. Contact support or update the database schema.`
+
+**Files touched**
+- `lib/core/utils/error_handler.dart`
+- `lib/modules/accountant/manual_journals/providers/manual_journal_provider.dart`
+- `lib/modules/accountant/manual_journals/presentation/manual_journals_overview_screen.dart`
+
+#### 6. Chart of Accounts account-type dropdown search behavior
+
+- Updated the create/edit account modal so account type search preserves grouped nesting during filtering
+- Search no longer flattens results; it keeps section headers like `Assets`, `Liabilities`, etc.
+
+**File touched**
+- `lib/modules/accountant/presentation/accountant_chart_of_accounts_creation.dart`
+
+#### 7. Mock manual journal repository completion
+
+- Clarified that `MockManualJournalRepository` is not the currently injected runtime repository; `ApiManualJournalRepository` is the one wired by the active provider
+- Despite that, completed missing methods in the mock so dev/test/demo flows will not crash if the mock is ever used
+
+Implemented in-memory support for:
+- `cloneManualJournal(String id)`
+- `reverseManualJournal(String id)`
+- `createTemplateFromManualJournal(String id)`
+- `getJournalTemplate(String id)`
+- plus realistic in-memory support for create/update/delete template persistence
+
+Behavior implemented:
+- cloned journal produces a new editable journal object
+- reversed journal produces a new editable journal object with debit/credit swapped
+- template creation stores and returns a template
+- template fetch now reads from stored in-memory templates instead of throwing
+
+**File touched**
+- `lib/modules/accountant/manual_journals/repositories/manual_journal_repository.dart`
+
+---
+
+### B. Items Module: Overview Data, Deep Links, Edit Hydration, and Price Lists
+
+#### 1. Item overview: salt composition display
+
+- Added `Salt Composition` immediately below `Manufacturer/Patent` on the item overview page
+- Source data comes from saved product composition records
+- Display format intentionally changed to match product expectations:
+  - `Aceclofenac(100mg) + Thiocolchicoside(4mg)`
+- Multiple compositions are joined with ` + `
+- fallback remains `n/a` when composition data is absent
+
+**File touched**
+- `lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+
+#### 2. Item overview: buying rule and schedule of drug
+
+- Added the following rows directly after the salt composition row:
+  - `Buying Rule`
+  - `Schedule of Drug`
+- Bound to actual item metadata so detail overview reflects edit-form composition/pharma setup more accurately
+
+**File touched**
+- `lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+
+#### 3. Deprecated dropdown cleanup in item detail price lists
+
+- Replaced deprecated `DropdownButtonFormField.value` usage with `initialValue`
+
+**File touched**
+- `lib/modules/items/items/presentation/sections/items_item_detail_price_lists.dart`
+
+#### 4. Associated price lists parsing fix
+
+- Fixed item-associated price list loading failure caused by response double-unwrapping
+- `ApiClient` was already normalizing data, but the product API service attempted to unwrap `response.data['data']` again
+- This caused:
+  - `type 'String' is not a subtype of type 'int'`
+
+Adjusted product price list fetch/update methods to handle both:
+- already unwrapped lists
+- wrapped map payloads with `data`
+
+**File touched**
+- `lib/modules/items/items/services/products_api_service.dart`
+
+#### 5. Direct load / deep-link hydration fix for item edit and detail pages
+
+This area had two stages of work:
+
+**Stage 1**
+- patched the edit screen so direct route entry like `/items/edit/:id` does not immediately render blank fields while background data is still loading
+
+**Stage 2**
+- corrected the underlying controller contract so single-item hydration is independent from background list loading
+
+The actual issue was that `ensureItemLoaded()` returned early whenever the global `state.isLoading` flag was true. That mixed together:
+- list loading
+- pagination/loading next page
+- direct item hydration
+
+This was refactored by splitting loading responsibilities in the items state:
+- `isLoadingList`
+- `isHydratingItem`
+- `hydratingItemId`
+
+Controller behavior updated so:
+- `loadItems()` and list-oriented flows use `isLoadingList`
+- `ensureItemLoaded()` uses `isHydratingItem`
+- duplicate hydration of the same item is prevented
+- direct `/items/edit/:id` and `/items/detail/:id` can hydrate while the global list load is in progress
+
+UI consumers were updated to read the appropriate loading flag instead of the broad previous one.
+
+**Files touched**
+- `lib/modules/items/items/controllers/items_state.dart`
+- `lib/modules/items/items/controllers/items_controller.dart`
+- `lib/modules/items/items/presentation/items_item_create.dart`
+- `lib/modules/items/items/presentation/items_item_detail.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_components.dart`
+- `lib/modules/items/items/presentation/sections/report/items_report_screen.dart`
+- `lib/modules/items/items/presentation/sections/report/items_report_overview.dart`
+
+**Behavioral result**
+- deep links no longer fail just because the items list is already loading
+- edit/detail screens show correct loading/hydration states
+- race between route hydration and background list fetch is removed at the controller level
+
+---
+
+### C. Core / Shared Infrastructure Consolidation
+
+The repo had drift between `core/` and `shared/` ownership for infrastructure concerns. To reduce ambiguity and match the PRD structure more closely, infrastructure ownership was consolidated under `core/`.
+
+#### Canonical infrastructure now lives in:
+- `lib/core/services/api_client.dart`
+- `lib/core/services/hive_service.dart`
+- `lib/core/services/env_service.dart`
+- `lib/core/utils/error_handler.dart`
+
+#### Transition approach used
+
+- the canonical implementations were placed/moved into `core/`
+- old `shared/` paths were converted into compatibility exports so existing imports would not break immediately
+- repo imports were updated toward the canonical `core/` paths
+
+#### Shared wrappers retained for compatibility
+- `lib/shared/services/api_client.dart`
+- `lib/shared/services/hive_service.dart`
+- `lib/shared/services/env_service.dart`
+- `lib/shared/utils/error_handler.dart`
+
+These now serve as transitional forwarding layers rather than separate implementations.
+
+#### Specific improvements made during the consolidation
+
+- copied the active `ApiClient` implementation into `core/services`
+- upgraded `core/services/hive_service.dart` to the richer implementation used by the app
+- merged friendly backend/Dio message parsing into `core/utils/error_handler.dart`
+
+**Outcome**
+- `core/` is now the authoritative infrastructure layer
+- `shared/` no longer contains diverging logic for those concerns
+- future cleanup can safely remove the wrapper exports once imports are fully normalized
+
+---
+
+### D. Theme / Font Fallback Improvements
+
+To reduce Flutter Web font fallback warnings and missing glyph behavior while keeping `Inter` as the primary product font:
+
+- kept `Inter` as the main font
+- added bundled fallback font families for missing glyph coverage
+- updated theme text styles to include `fontFamilyFallback`
+
+Fallback support added for:
+- broad Unicode coverage
+- symbols/punctuation cases not present in the primary font
+
+**Files/assets touched**
+- `pubspec.yaml`
+- `lib/core/theme/app_theme.dart`
+- `assets/fonts/NotoSans-Regular.ttf`
+- `assets/fonts/NotoSansSymbols2-Regular.ttf`
+
+**Important runtime note**
+- a hot restart is required after adding font assets; hot reload alone is not sufficient for Flutter to pick them up
+
+---
+
+### E. Repo Hygiene and Dead/Stale File Cleanup
+
+#### 1. Removed stale duplicate `(1)` files
+
+After verifying they were not referenced as active source/config files, removed:
+- `lib/core/theme/app_theme (1).dart`
+- `backend/src/db/schema (1).ts`
+- `backend/src/lookups/lookups (1).controller.ts`
+- `backend/vercel (1).json`
+
+Also removed matching generated backend artifacts:
+- `backend/dist/db/schema (1).js`
+- `backend/dist/db/schema (1).js.map`
+- `backend/dist/lookups/lookups (1).controller.js`
+- `backend/dist/lookups/lookups (1).controller.js.map`
+
+Canonical files remain:
+- `lib/core/theme/app_theme.dart`
+- `backend/src/db/schema.ts`
+- `backend/src/lookups/lookups.controller.ts`
+- `backend/vercel.json`
+
+Additionally:
+- removed stale duplicate references from `backend/lint_errors.txt`
+- added a repo hygiene note to `todo.md` to prevent future production source files with names like `(1)`, `copy`, `backup`, or `old`
+
+#### 2. Removed temporary RLS script and repowiki references
+
+Deleted:
+- `backend/disable_rls_temp.sql`
+
+Cleaned repowiki references so the deleted temp script is no longer mentioned.
+Also removed an orphan Mermaid graph reference left behind by that cleanup.
+
+Repowiki files cleaned include:
+- `repowiki/en/content/Data Management/Database Schema & Design.md`
+- `repowiki/en/content/Data Management/Data Security & Integrity.md`
+- `repowiki/en/content/Backend Development/Authentication & Security.md`
+- `repowiki/en/content/Backend Development/Database Layer & ORM.md`
+- `repowiki/en/meta/repowiki-metadata.json`
+
+Verification after cleanup:
+- no remaining `disable_rls_temp.sql`
+- no remaining `Temp RLS Disable`
+- no remaining `RLSTEMP`
+inside `repowiki/`
+
+#### 3. Removed obsolete report archive file
+
+Deleted:
+- `reports_archive/FOLDER_COMPARISON_ANALYSIS.md`
+
+This was treated as stale noise rather than active product documentation.
+
+---
+
+### F. Todo / Tracking Updates
+
+Added planned work entries to `todo.md` for:
+- unfinished placeholder routes/modules that are intentionally still under construction
+- visible TODO-backed UI actions in Items, Sales, and Purchases that should be built later rather than treated as current defects
+- repo hygiene rule preventing accidental stale duplicate source/config files
+
+These entries were deliberately recorded as future build scope, not as regressions.
+
+---
+
+### G. Smaller Cleanup
+
+- removed unused `outletId` local variable in:
+  - `lib/modules/home/presentation/home_dashboard_overview.dart`
+
+---
+
+### H. Recommended Co-Dev Next Steps
+
+If another developer needs to continue from this point, the most logical next tasks are:
+
+1. Finish backend/schema alignment for `account_transactions` if journal posting still depends on fields not yet migrated in the target environment.
+2. Remove transitional `shared/` wrappers after confirming all imports point to `core/`.
+3. Build the placeholder/TODO-backed actions already listed in `todo.md`.
+4. Consider removing or archiving the remaining unrelated duplicate file:
+   - `backend/.gitignore (1)`
+5. If mock/manual-journal flows are needed in tests or demos, keep extending `MockManualJournalRepository` alongside the API interface to preserve parity.
+
+---
+
+**Timestamp of Log Update:** March 17, 2026 - 20:55 (IST)
+
+### Manual Journal Mock Repository Clarification & Completion
+
+- Verified that the active runtime/provider wiring still uses `ApiManualJournalRepository` via `manualJournalRepositoryProvider`; `MockManualJournalRepository` is not the production path.
+- Confirmed the mock repository remains relevant only for possible mock/dev/test/demo usage, not for the current API-backed app runtime.
+- Completed the previously unimplemented mock methods so clone/reverse/template flows no longer crash if mock mode is ever used.
+
+**Implemented mock behaviors**
+
+- `cloneManualJournal(String id)`
+  - creates a new editable manual journal object
+  - copies source rows/items into a fresh journal
+  - stores it in the in-memory journal list
+  - returns the new journal for create/edit-style prefill flows
+- `reverseManualJournal(String id)`
+  - creates a new editable manual journal object
+  - swaps debit and credit values per row
+  - stores it in the in-memory journal list
+  - returns the new journal for create/edit-style prefill flows
+- `createTemplateFromManualJournal(String id)`
+  - creates a template from the source journal
+  - stores it in an in-memory template list
+  - returns the stored template
+- `getJournalTemplate(String id)`
+  - now reads from the stored in-memory template list instead of throwing
+- `getJournalTemplates()`
+  - now returns stored in-memory templates
+- `createJournalTemplate()`, `updateJournalTemplate()`, `deleteJournalTemplate()`
+  - now behave like a real in-memory repository instead of placeholder methods
+
+**Files Changed**
+
+- `lib/modules/accountant/manual_journals/repositories/manual_journal_repository.dart`
+
+**Verification**
+
+- Ran `dart analyze` on `manual_journal_repository.dart`
+- Result: no issues found
+
+**Timestamp of Log Update:** March 17, 2026 - 21:05 (IST)

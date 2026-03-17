@@ -55,24 +55,33 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
   }) {
     // Look up names from IDs using the maps
     String? brandName = item.brandId != null ? brandsMap[item.brandId] : null;
-    String? categoryName =
-        item.categoryId != null ? categoriesMap[item.categoryId] : null;
-    String? manufacturerName =
-        item.manufacturerId != null ? manufacturersMap[item.manufacturerId] : null;
-    String? vendorName =
-        item.preferredVendorId != null ? vendorsMap[item.preferredVendorId] : null;
-    String? storageName =
-        item.storageId != null ? storageMap[item.storageId] : null;
-    String? salesAccountName =
-        item.salesAccountId != null ? accountsMap[item.salesAccountId] : null;
-    String? purchaseAccountName =
-        item.purchaseAccountId != null ? accountsMap[item.purchaseAccountId] : null;
-    String? reorderTermName =
-        item.reorderTermId != null ? reorderTermsMap[item.reorderTermId] : null;
-    String? buyingRuleName =
-        item.buyingRuleId != null ? buyingRulesMap[item.buyingRuleId] : null;
-    String? scheduleName =
-        item.scheduleOfDrugId != null ? drugSchedulesMap[item.scheduleOfDrugId] : null;
+    String? categoryName = item.categoryId != null
+        ? categoriesMap[item.categoryId]
+        : null;
+    String? manufacturerName = item.manufacturerId != null
+        ? manufacturersMap[item.manufacturerId]
+        : null;
+    String? vendorName = item.preferredVendorId != null
+        ? vendorsMap[item.preferredVendorId]
+        : null;
+    String? storageName = item.storageId != null
+        ? storageMap[item.storageId]
+        : null;
+    String? salesAccountName = item.salesAccountId != null
+        ? accountsMap[item.salesAccountId]
+        : null;
+    String? purchaseAccountName = item.purchaseAccountId != null
+        ? accountsMap[item.purchaseAccountId]
+        : null;
+    String? reorderTermName = item.reorderTermId != null
+        ? reorderTermsMap[item.reorderTermId]
+        : null;
+    String? buyingRuleName = item.buyingRuleId != null
+        ? buyingRulesMap[item.buyingRuleId]
+        : null;
+    String? scheduleName = item.scheduleOfDrugId != null
+        ? drugSchedulesMap[item.scheduleOfDrugId]
+        : null;
 
     // Format tax preference for display
     String? taxPrefDisplay;
@@ -133,10 +142,9 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
       isbn: item.isbn,
 
       // Inventory
-      stockOnHand:
-          (item.isTrackInventory && item.sellingPrice != null)
-              ? '10.00' // TODO: Get real stock from inventory module
-              : '0.00',
+      stockOnHand: (item.isTrackInventory && item.sellingPrice != null)
+          ? '10.00' // TODO: Get real stock from inventory module
+          : '0.00',
       reorderLevel: item.reorderPoint > 0 ? item.reorderPoint.toString() : null,
       inventoryValuationMethod: item.inventoryValuationMethod,
       storageLocation: storageName,
@@ -331,23 +339,21 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
       (it) =>
           (row.id != null && it.id == row.id) ||
           it.productName.toLowerCase() == row.name.toLowerCase(),
-      orElse:
-          () => Item(
-            id: null,
-            type: row.itemType,
-            productName: row.name,
-            itemCode: row.itemCode ?? '',
-            unitId: '',
-            isReturnable: row.isReturnable,
-            pushToEcommerce: row.pushToEcommerce,
-            isTrackInventory: row.isInventoryItem,
-            trackBinLocation: false,
-            trackBatches: row.usesBatch,
-            reorderPoint:
-                row.hasReorderPoint
-                    ? int.tryParse(row.reorderLevel ?? '') ?? 0
-                    : 0,
-          ),
+      orElse: () => Item(
+        id: null,
+        type: row.itemType,
+        productName: row.name,
+        itemCode: row.itemCode ?? '',
+        unitId: '',
+        isReturnable: row.isReturnable,
+        pushToEcommerce: row.pushToEcommerce,
+        isTrackInventory: row.isInventoryItem,
+        trackBinLocation: false,
+        trackBatches: row.usesBatch,
+        reorderPoint: row.hasReorderPoint
+            ? int.tryParse(row.reorderLevel ?? '') ?? 0
+            : 0,
+      ),
     );
 
     if (item.id != null) {
@@ -368,7 +374,7 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
       enableBodyScroll: false,
       searchFocusNode: _searchFocusNode,
       child: ItemsReportBody(
-        isLoading: state.isLoading,
+        isLoading: state.isLoadingList,
         filter: _currentFilter,
         items: _filteredItems, // Uses the computed property
         searchFocusNode: _searchFocusNode,

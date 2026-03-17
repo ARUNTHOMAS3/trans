@@ -39,7 +39,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                     notification.metrics.pixels >=
                         notification.metrics.maxScrollExtent - 100) {
                   if (!state.hasReachedMax &&
-                      !state.isLoading &&
+                      !state.isLoadingList &&
                       !state.isSearching) {
                     controller.loadNextPage();
                   }
@@ -47,7 +47,8 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 return false;
               },
               child: ListView.separated(
-                itemCount: allFilteredItems.length + (state.isLoading ? 1 : 0),
+                itemCount:
+                    allFilteredItems.length + (state.isLoadingList ? 1 : 0),
                 separatorBuilder: (_, __) =>
                     const Divider(height: 1, color: Color(0xFFF3F4F6)),
                 itemBuilder: (context, index) {
@@ -206,7 +207,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
             hasReachedMax: state.hasReachedMax,
             isSearching: state.isSearching,
             onLoadMore:
-                state.hasReachedMax || state.isLoading || state.isSearching
+                state.hasReachedMax || state.isLoadingList || state.isSearching
                 ? null
                 : () => controller.loadNextPage(),
           ),

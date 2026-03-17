@@ -600,7 +600,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
 
     if (isDirectEditLoadPending &&
         !_isHydratingInitialItem &&
-        !itemsState.isLoading &&
+        !itemsState.isHydratingItem &&
         !itemsState.isLoadingLookups &&
         itemsState.error == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

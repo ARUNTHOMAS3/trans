@@ -1,8 +1,8 @@
 // FILE: lib/modules/inventory/repositories/transfers_repository.dart
 // Repository pattern for Stock Transfers - Online-first with offline fallback (PRD Section 12.2)
 
-import 'package:zerpai_erp/shared/services/hive_service.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/hive_service.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/inventory/models/stock_transfer_model.dart';
 
@@ -15,23 +15,21 @@ class TransfersRepository {
       _hiveService = hiveService ?? HiveService();
 
   /// Fetch stock transfers - Online-first with offline fallback
-  Future<List<StockTransfer>> getTransfers({
-    bool forceRefresh = false,
-  }) async {
+  Future<List<StockTransfer>> getTransfers({bool forceRefresh = false}) async {
     try {
       // Online-first: Fetch from API
       final response = await _apiClient.get('/stock-transfers');
-      
+
       final List<StockTransfer> transfers = (response.data as List)
           .map((json) => StockTransfer.fromJson(json))
           .toList();
-      
+
       // Cache to Hive for offline access
       await _hiveService.saveTransfers(transfers);
-      
+
       // Update last sync timestamp
       await _hiveService.updateLastSyncTime('transfers');
-      
+
       return transfers;
     } catch (e) {
       // Offline fallback: Return cached data
@@ -40,13 +38,13 @@ class TransfersRepository {
         error: e,
         module: 'transfers',
       );
-      
+
       final cachedTransfers = _hiveService.getTransfers();
-      
+
       if (cachedTransfers.isEmpty) {
         rethrow;
       }
-      
+
       return cachedTransfers;
     }
   }
@@ -58,12 +56,12 @@ class TransfersRepository {
     if (cached != null) {
       return cached;
     }
-    
+
     // Not in cache, fetch from API
     try {
       final response = await _apiClient.get('/stock-transfers/$id');
       final transfer = StockTransfer.fromJson(response.data);
-      
+
       await _hiveService.saveTransfer(transfer);
       return transfer;
     } catch (e) {
@@ -85,10 +83,10 @@ class TransfersRepository {
         data: transferData.toJson(),
       );
       final createdTransfer = StockTransfer.fromJson(response.data);
-      
+
       // Cache locally
       await _hiveService.saveTransfer(createdTransfer);
-      
+
       return createdTransfer;
     } catch (e) {
       AppLogger.error(
@@ -111,10 +109,10 @@ class TransfersRepository {
         data: transferData.toJson(),
       );
       final updatedTransfer = StockTransfer.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.saveTransfer(updatedTransfer);
-      
+
       return updatedTransfer;
     } catch (e) {
       AppLogger.error(
@@ -131,7 +129,7 @@ class TransfersRepository {
   Future<void> deleteTransfer(String id) async {
     try {
       await _apiClient.delete('/stock-transfers/$id');
-      
+
       // Remove from cache
       await _hiveService.transfersBox.delete(id);
     } catch (e) {
@@ -148,14 +146,12 @@ class TransfersRepository {
   /// Initiate transfer (change status to pending)
   Future<StockTransfer> initiateTransfer(String id) async {
     try {
-      final response = await _apiClient.post(
-        '/stock-transfers/$id/initiate',
-      );
+      final response = await _apiClient.post('/stock-transfers/$id/initiate');
       final initiatedTransfer = StockTransfer.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.saveTransfer(initiatedTransfer);
-      
+
       return initiatedTransfer;
     } catch (e) {
       AppLogger.error(
@@ -179,10 +175,10 @@ class TransfersRepository {
         data: {'items': receivedItems},
       );
       final receivedTransfer = StockTransfer.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.saveTransfer(receivedTransfer);
-      
+
       return receivedTransfer;
     } catch (e) {
       AppLogger.error(
@@ -203,10 +199,10 @@ class TransfersRepository {
         data: {'reason': reason},
       );
       final cancelledTransfer = StockTransfer.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.saveTransfer(cancelledTransfer);
-      
+
       return cancelledTransfer;
     } catch (e) {
       AppLogger.error(
@@ -242,11 +238,11 @@ class TransfersRepository {
   }
 
   /// Get transfers by to warehouse
-  Future<List<StockTransfer>> getTransfersToWarehouse(String warehouseId) async {
+  Future<List<StockTransfer>> getTransfersToWarehouse(
+    String warehouseId,
+  ) async {
     try {
-      final response = await _apiClient.get(
-        '/stock-transfers/to/$warehouseId',
-      );
+      final response = await _apiClient.get('/stock-transfers/to/$warehouseId');
       return (response.data as List)
           .map((json) => StockTransfer.fromJson(json))
           .toList();
@@ -295,7 +291,7 @@ class TransfersRepository {
   bool isCacheStale({Duration threshold = const Duration(hours: 24)}) {
     final lastSync = _hiveService.getLastSyncTime('transfers');
     if (lastSync == null) return true;
-    
+
     return DateTime.now().difference(lastSync) > threshold;
   }
 
@@ -303,7 +299,7 @@ class TransfersRepository {
   Map<String, dynamic> getCacheInfo() {
     final lastSync = _hiveService.getLastSyncTime('transfers');
     final stats = _hiveService.getCacheStats();
-    
+
     return {
       'cached_transfers': stats['transfers'] ?? 0,
       'last_sync': lastSync?.toIso8601String(),

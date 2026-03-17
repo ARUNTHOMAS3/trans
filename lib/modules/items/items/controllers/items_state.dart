@@ -126,6 +126,9 @@ final itemsPerPageProvider = StateProvider<int>((ref) => 50);
 class ItemsState {
   final List<Item> items;
   final bool isLoading;
+  final bool isLoadingList;
+  final bool isHydratingItem;
+  final String? hydratingItemId;
   final bool isSearching;
   final bool isSaving;
   final bool isLoadingLookups;
@@ -166,6 +169,9 @@ class ItemsState {
   const ItemsState({
     this.items = const [],
     this.isLoading = false,
+    this.isLoadingList = false,
+    this.isHydratingItem = false,
+    this.hydratingItemId,
     this.isSearching = false,
     this.isSaving = false,
     this.isLoadingLookups = false,
@@ -200,6 +206,9 @@ class ItemsState {
   ItemsState copyWith({
     List<Item>? items,
     bool? isLoading,
+    bool? isLoadingList,
+    bool? isHydratingItem,
+    Object? hydratingItemId = _sentinel,
     bool? isSearching,
     bool? isSaving,
     bool? isLoadingLookups,
@@ -233,6 +242,11 @@ class ItemsState {
     return ItemsState(
       items: items ?? this.items,
       isLoading: isLoading ?? this.isLoading,
+      isLoadingList: isLoadingList ?? this.isLoadingList,
+      isHydratingItem: isHydratingItem ?? this.isHydratingItem,
+      hydratingItemId: hydratingItemId == _sentinel
+          ? this.hydratingItemId
+          : (hydratingItemId as String?),
       isSearching: isSearching ?? this.isSearching,
       isSaving: isSaving ?? this.isSaving,
       isLoadingLookups: isLoadingLookups ?? this.isLoadingLookups,

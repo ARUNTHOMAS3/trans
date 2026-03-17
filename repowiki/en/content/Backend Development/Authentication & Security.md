@@ -12,7 +12,6 @@
 - [.env.example](file://backend/.env.example)
 - [001_initial_schema_and_seed.sql](file://supabase/migrations/001_initial_schema_and_seed.sql)
 - [fix_rls.sql](file://backend/fix_rls.sql)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql)
 - [grant-permissions.js](file://backend/grant-permissions.js)
 - [verify-rls.js](file://backend/verify-rls.js)
 - [package.json](file://backend/package.json)
@@ -277,14 +276,12 @@ Verify --> End(["Deploy to production with policies"])
 
 **Diagram sources**
 - [fix_rls.sql](file://backend/fix_rls.sql#L1-L16)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql#L1-L14)
 - [grant-permissions.js](file://backend/grant-permissions.js#L8-L39)
 - [verify-rls.js](file://backend/verify-rls.js#L8-L43)
 - [001_initial_schema_and_seed.sql](file://supabase/migrations/001_initial_schema_and_seed.sql#L137-L141)
 
 **Section sources**
 - [fix_rls.sql](file://backend/fix_rls.sql#L1-L16)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql#L1-L14)
 - [grant-permissions.js](file://backend/grant-permissions.js#L8-L39)
 - [verify-rls.js](file://backend/verify-rls.js#L8-L43)
 - [001_initial_schema_and_seed.sql](file://supabase/migrations/001_initial_schema_and_seed.sql#L137-L141)

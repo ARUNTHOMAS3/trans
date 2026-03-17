@@ -1,8 +1,8 @@
 // FILE: lib/modules/sales/repositories/eway_bills_repository.dart
 // Repository pattern for E-way Bills - Online-first with offline fallback (PRD Section 12.2)
 
-import 'package:zerpai_erp/shared/services/hive_service.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/services/hive_service.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_eway_bill_model.dart';
 
@@ -15,23 +15,21 @@ class EwayBillsRepository {
       _hiveService = hiveService ?? HiveService();
 
   /// Fetch E-way bills - Online-first with offline fallback
-  Future<List<SalesEWayBill>> getEwayBills({
-    bool forceRefresh = false,
-  }) async {
+  Future<List<SalesEWayBill>> getEwayBills({bool forceRefresh = false}) async {
     try {
       // Online-first: Fetch from API
       final response = await _apiClient.get('/eway-bills');
-      
+
       final List<SalesEWayBill> ewayBills = (response.data as List)
           .map((json) => SalesEWayBill.fromJson(json))
           .toList();
-      
+
       // Cache to Hive for offline access
       await _hiveService.saveEwayBills(ewayBills);
-      
+
       // Update last sync timestamp
       await _hiveService.updateLastSyncTime('eway_bills');
-      
+
       return ewayBills;
     } catch (e) {
       // Offline fallback: Return cached data
@@ -40,13 +38,13 @@ class EwayBillsRepository {
         error: e,
         module: 'eway_bills',
       );
-      
+
       final cachedEwayBills = _hiveService.getEwayBills();
-      
+
       if (cachedEwayBills.isEmpty) {
         rethrow;
       }
-      
+
       return cachedEwayBills;
     }
   }
@@ -58,12 +56,12 @@ class EwayBillsRepository {
     if (cached != null) {
       return cached;
     }
-    
+
     // Not in cache, fetch from API
     try {
       final response = await _apiClient.get('/eway-bills/$id');
       final ewayBill = SalesEWayBill.fromJson(response.data);
-      
+
       await _hiveService.saveEwayBill(ewayBill);
       return ewayBill;
     } catch (e) {
@@ -85,10 +83,10 @@ class EwayBillsRepository {
         data: ewayBillData.toJson(),
       );
       final createdEwayBill = SalesEWayBill.fromJson(response.data);
-      
+
       // Cache locally
       await _hiveService.saveEwayBill(createdEwayBill);
-      
+
       return createdEwayBill;
     } catch (e) {
       AppLogger.error(
@@ -101,17 +99,20 @@ class EwayBillsRepository {
   }
 
   /// Update existing E-way bill
-  Future<SalesEWayBill> updateEwayBill(String id, SalesEWayBill ewayBillData) async {
+  Future<SalesEWayBill> updateEwayBill(
+    String id,
+    SalesEWayBill ewayBillData,
+  ) async {
     try {
       final response = await _apiClient.put(
         '/eway-bills/$id',
         data: ewayBillData.toJson(),
       );
       final updatedEwayBill = SalesEWayBill.fromJson(response.data);
-      
+
       // Update cache
       await _hiveService.saveEwayBill(updatedEwayBill);
-      
+
       return updatedEwayBill;
     } catch (e) {
       AppLogger.error(
@@ -128,7 +129,7 @@ class EwayBillsRepository {
   Future<void> deleteEwayBill(String id) async {
     try {
       await _apiClient.delete('/eway-bills/$id');
-      
+
       // Remove from cache
       await _hiveService.ewayBillsBox.delete(id);
     } catch (e) {
@@ -143,9 +144,13 @@ class EwayBillsRepository {
   }
 
   /// Get E-way bills by sales order
-  Future<List<SalesEWayBill>> getEwayBillsBySalesOrder(String salesOrderId) async {
+  Future<List<SalesEWayBill>> getEwayBillsBySalesOrder(
+    String salesOrderId,
+  ) async {
     try {
-      final response = await _apiClient.get('/eway-bills/sales-order/$salesOrderId');
+      final response = await _apiClient.get(
+        '/eway-bills/sales-order/$salesOrderId',
+      );
       return (response.data as List)
           .map((json) => SalesEWayBill.fromJson(json))
           .toList();
@@ -164,7 +169,7 @@ class EwayBillsRepository {
   bool isCacheStale({Duration threshold = const Duration(hours: 24)}) {
     final lastSync = _hiveService.getLastSyncTime('eway_bills');
     if (lastSync == null) return true;
-    
+
     return DateTime.now().difference(lastSync) > threshold;
   }
 
@@ -172,7 +177,7 @@ class EwayBillsRepository {
   Map<String, dynamic> getCacheInfo() {
     final lastSync = _hiveService.getLastSyncTime('eway_bills');
     final stats = _hiveService.getCacheStats();
-    
+
     return {
       'cached_eway_bills': stats['eway_bills'] ?? 0,
       'last_sync': lastSync?.toIso8601String(),

@@ -11,7 +11,6 @@
 - [001_schema_redesigned.sql](file://supabase/migrations/001_schema_redesigned.sql)
 - [999_disable_rls_for_testing.sql](file://supabase/migrations/999_disable_rls_for_testing.sql)
 - [fix_rls.sql](file://backend/fix_rls.sql)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql)
 - [create-product.dto.ts](file://backend/src/products/dto/create-product.dto.ts)
 - [products.service.ts](file://backend/src/products/products.service.ts)
 - [sales.service.ts](file://backend/src/sales/sales.service.ts)
@@ -60,7 +59,6 @@ MIG1["Initial Schema Migration<br/>001_initial_schema_and_seed.sql"]
 MIG2["Redesigned Schema Migration<br/>001_schema_redesigned.sql"]
 RLSDIS["RLS Disabled (Dev)<br/>999_disable_rls_for_testing.sql"]
 RLSFIX["RLS Fix Script<br/>fix_rls.sql"]
-RLSTEMP["Temp RLS Disable<br/>disable_rls_temp.sql"]
 end
 subgraph "Frontend (Flutter)"
 AC["API Client<br/>api_client.dart"]
@@ -77,7 +75,6 @@ MIG1 --> SCH
 MIG2 --> SCH
 RLSDIS --> SCH
 RLSFIX --> SCH
-RLSTEMP --> SCH
 LOG --> AC
 ```
 
@@ -92,7 +89,6 @@ LOG --> AC
 - [001_schema_redesigned.sql](file://supabase/migrations/001_schema_redesigned.sql#L1-L180)
 - [999_disable_rls_for_testing.sql](file://supabase/migrations/999_disable_rls_for_testing.sql#L1-L54)
 - [fix_rls.sql](file://backend/fix_rls.sql#L1-L16)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql#L1-L14)
 - [api_client.dart](file://lib/shared/services/api_client.dart#L1-L62)
 - [app_logger.dart](file://lib/core/logging/app_logger.dart#L1-L218)
 
@@ -105,7 +101,6 @@ LOG --> AC
 - [001_schema_redesigned.sql](file://supabase/migrations/001_schema_redesigned.sql#L1-L180)
 - [999_disable_rls_for_testing.sql](file://supabase/migrations/999_disable_rls_for_testing.sql#L1-L54)
 - [fix_rls.sql](file://backend/fix_rls.sql#L1-L16)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql#L1-L14)
 - [api_client.dart](file://lib/shared/services/api_client.dart#L1-L62)
 - [app_logger.dart](file://lib/core/logging/app_logger.dart#L1-L218)
 
@@ -206,14 +201,12 @@ Enforce --> Secure["Secure multi-tenant access"]
 **Diagram sources**
 - [999_disable_rls_for_testing.sql](file://supabase/migrations/999_disable_rls_for_testing.sql#L1-L54)
 - [fix_rls.sql](file://backend/fix_rls.sql#L1-L16)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql#L1-L14)
 - [001_initial_schema_and_seed.sql](file://supabase/migrations/001_initial_schema_and_seed.sql#L137-L141)
 - [001_schema_redesigned.sql](file://supabase/migrations/001_schema_redesigned.sql#L161-L166)
 
 **Section sources**
 - [999_disable_rls_for_testing.sql](file://supabase/migrations/999_disable_rls_for_testing.sql#L1-L54)
 - [fix_rls.sql](file://backend/fix_rls.sql#L1-L16)
-- [disable_rls_temp.sql](file://backend/disable_rls_temp.sql#L1-L14)
 - [001_initial_schema_and_seed.sql](file://supabase/migrations/001_initial_schema_and_seed.sql#L137-L141)
 - [001_schema_redesigned.sql](file://supabase/migrations/001_schema_redesigned.sql#L161-L166)
 

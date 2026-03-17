@@ -12,7 +12,7 @@ import '../../models/manual_journal_model.dart';
 import '../../providers/manual_journal_provider.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
-import 'package:zerpai_erp/shared/utils/error_handler.dart';
+import 'package:zerpai_erp/core/utils/error_handler.dart';
 
 enum ManualJournalSortField { date, journalNumber, referenceNumber }
 
