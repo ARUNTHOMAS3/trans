@@ -200,3 +200,76 @@ class TransactionData {
     'reference': reference,
   };
 }
+
+class ItemHistoryEntry {
+  final String id;
+  final String tableName;
+  final String section;
+  final String action;
+  final String recordId;
+  final String? recordPk;
+  final String actorName;
+  final String source;
+  final String? requestId;
+  final String? moduleName;
+  final DateTime? createdAt;
+  final List<String> changedColumns;
+  final Map<String, dynamic>? oldValues;
+  final Map<String, dynamic>? newValues;
+  final String summary;
+
+  ItemHistoryEntry({
+    required this.id,
+    required this.tableName,
+    required this.section,
+    required this.action,
+    required this.recordId,
+    required this.actorName,
+    required this.source,
+    required this.summary,
+    this.recordPk,
+    this.requestId,
+    this.moduleName,
+    this.createdAt,
+    this.changedColumns = const <String>[],
+    this.oldValues,
+    this.newValues,
+  });
+
+  factory ItemHistoryEntry.fromJson(Map<String, dynamic> json) {
+    List<String> changedColumnsFrom(dynamic value) {
+      if (value is List) {
+        return value.map((entry) => entry.toString()).toList();
+      }
+      return const <String>[];
+    }
+
+    Map<String, dynamic>? mapFrom(dynamic value) {
+      if (value is Map<String, dynamic>) {
+        return value;
+      }
+      if (value is Map) {
+        return value.map((key, entry) => MapEntry(key.toString(), entry));
+      }
+      return null;
+    }
+
+    return ItemHistoryEntry(
+      id: (json['id'] ?? '').toString(),
+      tableName: (json['table_name'] ?? '').toString(),
+      section: (json['section'] ?? 'History').toString(),
+      action: (json['action'] ?? '').toString(),
+      recordId: (json['record_id'] ?? '').toString(),
+      recordPk: json['record_pk']?.toString(),
+      actorName: (json['actor_name'] ?? 'system').toString(),
+      source: (json['source'] ?? 'system').toString(),
+      requestId: json['request_id']?.toString(),
+      moduleName: json['module_name']?.toString(),
+      createdAt: DateTime.tryParse((json['created_at'] ?? '').toString()),
+      changedColumns: changedColumnsFrom(json['changed_columns']),
+      oldValues: mapFrom(json['old_values']),
+      newValues: mapFrom(json['new_values']),
+      summary: (json['summary'] ?? '').toString(),
+    );
+  }
+}

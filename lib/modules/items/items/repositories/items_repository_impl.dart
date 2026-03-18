@@ -642,6 +642,20 @@ class ItemsRepositoryImpl implements ItemRepository {
   }
 
   @override
+  Future<List<ItemHistoryEntry>> getItemHistory(String itemId) async {
+    try {
+      return await _apiService.getProductHistory(itemId);
+    } catch (e) {
+      AppLogger.error(
+        'Failed to fetch item history from API',
+        error: e,
+        module: 'items_repository',
+      );
+      rethrow;
+    }
+  }
+
+  @override
   Future<Map<String, dynamic>> getQuickStats(String itemId) async {
     try {
       return await _apiService.getProductQuickStats(itemId);

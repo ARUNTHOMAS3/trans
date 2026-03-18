@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -45,6 +43,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   String? _selectedNodeKey;
   DateTime? _fromDate;
   DateTime? _toDate;
+  bool _isLeftPanelCollapsed = false;
 
   int _page = 1;
   int _pageSize = 100;
@@ -102,11 +101,13 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(
-                    width: isCompact ? 280 : 320,
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: _isLeftPanelCollapsed ? 56 : (isCompact ? 280 : 320),
                     child: _buildModulePanel(context),
                   ),
-                  Container(width: 1, color: AppTheme.borderColor),
+                  if (!_isLeftPanelCollapsed)
+                    Container(width: 1, color: AppTheme.borderColor),
                   Expanded(child: _buildContentPanel(context, isCompact)),
                 ],
               );
@@ -118,6 +119,36 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   }
 
   Widget _buildModulePanel(BuildContext context) {
+    if (_isLeftPanelCollapsed) {
+      return Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.backgroundColor,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(16),
+            bottomLeft: Radius.circular(16),
+          ),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: AppTheme.space12),
+            IconButton(
+              tooltip: 'Expand filters',
+              onPressed: () {
+                setState(() => _isLeftPanelCollapsed = false);
+              },
+              icon: const Icon(LucideIcons.panelLeftOpen),
+            ),
+            const SizedBox(height: AppTheme.space8),
+            const Icon(
+              LucideIcons.history,
+              size: 18,
+              color: AppTheme.textSecondary,
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       decoration: const BoxDecoration(
         color: AppTheme.backgroundColor,
@@ -129,48 +160,22 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(AppTheme.space20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.sidebarColor,
-                  AppTheme.sidebarColor.withValues(alpha: 0.92),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-              ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.space12,
+              AppTheme.space12,
+              AppTheme.space12,
+              0,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(AppTheme.space10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    LucideIcons.history,
-                    color: Colors.white,
-                    size: AppTheme.iconSizeLarge,
-                  ),
-                ),
-                const SizedBox(height: AppTheme.space14),
-                Text(
-                  'Activity Explorer',
-                  style: AppTheme.pageTitle.copyWith(color: Colors.white),
-                ),
-                const SizedBox(height: AppTheme.space8),
-                Text(
-                  'Track changes across every module from one audit timeline.',
-                  style: AppTheme.bodyText.copyWith(
-                    color: Colors.white.withValues(alpha: 0.86),
-                    height: 1.4,
-                  ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Collapse filters',
+                  onPressed: () {
+                    setState(() => _isLeftPanelCollapsed = true);
+                  },
+                  icon: const Icon(LucideIcons.panelLeftClose),
                 ),
               ],
             ),
@@ -178,33 +183,51 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppTheme.space16,
-              AppTheme.space16,
+              AppTheme.space4,
               AppTheme.space16,
               0,
             ),
-            child: Wrap(
-              spacing: AppTheme.space10,
-              runSpacing: AppTheme.space10,
-              children: [
-                _buildScopeCard(
-                  title: 'All Logs',
-                  subtitle: 'Everything in one timeline',
-                  icon: LucideIcons.database,
-                  scope: 'all',
-                ),
-                _buildScopeCard(
-                  title: 'Recent',
-                  subtitle: 'Hot table activity',
-                  icon: LucideIcons.clock3,
-                  scope: 'recent',
-                ),
-                _buildScopeCard(
-                  title: 'Archived',
-                  subtitle: 'Older retained history',
-                  icon: LucideIcons.archive,
-                  scope: 'archived',
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const spacing = AppTheme.space10;
+                final cardWidth = ((constraints.maxWidth - spacing) / 2).clamp(
+                  120.0,
+                  220.0,
+                );
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: [
+                    SizedBox(
+                      width: cardWidth,
+                      child: _buildScopeCard(
+                        title: 'All Logs',
+                        subtitle: 'Everything in one timeline',
+                        icon: LucideIcons.database,
+                        scope: 'all',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _buildScopeCard(
+                        title: 'Recent',
+                        subtitle: 'Hot table activity',
+                        icon: LucideIcons.clock3,
+                        scope: 'recent',
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _buildScopeCard(
+                        title: 'Archived',
+                        subtitle: 'Older retained history',
+                        icon: LucideIcons.archive,
+                        scope: 'archived',
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           Padding(
@@ -286,7 +309,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 132,
+        width: double.infinity,
         padding: const EdgeInsets.all(AppTheme.space12),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.infoBg : Colors.white,
@@ -817,32 +840,44 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   }
 
   Widget _buildTableSection() {
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: 1040,
-              child: Column(
-                children: [
-                  _buildTableHeader(),
-                  Expanded(
-                    child: ListView.separated(
-                      itemCount: _logs.length,
-                      separatorBuilder: (_, _) =>
-                          const Divider(height: 1, color: AppTheme.borderColor),
-                      itemBuilder: (context, index) =>
-                          _buildTableRow(_logs[index]),
+    return Container(
+      margin: const EdgeInsets.all(AppTheme.space16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: 1320,
+                child: Column(
+                  children: [
+                    _buildTableHeader(),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: _logs.length,
+                        separatorBuilder: (_, _) => const Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: AppTheme.borderColor,
+                        ),
+                        itemBuilder: (context, index) =>
+                            _buildTableRow(_logs[index]),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        _buildPaginationBar(),
-      ],
+          _buildPaginationBar(),
+        ],
+      ),
     );
   }
 
@@ -860,9 +895,10 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             SizedBox(width: 142, child: Text('Time')),
             SizedBox(width: 126, child: Text('Module')),
             SizedBox(width: 156, child: Text('Section')),
+            SizedBox(width: 220, child: Text('Record')),
+            SizedBox(width: 260, child: Text('Details')),
             SizedBox(width: 120, child: Text('Action')),
             SizedBox(width: 126, child: Text('Actor')),
-            SizedBox(width: 180, child: Text('Request ID')),
             SizedBox(width: 110, child: Text('Scope')),
           ],
         ),
@@ -878,7 +914,8 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
     final bool isArchived = log['archived_at'] != null;
     final String createdAt = _formatTimestamp(log['created_at']?.toString());
     final String actor = _stringValue(log['actor_name'], fallback: 'system');
-    final String requestId = _stringValue(log['request_id'], fallback: '--');
+    final String recordName = _resolveAuditRecordName(log);
+    final String detailText = _resolveAuditRowSummary(log);
 
     return InkWell(
       onTap: () => setState(() => _selectedLog = log),
@@ -902,19 +939,35 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
               width: 156,
               child: Text(meta.sectionLabel, style: AppTheme.tableCell),
             ),
-            SizedBox(width: 120, child: _buildActionBadge(action)),
-            SizedBox(width: 126, child: Text(actor, style: AppTheme.tableCell)),
             SizedBox(
-              width: 180,
+              width: 220,
               child: Text(
-                requestId,
+                recordName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: AppTheme.tableCell.copyWith(
-                  color: requestId == '--'
+                  color: recordName == '--'
                       ? AppTheme.textMuted
                       : AppTheme.textPrimary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
+            SizedBox(
+              width: 260,
+              child: Text(
+                detailText,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.tableCell.copyWith(
+                  color: detailText == '--'
+                      ? AppTheme.textMuted
+                      : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            SizedBox(width: 120, child: _buildActionBadge(action)),
+            SizedBox(width: 126, child: Text(actor, style: AppTheme.tableCell)),
             SizedBox(
               width: 110,
               child: _buildScopeBadge(isArchived ? 'Archived' : 'Recent'),
@@ -1007,25 +1060,35 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
               border: Border.all(color: AppTheme.borderColor),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                value: _pageSize,
-                items: _pageSizeOptions
-                    .map(
-                      (size) => DropdownMenuItem<int>(
-                        value: size,
-                        child: Text('$size per page'),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value == null || value == _pageSize) return;
-                  setState(() {
-                    _pageSize = value;
-                    _page = 1;
-                  });
-                  _loadLogs();
-                },
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                canvasColor: Colors.white,
+                highlightColor: Colors.white,
+                hoverColor: Colors.white,
+                splashColor: Colors.transparent,
+                focusColor: Colors.white,
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<int>(
+                  value: _pageSize,
+                  dropdownColor: Colors.white,
+                  items: _pageSizeOptions
+                      .map(
+                        (size) => DropdownMenuItem<int>(
+                          value: size,
+                          child: Text('$size per page'),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null || value == _pageSize) return;
+                    setState(() {
+                      _pageSize = value;
+                      _page = 1;
+                    });
+                    _loadLogs();
+                  },
+                ),
               ),
             ),
           ),
@@ -1097,6 +1160,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
     final meta = _resolveMeta(log);
     final List<dynamic> changedColumns =
         (log['changed_columns'] as List<dynamic>? ?? const <dynamic>[]);
+    final List<String> readableChanges = _describeAuditChanges(log);
 
     return Container(
       color: AppTheme.bgLight,
@@ -1134,74 +1198,110 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                     value: meta.sectionLabel,
                   ),
                   _buildInspectorMeta(
-                    title: 'Table',
-                    value: _stringValue(log['table_name'], fallback: '--'),
+                    title: 'Record',
+                    value: _resolveAuditRecordName(log),
+                  ),
+                  _buildInspectorMeta(
+                    title: 'Details',
+                    value: _resolveAuditRowSummary(log),
                   ),
                   _buildInspectorMeta(
                     title: 'Actor',
                     value: _stringValue(log['actor_name'], fallback: 'system'),
                   ),
                   _buildInspectorMeta(
-                    title: 'Record',
-                    value: _stringValue(log['record_pk'], fallback: '--'),
-                  ),
-                  _buildInspectorMeta(
                     title: 'Source',
                     value: _stringValue(log['source'], fallback: 'system'),
-                  ),
-                  _buildInspectorMeta(
-                    title: 'Request ID',
-                    value: _stringValue(log['request_id'], fallback: '--'),
                   ),
                   _buildInspectorMeta(
                     title: 'Created At',
                     value: _formatTimestamp(log['created_at']?.toString()),
                   ),
                   const SizedBox(height: AppTheme.space14),
-                  Text('Changed Columns', style: AppTheme.sectionHeader),
+                  Text('Changes', style: AppTheme.sectionHeader),
                   const SizedBox(height: AppTheme.space10),
-                  changedColumns.isEmpty
-                      ? Text(
-                          'No field diff available',
-                          style: AppTheme.metaHelper,
-                        )
-                      : Wrap(
-                          spacing: AppTheme.space8,
-                          runSpacing: AppTheme.space8,
-                          children: changedColumns
-                              .map(
-                                (column) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AppTheme.space10,
-                                    vertical: AppTheme.space6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(
-                                      color: AppTheme.borderColor,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    column.toString(),
-                                    style: AppTheme.metaHelper.copyWith(
-                                      color: AppTheme.textPrimary,
-                                    ),
-                                  ),
+                  if (readableChanges.isEmpty)
+                    Text(
+                      'No readable field changes available.',
+                      style: AppTheme.metaHelper,
+                    )
+                  else
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: Column(
+                        children: readableChanges
+                            .map(
+                              (change) => Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppTheme.space14,
+                                  AppTheme.space10,
+                                  AppTheme.space14,
+                                  AppTheme.space10,
                                 ),
-                              )
-                              .toList(),
-                        ),
-                  const SizedBox(height: AppTheme.space18),
-                  _buildJsonCard(
-                    title: 'Old Values',
-                    value: _prettyJson(log['old_values']),
-                  ),
-                  const SizedBox(height: AppTheme.space14),
-                  _buildJsonCard(
-                    title: 'New Values',
-                    value: _prettyJson(log['new_values']),
-                  ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.only(top: 6),
+                                      child: Icon(
+                                        Icons.circle,
+                                        size: 6,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppTheme.space10),
+                                    Expanded(
+                                      child: Text(
+                                        change,
+                                        style: AppTheme.bodyText.copyWith(
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimary,
+                                          height: 1.45,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                  if (changedColumns.isNotEmpty) ...[
+                    const SizedBox(height: AppTheme.space16),
+                    Text('Touched Fields', style: AppTheme.sectionHeader),
+                    const SizedBox(height: AppTheme.space10),
+                    Wrap(
+                      spacing: AppTheme.space8,
+                      runSpacing: AppTheme.space8,
+                      children: changedColumns
+                          .map(
+                            (column) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppTheme.space10,
+                                vertical: AppTheme.space6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(color: AppTheme.borderColor),
+                              ),
+                              child: Text(
+                                _auditFieldLabel(column.toString()),
+                                style: AppTheme.metaHelper.copyWith(
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1230,38 +1330,6 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildJsonCard({required String title, required String value}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: AppTheme.sectionHeader),
-        const SizedBox(height: AppTheme.space8),
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.borderColor),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 220),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppTheme.space14),
-              child: SelectableText(
-                value,
-                style: AppTheme.metaHelper.copyWith(
-                  fontFamily: 'monospace',
-                  height: 1.5,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -1408,13 +1476,286 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
     return normalized.isEmpty ? fallback : normalized;
   }
 
-  String _prettyJson(dynamic value) {
-    if (value == null) return 'No data';
-    try {
-      return const JsonEncoder.withIndent('  ').convert(value);
-    } catch (_) {
+  String _resolveAuditRecordName(Map<String, dynamic> log) {
+    final Map<String, dynamic> oldValues =
+        log['old_values'] is Map<String, dynamic>
+        ? Map<String, dynamic>.from(log['old_values'] as Map<String, dynamic>)
+        : <String, dynamic>{};
+    final Map<String, dynamic> newValues =
+        log['new_values'] is Map<String, dynamic>
+        ? Map<String, dynamic>.from(log['new_values'] as Map<String, dynamic>)
+        : <String, dynamic>{};
+
+    String? pickValue(Map<String, dynamic> values, List<String> keys) {
+      for (final key in keys) {
+        final raw = values[key];
+        if (raw == null) continue;
+        final text = raw.toString().trim();
+        if (text.isEmpty ||
+            text.toLowerCase() == 'null' ||
+            _looksLikeUuid(text)) {
+          continue;
+        }
+        return text;
+      }
+      return null;
+    }
+
+    final candidates = <String?>[
+      pickValue(newValues, const [
+        'product_name',
+        'display_name',
+        'company_name',
+        'name',
+        'buying_rule',
+        'shedule_name',
+        'location_name',
+        'batch',
+        'tag_name',
+        'group_name',
+        'journal_number',
+      ]),
+      pickValue(oldValues, const [
+        'product_name',
+        'display_name',
+        'company_name',
+        'name',
+        'buying_rule',
+        'shedule_name',
+        'location_name',
+        'batch',
+        'tag_name',
+        'group_name',
+        'journal_number',
+      ]),
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate != null && candidate.isNotEmpty) {
+        return candidate;
+      }
+    }
+
+    return '--';
+  }
+
+  String _resolveAuditRowSummary(Map<String, dynamic> log) {
+    final changes = _describeAuditChanges(log);
+    if (changes.isNotEmpty) {
+      return changes.first;
+    }
+    return '--';
+  }
+
+  List<String> _describeAuditChanges(Map<String, dynamic> log) {
+    final Map<String, dynamic> oldValues =
+        log['old_values'] is Map<String, dynamic>
+        ? Map<String, dynamic>.from(log['old_values'] as Map<String, dynamic>)
+        : <String, dynamic>{};
+    final Map<String, dynamic> newValues =
+        log['new_values'] is Map<String, dynamic>
+        ? Map<String, dynamic>.from(log['new_values'] as Map<String, dynamic>)
+        : <String, dynamic>{};
+    final List<String> fields =
+        (log['changed_columns'] as List<dynamic>? ?? const <dynamic>[])
+            .map((value) => value.toString())
+            .toList();
+    final Iterable<String> effectiveFields = fields.isNotEmpty
+        ? fields
+        : newValues.keys.where((key) => !_auditIsHiddenField(key));
+
+    final changes = <String>[];
+    for (final field in effectiveFields) {
+      final description = _describeAuditFieldChange(
+        field,
+        oldValues[field],
+        newValues[field],
+        _stringValue(log['action'], fallback: '').toUpperCase(),
+      );
+      if (description != null && description.trim().isNotEmpty) {
+        changes.add(description);
+      }
+    }
+    return changes;
+  }
+
+  String? _describeAuditFieldChange(
+    String field,
+    dynamic oldValue,
+    dynamic newValue,
+    String action,
+  ) {
+    final label = _auditFieldLabel(field);
+    final previous = _auditDisplayValue(field, oldValue);
+    final next = _auditDisplayValue(field, newValue);
+
+    if (_auditUsesGenericMessage(field)) {
+      if (next == null && previous == null) {
+        return '$label updated';
+      }
+      if (next == null) {
+        return '$label cleared';
+      }
+      if (previous == null) {
+        return action == 'INSERT' ? '$label set to $next' : '$label set';
+      }
+      if (previous != next) {
+        return '$label changed from $previous to $next';
+      }
+      return '$label updated';
+    }
+
+    if (previous == next) {
+      return next == null ? null : '$label updated';
+    }
+    if (previous == null && next != null) {
+      return '$label set to $next';
+    }
+    if (previous != null && next == null) {
+      return '$label cleared';
+    }
+    if (previous != null && next != null) {
+      return '$label changed from $previous to $next';
+    }
+    return null;
+  }
+
+  String _auditFieldLabel(String field) {
+    const labels = <String, String>{
+      'buying_rule_id': 'Buying Rule',
+      'schedule_of_drug_id': 'Schedule of Drug',
+      'shedule_id': 'Schedule of Drug',
+      'storage_id': 'Storage',
+      'rack_id': 'Rack',
+      'manufacturer_id': 'Manufacturer / Patent',
+      'brand_id': 'Brand',
+      'category_id': 'Category',
+      'unit_id': 'Unit',
+      'preferred_vendor_id': 'Preferred Vendor',
+      'sales_account_id': 'Sales Account',
+      'purchase_account_id': 'Purchase Account',
+      'inventory_account_id': 'Inventory Account',
+      'image_urls': 'Images',
+      'faq_text': 'FAQ',
+      'side_effects': 'Side Effects',
+      'track_assoc_ingredients': 'Track Active Ingredients',
+      'track_bin_location': 'Track Bin Location',
+      'track_serial_number': 'Track Serial Number',
+      'track_batches': 'Track Batches',
+      'inventory_valuation_method': 'Inventory Valuation Method',
+      'reorder_point': 'Reorder Point',
+      'display_order': 'Display Order',
+      'content_id': 'Content',
+      'strength_id': 'Strength',
+      'warehouse_id': 'Warehouse',
+      'opening_stock': 'Opening Stock',
+      'opening_stock_value': 'Opening Stock Value',
+      'accounting_stock': 'Accounting Stock',
+      'physical_stock': 'Physical Stock',
+      'committed_stock': 'Committed Stock',
+      'variance_qty': 'Variance Quantity',
+      'batch': 'Batch Reference',
+      'manufacture_batch_number': 'Manufacturer Batch',
+      'exp': 'Expiry Date',
+      'manufacture_exp': 'Manufactured Date',
+    };
+    final mapped = labels[field];
+    if (mapped != null) {
+      return mapped;
+    }
+    return field
+        .split('_')
+        .where((part) => part.isNotEmpty)
+        .map(
+          (part) =>
+              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+        )
+        .join(' ');
+  }
+
+  bool _auditUsesGenericMessage(String field) {
+    const genericFields = <String>{
+      'buying_rule_id',
+      'schedule_of_drug_id',
+      'shedule_id',
+      'storage_id',
+      'rack_id',
+      'manufacturer_id',
+      'brand_id',
+      'category_id',
+      'unit_id',
+      'content_id',
+      'strength_id',
+      'warehouse_id',
+      'preferred_vendor_id',
+      'sales_account_id',
+      'purchase_account_id',
+      'inventory_account_id',
+      'intra_state_tax_id',
+      'inter_state_tax_id',
+      'reorder_term_id',
+      'image_urls',
+      'faq_text',
+      'side_effects',
+    };
+    return genericFields.contains(field);
+  }
+
+  bool _auditIsHiddenField(String field) {
+    const hiddenFields = <String>{
+      'id',
+      'product_id',
+      'item_id',
+      'org_id',
+      'outlet_id',
+      'created_at',
+      'updated_at',
+      'created_by_id',
+      'updated_by_id',
+      'record_id',
+      'request_id',
+    };
+    return hiddenFields.contains(field);
+  }
+
+  String? _auditDisplayValue(String field, dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is bool) {
+      if (field == 'is_active') {
+        return value ? 'Active' : 'Inactive';
+      }
+      return value ? 'Enabled' : 'Disabled';
+    }
+    if (value is num) {
       return value.toString();
     }
+    if (value is List) {
+      final nonEmpty = value
+          .map((entry) => entry.toString().trim())
+          .where((entry) => entry.isNotEmpty)
+          .toList();
+      if (nonEmpty.isEmpty) {
+        return 'empty';
+      }
+      return nonEmpty.every(_looksLikeUuid) ? null : nonEmpty.join(', ');
+    }
+    final text = value.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') {
+      return null;
+    }
+    if (_looksLikeUuid(text)) {
+      return null;
+    }
+    return text;
+  }
+
+  bool _looksLikeUuid(String value) {
+    final uuidRegex = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
+    return uuidRegex.hasMatch(value);
   }
 
   _AuditFilterNode? _findNodeByKey(List<_AuditFilterNode> nodes, String key) {
@@ -1434,6 +1775,11 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
 
   List<_AuditFilterNode> _buildModuleTree() {
     return [
+      const _AuditFilterNode(
+        key: 'all-modules',
+        title: 'All Modules',
+        icon: LucideIcons.layoutGrid,
+      ),
       _AuditFilterNode(
         key: 'system',
         title: 'System',

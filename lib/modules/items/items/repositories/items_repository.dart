@@ -45,6 +45,7 @@ abstract class ItemRepository {
   Future<List<SerialData>> getItemSerials(String itemId);
   Future<List<BatchData>> getItemBatches(String itemId);
   Future<List<TransactionData>> getItemStockTransactions(String itemId);
+  Future<List<ItemHistoryEntry>> getItemHistory(String itemId);
   Future<Map<String, dynamic>> getQuickStats(String itemId);
   Future<List<Map<String, dynamic>>> getAssociatedPriceLists(String productId);
   Future<List<Map<String, dynamic>>> getAllPriceLists();
@@ -219,6 +220,11 @@ class InMemoryItemRepository implements ItemRepository {
 
   @override
   Future<List<TransactionData>> getItemStockTransactions(String itemId) async {
+    return [];
+  }
+
+  @override
+  Future<List<ItemHistoryEntry>> getItemHistory(String itemId) async {
     return [];
   }
 

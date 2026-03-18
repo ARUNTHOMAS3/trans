@@ -143,6 +143,31 @@ These are intentionally still under construction and should be tracked as planne
 
 ## 🔮 Future Enhancements (Post-MVP)
 
+- [ ] **RBAC Home Dashboard Specification**: Define the home dashboard as a role-aware, permission-aware, user-aware, and outlet-aware command center rather than a single shared summary screen.
+- [ ] **Dashboard role matrix**: Document exact home widgets by role and scope:
+  - Super Admin: cross-org health, org/user status, system alerts
+  - Org Admin: org-wide KPIs, receivables/payables, inventory risk, outlet comparison
+  - Outlet Admin / Manager: outlet sales, low stock, expiry alerts, pending operational actions
+  - Sales / Cashier: today's sales, pending invoices, payment follow-ups, customer actions
+  - Purchase User: pending purchase orders, vendor follow-ups, receiving actions, shortage alerts
+  - Inventory / Warehouse User: low stock, expiry, accounting vs physical variance, stock adjustments
+  - Accountant: receivables, payables, cash/bank, journals, locks, accounting exceptions
+- [ ] **Dashboard outlet-context behavior**: Define how the dashboard changes for org-level users vs outlet-scoped users, including default outlet selection, outlet switch persistence, and cross-outlet visibility rules.
+- [ ] **Dashboard RBAC widget visibility rules**: Lock which widgets/cards/charts/actions appear by permission/module access so users do not see irrelevant or unauthorized operational blocks.
+- [ ] **Dashboard probable screens / sections planning**: Track the intended dashboard surface areas before implementation:
+  - KPI strip
+  - action center / quick actions
+  - inventory alerts
+  - expiry / batch risk
+  - sales and purchase operational queues
+  - cashflow / accounting summary
+  - recent activity / audit stream
+  - warehouse variance / stock exceptions
+  - user-task reminders / daily work queue
+- [ ] **Dashboard backend payload design**: Plan a single aggregated dashboard response shaped by logged-in user role, permissions, org, and outlet scope instead of one generic payload for everyone.
+- [ ] **Dashboard empty/error state policy**: Define role-aware loading, empty, and failure states so the home screen distinguishes 'no activity yet', 'no access', and 'data failed to load'.
+- [ ] **Dashboard implementation should remain deferred**: Do not implement the RBAC home dashboard until the role matrix, payload contract, and widget scope are agreed and logged.
+
 - [ ] **Item Composition API**: Integrate item composition logic with backend API (`lib/modules/items/items/models/item_composition_model.dart:22`).
 - [ ] **Filter Favourites Persistence**: Add ability to save and persist favourite filters in report views (`lib/modules/items/items/presentation/sections/report/items_filter_dropdown.dart:31`).
 - [ ] **Dynamic Filter Labels**: Extend and localize labels for report filters (`lib/modules/items/items/presentation/sections/report/items_filters.dart:45`).

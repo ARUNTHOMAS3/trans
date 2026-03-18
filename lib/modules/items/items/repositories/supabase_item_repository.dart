@@ -167,6 +167,11 @@ class SupabaseItemRepository implements ItemRepository {
   }
 
   @override
+  Future<List<ItemHistoryEntry>> getItemHistory(String itemId) async {
+    return await _apiService.getProductHistory(itemId);
+  }
+
+  @override
   Future<Map<String, dynamic>> getQuickStats(String itemId) async {
     try {
       return await _apiService.getProductQuickStats(itemId);

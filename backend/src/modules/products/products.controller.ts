@@ -450,6 +450,11 @@ export class ProductsController {
     return this.productsService.getProductWarehouseStocks(id);
   }
 
+  @Get(":id/history")
+  async getProductHistory(@Param("id") id: string) {
+    return this.productsService.getProductHistory(id);
+  }
+
   @Put(":id/warehouse-stocks")
   async updateWarehouseStocks(
     @Param("id") id: string,

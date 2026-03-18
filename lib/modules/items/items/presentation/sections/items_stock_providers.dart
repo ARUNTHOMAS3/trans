@@ -83,3 +83,24 @@ class ItemWarehouseStocksNotifier
     state = await AsyncValue.guard(() async => build(arg));
   }
 }
+
+final itemHistoryProvider =
+    AsyncNotifierProvider.family<
+      ItemHistoryNotifier,
+      List<ItemHistoryEntry>,
+      String
+    >(ItemHistoryNotifier.new);
+
+class ItemHistoryNotifier
+    extends FamilyAsyncNotifier<List<ItemHistoryEntry>, String> {
+  @override
+  Future<List<ItemHistoryEntry>> build(String arg) async {
+    final repository = ref.watch(itemRepositoryProvider);
+    return repository.getItemHistory(arg);
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async => build(arg));
+  }
+}

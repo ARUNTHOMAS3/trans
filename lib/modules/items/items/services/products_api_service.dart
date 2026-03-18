@@ -724,6 +724,44 @@ class ProductsApiService {
     }
   }
 
+  Future<List<ItemHistoryEntry>> getProductHistory(String id) async {
+    try {
+      final response = await _apiClient.get('/products/$id/history');
+      if (response.statusCode == 200) {
+        final payload = response.data;
+        final List<dynamic> data;
+        if (payload is List) {
+          data = payload;
+        } else if (payload is Map<String, dynamic> && payload['data'] is List) {
+          data = payload['data'] as List<dynamic>;
+        } else {
+          return [];
+        }
+
+        return data
+            .whereType<Map>()
+            .map(
+              (entry) =>
+                  ItemHistoryEntry.fromJson(Map<String, dynamic>.from(entry)),
+            )
+            .toList();
+      }
+      throw ApiException(
+        'Failed to load product history',
+        statusCode: response.statusCode,
+      );
+    } on DioException catch (e) {
+      throw ApiException(
+        _formatDioError(e),
+        statusCode: e.response?.statusCode,
+        originalError: e,
+      );
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Error loading product history: $e');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getProductBatches(String id) async {
     try {
       final response = await _apiClient.get('/products/$id/batches');

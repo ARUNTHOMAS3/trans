@@ -392,38 +392,33 @@ extension _ItemDetailStock on _ItemDetailScreenState {
   }
 
   Widget _buildHistoryTab(Item item) {
-    final entries = <MapEntry<DateTime, String>>[];
-    final createdAt = item.createdAt;
-    if (createdAt != null) {
-      entries.add(
-        MapEntry(createdAt, 'created by - ${item.createdById ?? 'system'}'),
-      );
-    }
-    final updatedAt = item.updatedAt;
-    if (updatedAt != null) {
-      entries.add(
-        MapEntry(updatedAt, 'updated by - ${item.updatedById ?? 'system'}'),
+    if (item.id == null) {
+      return _buildUnavailableStockState(
+        'History is unavailable for this item.',
       );
     }
 
-    entries.sort((a, b) => b.key.compareTo(a.key));
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Column(
-          children: [
-            Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFFFFF),
-                border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
-              ),
-              child: Padding(
+    final historyAsync = ref.watch(itemHistoryProvider(item.id!));
+    return historyAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => _buildUnavailableStockState(
+        'Unable to load item history from the audit logs.',
+      ),
+      data: (entries) => SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            children: [
+              Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+                ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
@@ -431,66 +426,517 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                 child: Row(
                   children: [
                     Expanded(flex: 2, child: _buildHistoryHeaderText('DATE')),
+                    Expanded(flex: 1, child: _buildHistoryHeaderText('ACTION')),
                     Expanded(
-                      flex: 5,
+                      flex: 1,
+                      child: _buildHistoryHeaderText('SECTION'),
+                    ),
+                    Expanded(
+                      flex: 4,
                       child: _buildHistoryHeaderText('DETAILS'),
                     ),
                   ],
                 ),
               ),
-            ),
-            if (entries.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16),
+              if (entries.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'No audit history found for this item.',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                  ),
+                )
+              else
+                ...entries.map((entry) => _buildHistoryEntryRow(entry, item)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryEntryRow(ItemHistoryEntry entry, Item item) {
+    final changes = _describeHistoryChanges(entry, item);
+
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          shape: const Border(),
+          collapsedShape: const Border(),
+          title: Row(
+            children: [
+              Expanded(
+                flex: 2,
                 child: Text(
-                  'No history available.',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                  _formatHistoryDate(entry.createdAt),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF111827),
+                  ),
                 ),
-              )
-            else
-              ...entries.map((entry) {
-                return Container(
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: Color(0xFFE5E7EB)),
-                    ),
+              ),
+              Expanded(flex: 1, child: _buildHistoryActionBadge(entry.action)),
+              Expanded(
+                flex: 1,
+                child: Text(
+                  entry.section,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF111827),
+                    fontWeight: FontWeight.w500,
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                ),
+              ),
+              Expanded(
+                flex: 4,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.summary,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF111827),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            _formatHistoryDate(entry.key),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF111827),
+                    const SizedBox(height: 4),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (changes.isEmpty)
+                    const Text(
+                      'No readable field changes available.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                    )
+                  else
+                    ...changes.map(
+                      (change) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 6),
+                              child: Icon(
+                                Icons.circle,
+                                size: 6,
+                                color: Color(0xFF6B7280),
+                              ),
                             ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 5,
-                          child: Text(
-                            entry.value,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF111827),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                change,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1.4,
+                                  color: Color(0xFF111827),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                );
-              }),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  List<String> _describeHistoryChanges(ItemHistoryEntry entry, Item item) {
+    final itemsState = ref.read(itemsControllerProvider);
+    final oldValues = entry.oldValues ?? const <String, dynamic>{};
+    final newValues = entry.newValues ?? const <String, dynamic>{};
+    final fields = entry.changedColumns.isNotEmpty
+        ? entry.changedColumns
+        : newValues.keys.where((key) => !_isHiddenHistoryField(key)).toList();
+
+    final changes = <String>[];
+    for (final field in fields) {
+      final change = _describeHistoryFieldChange(
+        field,
+        oldValues[field],
+        newValues[field],
+        item,
+        itemsState,
+        entry.action,
+      );
+      if (change != null && change.trim().isNotEmpty) {
+        changes.add(change);
+      }
+    }
+
+    if (changes.isEmpty && entry.summary.isNotEmpty) {
+      changes.add(entry.summary);
+    }
+
+    return changes;
+  }
+
+  String? _describeHistoryFieldChange(
+    String field,
+    dynamic oldValue,
+    dynamic newValue,
+    Item item,
+    ItemsState itemsState,
+    String action,
+  ) {
+    final label = _historyFieldLabel(field);
+    final previous = _historyDisplayValue(
+      field,
+      oldValue,
+      item,
+      itemsState: itemsState,
+    );
+    final next = _historyDisplayValue(
+      field,
+      newValue,
+      item,
+      itemsState: itemsState,
+    );
+
+    if (_usesGenericHistoryMessage(field)) {
+      if (next == null && previous == null) {
+        return '$label updated';
+      }
+      if (next == null) {
+        return '$label cleared';
+      }
+      if (previous == null) {
+        return action == 'INSERT' ? '$label set to $next' : '$label set';
+      }
+      return '$label updated';
+    }
+
+    if (previous == next) {
+      return next == null ? null : '$label updated';
+    }
+    if (previous == null && next != null) {
+      return '$label set to $next';
+    }
+    if (previous != null && next == null) {
+      return '$label cleared';
+    }
+    if (previous != null && next != null) {
+      return '$label changed from $previous to $next';
+    }
+    return null;
+  }
+
+  String _historyFieldLabel(String field) {
+    const labels = <String, String>{
+      'buying_rule_id': 'Buying Rule',
+      'schedule_of_drug_id': 'Schedule of Drug',
+      'storage_id': 'Storage',
+      'rack_id': 'Rack',
+      'manufacturer_id': 'Manufacturer / Patent',
+      'brand_id': 'Brand',
+      'category_id': 'Category',
+      'unit_id': 'Unit',
+      'track_assoc_ingredients': 'Track Active Ingredients',
+      'track_bin_location': 'Track Bin Location',
+      'track_serial_number': 'Track Serial Number',
+      'track_batches': 'Track Batches',
+      'inventory_valuation_method': 'Inventory Valuation Method',
+      'reorder_point': 'Reorder Point',
+      'image_urls': 'Images',
+      'faq_text': 'FAQ',
+      'side_effects': 'Side Effects',
+      'dimension_unit': 'Dimension Unit',
+      'weight_unit': 'Weight Unit',
+      'lock_unit_pack': 'Locked Unit Pack',
+      'is_lock': 'Item Lock',
+      'is_active': 'Status',
+      'display_order': 'Display Order',
+      'batch': 'Batch Reference',
+      'manufacture_batch_number': 'Manufacturer Batch',
+      'exp': 'Expiry Date',
+      'manufacture_exp': 'Manufactured Date',
+      'shedule_id': 'Schedule of Drug',
+      'opening_stock': 'Opening Stock',
+      'opening_stock_value': 'Opening Stock Value',
+      'accounting_stock': 'Accounting Stock',
+      'physical_stock': 'Physical Stock',
+      'committed_stock': 'Committed Stock',
+      'variance_qty': 'Variance Quantity',
+      'reason': 'Reason',
+      'notes': 'Notes',
+      'product_name': 'Item Name',
+      'billing_name': 'Billing Name',
+      'item_code': 'Item Code',
+      'sku': 'SKU',
+      'hsn_code': 'HSN Code',
+      'tax_preference': 'Tax Preference',
+      'mrp': 'MRP',
+      'ptr': 'PTR',
+      'cost_price': 'Cost Price',
+      'selling_price': 'Selling Price',
+      'width': 'Width',
+      'height': 'Height',
+      'length': 'Length',
+      'weight': 'Weight',
+      'about': 'About',
+      'uses_description': 'Uses',
+      'how_to_use': 'How To Use',
+      'dosage_description': 'Dosage',
+      'missed_dose_description': 'Missed Dose',
+      'safety_advice': 'Safety Advice',
+    };
+    final mapped = labels[field];
+    if (mapped != null) {
+      return mapped;
+    }
+    return field
+        .split('_')
+        .where((part) => part.isNotEmpty)
+        .map(
+          (part) =>
+              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+        )
+        .join(' ');
+  }
+
+  bool _usesGenericHistoryMessage(String field) {
+    const genericFields = <String>{
+      'buying_rule_id',
+      'schedule_of_drug_id',
+      'storage_id',
+      'rack_id',
+      'manufacturer_id',
+      'brand_id',
+      'category_id',
+      'unit_id',
+      'content_id',
+      'strength_id',
+      'shedule_id',
+      'warehouse_id',
+      'preferred_vendor_id',
+      'sales_account_id',
+      'purchase_account_id',
+      'inventory_account_id',
+      'intra_state_tax_id',
+      'inter_state_tax_id',
+      'reorder_term_id',
+      'image_urls',
+      'faq_text',
+      'side_effects',
+    };
+    return genericFields.contains(field);
+  }
+
+  bool _isHiddenHistoryField(String field) {
+    const hiddenFields = <String>{
+      'id',
+      'product_id',
+      'item_id',
+      'org_id',
+      'outlet_id',
+      'created_at',
+      'updated_at',
+      'created_by_id',
+      'updated_by_id',
+      'record_id',
+      'request_id',
+    };
+    return hiddenFields.contains(field);
+  }
+
+  String? _historyDisplayValue(
+    String field,
+    dynamic value,
+    Item item, {
+    required ItemsState itemsState,
+  }) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is bool) {
+      if (field == 'is_active') {
+        return value ? 'Active' : 'Inactive';
+      }
+      return value ? 'Enabled' : 'Disabled';
+    }
+
+    if (value is num) {
+      return value.toString();
+    }
+
+    if (value is List) {
+      final nonEmpty = value
+          .map((entry) => entry.toString().trim())
+          .where((entry) => entry.isNotEmpty)
+          .toList();
+      if (nonEmpty.isEmpty) {
+        return 'empty';
+      }
+      return nonEmpty.join(', ');
+    }
+
+    final text = value.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') {
+      return null;
+    }
+
+    if (_looksLikeUuid(text)) {
+      return _resolveKnownHistoryLookup(
+        field,
+        text,
+        item,
+        itemsState: itemsState,
+      );
+    }
+
+    return text;
+  }
+
+  String? _resolveKnownHistoryLookup(
+    String field,
+    String id,
+    Item item, {
+    required ItemsState itemsState,
+  }) {
+    String? fromNamedMap(
+      List<Map<String, dynamic>> rows, {
+      List<String> preferredKeys = const <String>[
+        'display_text',
+        'name',
+        'label',
+        'display_name',
+        'account_name',
+        'location_name',
+        'storage_type',
+        'tag_name',
+        'group_name',
+        'term_name',
+        'template_name',
+        'company_name',
+      ],
+    }) {
+      for (final row in rows) {
+        if (row['id']?.toString() != id) {
+          continue;
+        }
+        for (final key in preferredKeys) {
+          final candidate = row[key]?.toString().trim();
+          if (candidate != null && candidate.isNotEmpty) {
+            return candidate;
+          }
+        }
+      }
+      return null;
+    }
+
+    final lookupMap = <String, String?>{
+      'buying_rule_id':
+          item.buyingRuleId == id ? item.buyingRuleName : null,
+      'schedule_of_drug_id':
+          item.scheduleOfDrugId == id ? item.drugScheduleName : null,
+      'shedule_id': item.scheduleOfDrugId == id ? item.drugScheduleName : null,
+      'storage_id': item.storageId == id ? item.storageName : null,
+      'rack_id': item.rackId == id ? item.rackName : null,
+      'manufacturer_id':
+          item.manufacturerId == id ? item.manufacturerName : null,
+      'brand_id': item.brandId == id ? item.brandName : null,
+      'preferred_vendor_id':
+          item.preferredVendorId == id ? item.preferredVendorName : null,
+      'sales_account_id':
+          item.salesAccountId == id ? item.salesAccountName : null,
+      'purchase_account_id':
+          item.purchaseAccountId == id ? item.purchaseAccountName : null,
+      'inventory_account_id':
+          item.inventoryAccountId == id ? item.inventoryAccountName : null,
+      'unit_id': item.unitId == id ? item.unitName : null,
+      'category_id': item.categoryId == id ? item.categoryName : null,
+      'intra_state_tax_id':
+          item.intraStateTaxId == id ? item.intraStateTaxName : null,
+      'inter_state_tax_id':
+          item.interStateTaxId == id ? item.interStateTaxName : null,
+    };
+
+    final currentItemName = lookupMap[field];
+    if (currentItemName != null && currentItemName.trim().isNotEmpty) {
+      return currentItemName;
+    }
+
+    switch (field) {
+      case 'storage_id':
+        return fromNamedMap(itemsState.storageLocations);
+      case 'rack_id':
+        return fromNamedMap(itemsState.racks);
+      case 'manufacturer_id':
+        return fromNamedMap(itemsState.manufacturers);
+      case 'brand_id':
+        return fromNamedMap(itemsState.brands);
+      case 'preferred_vendor_id':
+        return fromNamedMap(itemsState.vendors);
+      case 'buying_rule_id':
+        return fromNamedMap(itemsState.buyingRules);
+      case 'schedule_of_drug_id':
+      case 'shedule_id':
+        return fromNamedMap(itemsState.drugSchedules);
+      case 'category_id':
+        return fromNamedMap(itemsState.categories);
+      case 'reorder_term_id':
+        return fromNamedMap(itemsState.reorderTerms);
+      case 'content_id':
+        return fromNamedMap(itemsState.contents);
+      case 'strength_id':
+        return fromNamedMap(itemsState.strengths);
+      case 'sales_account_id':
+      case 'purchase_account_id':
+      case 'inventory_account_id':
+        return fromNamedMap(itemsState.accounts);
+      case 'unit_id':
+        for (final unit in itemsState.units) {
+          if (unit.id == id && unit.unitName.trim().isNotEmpty) {
+            return unit.unitName;
+          }
+        }
+        return null;
+      case 'intra_state_tax_id':
+      case 'inter_state_tax_id':
+        for (final tax in [...itemsState.taxRates, ...itemsState.taxGroups]) {
+          if (tax.id == id && tax.taxName.trim().isNotEmpty) {
+            return tax.taxName;
+          }
+        }
+        return null;
+      default:
+        return null;
+    }
+  }
+
+  bool _looksLikeUuid(String value) {
+    final uuidRegex = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
+    return uuidRegex.hasMatch(value);
   }
 
   Widget _buildTransactionsTab(Item item) {
@@ -864,7 +1310,39 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  String _formatHistoryDate(DateTime date) {
+  Widget _buildHistoryActionBadge(String action) {
+    final normalized = action.toUpperCase();
+    final (backgroundColor, textColor) = switch (normalized) {
+      'INSERT' => (const Color(0xFFDCFCE7), const Color(0xFF166534)),
+      'UPDATE' => (const Color(0xFFDBEAFE), const Color(0xFF1D4ED8)),
+      'DELETE' => (const Color(0xFFFEE2E2), const Color(0xFFB91C1C)),
+      _ => (const Color(0xFFF3F4F6), const Color(0xFF374151)),
+    };
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          normalized,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: textColor,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatHistoryDate(DateTime? date) {
+    if (date == null) {
+      return '--';
+    }
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
     final year = date.year.toString();

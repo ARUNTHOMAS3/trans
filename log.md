@@ -2574,6 +2574,224 @@ To align the app with real database-backed behavior, active fake/demo runtime da
 - Flutter formatting passed
 - Flutter analysis passed
 
+### 2026-03-18 22:55 IST - Product history and audit log readability improvements
+
+The item History tab and the main Audit Logs inspector were both cleaned up so they stop showing raw UUIDs, raw JSON, and `null`-heavy payloads when presenting product-related audit history.
+
+#### 1. Product History endpoint broadened to include all product-linked audit rows
+
+**File**
+- `backend/src/modules/products/products.service.ts`
+
+**What changed**
+- the product history query was widened to include any audit row tied to the product through:
+  - `record_id = product_id` for `products`
+  - `new_values->>'product_id'`
+  - `old_values->>'product_id'`
+  - `new_values->>'item_id'`
+  - `old_values->>'item_id'`
+- the earlier `text = uuid` Postgres mismatch was fixed by explicitly using `$1::text` on JSON comparisons
+
+**Why**
+- item history should not depend on a narrow hardcoded related-table whitelist
+- if an audit row anywhere references the current product ID, it should be eligible for the product History tab
+
+#### 2. Item History tab now prefers readable change sentences over raw payloads
+
+**File**
+- `lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+
+**What changed**
+- readable field labels were expanded for product/item audit fields such as:
+  - `Buying Rule`
+  - `Schedule of Drug`
+  - `Storage`
+  - `Manufacturer / Patent`
+  - `Brand`
+  - `Content`
+  - `Strength`
+  - `Images`
+- lookup ID fields now resolve through loaded item master data where possible:
+  - storage locations
+  - buying rules
+  - drug schedules
+  - manufacturers
+  - brands
+  - categories
+  - units
+  - contents
+  - strengths
+  - vendors
+  - accounts
+  - tax rates / tax groups
+- generic fields no longer disappear just because the audit row stores only an ID or an empty list
+- fields such as `image_urls`, `faq_text`, and `side_effects` now still produce readable lines instead of silently dropping
+
+**Result**
+- the item History tab now shows human-readable change lines rather than raw old/new JSON blocks or internal UUID-heavy noise
+
+#### 3. Audit Logs Entry Inspector now shows readable change summaries
+
+**File**
+- `lib/modules/reports/presentation/reports_audit_logs_screen.dart`
+
+**What changed**
+- removed raw `Old Values` / `New Values` JSON dump cards from the right-side Entry Inspector
+- replaced them with readable change lines using the same style of field labeling as the item History tab
+- added “Touched Fields” chips using readable field labels instead of raw snake_case names
+- generic update lines were improved so when both old and new readable values exist, the inspector shows:
+  - `Storage changed from Store below 25°C to Store below 30°C`
+  - `Buying Rule changed from No Restriction (OTC) to Prescription Required`
+  instead of only saying `... updated`
+
+**Why**
+- audit review screens should be usable by normal ERP operators without exposing internal IDs, UUIDs, or raw schema payloads
+
+#### 4. Audit Logs panel cleanup
+
+**File**
+- `lib/modules/reports/presentation/reports_audit_logs_screen.dart`
+
+**What changed**
+- removed the top `Activity Explorer` hero block from the audit left panel
+- rearranged the scope cards (`All Logs`, `Recent`, `Archived`) so they fill that top-left space more cleanly
+
+#### 5. Verification completed
+
+**Commands run**
+- `npm run build --prefix backend`
+- `dart analyze lib/modules/items/items/presentation/items_item_detail.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+- `dart format lib/modules/reports/presentation/reports_audit_logs_screen.dart`
+- `dart analyze lib/modules/reports/presentation/reports_audit_logs_screen.dart`
+
+**Result**
+- backend build passed
+- Flutter analysis passed for the item history screen
+- Flutter formatting and analysis passed for the audit logs screen
+
+### 2026-03-18 20:45 IST - Item detail History tab wired to audit logs
+
+The item detail `History` tab was still a placeholder that only showed created/updated timestamps from the product payload. It now reads real audit history tied to the product and related item tables.
+
+#### 1. Backend item-history endpoint added
+
+**Files**
+- `backend/src/modules/products/products.controller.ts`
+- `backend/src/modules/products/products.service.ts`
+
+**What changed**
+- added `GET /products/:id/history`
+- implemented a dedicated history query against `audit_logs_all`
+- history is now collected for:
+  - `products`
+  - `product_contents`
+  - `batches`
+  - `price_list_items`
+  - `product_warehouse_stocks`
+  - `product_warehouse_stock_adjustments`
+  - `outlet_inventory`
+
+**Response shape**
+- returns a normalized list with:
+  - `action`
+  - `section`
+  - `summary`
+  - `actor_name`
+  - `source`
+  - `request_id`
+  - `changed_columns`
+  - `old_values`
+  - `new_values`
+  - `created_at`
+
+#### 2. Flutter items history model/provider/repository wiring added
+
+**Files**
+- `lib/modules/items/items/models/items_stock_models.dart`
+- `lib/modules/items/items/repositories/items_repository.dart`
+- `lib/modules/items/items/repositories/items_repository_impl.dart`
+- `lib/modules/items/items/repositories/supabase_item_repository.dart`
+- `lib/modules/items/items/services/products_api_service.dart`
+- `lib/modules/items/items/presentation/sections/items_stock_providers.dart`
+
+**What changed**
+- added `ItemHistoryEntry`
+- added repository contract + implementation for `getItemHistory`
+- added `ProductsApiService.getProductHistory(...)`
+- added `itemHistoryProvider(itemId)`
+
+#### 3. Placeholder History tab replaced with proper audit timeline UI
+
+**Files**
+- `lib/modules/items/items/presentation/items_item_detail.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+
+**What changed**
+- removed the old created/updated-only placeholder rows
+- the History tab now:
+  - loads audit history asynchronously
+  - shows proper loading / error / empty states
+  - shows action badges for insert / update / delete
+  - shows section and summary for each entry
+  - shows actor and source metadata
+  - expands each entry to reveal:
+    - record/table metadata
+    - changed columns
+    - old values
+    - new values
+
+#### 4. Verification completed
+
+**Commands run**
+- `dart format lib/modules/items/items/models/items_stock_models.dart lib/modules/items/items/repositories/items_repository.dart lib/modules/items/items/repositories/items_repository_impl.dart lib/modules/items/items/repositories/supabase_item_repository.dart lib/modules/items/items/services/products_api_service.dart lib/modules/items/items/presentation/sections/items_stock_providers.dart lib/modules/items/items/presentation/items_item_detail.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+- `dart analyze lib/modules/items/items/models/items_stock_models.dart lib/modules/items/items/repositories/items_repository.dart lib/modules/items/items/repositories/items_repository_impl.dart lib/modules/items/items/repositories/supabase_item_repository.dart lib/modules/items/items/services/products_api_service.dart lib/modules/items/items/presentation/sections/items_stock_providers.dart lib/modules/items/items/presentation/items_item_detail.dart`
+- `npm run build --prefix backend`
+
+**Result**
+- Flutter formatting passed
+- Flutter analysis passed
+- backend build passed
+
+### 2026-03-18 22:55 IST - RBAC dashboard planning deferred into TODO scope
+
+The project home dashboard was reviewed again with the clarified requirement that the entire ERP is user-aware, RBAC-driven, and outlet-aware. Based on that, the dashboard should not be treated as one shared summary page.
+
+#### 1. Decision captured
+
+The correct target is:
+- role-aware
+- permission-aware
+- user-aware
+- org/outlet-aware
+
+The dashboard must behave differently for roles such as:
+- Super Admin
+- Org Admin
+- Outlet Admin / Manager
+- Sales / Cashier
+- Purchase User
+- Inventory / Warehouse User
+- Accountant
+
+#### 2. Scope intentionally deferred
+
+Per request, this was **not implemented now**. Instead, the planning was recorded into the project todo list so the RBAC dashboard can be designed properly later without premature coding.
+
+#### 3. TODO planning added
+
+**File**
+- `todo.md`
+
+**What was added**
+- RBAC home dashboard specification tracking
+- role matrix planning
+- outlet-context behavior planning
+- widget visibility rules by permission
+- probable dashboard sections/screens
+- backend aggregated dashboard payload planning
+- dashboard empty/error-state policy
+- explicit defer-until-spec-agreed reminder
+
 ### 2026-03-18 22:08 IST - Global settings rules formalized across governance, skill, agent, and wiki docs
 
 The project-wide "global settings rules" were added to the remaining governance, skill, agent, and wiki guidance surfaces so future work follows the same policy automatically.

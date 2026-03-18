@@ -60,6 +60,101 @@ export class ProductsService {
     return uuidRegex.test(value.trim());
   }
 
+  private summarizeHistoryEntry(
+    tableName: string,
+    action: string,
+    oldValues: Record<string, any> | null,
+    newValues: Record<string, any> | null,
+  ): { section: string; summary: string } {
+    const actionLabel = action.toUpperCase();
+    const batchRef =
+      newValues?.batch ||
+      oldValues?.batch ||
+      newValues?.batchReference ||
+      oldValues?.batchReference;
+    const warehouseLabel =
+      newValues?.warehouse_name ||
+      oldValues?.warehouse_name ||
+      newValues?.warehouse_id ||
+      oldValues?.warehouse_id;
+
+    switch (tableName) {
+      case "products":
+        return {
+          section: "Products",
+          summary:
+            actionLabel === "INSERT"
+              ? "Item created"
+              : actionLabel === "DELETE"
+                ? "Item deleted"
+                : "Item updated",
+        };
+      case "product_contents":
+        return {
+          section: "Composition",
+          summary:
+            actionLabel === "INSERT"
+              ? "Composition row added"
+              : actionLabel === "DELETE"
+                ? "Composition row removed"
+                : "Composition row updated",
+        };
+      case "batches":
+        return {
+          section: "Batches",
+          summary:
+            actionLabel === "INSERT"
+              ? `Batch added${batchRef ? ` (${batchRef})` : ""}`
+              : actionLabel === "DELETE"
+                ? `Batch deleted${batchRef ? ` (${batchRef})` : ""}`
+                : `Batch updated${batchRef ? ` (${batchRef})` : ""}`,
+        };
+      case "price_list_items":
+        return {
+          section: "Price Lists",
+          summary:
+            actionLabel === "INSERT"
+              ? "Price list association added"
+              : actionLabel === "DELETE"
+                ? "Price list association removed"
+                : "Price list association updated",
+        };
+      case "product_warehouse_stocks":
+        return {
+          section: "Warehouses",
+          summary:
+            actionLabel === "INSERT"
+              ? `Warehouse stock initialized${warehouseLabel ? ` (${warehouseLabel})` : ""}`
+              : actionLabel === "DELETE"
+                ? `Warehouse stock deleted${warehouseLabel ? ` (${warehouseLabel})` : ""}`
+                : `Warehouse stock updated${warehouseLabel ? ` (${warehouseLabel})` : ""}`,
+        };
+      case "product_warehouse_stock_adjustments":
+        return {
+          section: "Warehouses",
+          summary:
+            actionLabel === "INSERT"
+              ? `Physical stock adjusted${warehouseLabel ? ` (${warehouseLabel})` : ""}`
+              : "Warehouse stock adjustment updated",
+        };
+      case "outlet_inventory":
+        return {
+          section: "Inventory",
+          summary:
+            actionLabel === "INSERT"
+              ? "Outlet inventory row created"
+              : actionLabel === "DELETE"
+                ? "Outlet inventory row deleted"
+                : "Outlet inventory updated",
+        };
+      default:
+        return {
+          section: "History",
+          summary: `${tableName} ${actionLabel.toLowerCase()}`,
+        };
+    }
+  }
+
   /** Centralised UUID sanitization for product insert/update payloads. */
   private sanitizeProductPayload(
     data: Record<string, any>,
@@ -1707,6 +1802,92 @@ export class ProductsService {
         },
       };
     });
+  }
+
+  async getProductHistory(productId: string) {
+    if (!this.isUUID(productId)) {
+      throw new BadRequestException("Invalid product ID");
+    }
+
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+
+    try {
+      const result = await client.query(
+        `
+          SELECT
+            id::text,
+            table_name,
+            record_id::text,
+            record_pk,
+            action,
+            old_values,
+            new_values,
+            actor_name,
+            source,
+            request_id,
+            module_name,
+            changed_columns,
+            created_at
+          FROM audit_logs_all
+          WHERE
+            (table_name = 'products' AND record_id = $1::uuid)
+            OR COALESCE(new_values->>'product_id', '') = $1::text
+            OR COALESCE(old_values->>'product_id', '') = $1::text
+            OR COALESCE(new_values->>'item_id', '') = $1::text
+            OR COALESCE(old_values->>'item_id', '') = $1::text
+          ORDER BY created_at DESC
+        `,
+        [productId],
+      );
+
+      const items = result.rows.map((row: any) => {
+        const oldValues =
+          row.old_values && typeof row.old_values === "object"
+            ? row.old_values
+            : null;
+        const newValues =
+          row.new_values && typeof row.new_values === "object"
+            ? row.new_values
+            : null;
+        const details = this.summarizeHistoryEntry(
+          row.table_name,
+          row.action,
+          oldValues,
+          newValues,
+        );
+
+        return {
+          id: row.id,
+          table_name: row.table_name,
+          section: details.section,
+          action: row.action,
+          record_id: row.record_id,
+          record_pk: row.record_pk,
+          actor_name: row.actor_name || "system",
+          source: row.source || "system",
+          request_id: row.request_id,
+          module_name: row.module_name,
+          created_at: row.created_at,
+          changed_columns: Array.isArray(row.changed_columns)
+            ? row.changed_columns
+            : [],
+          old_values: oldValues,
+          new_values: newValues,
+          summary: details.summary,
+        };
+      });
+
+      return {
+        data: items,
+        meta: {
+          total: items.length,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } finally {
+      await client.end();
+    }
   }
 
   async updateProductWarehouseStocks(
