@@ -15,7 +15,7 @@ export class LookupsController {
       vendors: { table: "vendors", field: "display_name" },
       "storage-locations": {
         table: "storage_locations",
-        field: "location_name",
+        field: "display_text",
       },
       racks: { table: "racks", field: "rack_name" },
       "reorder-terms": { table: "reorder_terms", field: "term_name" },
@@ -68,7 +68,7 @@ export class LookupsController {
       vendors: { table: "vendors", field: "display_name" },
       "storage-locations": {
         table: "storage_locations",
-        field: "location_name",
+        field: "display_text",
       },
       racks: { table: "racks", field: "rack_name" },
       "reorder-terms": { table: "reorder_terms", field: "term_name" },
@@ -103,6 +103,10 @@ export class LookupsController {
     if (type === "products") {
       queryBuilder = queryBuilder.or(
         `product_name.ilike.${searchPattern},item_code.ilike.${searchPattern},sku.ilike.${searchPattern},hsn_code.ilike.${searchPattern}`,
+      );
+    } else if (type === "storage-locations") {
+      queryBuilder = queryBuilder.or(
+        `display_text.ilike.${searchPattern},storage_type.ilike.${searchPattern},location_name.ilike.${searchPattern}`,
       );
     } else {
       queryBuilder = queryBuilder.ilike(config.field, searchPattern);

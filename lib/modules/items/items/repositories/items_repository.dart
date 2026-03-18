@@ -20,6 +20,18 @@ abstract class ItemRepository {
     double openingStock,
     double openingStockValue,
   );
+  Future<List<WarehouseStockRow>> getItemWarehouseStocks(String itemId);
+  Future<List<WarehouseStockRow>> updateItemWarehouseStocks(
+    String itemId,
+    List<WarehouseStockRow> rows,
+  );
+  Future<List<WarehouseStockRow>> adjustItemWarehousePhysicalStock(
+    String itemId, {
+    required String warehouseId,
+    required double countedStock,
+    required String reason,
+    String? notes,
+  });
   Future<void> deleteItem(String id);
   Future<bool> createCompositeItem(Map<String, dynamic> payload);
   Future<List<CompositeItem>> getCompositeItems();
@@ -141,6 +153,30 @@ class InMemoryItemRepository implements ItemRepository {
         openingStockValue: openingStockValue,
       );
     }
+  }
+
+  @override
+  Future<List<WarehouseStockRow>> getItemWarehouseStocks(String itemId) async {
+    return [];
+  }
+
+  @override
+  Future<List<WarehouseStockRow>> updateItemWarehouseStocks(
+    String itemId,
+    List<WarehouseStockRow> rows,
+  ) async {
+    return rows;
+  }
+
+  @override
+  Future<List<WarehouseStockRow>> adjustItemWarehousePhysicalStock(
+    String itemId, {
+    required String warehouseId,
+    required double countedStock,
+    required String reason,
+    String? notes,
+  }) async {
+    return _items.isEmpty ? [] : <WarehouseStockRow>[];
   }
 
   @override

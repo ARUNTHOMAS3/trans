@@ -363,7 +363,8 @@ class Item {
       categoryName: json['category']?['name'],
       manufacturerName: json['manufacturer']?['name'],
       brandName: json['brand']?['name'],
-      storageName: json['storage']?['location_name'],
+      storageName:
+          json['storage']?['display_text'] ?? json['storage']?['location_name'],
       rackName: json['rack']?['rack_name'],
       inventoryAccountName: json['inventoryAccount']?['user_account_name'],
       salesAccountName: json['salesAccount']?['user_account_name'],

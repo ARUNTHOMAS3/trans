@@ -1,5 +1,19 @@
 part of '../items_item_detail.dart';
 
+class _ResolvedDetailStock {
+  final StockNumbers accounting;
+  final StockNumbers physical;
+
+  const _ResolvedDetailStock({
+    required this.accounting,
+    required this.physical,
+  });
+
+  double get variance => physical.onHand - accounting.onHand;
+
+  bool get hasVariance => variance.abs() > 0.0001;
+}
+
 extension _ItemDetailOverview on _ItemDetailScreenState {
   Widget _buildOverviewTab(
     ItemsState state,
@@ -14,6 +28,97 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
     String? intraStateTaxName,
     String? interStateTaxName,
   ) {
+    final resolvedBuyingRuleName = _resolveLookupValue(
+      directValue: item.buyingRuleName,
+      id: item.buyingRuleId,
+      lookups: state.buyingRules,
+      candidateKeys: const ['name', 'buying_rule', 'rule_name'],
+    );
+    final buyingRuleMeta = state.buyingRules
+        .cast<Map<String, dynamic>?>()
+        .firstWhere(
+          (rule) => rule?['id']?.toString() == item.buyingRuleId,
+          orElse: () => null,
+        );
+    final resolvedDrugScheduleName = _resolveLookupValue(
+      directValue: item.drugScheduleName,
+      id: item.scheduleOfDrugId,
+      lookups: state.drugSchedules,
+      candidateKeys: const ['name', 'shedule_name', 'schedule_name'],
+    );
+    final drugScheduleMeta = state.drugSchedules
+        .cast<Map<String, dynamic>?>()
+        .firstWhere(
+          (schedule) => schedule?['id']?.toString() == item.scheduleOfDrugId,
+          orElse: () => null,
+        );
+    final resolvedStorageName = _resolveLookupValue(
+      directValue: item.storageName,
+      id: item.storageId,
+      lookups: state.storageLocations,
+      candidateKeys: const [
+        'name',
+        'display_text',
+        'location_name',
+        'storage_type',
+      ],
+    );
+    final storageMeta = state.storageLocations
+        .cast<Map<String, dynamic>?>()
+        .firstWhere(
+          (storage) => storage?['id']?.toString() == item.storageId,
+          orElse: () => null,
+        );
+    final resolvedPreferredVendorName = _resolveLookupValue(
+      directValue: item.preferredVendorName,
+      id: item.preferredVendorId,
+      lookups: state.vendors,
+      candidateKeys: const ['name', 'display_name', 'vendor_name'],
+    );
+    final buyingRuleTooltip = _joinTooltipLines([
+      buyingRuleMeta?['rule_description']?.toString(),
+      buyingRuleMeta?['system_behavior']?.toString(),
+      _nonEmptyCsvLabel(
+        'Associated Schedules',
+        buyingRuleMeta?['associated_schedule_codes'] as List?,
+      ),
+      buyingRuleMeta?['requires_rx'] == true ? 'Requires Rx: Yes' : null,
+      buyingRuleMeta?['requires_patient_info'] == true
+          ? 'Requires Patient Info: Yes'
+          : null,
+      buyingRuleMeta?['log_to_special_register'] == true
+          ? 'Special Register Logging: Yes'
+          : null,
+      buyingRuleMeta?['quantity_limit'] != null
+          ? 'Quantity Limit: ${buyingRuleMeta?['quantity_limit']}'
+          : null,
+      buyingRuleMeta?['allows_refill'] == true ? 'Allows Refill: Yes' : null,
+      buyingRuleMeta?['is_saleable'] == false ? 'Sale Allowed: No' : null,
+    ]);
+    final drugScheduleTooltip = _joinTooltipLines([
+      drugScheduleMeta?['schedule_code']?.toString(),
+      drugScheduleMeta?['reference_description']?.toString(),
+      drugScheduleMeta?['requires_prescription'] == true
+          ? 'Requires Prescription: Yes'
+          : null,
+      drugScheduleMeta?['requires_h1_register'] == true
+          ? 'Requires H1 Register: Yes'
+          : null,
+      drugScheduleMeta?['is_narcotic'] == true ? 'Narcotic Control: Yes' : null,
+      drugScheduleMeta?['requires_batch_tracking'] == true
+          ? 'Requires Batch Tracking: Yes'
+          : null,
+    ]);
+    final storageTooltip = _joinTooltipLines([
+      storageMeta?['display_text']?.toString(),
+      storageMeta?['description']?.toString(),
+      _temperatureTooltipLine(storageMeta),
+      storageMeta?['common_examples'] != null
+          ? 'Examples: ${storageMeta?['common_examples']}'
+          : null,
+      storageMeta?['is_cold_chain'] == true ? 'Cold Chain Handling: Yes' : null,
+      storageMeta?['requires_fridge'] == true ? 'Requires Fridge: Yes' : null,
+    ]);
     final reorderTermName = state.reorderTerms
         .firstWhere(
           (rt) => rt['id'] == item.reorderTermId,
@@ -54,11 +159,13 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                     ),
                     _buildInfoRow(
                       'Buying Rule',
-                      _buildTextValue(item.buyingRuleName),
+                      _buildTextValue(resolvedBuyingRuleName),
+                      tooltip: buyingRuleTooltip,
                     ),
                     _buildInfoRow(
                       'Schedule of Drug',
-                      _buildTextValue(item.drugScheduleName),
+                      _buildTextValue(resolvedDrugScheduleName),
+                      tooltip: drugScheduleTooltip,
                     ),
                     _buildInfoRow('Brand', _buildTextValue(brandName)),
                     _buildInfoRow(
@@ -92,9 +199,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                     ),
                     _buildInfoRow(
                       'Preferred Vendor',
-                      _buildTextValue(
-                        item.preferredVendorName ?? item.preferredVendorId,
-                      ),
+                      _buildTextValue(resolvedPreferredVendorName),
                     ),
                     _buildInfoRow(
                       'Description',
@@ -126,6 +231,11 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                     _buildInfoRow(
                       'Inventory Account',
                       _buildTextValue(inventoryAccountName),
+                    ),
+                    _buildInfoRow(
+                      'Storage',
+                      _buildTextValue(resolvedStorageName),
+                      tooltip: storageTooltip,
                     ),
                     _buildInfoRow(
                       'Inventory Valuation Method',
@@ -233,7 +343,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
     );
   }
 
-  Widget _buildInfoRow(String label, Widget value) {
+  Widget _buildInfoRow(String label, Widget value, {String? tooltip}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -241,19 +351,98 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
         children: [
           SizedBox(
             width: 160,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Flexible(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: Color(0xFF6B7280),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+                if (tooltip != null) ...[
+                  const SizedBox(width: 6),
+                  ZTooltip(message: tooltip),
+                ],
+              ],
             ),
           ),
           Expanded(child: value),
         ],
       ),
     );
+  }
+
+  String? _joinTooltipLines(List<String?> parts) {
+    final cleaned = parts
+        .whereType<String>()
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (cleaned.isEmpty) return null;
+    return cleaned.join('\n');
+  }
+
+  String? _resolveLookupValue({
+    required String? directValue,
+    required String? id,
+    required List<Map<String, dynamic>> lookups,
+    required List<String> candidateKeys,
+  }) {
+    final trimmedDirect = directValue?.trim();
+    if (trimmedDirect != null &&
+        trimmedDirect.isNotEmpty &&
+        trimmedDirect.toLowerCase() != 'n/a') {
+      return trimmedDirect;
+    }
+    if (id == null || id.isEmpty) {
+      return null;
+    }
+
+    final match = lookups.cast<Map<String, dynamic>?>().firstWhere(
+      (entry) => entry?['id']?.toString() == id,
+      orElse: () => null,
+    );
+    if (match == null) {
+      return null;
+    }
+
+    for (final key in candidateKeys) {
+      final raw = match[key]?.toString().trim();
+      if (raw != null && raw.isNotEmpty && raw.toLowerCase() != 'n/a') {
+        return raw;
+      }
+    }
+    return null;
+  }
+
+  String? _nonEmptyCsvLabel(String label, List? values) {
+    final joined =
+        values
+            ?.whereType<Object?>()
+            .map((value) => value.toString().trim())
+            .where((value) => value.isNotEmpty)
+            .join(', ') ??
+        '';
+    if (joined.isEmpty) return null;
+    return '$label: $joined';
+  }
+
+  String? _temperatureTooltipLine(Map<String, dynamic>? storageMeta) {
+    if (storageMeta == null) return null;
+    final minTemp = storageMeta['min_temp_c'];
+    final maxTemp = storageMeta['max_temp_c'];
+    if (minTemp != null && maxTemp != null) {
+      return 'Temperature Range: ${minTemp}°C to ${maxTemp}°C';
+    }
+    if (maxTemp != null) {
+      return 'Temperature Range: Up to ${maxTemp}°C';
+    }
+    return null;
   }
 
   Widget _buildTextValue(String? value) {
@@ -355,6 +544,8 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
   }
 
   Widget _buildAccountingStockSection(Item item) {
+    final stock = _resolveDetailStockSummary(item);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -369,21 +560,23 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
               ),
             ),
             const SizedBox(width: 6),
-            Icon(Icons.info_outline, size: 14, color: Colors.grey[400]),
+            const ZTooltip(
+              message:
+                  'Accounting stock is the ERP book quantity. Available for sale is accounting stock minus committed stock.',
+            ),
           ],
         ),
         const SizedBox(height: 16),
-        _buildStockMiniRow('Stock on Hand', item.stockOnHand ?? 0.0),
-        _buildStockMiniRow('Committed Stock', item.committedStock ?? 0.0),
-        _buildStockMiniRow(
-          'Available for Sale',
-          (item.stockOnHand ?? 0.0) - (item.committedStock ?? 0.0),
-        ),
+        _buildStockMiniRow('Stock on Hand', stock.accounting.onHand),
+        _buildStockMiniRow('Committed Stock', stock.accounting.committed),
+        _buildStockMiniRow('Available for Sale', stock.accounting.available),
       ],
     );
   }
 
   Widget _buildPhysicalStockSection(Item item) {
+    final stock = _resolveDetailStockSummary(item);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -398,18 +591,75 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
               ),
             ),
             const SizedBox(width: 6),
-            Icon(Icons.info_outline, size: 14, color: Colors.grey[400]),
+            const ZTooltip(
+              message:
+                  'Physical stock is the counted quantity available in warehouses. Compare it against accounting stock to identify variance.',
+            ),
           ],
         ),
         const SizedBox(height: 16),
-        _buildStockMiniRow('Stock on Hand', item.stockOnHand ?? 0.0),
-        _buildStockMiniRow('Committed Stock', item.committedStock ?? 0.0),
-        _buildStockMiniRow(
-          'Available for Sale',
-          (item.stockOnHand ?? 0.0) - (item.committedStock ?? 0.0),
-        ),
+        _buildStockMiniRow('Stock on Hand', stock.physical.onHand),
+        _buildStockMiniRow('Committed Stock', stock.physical.committed),
+        _buildStockMiniRow('Available for Sale', stock.physical.available),
+        if (stock.hasVariance) ...[
+          const SizedBox(height: 8),
+          Text(
+            stock.variance > 0
+                ? 'Variance against accounting: +${_formatQty(stock.variance)}'
+                : 'Variance against accounting: ${_formatQty(stock.variance)}',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: stock.variance > 0
+                  ? const Color(0xFF059669)
+                  : const Color(0xFFDC2626),
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  _ResolvedDetailStock _resolveDetailStockSummary(Item item) {
+    final warehouseStocksAsync = item.id == null
+        ? const AsyncValue<List<WarehouseStockRow>>.data(<WarehouseStockRow>[])
+        : ref.watch(itemWarehouseStocksProvider(item.id!));
+
+    final warehouseStocks = warehouseStocksAsync.maybeWhen(
+      data: (rows) => rows,
+      orElse: () => <WarehouseStockRow>[],
+    );
+
+    if (warehouseStocks.isEmpty) {
+      final accounting = StockNumbers(
+        onHand: item.stockOnHand ?? 0,
+        committed: item.committedStock ?? 0,
+      );
+      return _ResolvedDetailStock(accounting: accounting, physical: accounting);
+    }
+
+    final accounting = StockNumbers(
+      onHand: warehouseStocks.fold<double>(
+        0,
+        (sum, row) => sum + row.accounting.onHand,
+      ),
+      committed: warehouseStocks.fold<double>(
+        0,
+        (sum, row) => sum + row.accounting.committed,
+      ),
+    );
+    final physical = StockNumbers(
+      onHand: warehouseStocks.fold<double>(
+        0,
+        (sum, row) => sum + row.physical.onHand,
+      ),
+      committed: warehouseStocks.fold<double>(
+        0,
+        (sum, row) => sum + row.physical.committed,
+      ),
+    );
+
+    return _ResolvedDetailStock(accounting: accounting, physical: physical);
   }
 
   Widget _buildStockGridCards(Item item) {

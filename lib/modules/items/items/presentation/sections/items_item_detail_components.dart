@@ -542,7 +542,16 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
           const SizedBox(width: 8),
           if (item.type != 'service' && item.isTrackInventory) ...[
             ElevatedButton(
-              onPressed: () => _openOpeningStockDialog(item),
+              onPressed: () {
+                final warehousesAsync = ref.read(
+                  itemWarehouseStocksProvider(item.id!),
+                );
+                final warehouses = warehousesAsync.maybeWhen(
+                  data: (rows) => rows,
+                  orElse: () => <WarehouseStockRow>[],
+                );
+                _openOpeningStockDialog(item, warehouses);
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,

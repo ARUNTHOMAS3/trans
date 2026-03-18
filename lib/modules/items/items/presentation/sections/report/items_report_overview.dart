@@ -217,9 +217,11 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
     final storageMap = <String, String>{};
     for (var s in state.storageLocations) {
       if (s['id'] != null &&
-          (s['name'] != null || s['location_name'] != null)) {
-        storageMap[s['id'].toString()] = (s['name'] ?? s['location_name'])
-            .toString();
+          (s['name'] != null ||
+              s['display_text'] != null ||
+              s['location_name'] != null)) {
+        storageMap[s['id'].toString()] =
+            (s['name'] ?? s['display_text'] ?? s['location_name']).toString();
       }
     }
 

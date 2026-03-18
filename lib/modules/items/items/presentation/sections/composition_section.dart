@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/item_composition_model.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_list_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 
 class CompositionSection extends StatefulWidget {
   final List<ItemComposition> initialRows;
@@ -227,6 +228,60 @@ class _CompositionSectionState extends State<CompositionSection> {
 
   @override
   Widget build(BuildContext context) {
+    final buyingRuleTooltip = _lookupTooltip(
+      widget.buyingRuleOptions,
+      _selectedBuyingRule,
+      [
+        'rule_description',
+        'system_behavior',
+      ],
+      extraLines: (selected) {
+        final associatedCodes =
+            (selected['associated_schedule_codes'] as List?)
+                ?.whereType<Object?>()
+                .map((value) => value.toString())
+                .where((value) => value.trim().isNotEmpty)
+                .join(', ') ??
+            '';
+        return [
+          associatedCodes.isEmpty
+              ? null
+              : 'Associated Schedules: $associatedCodes',
+          selected['requires_rx'] == true ? 'Requires Rx: Yes' : null,
+          selected['requires_patient_info'] == true
+              ? 'Requires Patient Info: Yes'
+              : null,
+          selected['log_to_special_register'] == true
+              ? 'Special Register Logging: Yes'
+              : null,
+          selected['quantity_limit'] != null
+              ? 'Quantity Limit: ${selected['quantity_limit']}'
+              : null,
+          selected['is_saleable'] == false ? 'Sale Allowed: No' : null,
+        ];
+      },
+    );
+    final drugScheduleTooltip = _lookupTooltip(
+      widget.drugScheduleOptions,
+      _selectedDrugSchedule,
+      [
+        'schedule_code',
+        'reference_description',
+      ],
+      extraLines: (selected) => [
+        selected['requires_prescription'] == true
+            ? 'Requires Prescription: Yes'
+            : null,
+        selected['requires_h1_register'] == true
+            ? 'Requires H1 Register: Yes'
+            : null,
+        selected['is_narcotic'] == true ? 'Narcotic Control: Yes' : null,
+        selected['requires_batch_tracking'] == true
+            ? 'Requires Batch Tracking: Yes'
+            : null,
+      ],
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -262,6 +317,7 @@ class _CompositionSectionState extends State<CompositionSection> {
         const SizedBox(height: 20),
         _singleFieldRow(
           label: 'Buying Rule',
+          tooltip: buyingRuleTooltip,
           child: _managedDropdown(
             value: _selectedBuyingRule,
             items: widget.buyingRuleOptions,
@@ -281,6 +337,7 @@ class _CompositionSectionState extends State<CompositionSection> {
         const SizedBox(height: 16),
         _singleFieldRow(
           label: 'Schedule of Drug',
+          tooltip: drugScheduleTooltip,
           child: _managedDropdown(
             value: _selectedDrugSchedule,
             items: widget.drugScheduleOptions,
@@ -601,9 +658,38 @@ class _CompositionSectionState extends State<CompositionSection> {
     );
   }
 
+  String? _lookupTooltip(
+    List<Map<String, dynamic>> items,
+    String? selectedId,
+    List<String> baseFields, {
+    List<String?> Function(Map<String, dynamic> selected)? extraLines,
+  }) {
+    if (selectedId == null || selectedId.isEmpty) return null;
+    final selected = items.where((item) => item['id'] == selectedId).firstOrNull;
+    if (selected == null) return null;
+
+    final lines = <String?>[
+      ...baseFields.map((field) => selected[field]?.toString()),
+      ...(extraLines?.call(selected) ?? const []),
+    ];
+
+    final cleaned = lines
+        .whereType<String>()
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+
+    if (cleaned.isEmpty) return null;
+    return cleaned.join('\n');
+  }
+
   // ---------------- LAYOUT HELPERS ----------------
 
-  Widget _singleFieldRow({required String label, required Widget child}) {
+  Widget _singleFieldRow({
+    required String label,
+    required Widget child,
+    String? tooltip,
+  }) {
     return LayoutBuilder(
       builder: (context, c) {
         if (c.maxWidth < 720) return _stack(label, child);
@@ -612,12 +698,22 @@ class _CompositionSectionState extends State<CompositionSection> {
           children: [
             SizedBox(
               width: 160,
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (tooltip != null) ...[
+                    const SizedBox(width: 6),
+                    ZTooltip(message: tooltip),
+                  ],
+                ],
               ),
             ),
             ConstrainedBox(

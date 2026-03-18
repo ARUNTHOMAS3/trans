@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
+import 'package:zerpai_erp/modules/items/items/models/items_stock_models.dart';
 import 'package:zerpai_erp/modules/items/composite_items/models/composite_item_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/unit_model.dart';
 import 'package:zerpai_erp/modules/items/items/repositories/items_repository.dart';
@@ -547,7 +548,14 @@ class ItemsController extends StateNotifier<ItemsState> {
 
       final storageLocations = storageLocationsRaw
           .map(
-            (s) => {...s, 'name': s['name'] ?? s['location_name'] ?? 'Unknown'},
+            (s) => {
+              ...s,
+              'name':
+                  s['name'] ??
+                  s['display_text'] ??
+                  s['location_name'] ??
+                  'Unknown',
+            },
           )
           .toList();
 
@@ -1406,10 +1414,11 @@ class ItemsController extends StateNotifier<ItemsState> {
       query,
     );
     final mapped = results.map((s) {
-      final name = [s['name'], s['location_name']].firstWhere(
-        (val) => val != null && val.toString().trim().isNotEmpty,
-        orElse: () => 'Unknown',
-      );
+      final name = [s['name'], s['display_text'], s['location_name']]
+          .firstWhere(
+            (val) => val != null && val.toString().trim().isNotEmpty,
+            orElse: () => 'Unknown',
+          );
       return {...s, 'name': name};
     }).toList();
 
@@ -1643,6 +1652,83 @@ class ItemsController extends StateNotifier<ItemsState> {
         error: "Failed to update opening stock. Please try again.",
         isSaving: false,
       );
+    }
+  }
+
+  Future<List<WarehouseStockRow>> updateWarehouseStocks(
+    String itemId,
+    List<WarehouseStockRow> rows,
+  ) async {
+    try {
+      state = state.copyWith(isSaving: true, error: null);
+      AppLogger.info(
+        'Updating warehouse stocks',
+        module: 'items',
+        data: {'itemId': itemId, 'rows': rows.length},
+      );
+
+      final updatedRows = await repo.updateItemWarehouseStocks(itemId, rows);
+      await fetchQuickStats(itemId);
+
+      state = state.copyWith(isSaving: false, error: null);
+      return updatedRows;
+    } catch (e) {
+      AppLogger.error(
+        'Failed to update warehouse stocks',
+        error: e,
+        module: 'items',
+        data: {'itemId': itemId},
+      );
+      state = state.copyWith(
+        error: "Failed to update warehouse stocks. Please try again.",
+        isSaving: false,
+      );
+      rethrow;
+    }
+  }
+
+  Future<List<WarehouseStockRow>> adjustWarehousePhysicalStock(
+    String itemId, {
+    required String warehouseId,
+    required double countedStock,
+    required String reason,
+    String? notes,
+  }) async {
+    try {
+      state = state.copyWith(isSaving: true, error: null);
+      AppLogger.info(
+        'Adjusting warehouse physical stock',
+        module: 'items',
+        data: {
+          'itemId': itemId,
+          'warehouseId': warehouseId,
+          'countedStock': countedStock,
+        },
+      );
+
+      final updatedRows = await repo.adjustItemWarehousePhysicalStock(
+        itemId,
+        warehouseId: warehouseId,
+        countedStock: countedStock,
+        reason: reason,
+        notes: notes,
+      );
+      await fetchQuickStats(itemId);
+
+      state = state.copyWith(isSaving: false, error: null);
+      return updatedRows;
+    } catch (e) {
+      AppLogger.error(
+        'Failed to adjust warehouse physical stock',
+        error: e,
+        module: 'items',
+        data: {'itemId': itemId, 'warehouseId': warehouseId},
+      );
+      state = state.copyWith(
+        error: "Failed to adjust physical stock. Please try again.",
+        isSaving: false,
+      );
+      rethrow;
     }
   }
 

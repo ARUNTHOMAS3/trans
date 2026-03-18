@@ -91,6 +91,27 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
 
   Widget _buildAdvancedInventory(ItemsState itemsState) {
     final controller = ref.read(itemsControllerProvider.notifier);
+    final seenStorageLabels = <String>{};
+    final uniqueStorageLocations = itemsState.storageLocations.where((storage) {
+      final label =
+          (storage['name'] ??
+                  storage['display_text'] ??
+                  storage['location_name'] ??
+                  '')
+              .toString()
+              .trim()
+              .toLowerCase();
+      if (label.isEmpty) return true;
+      if (storage['id']?.toString() == storageId) {
+        seenStorageLabels.add(label);
+        return true;
+      }
+      if (seenStorageLabels.contains(label)) {
+        return false;
+      }
+      seenStorageLabels.add(label);
+      return true;
+    }).toList();
     return Container(
       margin: const EdgeInsets.only(top: 24),
       width: double.infinity,
@@ -229,10 +250,11 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                     _zerpaiField(
                       label: "Storage",
                       tooltip:
+                          _selectedStorageTooltip(itemsState) ??
                           "Optimal storage conditions or temperature requirements for the item.",
                       child: _zerpaiDropdown<String>(
                         value: storageId,
-                        items: itemsState.storageLocations
+                        items: uniqueStorageLocations
                             .map((s) => s['id'] as String)
                             .toList(),
                         hint: 'Select storage temperature',

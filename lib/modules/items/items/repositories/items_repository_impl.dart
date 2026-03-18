@@ -369,6 +369,63 @@ class ItemsRepositoryImpl implements ItemRepository {
   }
 
   @override
+  Future<List<WarehouseStockRow>> getItemWarehouseStocks(String itemId) async {
+    try {
+      return await _apiService.getProductWarehouseStocks(itemId);
+    } catch (e) {
+      AppLogger.warning(
+        'Failed to fetch warehouse stocks from API',
+        error: e,
+        module: 'items_repository',
+      );
+      return [];
+    }
+  }
+
+  @override
+  Future<List<WarehouseStockRow>> updateItemWarehouseStocks(
+    String itemId,
+    List<WarehouseStockRow> rows,
+  ) async {
+    try {
+      return await _apiService.updateProductWarehouseStocks(itemId, rows);
+    } catch (e) {
+      AppLogger.error(
+        'Failed to update warehouse stocks',
+        error: e,
+        module: 'items_repository',
+      );
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<WarehouseStockRow>> adjustItemWarehousePhysicalStock(
+    String itemId, {
+    required String warehouseId,
+    required double countedStock,
+    required String reason,
+    String? notes,
+  }) async {
+    try {
+      return await _apiService.adjustProductWarehousePhysicalStock(
+        itemId,
+        warehouseId: warehouseId,
+        countedStock: countedStock,
+        reason: reason,
+        notes: notes,
+      );
+    } catch (e) {
+      AppLogger.error(
+        'Failed to adjust warehouse physical stock',
+        error: e,
+        module: 'items_repository',
+      );
+      rethrow;
+    }
+  }
+
+  @override
   Future<void> deleteItem(String id) async {
     try {
       AppLogger.info(
@@ -557,8 +614,8 @@ class ItemsRepositoryImpl implements ItemRepository {
 
         return BatchData(
           batchReference: (batch['batch'] ?? '').toString(),
-          manufacturerBatch:
-              (batch['manufacture_batch_number'] ?? '').toString(),
+          manufacturerBatch: (batch['manufacture_batch_number'] ?? '')
+              .toString(),
           unitPack: int.tryParse((batch['unit_pack'] ?? '0').toString()) ?? 0,
           manufacturedDate: formatDate(batch['manufacture_exp']),
           expiryDate: formatDate(batch['exp']),

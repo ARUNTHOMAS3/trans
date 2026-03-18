@@ -2573,6 +2573,762 @@ To align the app with real database-backed behavior, active fake/demo runtime da
 **Result**
 - Flutter formatting passed
 - Flutter analysis passed
+
+### 2026-03-18 19:33 IST - Warehouse stock semantics for accounting vs physical stock
+
+The warehouse stock flow was updated so `Accounting Stock` and `Physical Stock` no longer behave like identical pass-through numbers.
+
+#### 1. Shared stock model rules implemented
+
+**File**
+- `lib/modules/items/items/models/items_stock_models.dart`
+
+**What changed**
+- `available` is now clamped to zero instead of allowing negative saleable stock
+- `isOverCommitted` and `shortfall` flags were added to `StockNumbers`
+- `variance` and `hasVariance` were added to `WarehouseStockRow`
+
+**Why**
+- accounting/physical stock must support operational conditions such as:
+  - committed stock greater than on-hand stock
+  - physical variance against accounting stock
+
+#### 2. Backend normalization logic added
+
+**File**
+- `backend/src/modules/products/products.service.ts`
+
+**What changed**
+- warehouse stock reads now normalize:
+  - `opening_stock`
+  - `opening_stock_value`
+  - `accounting_stock`
+  - `physical_stock`
+  - `committed_stock`
+- negative or invalid values are coerced to safe non-negative numbers
+- accounting defaults to opening stock
+- physical defaults to accounting stock
+
+**Why**
+- the UI should not receive malformed or negative warehouse stock values
+- accounting and physical stock should have deterministic fallback rules
+
+#### 3. Warehouses tab now explains and highlights stock conditions
+
+**File**
+- `lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+
+**What changed**
+- added a warehouse stock summary banner above the table
+- accounting view explains:
+  - book stock
+  - committed stock
+  - available-for-sale logic
+- physical view explains:
+  - counted stock
+  - variance against accounting stock
+- warehouse rows now show variance text where physical and accounting stock differ
+- committed/available cells highlight warning conditions
+
+**Why**
+- the toggle should represent operational meaning, not just relabel the same numbers
+
+#### 4. Item overview now uses warehouse-based stock semantics
+
+**File**
+- `lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+
+**What changed**
+- accounting stock section now resolves from warehouse stock rows when available
+- physical stock section now resolves from warehouse stock rows when available
+- added tooltip help text for accounting and physical stock sections
+- physical stock section now shows variance against accounting stock
+
+**Why**
+- previously the overview screen displayed the same `stockOnHand` / `committedStock` values in both sections
+- the overview now matches the warehouse stock model semantics
+
+#### 5. Verification completed
+
+**Commands run**
+- `dart format lib/modules/items/items/models/items_stock_models.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+- `dart analyze lib/modules/items/items/models/items_stock_models.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart lib/modules/items/items/presentation/sections/items_item_detail_overview.dart lib/modules/items/items/presentation/items_item_detail.dart`
+- `npm run build --prefix backend`
+
+**Result**
+- Flutter formatting passed
+- Flutter analysis passed
+- backend build passed
+
+### 2026-03-18 20:18 IST - Warehouse stock permission fix for local backend
+
+During local verification, two distinct issues were observed:
+
+1. `NETWORK_ERROR` for lookup/bootstrap calls to `http://localhost:3001`
+2. `permission denied for table product_warehouse_stocks` when loading warehouse stock
+
+#### 1. Network-layer failures were backend availability failures
+
+The repeated `XMLHttpRequest onError callback was called` messages were not application parsing issues. They indicate the local backend on port `3001` was not reachable for that period.
+
+#### 2. Warehouse stock 500 was a DB permission problem
+
+Once the backend responded again, warehouse stock requests failed with:
+- `permission denied for table product_warehouse_stocks`
+
+That confirmed the new warehouse stock tables had been created, but DB permissions/RLS posture were not aligned yet for the local runtime role.
+
+#### 3. Non-destructive permission migration added
+
+**File**
+- `supabase/migrations/1004_product_warehouse_stock_permissions.sql`
+
+**What it does**
+- disables RLS on:
+  - `product_warehouse_stocks`
+  - `product_warehouse_stock_adjustments`
+- grants table access to:
+  - `postgres`
+  - `service_role`
+  - `anon`
+  - `authenticated`
+- grants sequence/function access in `public`
+
+**Why**
+- keeps development auth-free and consistent with the rest of the local setup
+- fixes warehouse stock reads/writes for the new warehouse stock tables
+
+### 2026-03-18 20:05 IST - Dedicated physical stock adjustment flow for warehouse stock
+
+A separate warehouse stock adjustment path was added so physical stock can be counted and corrected independently from accounting stock.
+
+#### 1. New adjustment ledger table added
+
+**File**
+- `supabase/migrations/1003_product_warehouse_stock_adjustments.sql`
+
+**What changed**
+- added `product_warehouse_stock_adjustments`
+- logs:
+  - `product_id`
+  - `warehouse_id`
+  - previous accounting stock
+  - previous physical stock
+  - new physical stock
+  - committed stock
+  - variance quantity
+  - reason
+  - notes
+  - timestamps
+
+**Why**
+- physical stock changes should be auditable and separate from opening stock setup
+
+#### 2. Backend endpoint added for physical stock adjustment
+
+**Files**
+- `backend/src/modules/products/products.controller.ts`
+- `backend/src/modules/products/products.service.ts`
+
+**What changed**
+- added `POST /products/:id/warehouse-stocks/physical-adjustments`
+- service now:
+  - validates warehouse
+  - reads current warehouse stock row
+  - keeps accounting stock unchanged
+  - updates only physical stock
+  - records a row in `product_warehouse_stock_adjustments`
+  - returns refreshed warehouse stock rows
+
+#### 3. Flutter item repository/controller wiring added
+
+**Files**
+- `lib/modules/items/items/services/products_api_service.dart`
+- `lib/modules/items/items/repositories/items_repository.dart`
+- `lib/modules/items/items/repositories/items_repository_impl.dart`
+- `lib/modules/items/items/repositories/supabase_item_repository.dart`
+- `lib/modules/items/items/controllers/items_controller.dart`
+
+**What changed**
+- added `adjustItemWarehousePhysicalStock(...)`
+- added `adjustWarehousePhysicalStock(...)`
+- warehouse stock refresh and quick stats refresh happen after adjustment save
+
+#### 4. Warehouses tab got a dedicated adjustment dialog
+
+**Files**
+- `lib/modules/items/items/presentation/items_item_detail.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+
+**What changed**
+- warehouse actions menu now includes:
+  - `Add Opening Stock`
+  - `Adjust Physical Stock`
+- new dialog lets the user:
+  - choose warehouse
+  - view current accounting / physical / committed values
+  - enter counted physical quantity
+  - choose an adjustment reason
+  - add notes
+  - preview variance before saving
+
+**Rule now**
+- opening stock initializes both accounting and physical stock
+- physical stock adjustments only change physical stock
+- accounting stock stays as book stock
+
+#### 5. Verification completed
+
+**Commands run**
+- `dart format lib/modules/items/items/services/products_api_service.dart lib/modules/items/items/repositories/items_repository.dart lib/modules/items/items/repositories/items_repository_impl.dart lib/modules/items/items/repositories/supabase_item_repository.dart lib/modules/items/items/controllers/items_controller.dart lib/modules/items/items/presentation/items_item_detail.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+- `dart analyze lib/modules/items/items/services/products_api_service.dart lib/modules/items/items/repositories/items_repository.dart lib/modules/items/items/repositories/items_repository_impl.dart lib/modules/items/items/repositories/supabase_item_repository.dart lib/modules/items/items/controllers/items_controller.dart lib/modules/items/items/presentation/items_item_detail.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+- `npm run build --prefix backend`
+
+**Result**
+- Flutter formatting passed
+- Flutter analysis passed
+- backend build passed
+
+### 2026-03-18 14:35 IST - Warehouse section decoupled from storage locations
+
+The item detail `Warehouses` tab and `Add Opening Stock` dialog were audited and refactored because they were incorrectly using `storage_locations` as warehouse rows. This was mixing temperature/storage master data with warehouse stock presentation.
+
+#### 1. Root cause confirmed
+
+**Problem**
+- `items_item_detail_stock.dart` was building warehouse rows from `state.storageLocations`
+- the Warehouses tab was showing values like:
+  - `Store in a Freezer (-20°C to -10°C)`
+  - `Store below 25°C`
+  - `Protect from Light`
+  as warehouse names
+- `items_opening_stock_dialog.dart` only carried `warehouseName` strings and saved aggregate opening stock totals
+- there was no dedicated per-product warehouse stock table or API
+
+**Conclusion**
+- the UI was miswired to storage temperature masters instead of real warehouses
+- `warehouses` already exists as a real master table
+- a dedicated product-to-warehouse stock table was required
+
+#### 2. New DB table added for real warehouse stock
+
+**File**
+- `supabase/migrations/1002_product_warehouse_stocks.sql`
+
+**Added**
+- `public.product_warehouse_stocks`
+
+**Purpose**
+- stores per-product per-warehouse stock rows
+- keeps warehouse stock independent from `storage_locations`
+
+**Key fields**
+- `product_id`
+- `warehouse_id`
+- `org_id`
+- `outlet_id`
+- `opening_stock`
+- `opening_stock_value`
+- `accounting_stock`
+- `physical_stock`
+- `committed_stock`
+- `created_at`
+- `updated_at`
+
+**Constraints**
+- unique on `(product_id, warehouse_id)`
+- foreign key to `products(id)`
+- foreign key to `warehouses(id)`
+
+**Operational additions**
+- indexes for product, warehouse, org/outlet
+- auto-update trigger for `updated_at`
+- audit row and truncate triggers added
+
+#### 3. Backend products module updated
+
+**Files**
+- `backend/src/modules/products/products.service.ts`
+- `backend/src/modules/products/products.controller.ts`
+
+**What changed**
+- added `getWarehouses()` lookup
+- added `GET /products/:id/warehouse-stocks`
+- added `PUT /products/:id/warehouse-stocks`
+- warehouse-stock read now returns one row per active warehouse with zero-safe defaults
+- warehouse-stock save now upserts by `(product_id, warehouse_id)`
+- quick stats now prefer summed `product_warehouse_stocks` values before falling back to `outlet_inventory`
+
+**Result**
+- warehouse stock data is now backed by real warehouse masters
+- opening stock save path no longer depends on fake aggregate UI-only rows
+
+#### 4. Flutter item stock models and repository layer updated
+
+**Files**
+- `lib/modules/items/items/models/items_stock_models.dart`
+- `lib/modules/items/items/services/products_api_service.dart`
+- `lib/modules/items/items/repositories/items_repository.dart`
+- `lib/modules/items/items/repositories/items_repository_impl.dart`
+- `lib/modules/items/items/repositories/supabase_item_repository.dart`
+- `lib/modules/items/items/controllers/items_controller.dart`
+- `lib/modules/items/items/presentation/sections/items_stock_providers.dart`
+
+**What changed**
+- `WarehouseStockRow` now carries:
+  - `id` / `warehouse_id`
+  - `openingStock`
+  - `openingStockValue`
+  - accounting and physical stock values
+- added repository/API methods for:
+  - fetch warehouse stocks
+  - update warehouse stocks
+- added controller method:
+  - `updateWarehouseStocks(...)`
+- added `itemWarehouseStocksProvider`
+
+#### 5. Warehouses tab now uses real warehouse stock rows
+
+**File**
+- `lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+
+**What changed**
+- removed the `storageLocations`-based warehouse row synthesis
+- `Warehouses` tab now watches `itemWarehouseStocksProvider(item.id!)`
+- `Stock Locations` grid now renders real warehouse-backed rows
+- `Add Opening Stock` dialog now opens with those real warehouse rows
+- after save:
+  - warehouse stock provider is invalidated
+  - quick stats are refreshed
+
+**Result**
+- the Warehouses tab is no longer driven by `storage_locations`
+- temperature labels are no longer pretending to be warehouse names in this section
+
+#### 6. Add Opening Stock dialog now saves per warehouse
+
+**File**
+- `lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart`
+
+**What changed**
+- dialog entries now store:
+  - `warehouseId`
+  - `warehouseName`
+  - existing `openingStock`
+  - existing `openingStockValue`
+- save now builds real warehouse rows and sends them to:
+  - `updateWarehouseStocks(...)`
+- dialog refreshes warehouse-stock provider and item quick stats after save
+- the old aggregate-only product opening stock path is no longer used from this warehouse flow
+
+#### 7. Verification completed
+
+**Commands run**
+- `dart format lib/modules/items/items/models/items_stock_models.dart lib/modules/items/items/repositories/items_repository.dart lib/modules/items/items/services/products_api_service.dart lib/modules/items/items/repositories/items_repository_impl.dart lib/modules/items/items/repositories/supabase_item_repository.dart lib/modules/items/items/presentation/sections/items_stock_providers.dart lib/modules/items/items/controllers/items_controller.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart`
+- `dart analyze lib/modules/items/items/models/items_stock_models.dart lib/modules/items/items/repositories/items_repository.dart lib/modules/items/items/services/products_api_service.dart lib/modules/items/items/repositories/items_repository_impl.dart lib/modules/items/items/repositories/supabase_item_repository.dart lib/modules/items/items/presentation/sections/items_stock_providers.dart lib/modules/items/items/controllers/items_controller.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart`
+- `npm run build --prefix backend`
+
+**Result**
+- Flutter formatting passed
+- Flutter analysis passed
+- backend build passed
+
+### 2026-03-19 00:08 IST - Item detail overview now resolves real master labels and keeps operational tooltips
+
+The item detail overview was still showing `n/a` for some operational fields even when the relevant master rows had already been loaded into `ItemsState`. This was most visible for buying rule, schedule of drug, storage, and preferred vendor when the item payload did not include joined names.
+
+#### 1. Root cause
+
+**Observed behavior**
+- detail overview relied directly on:
+  - `item.buyingRuleName`
+  - `item.drugScheduleName`
+  - `item.storageName`
+  - `item.preferredVendorName`
+- if the API payload omitted those joined labels, the UI rendered `n/a`
+- this happened even though the controller had already loaded the real DB-backed master rows
+
+#### 2. Fix applied
+
+**File**
+- `lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+
+**What changed**
+- added a lookup resolution helper that falls back from direct item label to loaded lookup state by ID
+- buying rule now resolves from:
+  - `name`
+  - `buying_rule`
+  - `rule_name`
+- schedule of drug now resolves from:
+  - `name`
+  - `shedule_name`
+  - `schedule_name`
+- storage now resolves from:
+  - `name`
+  - `display_text`
+  - `location_name`
+  - `storage_type`
+- preferred vendor now resolves from:
+  - `name`
+  - `display_name`
+  - `vendor_name`
+
+#### 3. Tooltip behavior preserved
+
+The item detail overview still shows the richer metadata tooltip content from the operational master rollout:
+- buying rule tooltip
+- schedule tooltip
+- storage tooltip
+
+This means the screen now shows:
+- the real resolved display value wherever possible
+- followed by the tooltip/reference/compliance metadata supplied in the master tables
+
+#### 4. Verification completed
+
+**Commands run**
+- `dart format lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+- `dart analyze lib/modules/items/items/presentation/sections/items_item_detail_overview.dart lib/modules/items/items/presentation/items_item_detail.dart`
+
+**Result**
+- formatting passed
+- analysis passed
+
+### 2026-03-19 00:14 IST - Item create/edit action buttons anchored to the right edge
+
+The item create/edit footer buttons were visually too loose relative to the page width. The footer now explicitly anchors the `Cancel` and `Update` / `Save` action group to the far right edge.
+
+#### 1. File updated
+
+- `lib/modules/items/items/presentation/items_item_create.dart`
+
+#### 2. What changed
+
+- the footer container now uses full width explicitly
+- the action cluster is wrapped in:
+  - `Align(alignment: Alignment.centerRight)`
+- the inner row now uses:
+  - `mainAxisSize: MainAxisSize.min`
+
+This keeps the action buttons compact while ensuring they sit on the right edge of the footer consistently across the layout wrapper.
+
+#### 3. Verification completed
+
+**Commands run**
+- `dart format lib/modules/items/items/presentation/items_item_create.dart`
+- `dart analyze lib/modules/items/items/presentation/items_item_create.dart`
+
+**Result**
+- formatting passed
+- analysis passed
+
+### 2026-03-18 23:58 IST - Item detail overview now resolves real master data before showing `n/a`
+
+The item detail overview was still showing `n/a` for some operational fields even when the relevant master data had already been loaded into item state. This was most visible for `Buying Rule`, `Schedule of Drug`, `Storage`, and sometimes `Preferred Vendor` on detail pages where the item payload did not include the joined name fields.
+
+#### 1. Root cause
+
+**Observed behavior**
+- item detail overview relied directly on:
+  - `item.buyingRuleName`
+  - `item.drugScheduleName`
+  - `item.storageName`
+  - `item.preferredVendorName`
+- if those specific joined values were absent from the item payload, the overview rendered `n/a`
+- this happened even though `ItemsState` already contained the real DB-backed lookup rows for those masters
+
+**Diagnosis**
+- the detail overview already had the relevant IDs:
+  - `buyingRuleId`
+  - `scheduleOfDrugId`
+  - `storageId`
+  - `preferredVendorId`
+- it also already had tooltip metadata for:
+  - `buying_rules`
+  - `schedules`
+  - `storage_locations`
+- the missing step was resolving visible labels from loaded master lookup state before falling back to `n/a`
+
+#### 2. Fix applied
+
+**File**
+- `lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+
+**What changed**
+- added lookup-based resolution helper for item detail display values
+- `Buying Rule` now resolves from `state.buyingRules` using:
+  - `name`
+  - `buying_rule`
+  - `rule_name`
+- `Schedule of Drug` now resolves from `state.drugSchedules` using:
+  - `name`
+  - `shedule_name`
+  - `schedule_name`
+- `Storage` now resolves from `state.storageLocations` using:
+  - `name`
+  - `display_text`
+  - `location_name`
+  - `storage_type`
+- `Preferred Vendor` now resolves from `state.vendors` using:
+  - `name`
+  - `display_name`
+  - `vendor_name`
+
+#### 3. Tooltip behavior preserved
+
+The overview continues to show the richer metadata tooltips from the operational masters rollout:
+- buying rule tooltip:
+  - rule description
+  - system behavior
+  - associated schedule codes
+  - compliance flags
+- schedule tooltip:
+  - code
+  - reference description
+  - prescription/H1/narcotic/batch flags
+- storage tooltip:
+  - display text
+  - description
+  - temperature range
+  - examples
+  - cold-chain / fridge flags
+
+This means the screen now shows:
+- the real resolved display value when available from DB-backed lookup state
+- then the metadata tooltip for that same value
+
+#### 4. Verification completed
+
+**Commands run**
+- `dart format lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+- `dart analyze lib/modules/items/items/presentation/sections/items_item_detail_overview.dart lib/modules/items/items/presentation/items_item_detail.dart`
+
+**Result**
+- formatting passed
+- analysis passed
+
+### 2026-03-18 14:05 IST - Item operational master metadata rollout and storage normalization
+
+The item masters for drug schedules, buying rules, and storage conditions were expanded from simple name-only lookup tables into richer operational metadata records. This work was done to support production-safe defaults, tooltip/reference behavior, and cleaner item form behavior without destructive data resets.
+
+#### 1. Operational master metadata migration added and executed safely
+
+**Files**
+- `supabase/migrations/1000_item_operational_master_metadata.sql`
+
+**What changed**
+- `public.schedules` was extended with:
+  - `schedule_code`
+  - `reference_description`
+  - `requires_prescription`
+  - `requires_h1_register`
+  - `is_narcotic`
+  - `requires_batch_tracking`
+  - `sort_order`
+  - `is_common`
+- `public.buying_rules` was extended with:
+  - `rule_description`
+  - `system_behavior`
+  - `associated_schedule_codes`
+  - `requires_rx`
+  - `requires_patient_info`
+  - `is_saleable`
+  - `log_to_special_register`
+  - `requires_doctor_name`
+  - `requires_prescription_date`
+  - `requires_age_check`
+  - `institutional_only`
+  - `blocks_retail_sale`
+  - `quantity_limit`
+  - `allows_refill`
+  - `sort_order`
+- `public.storage_locations` was extended with:
+  - `storage_type`
+  - `display_text`
+  - `common_examples`
+  - `min_temp_c`
+  - `max_temp_c`
+  - `is_cold_chain`
+  - `requires_fridge`
+  - `sort_order`
+- all provided operational master rows were seeded with `INSERT ... ON CONFLICT DO UPDATE`
+
+**Safety**
+- no `TRUNCATE`
+- no blanket `DELETE`
+- no table replacement
+- upserts were keyed on business identifiers:
+  - `shedule_name`
+  - `buying_rule`
+  - `location_name`
+
+**Execution result**
+- SQL executed successfully in Supabase
+- result shown: `Success. No rows returned`
+
+#### 2. Default operational values now auto-apply in item create/edit
+
+**Files**
+- `lib/modules/items/items/presentation/items_item_create.dart`
+
+**What changed**
+- item create/edit now resolves these DB-backed defaults when the field is empty:
+  - `NONE / GENERAL`
+  - `No Restriction (OTC)`
+  - `Normal Temp`
+- defaults are applied:
+  - after lookup data loads for new item creation
+  - after edit hydration if the saved item does not already have a value
+  - again at save time as a final fallback so blank values do not go out as `null`
+
+#### 3. Composition section now uses operational metadata for tooltips
+
+**Files**
+- `lib/modules/items/items/presentation/sections/composition_section.dart`
+- `lib/modules/items/items/presentation/sections/items_item_create_inventory.dart`
+
+**What changed**
+- Buying Rule label now shows tooltip details from the selected record:
+  - description
+  - system behavior
+  - associated schedule codes
+  - Rx / patient-info / special-register / quantity-limit flags
+- Schedule of Drug label now shows tooltip details from the selected record:
+  - code
+  - reference description
+  - prescription / H1 / narcotic / batch-tracking flags
+- Storage field tooltip now reads from selected storage metadata instead of a fixed generic message
+
+#### 4. Storage master normalization started to separate type from display label
+
+**Files**
+- `supabase/migrations/1001_storage_location_display_and_type.sql`
+- `supabase/migrations/1000_item_operational_master_metadata.sql`
+- `backend/src/modules/products/products.service.ts`
+
+**Why**
+- storage rows should retain a canonical storage identity such as:
+  - `Room Temp`
+  - `Normal Temp`
+- while the UI should show the recommended label:
+  - `Store below 25°C`
+  - `Store below 30°C`
+
+**What changed**
+- a follow-up migration was added to:
+  - backfill `storage_type`
+  - normalize `display_text`
+  - normalize `temperature_range`
+- backend storage lookups were updated to include `storage_type` in addition to `display_text`
+
+#### 5. Duplicate storage rows were intentionally handled as data cleanup, not destructive reset
+
+**Important rule**
+- duplicate rows like:
+  - `Store below 25°C`
+  - `Store below 30°C`
+  are not the canonical records and should be removed only after any referencing products are reassigned
+
+**Observed DB protection**
+- deleting a still-referenced storage row raised:
+  - `ERROR: 23503: update or delete on table "storage_locations" violates foreign key constraint "products_storage_id_fkey" on table "products"`
+
+**Correct cleanup sequence**
+1. identify duplicate storage rows and canonical rows
+2. repoint `products.storage_id` from duplicate rows to canonical rows
+3. delete the duplicate rows only after those references are cleared
+
+#### 6. Current intended storage behavior
+
+The target production behavior is:
+- data identity:
+  - `storage_type` = canonical storage category
+- visible UI label:
+  - `display_text` = pharmacist-facing recommendation text
+
+Examples:
+- `storage_type = Room Temp`
+  - `display_text = Store below 25°C`
+- `storage_type = Normal Temp`
+  - `display_text = Store below 30°C`
+
+#### 7. Verification completed so far
+
+**Commands run**
+- `dart format lib/modules/items/items/presentation/items_item_create.dart`
+- `dart analyze lib/modules/items/items/presentation/items_item_create.dart`
+
+**Result**
+- Flutter formatting passed
+- Flutter analysis passed
+
+#### 8. Storage labels now use display text end to end
+
+**Files**
+- `supabase/migrations/1001_storage_location_display_and_type.sql`
+- `backend/src/modules/products/products.service.ts`
+- `backend/src/modules/lookups/lookups.controller.ts`
+- `lib/modules/items/items/controllers/items_controller.dart`
+- `lib/modules/items/items/models/item_model.dart`
+- `lib/modules/items/items/presentation/items_item_create.dart`
+- `lib/modules/items/items/presentation/sections/items_item_create_inventory.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+- `lib/modules/items/items/presentation/sections/report/items_report_screen.dart`
+- `lib/modules/items/items/presentation/sections/report/items_report_overview.dart`
+
+**What changed**
+- added follow-up storage normalization migration with `storage_type`
+- storage lookups now carry both:
+  - canonical type identity
+  - pharmacist-facing display label
+- backend lookup/search now uses `display_text` for storage ordering and search relevance
+- item controller now normalizes storage lookup `name` from:
+  - `display_text`
+  - then `location_name`
+- item model now resolves joined storage names from `display_text`
+- item create/edit default storage matching still resolves `Normal Temp` safely via:
+  - `storage_type`
+  - `location_name`
+  - `display_text`
+- item create inventory dropdown now:
+  - shows `display_text`
+  - hides duplicate-looking storage options if old duplicate rows still exist temporarily
+- item detail overview now shows storage with metadata tooltip support
+- warehouse/detail/report item views now render the storage display label instead of raw type names
+
+**Resulting behavior**
+- visible labels are now the recommended storage instructions such as:
+  - `Store below 25°C`
+  - `Store below 30°C`
+- storage type remains separate in data as `storage_type`
+- saved item values continue to resolve by row ID correctly
+
+#### 9. Duplicate storage row cleanup rule documented
+
+If duplicate label-like rows such as:
+- `Store below 25°C`
+- `Store below 30°C`
+still exist in the table, they must not be deleted before products are repointed.
+
+**Safe sequence**
+1. move `products.storage_id` from duplicate rows to canonical rows
+2. verify no products reference the duplicate rows
+3. delete the duplicate rows
+
+This is required because the DB correctly blocks direct deletes on still-referenced storage rows.
+
+#### 10. Verification completed for storage display rollout
+
+**Commands run**
+- `dart format lib/modules/items/items/presentation/items_item_create.dart lib/modules/items/items/presentation/sections/items_item_create_inventory.dart lib/modules/items/items/presentation/sections/items_item_detail_overview.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart lib/modules/items/items/presentation/sections/report/items_report_screen.dart lib/modules/items/items/presentation/sections/report/items_report_overview.dart lib/modules/items/items/models/item_model.dart lib/modules/items/items/controllers/items_controller.dart`
+- `dart analyze lib/modules/items/items/presentation/items_item_create.dart lib/modules/items/items/presentation/sections/items_item_create_inventory.dart lib/modules/items/items/presentation/sections/items_item_detail_overview.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart lib/modules/items/items/presentation/sections/report/items_report_screen.dart lib/modules/items/items/presentation/sections/report/items_report_overview.dart lib/modules/items/items/models/item_model.dart lib/modules/items/items/controllers/items_controller.dart`
+- `npm run build --prefix backend`
+
+**Result**
+- Flutter formatting passed
+- Flutter analysis passed
+- backend build passed
 - backend build passed
 
 ### 2026-03-18 12:20 IST - Item lookup bootstrap hardening and local-vs-deployed data diagnosis

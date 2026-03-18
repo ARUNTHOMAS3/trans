@@ -21,40 +21,63 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       );
     }
 
-    final warehouses = _resolveWarehouseRows(state, item);
     final String stockLabel = _stockView == _StockView.accounting
         ? 'Accounting Stock'
         : 'Physical Stock';
+    final warehouseStocksAsync = ref.watch(
+      itemWarehouseStocksProvider(item.id!),
+    );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text(
-                'Stock Locations',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(width: 8),
-              _buildWarehouseActions(item),
-              const Spacer(),
-              _buildStockToggle(),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: const Color(0xFFE5E7EB)),
-              ),
-              child: _buildWarehouseTable(stockLabel, warehouses),
+    return warehouseStocksAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Text(
+              'Unable to load warehouse stock.',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
-          ),
-        ],
+            SizedBox(height: 6),
+            Text(
+              'Refresh the item and try again.',
+              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+            ),
+          ],
+        ),
+      ),
+      data: (warehouses) => SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Stock Locations',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(width: 8),
+                _buildWarehouseActions(item, warehouses),
+                const Spacer(),
+                _buildStockToggle(),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildWarehouseStockSummary(warehouses),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: _buildWarehouseTable(stockLabel, warehouses),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1496,9 +1519,21 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           TableRow(
             children: [
               _warehouseNameCell(wh),
-              _stockValueCell(numbers.onHand, cellStyle),
-              _stockValueCell(numbers.committed, cellStyle),
-              _stockValueCell(numbers.available, cellStyle),
+              _stockValueCell(
+                numbers.onHand,
+                cellStyle,
+                isWarning: _stockView == _StockView.physical && wh.hasVariance,
+              ),
+              _stockValueCell(
+                numbers.committed,
+                cellStyle,
+                isWarning: numbers.isOverCommitted,
+              ),
+              _stockValueCell(
+                numbers.available,
+                cellStyle,
+                isWarning: numbers.isOverCommitted,
+              ),
             ],
           ),
         );
@@ -1570,14 +1605,34 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              warehouse.name,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF111827),
-              ),
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  warehouse.name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (warehouse.hasVariance) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    warehouse.variance > 0
+                        ? 'Variance: +${_formatQty(warehouse.variance)}'
+                        : 'Variance: ${_formatQty(warehouse.variance)}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: warehouse.variance > 0
+                          ? const Color(0xFF059669)
+                          : const Color(0xFFDC2626),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           if (warehouse.isPrimary)
@@ -1590,11 +1645,20 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  Widget _stockValueCell(double value, TextStyle style) {
+  Widget _stockValueCell(
+    double value,
+    TextStyle style, {
+    bool isWarning = false,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       alignment: Alignment.center,
-      child: Text(_formatQty(value), style: style),
+      child: Text(
+        _formatQty(value),
+        style: style.copyWith(
+          color: isWarning ? const Color(0xFFDC2626) : style.color,
+        ),
+      ),
     );
   }
 
@@ -1675,7 +1739,118 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  Widget _buildWarehouseActions(Item item) {
+  Widget _buildWarehouseStockSummary(List<WarehouseStockRow> warehouses) {
+    if (warehouses.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: const Text(
+          'Add opening stock to initialize warehouse-wise book stock and physical stock.',
+          style: TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+        ),
+      );
+    }
+
+    final accountingOnHand = warehouses.fold<double>(
+      0,
+      (sum, row) => sum + row.accounting.onHand,
+    );
+    final accountingCommitted = warehouses.fold<double>(
+      0,
+      (sum, row) => sum + row.accounting.committed,
+    );
+    final physicalOnHand = warehouses.fold<double>(
+      0,
+      (sum, row) => sum + row.physical.onHand,
+    );
+    final variance = physicalOnHand - accountingOnHand;
+    final bool isAccounting = _stockView == _StockView.accounting;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isAccounting
+                ? 'Accounting stock follows ERP book stock. Committed stock is reserved against open sales commitments, and available for sale is book stock minus committed stock.'
+                : 'Physical stock reflects the latest counted quantity in each warehouse. Use the variance against accounting stock to spot shortages or excess stock.',
+            style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
+              _buildWarehouseSummaryChip(
+                'Accounting On Hand',
+                _formatQty(accountingOnHand),
+              ),
+              _buildWarehouseSummaryChip(
+                'Committed',
+                _formatQty(accountingCommitted),
+              ),
+              _buildWarehouseSummaryChip(
+                'Physical On Hand',
+                _formatQty(physicalOnHand),
+              ),
+              _buildWarehouseSummaryChip(
+                'Variance',
+                variance > 0
+                    ? '+${_formatQty(variance)}'
+                    : _formatQty(variance),
+                valueColor: variance > 0
+                    ? const Color(0xFF059669)
+                    : variance < 0
+                    ? const Color(0xFFDC2626)
+                    : const Color(0xFF111827),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWarehouseSummaryChip(
+    String label,
+    String value, {
+    Color valueColor = const Color(0xFF111827),
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+          children: [
+            TextSpan(text: '$label: '),
+            TextSpan(
+              text: value,
+              style: TextStyle(fontWeight: FontWeight.w700, color: valueColor),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWarehouseActions(Item item, List<WarehouseStockRow> warehouses) {
     return PopupMenuButton<String>(
       padding: EdgeInsets.zero,
       elevation: 8,
@@ -1691,7 +1866,10 @@ extension _ItemDetailStock on _ItemDetailScreenState {
         if (!mounted) return;
         switch (value) {
           case 'opening-stock':
-            _openOpeningStockDialog(item);
+            _openOpeningStockDialog(item, warehouses);
+            break;
+          case 'adjust-physical-stock':
+            _openPhysicalStockAdjustmentDialog(item, warehouses);
             break;
         }
       },
@@ -1702,6 +1880,19 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Text(
             'Add Opening Stock',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF111827),
+            ),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'adjust-physical-stock',
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Text(
+            'Adjust Physical Stock',
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -1727,45 +1918,19 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  List<WarehouseStockRow> _resolveWarehouseRows(ItemsState state, Item item) {
-    if (state.storageLocations.isEmpty) {
-      return [];
-    }
-
-    return state.storageLocations.map((loc) {
-      final name = loc['name'] ?? loc['storage_name'] ?? 'Unknown';
-      final id = loc['id']?.toString();
-      final isPrimary = item.storageId == id;
-
-      // For now, if it's the primary storage (or if we only have one),
-      // show total stock. In a future update, we would pull per-warehouse stock.
-      final stock = (isPrimary || state.storageLocations.length == 1)
-          ? (item.stockOnHand ?? 0)
-          : 0.0;
-
-      return WarehouseStockRow(
-        name: name,
-        isPrimary: isPrimary,
-        accounting: StockNumbers(onHand: stock, committed: 0),
-        physical: StockNumbers(onHand: stock, committed: 0),
-      );
-    }).toList();
-  }
-
   OpeningStockMode _resolveOpeningStockMode(Item item) {
     if (item.trackBatches) return OpeningStockMode.batches;
     if (item.trackSerialNumber) return OpeningStockMode.serials;
     return OpeningStockMode.none;
   }
 
-  Future<void> _openOpeningStockDialog(Item item) async {
-    final warehouses = _resolveWarehouseRows(
-      ref.read(itemsControllerProvider),
-      item,
-    );
+  Future<void> _openOpeningStockDialog(
+    Item item,
+    List<WarehouseStockRow> warehouses,
+  ) async {
     final mode = _resolveOpeningStockMode(item);
 
-    final result = await showDialog<Map<String, dynamic>>(
+    final result = await showDialog<bool>(
       context: context,
       barrierColor: Colors.transparent,
       builder: (_) => Dialog(
@@ -1795,16 +1960,413 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       ),
     );
 
-    if (result != null && mounted && item.id != null) {
+    if (result == true && mounted && item.id != null) {
+      ref.invalidate(itemWarehouseStocksProvider(item.id!));
       await ref
           .read(itemsControllerProvider.notifier)
-          .updateOpeningStock(
-            item.id!,
-            result['totalStock'],
-            result['totalValue'],
-          );
+          .fetchQuickStats(item.id!);
+    }
+  }
+
+  Future<void> _openPhysicalStockAdjustmentDialog(
+    Item item,
+    List<WarehouseStockRow> warehouses,
+  ) async {
+    if (item.id == null) return;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.12),
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Container(
+          width: 620,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: _PhysicalStockAdjustmentDialog(
+            itemId: item.id!,
+            warehouses: warehouses,
+          ),
+        ),
+      ),
+    );
+
+    if (result == true && mounted) {
+      ref.invalidate(itemWarehouseStocksProvider(item.id!));
+      await ref
+          .read(itemsControllerProvider.notifier)
+          .fetchQuickStats(item.id!);
     }
   }
 
   // Moved to _ItemDetailScreenState
+}
+
+class _PhysicalStockAdjustmentDialog extends ConsumerStatefulWidget {
+  final String itemId;
+  final List<WarehouseStockRow> warehouses;
+
+  const _PhysicalStockAdjustmentDialog({
+    required this.itemId,
+    required this.warehouses,
+  });
+
+  @override
+  ConsumerState<_PhysicalStockAdjustmentDialog> createState() =>
+      _PhysicalStockAdjustmentDialogState();
+}
+
+class _PhysicalStockAdjustmentDialogState
+    extends ConsumerState<_PhysicalStockAdjustmentDialog> {
+  late WarehouseStockRow? _selectedWarehouse;
+  late final TextEditingController _countedStockController;
+  late final TextEditingController _notesController;
+  String? _selectedReason;
+  bool _isSaving = false;
+
+  static const List<String> _reasons = [
+    'Cycle Count',
+    'Damage / Expiry',
+    'Shrinkage / Theft',
+    'Found Extra Stock',
+    'Manual Correction',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedWarehouse = widget.warehouses.isNotEmpty
+        ? widget.warehouses.first
+        : null;
+    _countedStockController = TextEditingController(
+      text: _selectedWarehouse == null
+          ? '0'
+          : _selectedWarehouse!.physical.onHand.toStringAsFixed(2),
+    );
+    _notesController = TextEditingController();
+    _selectedReason = _reasons.first;
+  }
+
+  @override
+  void dispose() {
+    _countedStockController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  double get _countedStock =>
+      double.tryParse(_countedStockController.text.trim()) ?? 0;
+
+  double get _variance =>
+      _countedStock - (_selectedWarehouse?.accounting.onHand ?? 0);
+
+  @override
+  Widget build(BuildContext context) {
+    final warehouse = _selectedWarehouse;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+          ),
+          child: Row(
+            children: [
+              const Text(
+                'Adjust Physical Stock',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close, size: 20),
+              ),
+            ],
+          ),
+        ),
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Count the stock physically and record the counted quantity. Accounting stock stays unchanged; this flow only updates physical stock and logs the variance.',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                ),
+                const SizedBox(height: 16),
+                FormDropdown<WarehouseStockRow>(
+                  value: warehouse,
+                  items: widget.warehouses,
+                  hint: 'Select warehouse',
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _selectedWarehouse = value;
+                      _countedStockController.text = value.physical.onHand
+                          .toStringAsFixed(2);
+                    });
+                  },
+                  displayStringForValue: (row) => row.name,
+                  searchStringForValue: (row) => row.name,
+                ),
+                const SizedBox(height: 16),
+                if (warehouse != null) _buildWarehouseSnapshot(warehouse),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildLabeledField(
+                        'Counted physical stock',
+                        TextField(
+                          controller: _countedStockController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d{0,2}$'),
+                            ),
+                          ],
+                          decoration: _dialogInputDecoration(
+                            'Enter counted qty',
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildLabeledField(
+                        'Adjustment reason',
+                        FormDropdown<String>(
+                          value: _selectedReason,
+                          items: _reasons,
+                          hint: 'Select reason',
+                          onChanged: (value) =>
+                              setState(() => _selectedReason = value),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildLabeledField(
+                  'Notes',
+                  TextField(
+                    controller: _notesController,
+                    maxLines: 3,
+                    decoration: _dialogInputDecoration(
+                      'Optional notes for this count',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildVarianceBanner(),
+              ],
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+          ),
+          child: Row(
+            children: [
+              ElevatedButton(
+                onPressed: _isSaving || warehouse == null ? null : _handleSave,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Save Adjustment',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWarehouseSnapshot(WarehouseStockRow warehouse) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 8,
+        children: [
+          _metricText('Accounting On Hand', warehouse.accounting.onHand),
+          _metricText('Current Physical', warehouse.physical.onHand),
+          _metricText('Committed', warehouse.accounting.committed),
+          _metricText('Available for Sale', warehouse.accounting.available),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricText(String label, double value) {
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+        children: [
+          TextSpan(text: '$label: '),
+          TextSpan(
+            text: value.toStringAsFixed(2),
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF111827),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLabeledField(String label, Widget child) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF111827),
+          ),
+        ),
+        const SizedBox(height: 6),
+        child,
+      ],
+    );
+  }
+
+  InputDecoration _dialogInputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      enabledBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: Color(0xFF2563EB)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+    );
+  }
+
+  Widget _buildVarianceBanner() {
+    final variance = _variance;
+    final color = variance > 0
+        ? const Color(0xFF059669)
+        : variance < 0
+        ? const Color(0xFFDC2626)
+        : const Color(0xFF111827);
+    final message = variance == 0
+        ? 'No variance. Physical stock matches accounting stock.'
+        : variance > 0
+        ? 'Positive variance of +${variance.toStringAsFixed(2)} will be recorded.'
+        : 'Negative variance of ${variance.toStringAsFixed(2)} will be recorded.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Text(
+        message,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleSave() async {
+    if (_selectedWarehouse == null) return;
+    if (_selectedReason == null || _selectedReason!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select an adjustment reason')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await ref
+          .read(itemsControllerProvider.notifier)
+          .adjustWarehousePhysicalStock(
+            widget.itemId,
+            warehouseId: _selectedWarehouse!.id,
+            countedStock: _countedStock,
+            reason: _selectedReason!,
+            notes: _notesController.text.trim().isEmpty
+                ? null
+                : _notesController.text.trim(),
+          );
+
+      if (mounted) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Physical stock adjusted successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to adjust physical stock: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
 }

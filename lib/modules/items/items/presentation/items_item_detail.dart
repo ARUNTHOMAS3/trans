@@ -25,6 +25,9 @@ import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/services/storage_service.dart';
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 
 part 'sections/items_item_detail_overview.dart';
 part 'sections/items_item_detail_stock.dart';

@@ -33,9 +33,9 @@ export class ProductsService {
     purchaseAccount:accounts!products_purchase_account_id_accounts_id_fk(id, user_account_name),
     inventoryAccount:accounts!products_inventory_account_id_accounts_id_fk(id, user_account_name),
     rack:racks(id, rack_name),
-    buyingRule:buying_rules(id, buying_rule),
-    drugSchedule:schedules(id, shedule_name),
-    storage:storage_locations(id, location_name),
+    buyingRule:buying_rules(id, buying_rule, rule_description, system_behavior, associated_schedule_codes, requires_rx, requires_patient_info, is_saleable, log_to_special_register, requires_doctor_name, requires_prescription_date, requires_age_check, institutional_only, blocks_retail_sale, quantity_limit, allows_refill, sort_order),
+    drugSchedule:schedules(id, shedule_name, schedule_code, reference_description, requires_prescription, requires_h1_register, is_narcotic, requires_batch_tracking, sort_order, is_common),
+    storage:storage_locations(id, location_name, storage_type, temperature_range, display_text, description, common_examples, min_temp_c, max_temp_c, is_cold_chain, requires_fridge, sort_order),
     compositions:product_contents(
       content_id,
       strength_id,
@@ -1276,9 +1276,24 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("storage_locations")
-      .select("id, location_name, temperature_range, description, is_active")
+      .select(
+        "id, location_name, storage_type, temperature_range, display_text, description, common_examples, min_temp_c, max_temp_c, is_cold_chain, requires_fridge, sort_order, is_active",
+      )
       .eq("is_active", true)
-      .order("location_name", { ascending: true });
+      .order("sort_order", { ascending: true })
+      .order("display_text", { ascending: true });
+
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  async getWarehouses() {
+    const supabase = this.supabaseService.getClient();
+    const { data, error } = await supabase
+      .from("warehouses")
+      .select("id, org_id, outlet_id, name, is_active")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
 
     if (error) throw new Error(error.message);
     return data;
@@ -1519,8 +1534,11 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("buying_rules")
-      .select("id, buying_rule, is_active")
+      .select(
+        "id, buying_rule, rule_description, system_behavior, associated_schedule_codes, requires_rx, requires_patient_info, is_saleable, log_to_special_register, requires_doctor_name, requires_prescription_date, requires_age_check, institutional_only, blocks_retail_sale, quantity_limit, allows_refill, sort_order, is_active",
+      )
       .eq("is_active", true)
+      .order("sort_order", { ascending: true })
       .order("buying_rule", { ascending: true });
 
     if (error) return [];
@@ -1540,8 +1558,11 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("schedules")
-      .select("id, shedule_name, is_active")
+      .select(
+        "id, shedule_name, schedule_code, reference_description, requires_prescription, requires_h1_register, is_narcotic, requires_batch_tracking, sort_order, is_common, is_active",
+      )
       .eq("is_active", true)
+      .order("sort_order", { ascending: true })
       .order("shedule_name", { ascending: true });
 
     if (error) return [];
@@ -1558,6 +1579,7 @@ export class ProductsService {
       brands,
       vendors,
       storageLocations,
+      warehouses,
       racks,
       reorderTerms,
       accounts,
@@ -1575,6 +1597,7 @@ export class ProductsService {
       this.getBrands(),
       this.getVendors(),
       this.getStorageLocations(),
+      this.getWarehouses(),
       this.getRacks(),
       this.getReorderTerms(),
       this.getAccounts(),
@@ -1594,6 +1617,7 @@ export class ProductsService {
       brands,
       vendors,
       storageLocations,
+      warehouses,
       racks,
       reorderTerms,
       accounts,
@@ -1612,6 +1636,306 @@ export class ProductsService {
       (item) => ({ shedule_name: item.name?.trim() || item.name }),
       "shedule_name",
     );
+  }
+
+  async getProductWarehouseStocks(productId: string) {
+    if (!this.isUUID(productId)) {
+      throw new BadRequestException("Invalid product ID");
+    }
+
+    const supabase = this.supabaseService.getClient();
+    const [warehousesResult, stocksResult] = await Promise.all([
+      supabase
+        .from("warehouses")
+        .select("id, org_id, outlet_id, name, is_active")
+        .eq("is_active", true)
+        .order("name", { ascending: true }),
+      supabase
+        .from("product_warehouse_stocks")
+        .select(
+          "warehouse_id, opening_stock, opening_stock_value, accounting_stock, physical_stock, committed_stock",
+        )
+        .eq("product_id", productId),
+    ]);
+
+    if (warehousesResult.error) {
+      throw new Error(warehousesResult.error.message);
+    }
+    if (stocksResult.error) {
+      throw new Error(stocksResult.error.message);
+    }
+
+    const stockRows = new Map(
+      (stocksResult.data ?? []).map((row: any) => [row.warehouse_id, row]),
+    );
+
+    return (warehousesResult.data ?? []).map((warehouse: any) => {
+      const row = stockRows.get(warehouse.id);
+      const openingStock = this.normalizeNonNegativeNumber(
+        row?.opening_stock,
+        0,
+      );
+      const accounting = this.normalizeNonNegativeNumber(
+        row?.accounting_stock,
+        openingStock,
+      );
+      const physical = this.normalizeNonNegativeNumber(
+        row?.physical_stock,
+        accounting,
+      );
+      const committed = this.normalizeNonNegativeNumber(
+        row?.committed_stock,
+        0,
+      );
+
+      return {
+        id: warehouse.id,
+        warehouse_id: warehouse.id,
+        name: warehouse.name,
+        opening_stock: openingStock,
+        opening_stock_value: this.normalizeNonNegativeNumber(
+          row?.opening_stock_value,
+          0,
+        ),
+        accounting: {
+          onHand: accounting,
+          committed,
+        },
+        physical: {
+          onHand: physical,
+          committed,
+        },
+      };
+    });
+  }
+
+  async updateProductWarehouseStocks(
+    productId: string,
+    payload: { rows?: any[] } = {},
+  ) {
+    if (!this.isUUID(productId)) {
+      throw new BadRequestException("Invalid product ID");
+    }
+
+    const rows = Array.isArray(payload.rows) ? payload.rows : [];
+    if (rows.length === 0) {
+      throw new BadRequestException("At least one warehouse row is required");
+    }
+
+    const warehouseIds = rows
+      .map((row) => this.cleanUuid(row?.warehouse_id ?? row?.id))
+      .filter(Boolean);
+
+    if (warehouseIds.length === 0) {
+      throw new BadRequestException("No valid warehouse IDs provided");
+    }
+
+    const supabase = this.supabaseService.getClient();
+    const { data: warehouseMasters, error: warehousesError } = await supabase
+      .from("warehouses")
+      .select("id, org_id, outlet_id, is_active")
+      .in("id", warehouseIds)
+      .eq("is_active", true);
+
+    if (warehousesError) {
+      throw new Error(warehousesError.message);
+    }
+
+    const warehouseMap = new Map(
+      (warehouseMasters ?? []).map((warehouse: any) => [warehouse.id, warehouse]),
+    );
+
+    const upserts = rows
+      .map((row) => {
+        const warehouseId = this.cleanUuid(row?.warehouse_id ?? row?.id);
+        if (!warehouseId) return null;
+
+        const warehouse = warehouseMap.get(warehouseId);
+        if (!warehouse) return null;
+
+        const openingStock = this.normalizeNonNegativeNumber(
+          row?.opening_stock,
+          0,
+        );
+        const openingStockValue = this.normalizeNonNegativeNumber(
+          row?.opening_stock_value,
+          0,
+        );
+        const accountingStock = this.normalizeNonNegativeNumber(
+          row?.accounting?.onHand ?? row?.accounting_stock,
+          openingStock,
+        );
+        const physicalStock = this.normalizeNonNegativeNumber(
+          row?.physical?.onHand ?? row?.physical_stock,
+          accountingStock,
+        );
+        const committedStock = this.normalizeNonNegativeNumber(
+          row?.accounting?.committed ??
+            row?.physical?.committed ??
+            row?.committed_stock,
+          0,
+        );
+
+        return {
+          product_id: productId,
+          warehouse_id: warehouseId,
+          org_id:
+            warehouse.org_id ?? "00000000-0000-0000-0000-000000000000",
+          outlet_id: warehouse.outlet_id ?? null,
+          opening_stock: openingStock,
+          opening_stock_value: openingStockValue,
+          accounting_stock: accountingStock,
+          physical_stock: physicalStock,
+          committed_stock: committedStock,
+        };
+      })
+      .filter(Boolean);
+
+    if (upserts.length === 0) {
+      throw new BadRequestException("No valid warehouse rows to save");
+    }
+
+    const { error: upsertError } = await supabase
+      .from("product_warehouse_stocks")
+      .upsert(upserts, { onConflict: "product_id,warehouse_id" });
+
+    if (upsertError) {
+      throw new Error(upsertError.message);
+    }
+
+    return this.getProductWarehouseStocks(productId);
+  }
+
+  async adjustProductWarehousePhysicalStock(
+    productId: string,
+    payload: {
+      warehouse_id?: string;
+      counted_stock?: number;
+      reason?: string;
+      notes?: string;
+    } = {},
+  ) {
+    if (!this.isUUID(productId)) {
+      throw new BadRequestException("Invalid product ID");
+    }
+
+    const warehouseId = this.cleanUuid(payload.warehouse_id);
+    if (!warehouseId) {
+      throw new BadRequestException("A valid warehouse is required");
+    }
+
+    const reason = payload.reason?.trim();
+    if (!reason) {
+      throw new BadRequestException("Adjustment reason is required");
+    }
+
+    const countedStock = this.normalizeNonNegativeNumber(
+      payload.counted_stock,
+      Number.NaN,
+    );
+    if (!Number.isFinite(countedStock)) {
+      throw new BadRequestException("Counted stock is required");
+    }
+
+    const supabase = this.supabaseService.getClient();
+    const [{ data: warehouse, error: warehouseError }, existingResult] =
+      await Promise.all([
+        supabase
+          .from("warehouses")
+          .select("id, org_id, outlet_id, is_active")
+          .eq("id", warehouseId)
+          .eq("is_active", true)
+          .maybeSingle(),
+        supabase
+          .from("product_warehouse_stocks")
+          .select(
+            "id, opening_stock, opening_stock_value, accounting_stock, physical_stock, committed_stock",
+          )
+          .eq("product_id", productId)
+          .eq("warehouse_id", warehouseId)
+          .maybeSingle(),
+      ]);
+
+    if (warehouseError) {
+      throw new Error(warehouseError.message);
+    }
+    if (!warehouse) {
+      throw new BadRequestException("Warehouse not found");
+    }
+    if (existingResult.error) {
+      throw new Error(existingResult.error.message);
+    }
+
+    const existingRow = existingResult.data;
+    const openingStock = this.normalizeNonNegativeNumber(
+      existingRow?.opening_stock,
+      0,
+    );
+    const openingStockValue = this.normalizeNonNegativeNumber(
+      existingRow?.opening_stock_value,
+      0,
+    );
+    const accountingStock = this.normalizeNonNegativeNumber(
+      existingRow?.accounting_stock,
+      openingStock,
+    );
+    const previousPhysicalStock = this.normalizeNonNegativeNumber(
+      existingRow?.physical_stock,
+      accountingStock,
+    );
+    const committedStock = this.normalizeNonNegativeNumber(
+      existingRow?.committed_stock,
+      0,
+    );
+
+    const upsertPayload = {
+      product_id: productId,
+      warehouse_id: warehouseId,
+      org_id: warehouse.org_id ?? "00000000-0000-0000-0000-000000000000",
+      outlet_id: warehouse.outlet_id ?? null,
+      opening_stock: openingStock,
+      opening_stock_value: openingStockValue,
+      accounting_stock: accountingStock,
+      physical_stock: countedStock,
+      committed_stock: committedStock,
+    };
+
+    const { error: upsertError } = await supabase
+      .from("product_warehouse_stocks")
+      .upsert(upsertPayload, { onConflict: "product_id,warehouse_id" });
+
+    if (upsertError) {
+      throw new Error(upsertError.message);
+    }
+
+    const { error: adjustmentError } = await supabase
+      .from("product_warehouse_stock_adjustments")
+      .insert({
+        product_id: productId,
+        warehouse_id: warehouseId,
+        org_id: warehouse.org_id ?? "00000000-0000-0000-0000-000000000000",
+        outlet_id: warehouse.outlet_id ?? null,
+        adjustment_type: "physical_count",
+        previous_accounting_stock: accountingStock,
+        previous_physical_stock: previousPhysicalStock,
+        new_physical_stock: countedStock,
+        committed_stock: committedStock,
+        variance_qty: countedStock - accountingStock,
+        reason,
+        notes: payload.notes?.trim() || null,
+      });
+
+    if (adjustmentError) {
+      throw new Error(adjustmentError.message);
+    }
+
+    return this.getProductWarehouseStocks(productId);
+  }
+
+  private normalizeNonNegativeNumber(value: unknown, fallback: number) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(parsed, 0);
   }
 
   // GENERIC SYNC HELPER
@@ -1900,13 +2224,36 @@ export class ProductsService {
       throw new NotFoundException("Product not found");
     }
 
-    const inventoryData = await db
-      .select({
-        stock: sql<number>`sum(${outletInventory.currentStock})::int`,
-        committed: sql<number>`sum(${outletInventory.reservedStock})::int`,
-      })
-      .from(outletInventory)
-      .where(eq(outletInventory.productId, productId));
+    const supabase = this.supabaseService.getClient();
+    const { data: warehouseStocks, error: warehouseStocksError } =
+      await supabase
+        .from("product_warehouse_stocks")
+        .select("accounting_stock, committed_stock")
+        .eq("product_id", productId);
+
+    if (warehouseStocksError) {
+      throw new Error(warehouseStocksError.message);
+    }
+
+    const hasWarehouseStocks = (warehouseStocks ?? []).length > 0;
+    const warehouseCurrentStock = (warehouseStocks ?? []).reduce(
+      (sum: number, row: any) => sum + Number(row.accounting_stock ?? 0),
+      0,
+    );
+    const warehouseCommittedStock = (warehouseStocks ?? []).reduce(
+      (sum: number, row: any) => sum + Number(row.committed_stock ?? 0),
+      0,
+    );
+
+    const inventoryData = hasWarehouseStocks
+      ? [{ stock: warehouseCurrentStock, committed: warehouseCommittedStock }]
+      : await db
+          .select({
+            stock: sql<number>`sum(${outletInventory.currentStock})::int`,
+            committed: sql<number>`sum(${outletInventory.reservedStock})::int`,
+          })
+          .from(outletInventory)
+          .where(eq(outletInventory.productId, productId));
 
     return {
       current_stock: inventoryData[0]?.stock || 0,

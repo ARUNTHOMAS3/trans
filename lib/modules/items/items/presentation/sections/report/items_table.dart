@@ -623,43 +623,42 @@ class _ItemTableRowState extends ConsumerState<_ItemTableRow> {
             onTap: () => widget.onItemTap?.call(widget.item),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color:
-                  widget.isSelected
-                      ? const Color(0xFFF2F4FF)
-                      : _isHovered
-                      ? const Color(0xFFF9FAFB)
-                      : Colors.transparent,
-            child: Row(
-              crossAxisAlignment: widget.wrapText
-                  ? CrossAxisAlignment.start
-                  : CrossAxisAlignment.center,
-              children: [
-                const SizedBox(width: 32),
-                const SizedBox(width: 4),
-                SizedBox(
-                  width: 32,
-                  child: Checkbox(
-                    value: widget.isSelected,
-                    activeColor: const Color(0xFF2563EB),
-                    onChanged: (v) => widget.onSelectionChanged(v ?? false),
+              color: widget.isSelected
+                  ? const Color(0xFFF2F4FF)
+                  : _isHovered
+                  ? const Color(0xFFF9FAFB)
+                  : Colors.transparent,
+              child: Row(
+                crossAxisAlignment: widget.wrapText
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(width: 32),
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    width: 32,
+                    child: Checkbox(
+                      value: widget.isSelected,
+                      activeColor: const Color(0xFF2563EB),
+                      onChanged: (v) => widget.onSelectionChanged(v ?? false),
+                    ),
                   ),
-                ),
-                ...widget.displayedDefs.map((def) {
-                  final val = _getCellData(widget.item, def.key);
-                  final width = widget.columnWidths[def.key] ?? 120.0;
-                  return _cell(
-                    width,
-                    val,
-                    color: def.key == 'name'
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFF111827),
-                  );
-                }),
-              ],
+                  ...widget.displayedDefs.map((def) {
+                    final val = _getCellData(widget.item, def.key);
+                    final width = widget.columnWidths[def.key] ?? 120.0;
+                    return _cell(
+                      width,
+                      val,
+                      color: def.key == 'name'
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFF111827),
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -687,7 +686,7 @@ class _QuickStatsOverlay extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 15,
               offset: const Offset(0, 5),
             ),

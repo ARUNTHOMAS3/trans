@@ -198,7 +198,8 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
     };
     final storageMap = {
       for (var s in state.storageLocations)
-        s['id'] as String: s['name'] as String,
+        s['id'] as String:
+            (s['name'] ?? s['display_text'] ?? s['location_name']) as String,
     };
     final accountsMap = {
       for (var a in state.accounts) a['id'] as String: a['name'] as String,

@@ -1,32 +1,54 @@
 // lib/modules/items/items/models/items_stock_models.dart
 
 class WarehouseStockRow {
+  final String id;
   final String name;
   final bool isPrimary;
+  final double openingStock;
+  final double openingStockValue;
   final StockNumbers accounting;
   final StockNumbers physical;
 
   WarehouseStockRow({
+    required this.id,
     required this.name,
     required this.accounting,
     required this.physical,
     this.isPrimary = false,
+    this.openingStock = 0,
+    this.openingStockValue = 0,
   });
 
   factory WarehouseStockRow.fromJson(Map<String, dynamic> json) =>
       WarehouseStockRow(
+        id: (json['warehouse_id'] ?? json['id'] ?? '').toString(),
         name: json['name'],
         isPrimary: json['isPrimary'] ?? false,
+        openingStock:
+            (json['opening_stock'] as num?)?.toDouble() ??
+            (json['openingStock'] as num?)?.toDouble() ??
+            0,
+        openingStockValue:
+            (json['opening_stock_value'] as num?)?.toDouble() ??
+            (json['openingStockValue'] as num?)?.toDouble() ??
+            0,
         accounting: StockNumbers.fromJson(json['accounting']),
         physical: StockNumbers.fromJson(json['physical']),
       );
 
   Map<String, dynamic> toJson() => {
+    'warehouse_id': id,
     'name': name,
     'isPrimary': isPrimary,
+    'opening_stock': openingStock,
+    'opening_stock_value': openingStockValue,
     'accounting': accounting.toJson(),
     'physical': physical.toJson(),
   };
+
+  double get variance => physical.onHand - accounting.onHand;
+
+  bool get hasVariance => variance.abs() > 0.0001;
 }
 
 class StockNumbers {
@@ -35,7 +57,11 @@ class StockNumbers {
 
   const StockNumbers({required this.onHand, required this.committed});
 
-  double get available => onHand - committed;
+  double get available => (onHand - committed).clamp(0, double.infinity);
+
+  bool get isOverCommitted => committed > onHand;
+
+  double get shortfall => (committed - onHand).clamp(0, double.infinity);
 
   factory StockNumbers.fromJson(Map<String, dynamic> json) => StockNumbers(
     onHand: (json['onHand'] as num).toDouble(),

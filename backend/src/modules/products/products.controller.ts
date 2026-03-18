@@ -224,6 +224,11 @@ export class ProductsController {
     return this.productsService.getStorageLocations();
   }
 
+  @Get("lookups/warehouses")
+  getWarehouses() {
+    return this.productsService.getWarehouses();
+  }
+
   @Post("lookups/storage-locations/sync")
   @UsePipes(
     new ValidationPipe({
@@ -438,6 +443,33 @@ export class ProductsController {
   @Get(":id/quick-stats")
   async getQuickStats(@Param("id") id: string) {
     return this.productsService.getQuickStats(id);
+  }
+
+  @Get(":id/warehouse-stocks")
+  async getWarehouseStocks(@Param("id") id: string) {
+    return this.productsService.getProductWarehouseStocks(id);
+  }
+
+  @Put(":id/warehouse-stocks")
+  async updateWarehouseStocks(
+    @Param("id") id: string,
+    @Body() body: { rows?: any[] },
+  ) {
+    return this.productsService.updateProductWarehouseStocks(id, body);
+  }
+
+  @Post(":id/warehouse-stocks/physical-adjustments")
+  async adjustPhysicalWarehouseStock(
+    @Param("id") id: string,
+    @Body()
+    body: {
+      warehouse_id?: string;
+      counted_stock?: number;
+      reason?: string;
+      notes?: string;
+    },
+  ) {
+    return this.productsService.adjustProductWarehousePhysicalStock(id, body);
   }
 
   @Get(":id/batches")

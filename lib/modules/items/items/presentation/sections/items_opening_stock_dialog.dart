@@ -20,6 +20,7 @@ class _OpeningStockDialog extends ConsumerStatefulWidget {
 
 class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
   final List<_OpeningStockWarehouseEntry> _warehouseEntries = [];
+  final Map<TextEditingController, GlobalKey> _dateFieldKeys = {};
   int _selectedWarehouseIndex = 0;
   final GlobalKey _serialGenerateKey = GlobalKey();
   OverlayEntry? _serialGenerateEntry;
@@ -30,10 +31,15 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
   @override
   void initState() {
     super.initState();
-    // Initialize with one entry per warehouse
     for (final wh in widget.warehouses) {
       _warehouseEntries.add(
-        _OpeningStockWarehouseEntry(warehouseName: wh.name, mode: widget.mode),
+        _OpeningStockWarehouseEntry(
+          warehouseId: wh.id,
+          warehouseName: wh.name,
+          mode: widget.mode,
+          openingStock: wh.openingStock,
+          openingStockValue: wh.openingStockValue,
+        ),
       );
     }
   }
@@ -240,9 +246,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                       color: Color(0xFFEF4444),
                       size: 20,
                     ),
-                    onPressed: () {
-                      // Delete warehouse entry
-                    },
+                    onPressed: null,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -424,9 +428,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                                   color: Color(0xFFEF4444),
                                   size: 20,
                                 ),
-                                onPressed: () {
-                                  // Delete warehouse entry
-                                },
+                                onPressed: null,
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                               )
@@ -627,9 +629,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                       color: Color(0xFFEF4444),
                       size: 20,
                     ),
-                    onPressed: () {
-                      // Delete
-                    },
+                    onPressed: null,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -767,7 +767,9 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
   }
 
   Widget _buildDateField(TextEditingController controller, String hint) {
+    final fieldKey = _dateFieldKeys.putIfAbsent(controller, () => GlobalKey());
     return SizedBox(
+      key: fieldKey,
       height: 36,
       child: TextField(
         controller: controller,
@@ -800,11 +802,13 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
     final now = DateTime.now();
     final existingDate = _parseDate(controller.text);
     final initialDate = existingDate ?? now;
-    final picked = await showDatePicker(
-      context: context,
+    final targetKey = _dateFieldKeys.putIfAbsent(controller, () => GlobalKey());
+    final picked = await ZerpaiDatePicker.show(
+      context,
       initialDate: initialDate,
       firstDate: DateTime(1900),
       lastDate: DateTime(2100),
+      targetKey: targetKey,
     );
     if (picked != null) {
       controller.text = _formatDate(picked);
@@ -1484,14 +1488,24 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
   }
 
   Future<void> _handleSave() async {
+    final rows = <WarehouseStockRow>[];
     double totalStock = 0;
-    double totalValue = 0;
 
     for (final entry in _warehouseEntries) {
       final stock = double.tryParse(entry.openingStockController.text) ?? 0;
       final rate = double.tryParse(entry.openingStockValueController.text) ?? 0;
       totalStock += stock;
-      totalValue += (stock * rate);
+
+      rows.add(
+        WarehouseStockRow(
+          id: entry.warehouseId,
+          name: entry.warehouseName,
+          openingStock: stock,
+          openingStockValue: rate,
+          accounting: StockNumbers(onHand: stock, committed: 0),
+          physical: StockNumbers(onHand: stock, committed: 0),
+        ),
+      );
     }
 
     if (totalStock <= 0) {
@@ -1505,14 +1519,15 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
     try {
       await ref
           .read(itemsControllerProvider.notifier)
-          .updateOpeningStock(
-            widget.itemId,
-            totalStock,
-            totalValue / totalStock,
-          );
+          .updateWarehouseStocks(widget.itemId, rows);
+
+      ref.invalidate(itemWarehouseStocksProvider(widget.itemId));
+      await ref
+          .read(itemsControllerProvider.notifier)
+          .fetchQuickStats(widget.itemId);
 
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Opening stock updated successfully')),
         );
@@ -1533,6 +1548,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
 
 // Supporting classes
 class _OpeningStockWarehouseEntry {
+  final String warehouseId;
   final String warehouseName;
   final OpeningStockMode mode;
   final TextEditingController openingStockController = TextEditingController(
@@ -1544,12 +1560,24 @@ class _OpeningStockWarehouseEntry {
   final List<_BatchEntry> batchEntries = [];
 
   _OpeningStockWarehouseEntry({
+    required this.warehouseId,
     required this.warehouseName,
     required this.mode,
+    double openingStock = 0,
+    double openingStockValue = 0,
   }) {
+    openingStockController.text = _formatInitialNumber(openingStock);
+    openingStockValueController.text = _formatInitialNumber(openingStockValue);
     if (mode == OpeningStockMode.batches) {
       batchEntries.add(_BatchEntry());
     }
+  }
+
+  static String _formatInitialNumber(double value) {
+    if (value == value.roundToDouble()) {
+      return value.round().toString();
+    }
+    return value.toString();
   }
 
   int getTotalQuantityToAdd() {

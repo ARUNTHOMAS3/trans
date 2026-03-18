@@ -71,6 +71,10 @@ class ItemCreateScreen extends ConsumerStatefulWidget {
 }
 
 class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
+  static const String _defaultDrugScheduleName = 'NONE / GENERAL';
+  static const String _defaultBuyingRuleName = 'No Restriction (OTC)';
+  static const String _defaultStorageName = 'Normal Temp';
+
   // Edit mode - stores the item being edited
   Item? editingItem;
   bool isEditMode = false;
@@ -288,6 +292,9 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     } else if (widget.item != null) {
       // New item but with initial data
       _initializeWithItem(widget.item!, isClone: widget.isClone);
+      _applyOperationalDefaultsIfMissing();
+    } else {
+      _applyOperationalDefaultsIfMissing();
     }
   }
 
@@ -424,6 +431,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
         _itemImages.addAll(item.imageUrls!);
       }
     });
+
+    _applyOperationalDefaultsIfMissing();
   }
 
   Future<void> _onFilesDropped(DropDoneDetails details) async {
@@ -477,6 +486,107 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   ];
 
   bool isGoods = true;
+
+  String? _findLookupIdByName(
+    List<Map<String, dynamic>> items,
+    String targetName,
+  ) {
+    for (final item in items) {
+      final candidates = <String?>[
+        item['name']?.toString(),
+        item['buying_rule']?.toString(),
+        item['shedule_name']?.toString(),
+        item['location_name']?.toString(),
+        item['display_text']?.toString(),
+        item['storage_type']?.toString(),
+      ];
+      for (final rawName in candidates) {
+        if (rawName != null &&
+            rawName.trim().toLowerCase() == targetName.trim().toLowerCase()) {
+          return item['id']?.toString();
+        }
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _findLookupItemById(
+    List<Map<String, dynamic>> items,
+    String? id,
+  ) {
+    if (id == null || id.isEmpty) return null;
+    for (final item in items) {
+      if (item['id']?.toString() == id) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  String? _composeTooltip(List<String?> parts) {
+    final cleaned = parts
+        .whereType<String>()
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    if (cleaned.isEmpty) return null;
+    return cleaned.join('\n');
+  }
+
+  String? _selectedStorageTooltip(ItemsState itemsState) {
+    final selected = _findLookupItemById(
+      itemsState.storageLocations,
+      storageId,
+    );
+    if (selected == null) return null;
+
+    final minTemp = selected['min_temp_c'];
+    final maxTemp = selected['max_temp_c'];
+    String? temperatureLine;
+    if (minTemp != null && maxTemp != null) {
+      temperatureLine = 'Temperature Range: ${minTemp}°C to ${maxTemp}°C';
+    } else if (maxTemp != null) {
+      temperatureLine = 'Temperature Range: Up to ${maxTemp}°C';
+    }
+
+    return _composeTooltip([
+      selected['display_text']?.toString() ??
+          selected['description']?.toString(),
+      temperatureLine,
+      selected['common_examples'] != null
+          ? 'Examples: ${selected['common_examples']}'
+          : null,
+      selected['is_cold_chain'] == true ? 'Cold Chain Handling: Yes' : null,
+      selected['requires_fridge'] == true ? 'Requires Fridge: Yes' : null,
+    ]);
+  }
+
+  void _applyOperationalDefaultsIfMissing() {
+    final itemsState = ref.read(itemsControllerProvider);
+    if (itemsState.isLoadingLookups) return;
+
+    final defaultBuyingRuleId = _findLookupIdByName(
+      itemsState.buyingRules,
+      _defaultBuyingRuleName,
+    );
+    final defaultDrugScheduleId = _findLookupIdByName(
+      itemsState.drugSchedules,
+      _defaultDrugScheduleName,
+    );
+    final defaultStorageId = _findLookupIdByName(
+      itemsState.storageLocations,
+      _defaultStorageName,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      buyingRuleId ??= defaultBuyingRuleId;
+      scheduleOfDrugId ??= defaultDrugScheduleId;
+      storageId ??= defaultStorageId;
+    });
+  }
 
   static const Map<String, String> _backendToUiTaxPref = {
     'taxable': 'Taxable',
@@ -682,6 +792,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
 
   Widget _buildSaveCancel(ItemsController controller, ItemsState itemsState) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -693,272 +804,293 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          ZButton.secondary(
-            label: "Cancel",
-            onPressed: () {
-              DraftStorageService.clear(_draftKey);
-              if (isEditMode && editingItem?.id != null) {
-                // If we are editing, go back to the details page (split view)
-                context.goNamed(
-                  AppRoutes.itemsDetail,
-                  pathParameters: {'id': editingItem!.id!},
-                );
-              } else if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go(AppRoutes.itemsReport);
-              }
-            },
-          ),
-          const SizedBox(width: 12),
-          ZButton.primary(
-            label: isEditMode ? "Update" : "Save",
-            loading: itemsState.isSaving,
-            onPressed: itemsState.isSaving
-                ? null
-                : () async {
-                    String? primaryImageUrl;
-                    List<String>? imageUrls;
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ZButton.primary(
+              label: isEditMode ? "Update" : "Save",
+              loading: itemsState.isSaving,
+              onPressed: itemsState.isSaving
+                  ? null
+                  : () async {
+                      String? primaryImageUrl;
+                      List<String>? imageUrls;
 
-                    if (_itemImages.isNotEmpty) {
-                      try {
-                        final storage = StorageService();
+                      if (_itemImages.isNotEmpty) {
+                        try {
+                          final storage = StorageService();
 
-                        // Separate existing URLs and new PlatformFiles
-                        final newFiles = _itemImages
-                            .whereType<PlatformFile>()
-                            .toList();
+                          // Separate existing URLs and new PlatformFiles
+                          final newFiles = _itemImages
+                              .whereType<PlatformFile>()
+                              .toList();
 
-                        List<String> uploadedUrls = [];
-                        if (newFiles.isNotEmpty) {
-                          uploadedUrls = await storage.uploadProductImages(
-                            newFiles,
-                          );
-                        }
+                          List<String> uploadedUrls = [];
+                          if (newFiles.isNotEmpty) {
+                            uploadedUrls = await storage.uploadProductImages(
+                              newFiles,
+                            );
+                          }
 
-                        // Reconstruct the final list in the correct order
-                        final List<String> finalUrls = [];
-                        int uploadedIdx = 0;
-                        for (var item in _itemImages) {
-                          if (item is String) {
-                            finalUrls.add(item);
-                          } else if (item is PlatformFile) {
-                            if (uploadedIdx < uploadedUrls.length) {
-                              finalUrls.add(uploadedUrls[uploadedIdx]);
-                              uploadedIdx++;
+                          // Reconstruct the final list in the correct order
+                          final List<String> finalUrls = [];
+                          int uploadedIdx = 0;
+                          for (var item in _itemImages) {
+                            if (item is String) {
+                              finalUrls.add(item);
+                            } else if (item is PlatformFile) {
+                              if (uploadedIdx < uploadedUrls.length) {
+                                finalUrls.add(uploadedUrls[uploadedIdx]);
+                                uploadedIdx++;
+                              }
                             }
                           }
-                        }
 
-                        if (finalUrls.isNotEmpty) {
-                          primaryImageUrl = finalUrls[_primaryImageIndex];
-                          imageUrls = finalUrls;
+                          if (finalUrls.isNotEmpty) {
+                            primaryImageUrl = finalUrls[_primaryImageIndex];
+                            imageUrls = finalUrls;
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Warning: Failed to upload images: $e',
+                                ),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                          }
                         }
-                      } catch (e) {
-                        if (mounted) {
+                      } else if (isEditMode) {
+                        primaryImageUrl = null;
+                        imageUrls = [];
+                      }
+
+                      final item = Item(
+                        buyingRuleId:
+                            buyingRuleId ??
+                            _findLookupIdByName(
+                              itemsState.buyingRules,
+                              _defaultBuyingRuleName,
+                            ),
+                        scheduleOfDrugId:
+                            scheduleOfDrugId ??
+                            _findLookupIdByName(
+                              itemsState.drugSchedules,
+                              _defaultDrugScheduleName,
+                            ),
+                        id: isEditMode ? editingItem?.id : null,
+                        type: isGoods ? 'goods' : 'service',
+                        productName: nameCtrl.text.trim(),
+                        billingName: billingNameCtrl.text.trim().isEmpty
+                            ? null
+                            : billingNameCtrl.text.trim(),
+                        itemCode: itemCodeCtrl.text.trim(),
+                        sku: skuCtrl.text.trim().isEmpty
+                            ? null
+                            : skuCtrl.text.trim(),
+                        unitId: selectedUnitId ?? '',
+                        categoryId: isGoods ? selectedCategoryId : null,
+                        isReturnable: isReturnable,
+                        pushToEcommerce: pushToEcommerce,
+                        hsnCode: isGoods
+                            ? (hsnCtrl.text.trim().isEmpty
+                                  ? null
+                                  : hsnCtrl.text.trim())
+                            : (sacCtrl.text.trim().isEmpty
+                                  ? null
+                                  : sacCtrl.text.trim()),
+                        taxPreference: _toBackendTaxPreference(taxPreference),
+                        exemptionReason: exemptionReason,
+                        intraStateTaxId: intraStateTaxId,
+                        interStateTaxId: interStateTaxId,
+                        sellingPrice: sellingPriceCtrl.text.isEmpty
+                            ? null
+                            : double.tryParse(sellingPriceCtrl.text),
+                        sellingPriceCurrency: salesCurrency,
+                        mrp: mrpCtrl.text.isEmpty
+                            ? null
+                            : double.tryParse(mrpCtrl.text),
+                        ptr: ptrCtrl.text.isEmpty
+                            ? null
+                            : double.tryParse(ptrCtrl.text),
+                        salesAccountId: salesAccountId,
+                        salesDescription:
+                            salesDescriptionCtrl.text.trim().isEmpty
+                            ? null
+                            : salesDescriptionCtrl.text.trim(),
+                        costPrice: costPriceCtrl.text.isEmpty
+                            ? null
+                            : double.tryParse(costPriceCtrl.text),
+                        costPriceCurrency: purchaseCurrency,
+                        purchaseAccountId: purchaseAccountId,
+                        preferredVendorId: preferredVendorId,
+                        purchaseDescription:
+                            purchaseDescriptionCtrl.text.trim().isEmpty
+                            ? null
+                            : purchaseDescriptionCtrl.text.trim(),
+                        length: dimXCtrl.text.isEmpty
+                            ? null
+                            : double.tryParse(dimXCtrl.text),
+                        width: dimYCtrl.text.isEmpty
+                            ? null
+                            : double.tryParse(dimYCtrl.text),
+                        height: dimZCtrl.text.isEmpty
+                            ? null
+                            : double.tryParse(dimZCtrl.text),
+                        dimensionUnit: dimUnit,
+                        weight: weightCtrl.text.isEmpty
+                            ? null
+                            : double.tryParse(weightCtrl.text),
+                        weightUnit: weightUnit,
+                        manufacturerId: manufacturerId,
+                        brandId: brandId,
+                        mpn: mpnCtrl.text.trim().isEmpty
+                            ? null
+                            : mpnCtrl.text.trim(),
+                        upc: upcCtrl.text.trim().isEmpty
+                            ? null
+                            : upcCtrl.text.trim(),
+                        isbn: isbnCtrl.text.trim().isEmpty
+                            ? null
+                            : isbnCtrl.text.trim(),
+                        ean: eanCtrl.text.trim().isEmpty
+                            ? null
+                            : eanCtrl.text.trim(),
+                        isTrackInventory: isGoods ? trackInventory : false,
+                        trackBinLocation: isGoods ? trackBinLocation : false,
+                        trackBatches:
+                            isGoods &&
+                            (trackingMode == InventoryTrackingMode.batches),
+                        trackSerialNumber:
+                            isGoods &&
+                            (trackingMode ==
+                                InventoryTrackingMode.serialNumbers),
+                        inventoryAccountId: isGoods ? inventoryAccountId : null,
+                        inventoryValuationMethod: isGoods
+                            ? valuationMethod
+                            : null,
+                        storageId: isGoods
+                            ? (storageId ??
+                                  _findLookupIdByName(
+                                    itemsState.storageLocations,
+                                    _defaultStorageName,
+                                  ))
+                            : null,
+                        rackId: isGoods ? rackId : null,
+                        reorderPoint: isGoods
+                            ? (reorderPointCtrl.text.isEmpty
+                                  ? 0
+                                  : int.tryParse(reorderPointCtrl.text) ?? 0)
+                            : 0,
+                        reorderTermId: isGoods ? reorderTermsId : null,
+                        lockUnitPack: isGoods
+                            ? (lockUnitPackCtrl.text.isEmpty
+                                  ? null
+                                  : double.tryParse(lockUnitPackCtrl.text))
+                            : null,
+                        compositions: compositions,
+                        trackAssocIngredients: trackAssocIngredients,
+                        primaryImageUrl: primaryImageUrl,
+                        imageUrls: imageUrls,
+                        isActive: true,
+                        isLock: false,
+                        storageDescription: storageDescCtrl.text.trim().isEmpty
+                            ? null
+                            : storageDescCtrl.text.trim(),
+                        about: aboutCtrl.text.trim().isEmpty
+                            ? null
+                            : aboutCtrl.text.trim(),
+                        usesDescription: usesDescCtrl.text.trim().isEmpty
+                            ? null
+                            : usesDescCtrl.text.trim(),
+                        howToUse: howToUseCtrl.text.trim().isEmpty
+                            ? null
+                            : howToUseCtrl.text.trim(),
+                        dosageDescription: dosageDescCtrl.text.trim().isEmpty
+                            ? null
+                            : dosageDescCtrl.text.trim(),
+                        missedDoseDescription:
+                            missedDoseDescCtrl.text.trim().isEmpty
+                            ? null
+                            : missedDoseDescCtrl.text.trim(),
+                        safetyAdvice: safetyAdviceCtrl.text.trim().isEmpty
+                            ? null
+                            : safetyAdviceCtrl.text.trim(),
+                        sideEffects: sideEffectCtrls
+                            .map((e) => e.text.trim())
+                            .where((e) => e.isNotEmpty)
+                            .toList(),
+                        faqText: faqTextCtrls
+                            .map((e) => e.text.trim())
+                            .where((e) => e.isNotEmpty)
+                            .toList(),
+                      );
+
+                      final success = isEditMode
+                          ? await controller.updateItem(item)
+                          : await controller.createItem(item);
+                      if (!mounted) return;
+                      if (success) {
+                        DraftStorageService.clear(_draftKey);
+                        ZerpaiBuilders.showSuccessToast(
+                          context,
+                          'Item details have been saved.',
+                        );
+                        if (isEditMode && item.id != null) {
+                          context.goNamed(
+                            AppRoutes.itemsDetail,
+                            pathParameters: {'id': item.id!},
+                          );
+                        } else {
+                          context.goNamed(AppRoutes.itemsReport);
+                        }
+                      } else {
+                        final freshState = ref.read(itemsControllerProvider);
+                        final errors = freshState.validationErrors;
+                        if (errors.isNotEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                'Warning: Failed to upload images: $e',
+                                'Validation failed: ${errors.values.first}',
                               ),
-                              backgroundColor: Colors.orange,
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } else if (freshState.error != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error: ${freshState.error}'),
+                              backgroundColor: Colors.red,
                             ),
                           );
                         }
                       }
-                    } else if (isEditMode) {
-                      primaryImageUrl = null;
-                      imageUrls = [];
-                    }
-
-                    final item = Item(
-                      id: isEditMode ? editingItem?.id : null,
-                      type: isGoods ? 'goods' : 'service',
-                      productName: nameCtrl.text.trim(),
-                      billingName: billingNameCtrl.text.trim().isEmpty
-                          ? null
-                          : billingNameCtrl.text.trim(),
-                      itemCode: itemCodeCtrl.text.trim(),
-                      sku: skuCtrl.text.trim().isEmpty
-                          ? null
-                          : skuCtrl.text.trim(),
-                      unitId: selectedUnitId ?? '',
-                      categoryId: isGoods ? selectedCategoryId : null,
-                      isReturnable: isReturnable,
-                      pushToEcommerce: pushToEcommerce,
-                      hsnCode: isGoods
-                          ? (hsnCtrl.text.trim().isEmpty
-                                ? null
-                                : hsnCtrl.text.trim())
-                          : (sacCtrl.text.trim().isEmpty
-                                ? null
-                                : sacCtrl.text.trim()),
-                      taxPreference: _toBackendTaxPreference(taxPreference),
-                      exemptionReason: exemptionReason,
-                      intraStateTaxId: intraStateTaxId,
-                      interStateTaxId: interStateTaxId,
-                      sellingPrice: sellingPriceCtrl.text.isEmpty
-                          ? null
-                          : double.tryParse(sellingPriceCtrl.text),
-                      sellingPriceCurrency: salesCurrency,
-                      mrp: mrpCtrl.text.isEmpty
-                          ? null
-                          : double.tryParse(mrpCtrl.text),
-                      ptr: ptrCtrl.text.isEmpty
-                          ? null
-                          : double.tryParse(ptrCtrl.text),
-                      salesAccountId: salesAccountId,
-                      salesDescription: salesDescriptionCtrl.text.trim().isEmpty
-                          ? null
-                          : salesDescriptionCtrl.text.trim(),
-                      costPrice: costPriceCtrl.text.isEmpty
-                          ? null
-                          : double.tryParse(costPriceCtrl.text),
-                      costPriceCurrency: purchaseCurrency,
-                      purchaseAccountId: purchaseAccountId,
-                      preferredVendorId: preferredVendorId,
-                      purchaseDescription:
-                          purchaseDescriptionCtrl.text.trim().isEmpty
-                          ? null
-                          : purchaseDescriptionCtrl.text.trim(),
-                      length: dimXCtrl.text.isEmpty
-                          ? null
-                          : double.tryParse(dimXCtrl.text),
-                      width: dimYCtrl.text.isEmpty
-                          ? null
-                          : double.tryParse(dimYCtrl.text),
-                      height: dimZCtrl.text.isEmpty
-                          ? null
-                          : double.tryParse(dimZCtrl.text),
-                      dimensionUnit: dimUnit,
-                      weight: weightCtrl.text.isEmpty
-                          ? null
-                          : double.tryParse(weightCtrl.text),
-                      weightUnit: weightUnit,
-                      manufacturerId: manufacturerId,
-                      brandId: brandId,
-                      mpn: mpnCtrl.text.trim().isEmpty
-                          ? null
-                          : mpnCtrl.text.trim(),
-                      upc: upcCtrl.text.trim().isEmpty
-                          ? null
-                          : upcCtrl.text.trim(),
-                      isbn: isbnCtrl.text.trim().isEmpty
-                          ? null
-                          : isbnCtrl.text.trim(),
-                      ean: eanCtrl.text.trim().isEmpty
-                          ? null
-                          : eanCtrl.text.trim(),
-                      isTrackInventory: isGoods ? trackInventory : false,
-                      trackBinLocation: isGoods ? trackBinLocation : false,
-                      trackBatches:
-                          isGoods &&
-                          (trackingMode == InventoryTrackingMode.batches),
-                      trackSerialNumber:
-                          isGoods &&
-                          (trackingMode == InventoryTrackingMode.serialNumbers),
-                      inventoryAccountId: isGoods ? inventoryAccountId : null,
-                      inventoryValuationMethod: isGoods
-                          ? valuationMethod
-                          : null,
-                      storageId: isGoods ? storageId : null,
-                      rackId: isGoods ? rackId : null,
-                      reorderPoint: isGoods
-                          ? (reorderPointCtrl.text.isEmpty
-                                ? 0
-                                : int.tryParse(reorderPointCtrl.text) ?? 0)
-                          : 0,
-                      reorderTermId: isGoods ? reorderTermsId : null,
-                      lockUnitPack: isGoods
-                          ? (lockUnitPackCtrl.text.isEmpty
-                                ? null
-                                : double.tryParse(lockUnitPackCtrl.text))
-                          : null,
-                      compositions: compositions,
-                      trackAssocIngredients: trackAssocIngredients,
-                      buyingRuleId: buyingRuleId,
-                      scheduleOfDrugId: scheduleOfDrugId,
-                      primaryImageUrl: primaryImageUrl,
-                      imageUrls: imageUrls,
-                      isActive: true,
-                      isLock: false,
-                      storageDescription: storageDescCtrl.text.trim().isEmpty
-                          ? null
-                          : storageDescCtrl.text.trim(),
-                      about: aboutCtrl.text.trim().isEmpty
-                          ? null
-                          : aboutCtrl.text.trim(),
-                      usesDescription: usesDescCtrl.text.trim().isEmpty
-                          ? null
-                          : usesDescCtrl.text.trim(),
-                      howToUse: howToUseCtrl.text.trim().isEmpty
-                          ? null
-                          : howToUseCtrl.text.trim(),
-                      dosageDescription: dosageDescCtrl.text.trim().isEmpty
-                          ? null
-                          : dosageDescCtrl.text.trim(),
-                      missedDoseDescription:
-                          missedDoseDescCtrl.text.trim().isEmpty
-                          ? null
-                          : missedDoseDescCtrl.text.trim(),
-                      safetyAdvice: safetyAdviceCtrl.text.trim().isEmpty
-                          ? null
-                          : safetyAdviceCtrl.text.trim(),
-                      sideEffects: sideEffectCtrls
-                          .map((e) => e.text.trim())
-                          .where((e) => e.isNotEmpty)
-                          .toList(),
-                      faqText: faqTextCtrls
-                          .map((e) => e.text.trim())
-                          .where((e) => e.isNotEmpty)
-                          .toList(),
-                    );
-
-                    final success = isEditMode
-                        ? await controller.updateItem(item)
-                        : await controller.createItem(item);
-                    if (!mounted) return;
-                    if (success) {
-                      DraftStorageService.clear(_draftKey);
-                      ZerpaiBuilders.showSuccessToast(
-                        context,
-                        'Item details have been saved.',
-                      );
-                      if (isEditMode && item.id != null) {
-                        context.goNamed(
-                          AppRoutes.itemsDetail,
-                          pathParameters: {'id': item.id!},
-                        );
-                      } else {
-                        context.goNamed(AppRoutes.itemsReport);
-                      }
-                    } else {
-                      final freshState = ref.read(itemsControllerProvider);
-                      final errors = freshState.validationErrors;
-                      if (errors.isNotEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Validation failed: ${errors.values.first}',
-                            ),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      } else if (freshState.error != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error: ${freshState.error}'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
-          ),
-        ],
+                    },
+            ),
+            const SizedBox(width: 12),
+            ZButton.secondary(
+              label: "Cancel",
+              onPressed: () {
+                DraftStorageService.clear(_draftKey);
+                if (isEditMode && editingItem?.id != null) {
+                  // If we are editing, go back to the details page (split view)
+                  context.goNamed(
+                    AppRoutes.itemsDetail,
+                    pathParameters: {'id': editingItem!.id!},
+                  );
+                } else if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go(AppRoutes.itemsReport);
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

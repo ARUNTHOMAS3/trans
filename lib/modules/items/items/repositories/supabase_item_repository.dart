@@ -89,6 +89,36 @@ class SupabaseItemRepository implements ItemRepository {
   }
 
   @override
+  Future<List<WarehouseStockRow>> getItemWarehouseStocks(String itemId) async {
+    return await _apiService.getProductWarehouseStocks(itemId);
+  }
+
+  @override
+  Future<List<WarehouseStockRow>> updateItemWarehouseStocks(
+    String itemId,
+    List<WarehouseStockRow> rows,
+  ) async {
+    return await _apiService.updateProductWarehouseStocks(itemId, rows);
+  }
+
+  @override
+  Future<List<WarehouseStockRow>> adjustItemWarehousePhysicalStock(
+    String itemId, {
+    required String warehouseId,
+    required double countedStock,
+    required String reason,
+    String? notes,
+  }) async {
+    return await _apiService.adjustProductWarehousePhysicalStock(
+      itemId,
+      warehouseId: warehouseId,
+      countedStock: countedStock,
+      reason: reason,
+      notes: notes,
+    );
+  }
+
+  @override
   Future<void> deleteItem(String id) async {
     await _apiService.deleteProduct(id);
   }

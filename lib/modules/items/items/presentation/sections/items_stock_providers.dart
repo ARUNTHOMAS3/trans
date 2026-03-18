@@ -62,3 +62,24 @@ class StockTransactionsNotifier
     state = await AsyncValue.guard(() async => build(arg));
   }
 }
+
+final itemWarehouseStocksProvider =
+    AsyncNotifierProvider.family<
+      ItemWarehouseStocksNotifier,
+      List<WarehouseStockRow>,
+      String
+    >(ItemWarehouseStocksNotifier.new);
+
+class ItemWarehouseStocksNotifier
+    extends FamilyAsyncNotifier<List<WarehouseStockRow>, String> {
+  @override
+  Future<List<WarehouseStockRow>> build(String arg) async {
+    final repository = ref.watch(itemRepositoryProvider);
+    return repository.getItemWarehouseStocks(arg);
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async => build(arg));
+  }
+}

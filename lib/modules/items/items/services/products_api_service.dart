@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
+import 'package:zerpai_erp/modules/items/items/models/items_stock_models.dart';
 import 'package:zerpai_erp/modules/items/composite_items/models/composite_item_model.dart';
 import 'package:zerpai_erp/core/errors/app_exceptions.dart';
 
@@ -570,6 +571,135 @@ class ProductsApiService {
       if (e is ApiException) rethrow;
       throw ApiException('Error updating opening stock: $e');
     }
+  }
+
+  Future<List<WarehouseStockRow>> getProductWarehouseStocks(
+    String productId,
+  ) async {
+    try {
+      final response = await _apiClient.get(
+        '/products/$productId/warehouse-stocks',
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = _extractWarehouseStockRows(response.data);
+        return data
+            .map(
+              (json) => WarehouseStockRow.fromJson(
+                Map<String, dynamic>.from(json as Map),
+              ),
+            )
+            .toList();
+      }
+
+      throw ApiException(
+        'Failed to load warehouse stocks',
+        statusCode: response.statusCode,
+      );
+    } on DioException catch (e) {
+      throw ApiException(
+        _formatDioError(e),
+        statusCode: e.response?.statusCode,
+        originalError: e,
+      );
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Error loading warehouse stocks: $e');
+    }
+  }
+
+  Future<List<WarehouseStockRow>> updateProductWarehouseStocks(
+    String productId,
+    List<WarehouseStockRow> rows,
+  ) async {
+    try {
+      final response = await _apiClient.put(
+        '/products/$productId/warehouse-stocks',
+        data: {'rows': rows.map((row) => row.toJson()).toList()},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = _extractWarehouseStockRows(response.data);
+        return data
+            .map(
+              (json) => WarehouseStockRow.fromJson(
+                Map<String, dynamic>.from(json as Map),
+              ),
+            )
+            .toList();
+      }
+
+      throw ApiException(
+        'Failed to update warehouse stocks',
+        statusCode: response.statusCode,
+      );
+    } on DioException catch (e) {
+      throw ApiException(
+        _formatDioError(e),
+        statusCode: e.response?.statusCode,
+        originalError: e,
+      );
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Error updating warehouse stocks: $e');
+    }
+  }
+
+  Future<List<WarehouseStockRow>> adjustProductWarehousePhysicalStock(
+    String productId, {
+    required String warehouseId,
+    required double countedStock,
+    required String reason,
+    String? notes,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '/products/$productId/warehouse-stocks/physical-adjustments',
+        data: {
+          'warehouse_id': warehouseId,
+          'counted_stock': countedStock,
+          'reason': reason,
+          'notes': notes,
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final List<dynamic> data = _extractWarehouseStockRows(response.data);
+        return data
+            .map(
+              (json) => WarehouseStockRow.fromJson(
+                Map<String, dynamic>.from(json as Map),
+              ),
+            )
+            .toList();
+      }
+
+      throw ApiException(
+        'Failed to adjust physical stock',
+        statusCode: response.statusCode,
+      );
+    } on DioException catch (e) {
+      throw ApiException(
+        _formatDioError(e),
+        statusCode: e.response?.statusCode,
+        originalError: e,
+      );
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Error adjusting physical stock: $e');
+    }
+  }
+
+  List<dynamic> _extractWarehouseStockRows(dynamic payload) {
+    if (payload is List) {
+      return payload;
+    }
+    if (payload is Map<String, dynamic>) {
+      final data = payload['data'];
+      if (data is List) {
+        return data;
+      }
+    }
+    throw ApiException('Unexpected warehouse stock response format');
   }
 
   Future<Map<String, dynamic>> getProductQuickStats(String id) async {
