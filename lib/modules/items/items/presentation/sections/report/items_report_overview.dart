@@ -15,7 +15,9 @@ import 'items_filters.dart';
 import 'items_report_body.dart';
 
 class ItemsReportScreen extends ConsumerStatefulWidget {
-  const ItemsReportScreen({super.key});
+  final String? initialFilter;
+
+  const ItemsReportScreen({super.key, this.initialFilter});
 
   @override
   ConsumerState<ItemsReportScreen> createState() => _ItemsReportScreenState();
@@ -24,9 +26,34 @@ class ItemsReportScreen extends ConsumerStatefulWidget {
 class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
   ItemsFilter _currentFilter = ItemsFilter.all;
 
+  ItemsFilter _parseFilter(String? value) {
+    if (value == null || value.isEmpty) {
+      return ItemsFilter.all;
+    }
+    return ItemsFilter.values
+            .where((filter) => filter.name == value)
+            .firstOrNull ??
+        ItemsFilter.all;
+  }
+
+  String? _filterToQueryValue(ItemsFilter filter) {
+    return filter == ItemsFilter.all ? null : filter.name;
+  }
+
+  void _setCurrentFilter(ItemsFilter filter) {
+    setState(() => _currentFilter = filter);
+    final queryParameters = <String, String>{};
+    final filterValue = _filterToQueryValue(filter);
+    if (filterValue != null) {
+      queryParameters['filter'] = filterValue;
+    }
+    context.goNamed(AppRoutes.itemsReport, queryParameters: queryParameters);
+  }
+
   @override
   void initState() {
     super.initState();
+    _currentFilter = _parseFilter(widget.initialFilter);
     // Trigger load items when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(itemsControllerProvider.notifier).loadItems();
@@ -441,9 +468,7 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
         isLoading: state.isLoadingList,
         filter: _currentFilter,
         items: _filteredItems, // Uses the computed property
-        onFilterChanged: (f) {
-          setState(() => _currentFilter = f);
-        },
+        onFilterChanged: _setCurrentFilter,
         onItemTap: _openDetail,
         onBulkSetActive: _bulkSetActive,
         onBulkSetLock: _bulkSetLock,

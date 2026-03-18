@@ -31,6 +31,8 @@ This file governs how Claude should behave when working in this repository. Read
 - **Hive only** for offline/local data. Never use shared_preferences for data storage (UI flags only).
 - **Lucide Icons** as primary icon set. FontAwesome only for brand icons.
 - **`app_theme.dart` tokens only** for colors, spacing, typography. No hardcoded values ever.
+- **Dialogs, modals, popup menus, dropdown overlays, calendars, and similar floating surfaces default to pure white `#FFFFFF`**. Do not rely on inherited Material tinting for these components.
+- **Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the default reusable date picker** wherever the shared anchored picker pattern is applicable. Do not add new raw `showDatePicker(...)` usages for standard ERP flows unless there is a specific exception.
 - **GoRouter only** for navigation. Never use Navigator.push directly.
 - **Inter font** globally. No per-module font overrides.
 

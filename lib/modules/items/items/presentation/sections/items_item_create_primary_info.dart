@@ -67,8 +67,8 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                                 onChanged: (v) {
                                   updateState(() {
                                     isGoods = true;
-                                    selectedTab = ItemTab.composition;
                                   });
+                                  _setSelectedTab(ItemTab.composition);
                                 },
                               ),
                               const SizedBox(height: 8),
@@ -79,13 +79,13 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                                 onChanged: (v) {
                                   updateState(() {
                                     isGoods = false;
-                                    selectedTab = ItemTab.sales;
                                     if (selectedUnitId == null &&
                                         itemsState.units.isNotEmpty) {
                                       selectedUnitId =
                                           itemsState.units.first.id;
                                     }
                                   });
+                                  _setSelectedTab(ItemTab.sales);
                                 },
                               ),
                             ],
@@ -101,8 +101,8 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                                 onChanged: (v) {
                                   updateState(() {
                                     isGoods = true;
-                                    selectedTab = ItemTab.composition;
                                   });
+                                  _setSelectedTab(ItemTab.composition);
                                 },
                               ),
                               const SizedBox(width: 24),
@@ -113,13 +113,13 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                                 onChanged: (v) {
                                   updateState(() {
                                     isGoods = false;
-                                    selectedTab = ItemTab.sales;
                                     if (selectedUnitId == null &&
                                         itemsState.units.isNotEmpty) {
                                       selectedUnitId =
                                           itemsState.units.first.id;
                                     }
                                   });
+                                  _setSelectedTab(ItemTab.sales);
                                 },
                               ),
                             ],
@@ -352,12 +352,19 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                   _InlineCheckbox(
                     label: "Push To Ecommerce",
                     value: pushToEcommerce,
-                    onChanged: (v) => updateState(() {
-                      pushToEcommerce = v ?? false;
-                      if (!pushToEcommerce && selectedTab == ItemTab.moreInfo) {
-                        selectedTab = ItemTab.composition;
+                    onChanged: (v) {
+                      final shouldResetTab =
+                          !(v ?? false) && selectedTab == ItemTab.moreInfo;
+                      updateState(() {
+                        pushToEcommerce = v ?? false;
+                        if (shouldResetTab) {
+                          selectedTab = ItemTab.composition;
+                        }
+                      });
+                      if (shouldResetTab) {
+                        _setSelectedTab(ItemTab.composition);
                       }
-                    }),
+                    },
                   ),
                 ],
               ),

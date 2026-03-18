@@ -12,6 +12,8 @@
 - **Use app_theme.dart tokens only** (colors, spacing, typography).
 - **No hardcoded colors, spacing, or fonts** unless explicitly approved.
 - **All UI decisions must follow PRD Section 14** and the rules below.
+- **All modal, popup, dropdown, menu, date-picker, popover, and overlay surfaces must default to pure white `#FFFFFF`.** Do not rely on inherited Material surface tinting or non-white theme surfaces unless an explicit design exception is approved.
+- **Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the standard reusable date picker** wherever the shared anchored picker pattern is feasible. Do not add new raw `showDatePicker(...)` usages for standard ERP screens unless an explicit exception is required.
 - **Icons:** Use Lucide for ~95% of UI icons. Use FontAwesome **only** for brand icons (WhatsApp, Google, etc.).
 - **Icon Packages:** `lucide_icons` (primary), `font_awesome_flutter` (brands only).
 
@@ -100,6 +102,7 @@
 - **Searchable Select:** Input + dropdown; optional green lookup/search button on right.
 - **Dropdown Content:** Grouped items; richer rows with status circle, primary line (name/code), secondary line (company/code).
 - **Date Picker:** Field with calendar icon; dropdown with month/year header, arrows, 7-column grid, highlighted active date, "today" indicator.
+- **Date Picker Implementation Rule:** Reuse `ZerpaiDatePicker` for business forms and dialogs wherever possible so calendar behavior stays consistent with Manual Journals and other accountant flows.
 
 ---
 
@@ -262,6 +265,7 @@ InputDecoration(
 - **Selected Bar:** `#0088FF` with white checkmark on far right.
 - **Hover:** `#F5F5F5`.
 - **Border:** 1px solid `#E0E0E0` around menu, subtle shadow (elevation ~4).
+- **No inherited tint:** Dialogs, popup menus, date pickers, dropdown overlays, and floating surfaces must set an explicit pure white background instead of inheriting tinted Material surfaces.
 
 **Vertical Density**
 

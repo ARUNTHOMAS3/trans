@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_calendar.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker_style.dart';
 
 class ZerpaiDatePicker {
   static Future<DateTime?> show(
@@ -32,7 +33,7 @@ class ZerpaiDatePicker {
             ),
             Positioned(
               left: offset.dx,
-              top: offset.dy + size.height + 4,
+              top: offset.dy + size.height + ZerpaiDatePickerStyle.popupOffsetY,
               child: Material(
                 color: Colors.transparent,
                 child: ZerpaiCalendar(

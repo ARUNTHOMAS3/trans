@@ -91,7 +91,9 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: AppRoutes.itemsReport,
           name: AppRoutes.itemsReport,
-          builder: (context, state) => const ItemsReportScreen(),
+          builder: (context, state) => ItemsReportScreen(
+            initialFilter: state.uri.queryParameters['filter'],
+          ),
         ),
         GoRoute(
           path: AppRoutes.itemsCreate,
@@ -99,15 +101,21 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) {
             final extra = state.extra;
             if (extra is Item) {
-              return ItemCreateScreen(item: extra);
+              return ItemCreateScreen(
+                item: extra,
+                initialTab: state.uri.queryParameters['tab'],
+              );
             }
             if (extra is Map && extra['cloneItem'] is Item) {
               return ItemCreateScreen(
                 item: extra['cloneItem'] as Item,
                 isClone: true,
+                initialTab: state.uri.queryParameters['tab'],
               );
             }
-            return const ItemCreateScreen();
+            return ItemCreateScreen(
+              initialTab: state.uri.queryParameters['tab'],
+            );
           },
         ),
         GoRoute(
@@ -117,9 +125,16 @@ final GoRouter appRouter = GoRouter(
             final id = state.pathParameters['id'];
             final extra = state.extra;
             if (extra is Item) {
-              return ItemCreateScreen(itemId: id, item: extra);
+              return ItemCreateScreen(
+                itemId: id,
+                item: extra,
+                initialTab: state.uri.queryParameters['tab'],
+              );
             }
-            return ItemCreateScreen(itemId: id);
+            return ItemCreateScreen(
+              itemId: id,
+              initialTab: state.uri.queryParameters['tab'],
+            );
           },
         ),
         GoRoute(
@@ -128,15 +143,21 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) {
             final extra = state.extra;
             if (extra is Item) {
-              return ItemCreateScreen(item: extra);
+              return ItemCreateScreen(
+                item: extra,
+                initialTab: state.uri.queryParameters['tab'],
+              );
             }
             if (extra is Map && extra['cloneItem'] is Item) {
               return ItemCreateScreen(
                 item: extra['cloneItem'] as Item,
                 isClone: true,
+                initialTab: state.uri.queryParameters['tab'],
               );
             }
-            return const ItemCreateScreen();
+            return ItemCreateScreen(
+              initialTab: state.uri.queryParameters['tab'],
+            );
           },
         ),
         GoRoute(
@@ -144,7 +165,10 @@ final GoRouter appRouter = GoRouter(
           name: AppRoutes.itemsDetail,
           builder: (context, state) {
             final id = state.pathParameters['id'];
-            return ItemDetailScreen(itemId: id);
+            return ItemDetailScreen(
+              itemId: id,
+              initialQueryParameters: state.uri.queryParameters,
+            );
           },
         ),
         GoRoute(

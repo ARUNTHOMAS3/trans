@@ -10,6 +10,10 @@ No authentication setup is allowed until production. The application must run wi
 **Last Edited:** 2026-01-30 03:53
 **Last Edited Version:** 2.5
 
+## 📅 Shared Date Picker Policy
+
+The application standard date picker is `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart`. Wherever the shared anchored picker pattern is suitable, it must be reused instead of introducing fresh raw `showDatePicker(...)` implementations. Any deviation should be treated as an explicit exception, not the default.
+
 ---
 
 ## 1. Overview
@@ -233,6 +237,7 @@ The Point of Sale interface is a critical, performance-sensitive feature.
 To ensure a consistent and professional look across the application, all UI components MUST adhere to the centrally defined theme and design governance rules.
 
 **Rule:** See **Section 14: UI SYSTEM & DESIGN GOVERNANCE (GLOBAL)** for strict requirements on colors, typography, tables, and interaction behavior.
+**Surface Rule:** All modal, popup, dropdown, menu, date-picker, popover, and overlay surfaces must default to pure white `#FFFFFF`; inherited Material tinting is not allowed unless explicitly approved in the design.
 
 ---
 
@@ -715,6 +720,7 @@ These rules define the visual and interaction standards for all **creation/edit 
 
 - **Page Background:** Pure white `#FFFFFF`.
 - **Input Fill:** `#FFFFFF` (pure white, matching page background).
+- **Dialog / Dropdown / Overlay Surface:** `#FFFFFF` only.
 - **Input Border:** `#E0E0E0` (light gray).
 - **Table Header Background:** `#F5F5F5`.
 - **Primary Blue:** `#0088FF` (checkboxes, selected cards, active borders).
@@ -749,6 +755,7 @@ InputDecoration(
 | :---------------------- | :-------------- | :---------- |
 | Page Background         | Pure White      | `#FFFFFF`   |
 | Input Fill Color        | Pure White      | `#FFFFFF`   |
+| Dialog / Dropdown / Overlay Surface | Pure White | `#FFFFFF` |
 | Border Color (Default)  | Light Grey      | `#E0E0E0`   |
 | Border Color (Active)   | Zoho Blue       | `#0088FF`   |
 | Primary Brand Color     | Zoho Blue       | `#0088FF`   |

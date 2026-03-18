@@ -17,6 +17,16 @@
 | **Deployment** | Vercel                         |
 | **Storage**    | Cloudflare R2                  |
 
+## UI Surface Rule
+
+- For Zerpai UI, dialogs, popup menus, dropdown overlays, date pickers, popovers, and similar floating surfaces must default to pure white `#FFFFFF`.
+- Do not rely on inherited tinted Material surfaces for these components unless a task explicitly requires an exception.
+
+## Shared Date Picker Rule
+
+- Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the standard reusable date picker for anchored business date inputs.
+- Treat new raw `showDatePicker(...)` usage as an exception that must be justified, not the default pattern.
+
 ## 🚦 Agent Routing Quick Reference
 
 | Task                      | Use Agent            |

@@ -25,6 +25,8 @@ skills: clean-code, frontend-design
 - Hive offline storage
 - Dio API integration
 - UI layout, forms, tables, modals
+- Pure-white modal, dropdown, popup, and overlay surfaces
+- Shared `ZerpaiDatePicker` usage for reusable date inputs
 - The sidebar, theme, or design system
 
 ## When to use `frontend-specialist` (rare edge cases)

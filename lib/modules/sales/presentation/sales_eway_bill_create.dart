@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import '../controllers/sales_order_controller.dart';
 import '../models/sales_eway_bill_model.dart';
@@ -148,13 +149,16 @@ class _SalesEWayBillCreateScreenState
   Widget _labeledField(String label, Widget child) =>
       SharedFieldLayout(label: label, child: child);
   Widget _datePicker(DateTime value, ValueChanged<DateTime> onPicked) {
+    final fieldKey = GlobalKey();
     return InkWell(
+      key: fieldKey,
       onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
+        final picked = await ZerpaiDatePicker.show(
+          context,
           initialDate: value,
           firstDate: DateTime(2000),
           lastDate: DateTime(2100),
+          targetKey: fieldKey,
         );
         if (picked != null) onPicked(picked);
       },

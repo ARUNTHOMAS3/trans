@@ -1173,9 +1173,20 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
     final isSelected = _selectedPeriod == period;
     return InkWell(
       onTap: () {
-        updateState(() {
-          _selectedPeriod = period;
-        });
+        final selectedId =
+            widget.itemId ?? ref.read(itemsControllerProvider).selectedItemId;
+        final currentItem = ref
+            .read(itemsControllerProvider)
+            .items
+            .cast<Item?>()
+            .firstWhere((item) => item?.id == selectedId, orElse: () => null);
+        if (currentItem != null) {
+          _setSelectedPeriod(period, _tabsForItem(currentItem));
+        } else {
+          updateState(() {
+            _selectedPeriod = period;
+          });
+        }
         _periodDropdownEntry?.remove();
         _periodDropdownEntry = null;
       },

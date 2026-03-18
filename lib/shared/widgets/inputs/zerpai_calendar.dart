@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker_style.dart';
 
 class ZerpaiCalendar extends StatefulWidget {
   final DateTime selectedDate;
@@ -58,28 +59,22 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 280,
-      padding: const EdgeInsets.all(16),
+      width: ZerpaiDatePickerStyle.popupWidth,
+      padding: const EdgeInsets.all(ZerpaiDatePickerStyle.popupPadding),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        color: ZerpaiDatePickerStyle.surfaceColor,
+        borderRadius: BorderRadius.circular(ZerpaiDatePickerStyle.popupRadius),
+        boxShadow: ZerpaiDatePickerStyle.popupShadow,
+        border: Border.all(color: ZerpaiDatePickerStyle.borderColor),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildHeader(),
-          const SizedBox(height: 16),
+          const SizedBox(height: ZerpaiDatePickerStyle.sectionSpacing),
           if (_mode == _CalendarMode.days) ...[
             _buildWeekdayHeader(),
-            const SizedBox(height: 8),
+            const SizedBox(height: ZerpaiDatePickerStyle.weekdaySpacing),
             _buildGrid(),
           ] else if (_mode == _CalendarMode.months) ...[
             _buildMonthGrid(),
@@ -102,46 +97,44 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(
+        bottom: ZerpaiDatePickerStyle.headerBottomPadding,
+      ),
       child: Row(
         children: [
           if (_mode == _CalendarMode.days) ...[
             InkWell(
               onTap: () => setState(() => _mode = _CalendarMode.months),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(
+                ZerpaiDatePickerStyle.headerTapRadius,
+              ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Text(
                   DateFormat('MMMM').format(_viewMonth),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF374151),
-                  ),
+                  style: ZerpaiDatePickerStyle.headerTextStyle,
                 ),
               ),
             ),
             const SizedBox(width: 2),
             InkWell(
               onTap: () => setState(() => _mode = _CalendarMode.years),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(
+                ZerpaiDatePickerStyle.headerTapRadius,
+              ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Row(
                   children: [
                     Text(
                       DateFormat('yyyy').format(_viewMonth),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF374151),
-                      ),
+                      style: ZerpaiDatePickerStyle.headerTextStyle,
                     ),
                     const SizedBox(width: 4),
                     const Icon(
                       LucideIcons.chevronDown,
                       size: 12,
-                      color: Color(0xFF6B7280),
+                      color: ZerpaiDatePickerStyle.iconColor,
                     ),
                   ],
                 ),
@@ -150,24 +143,19 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
           ] else ...[
             InkWell(
               onTap: () => setState(() => _mode = _CalendarMode.days),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(
+                ZerpaiDatePickerStyle.headerTapRadius,
+              ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Row(
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF374151),
-                      ),
-                    ),
+                    Text(title, style: ZerpaiDatePickerStyle.headerTextStyle),
                     const SizedBox(width: 4),
                     const Icon(
                       LucideIcons.chevronUp,
                       size: 12,
-                      color: Color(0xFF6B7280),
+                      color: ZerpaiDatePickerStyle.iconColor,
                     ),
                   ],
                 ),
@@ -181,7 +169,7 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
               icon: const Icon(LucideIcons.chevronLeft, size: 14),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              color: const Color(0xFF6B7280),
+              color: ZerpaiDatePickerStyle.iconColor,
             ),
             const SizedBox(width: 16),
             IconButton(
@@ -189,7 +177,7 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
               icon: const Icon(LucideIcons.chevronRight, size: 14),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              color: const Color(0xFF6B7280),
+              color: ZerpaiDatePickerStyle.iconColor,
             ),
           ],
         ],
@@ -205,11 +193,7 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
           child: Text(
             day,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.normal,
-              color: Color(0xFF9CA3AF),
-            ),
+            style: ZerpaiDatePickerStyle.weekdayTextStyle,
           ),
         );
       }).toList(),
@@ -286,19 +270,25 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
             });
           },
           child: Container(
-            width: 60,
-            height: 40,
+            width: ZerpaiDatePickerStyle.monthCellWidth,
+            height: ZerpaiDatePickerStyle.monthCellHeight,
             alignment: Alignment.center,
-            margin: const EdgeInsets.all(1),
+            margin: const EdgeInsets.all(ZerpaiDatePickerStyle.gridCellMargin),
             decoration: BoxDecoration(
-              color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
-              borderRadius: BorderRadius.circular(4),
+              color: isSelected
+                  ? ZerpaiDatePickerStyle.selectedFillColor
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(
+                ZerpaiDatePickerStyle.monthYearCellRadius,
+              ),
             ),
             child: Text(
               months[index],
               style: TextStyle(
-                fontSize: 13,
-                color: isSelected ? Colors.white : AppTheme.textPrimary,
+                fontSize: ZerpaiDatePickerStyle.gridTextStyle.fontSize,
+                color: isSelected
+                    ? ZerpaiDatePickerStyle.selectedTextColor
+                    : AppTheme.textPrimary,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
@@ -321,19 +311,25 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
             });
           },
           child: Container(
-            width: 60,
-            height: 40,
+            width: ZerpaiDatePickerStyle.monthCellWidth,
+            height: ZerpaiDatePickerStyle.monthCellHeight,
             alignment: Alignment.center,
-            margin: const EdgeInsets.all(1),
+            margin: const EdgeInsets.all(ZerpaiDatePickerStyle.gridCellMargin),
             decoration: BoxDecoration(
-              color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
-              borderRadius: BorderRadius.circular(4),
+              color: isSelected
+                  ? ZerpaiDatePickerStyle.selectedFillColor
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(
+                ZerpaiDatePickerStyle.monthYearCellRadius,
+              ),
             ),
             child: Text(
               year.toString(),
               style: TextStyle(
-                fontSize: 13,
-                color: isSelected ? Colors.white : AppTheme.textPrimary,
+                fontSize: ZerpaiDatePickerStyle.gridTextStyle.fontSize,
+                color: isSelected
+                    ? ZerpaiDatePickerStyle.selectedTextColor
+                    : AppTheme.textPrimary,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
@@ -359,25 +355,25 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
 
     Color textColor = isCurrentMonth
         ? AppTheme.textPrimary
-        : const Color(0xFFD1D5DB);
-    if (isDisabled) textColor = const Color(0xFFE5E7EB);
+        : ZerpaiDatePickerStyle.adjacentMonthTextColor;
+    if (isDisabled) textColor = ZerpaiDatePickerStyle.disabledTextColor;
 
     BoxDecoration? decoration;
 
     if (isSelected) {
-      textColor = Colors.white;
+      textColor = ZerpaiDatePickerStyle.selectedTextColor;
       decoration = BoxDecoration(
         color: isDisabled
-            ? AppTheme.primaryBlue.withValues(alpha: 0.3)
-            : AppTheme.primaryBlue,
+            ? ZerpaiDatePickerStyle.disabledSelectedFillColor
+            : ZerpaiDatePickerStyle.selectedFillColor,
         shape: BoxShape.circle,
       );
     } else if (isToday) {
       decoration = BoxDecoration(
         border: Border.all(
           color: isDisabled
-              ? AppTheme.primaryBlue.withValues(alpha: 0.3)
-              : AppTheme.primaryBlue,
+              ? ZerpaiDatePickerStyle.disabledTodayOutlineColor
+              : ZerpaiDatePickerStyle.todayOutlineColor,
         ),
         shape: BoxShape.circle,
       );
@@ -386,15 +382,18 @@ class _ZerpaiCalendarState extends State<ZerpaiCalendar> {
     return InkWell(
       onTap: isDisabled ? null : onTap,
       child: Container(
-        width: 32,
-        height: 32,
+        width: ZerpaiDatePickerStyle.dayCellSize,
+        height: ZerpaiDatePickerStyle.dayCellSize,
         alignment: Alignment.center,
-        margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+        margin: const EdgeInsets.symmetric(
+          vertical: ZerpaiDatePickerStyle.dayCellVerticalMargin,
+          horizontal: ZerpaiDatePickerStyle.dayCellHorizontalMargin,
+        ),
         decoration: decoration,
         child: Text(
           day.toString(),
           style: TextStyle(
-            fontSize: 13,
+            fontSize: ZerpaiDatePickerStyle.gridTextStyle.fontSize,
             color: textColor,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),

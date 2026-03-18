@@ -2574,6 +2574,444 @@ To align the app with real database-backed behavior, active fake/demo runtime da
 - Flutter formatting passed
 - Flutter analysis passed
 
+### 2026-03-18 21:56 IST - Shared ZerpaiDatePicker styling centralized
+
+The shared date-picker rollout was completed functionally earlier, but the visual styling for the picker popup and calendar internals was still scattered across `zerpai_date_picker.dart` and `zerpai_calendar.dart`. That styling has now been centralized so future visual tweaks happen in one place.
+
+#### 1. New shared style source added
+
+**File**
+- `lib/shared/widgets/inputs/zerpai_date_picker_style.dart`
+
+**Purpose**
+- hold the shared visual tokens for:
+  - popup surface color
+  - border color
+  - shadow
+  - radius
+  - width / padding / spacing
+  - weekday / header / grid text styles
+  - selected / disabled / today-outline calendar states
+
+#### 2. Shared picker files updated
+
+**Files**
+- `lib/shared/widgets/inputs/zerpai_date_picker.dart`
+- `lib/shared/widgets/inputs/zerpai_calendar.dart`
+
+**What changed**
+- popup offset now comes from the shared style definition
+- calendar surface / shadow / border / spacing now use centralized values
+- header, weekday, day-cell, month-cell, and year-cell styling now use the shared style definition instead of scattered inline visual tokens
+
+#### 3. Outcome
+
+Future visual tweaks to the shared date picker can now be made from one source instead of editing multiple widgets separately. This keeps the reusable date-picker rule maintainable after the broader code migration away from raw `showDatePicker(...)`.
+
+#### 4. Verification completed
+
+**Commands run**
+- `dart format lib/shared/widgets/inputs/zerpai_date_picker_style.dart lib/shared/widgets/inputs/zerpai_date_picker.dart lib/shared/widgets/inputs/zerpai_calendar.dart`
+- `dart analyze lib/shared/widgets/inputs/zerpai_date_picker_style.dart lib/shared/widgets/inputs/zerpai_date_picker.dart lib/shared/widgets/inputs/zerpai_calendar.dart`
+
+**Result**
+- Flutter formatting passed
+- Flutter analysis passed
+
+### 2026-03-18 21:46 IST - Shared ZerpaiDatePicker code migration across remaining Flutter modules
+
+After standardizing the reusable date-picker rule in project docs and agent guidance, the remaining raw Flutter `showDatePicker(...)` usages under `lib/` were migrated to the shared `ZerpaiDatePicker` used by Manual Journals.
+
+#### 1. Scope of code migration
+
+**Reports**
+- `lib/modules/reports/presentation/reports_audit_logs_screen.dart`
+
+**Sales**
+- `lib/modules/sales/presentation/sales_credit_note_create.dart`
+- `lib/modules/sales/presentation/sales_payment_create.dart`
+- `lib/modules/sales/presentation/sales_order_create.dart`
+- `lib/modules/sales/presentation/sales_retainer_invoice_create.dart`
+- `lib/modules/sales/presentation/sales_invoice_create.dart`
+- `lib/modules/sales/presentation/sales_quotation_create.dart`
+- `lib/modules/sales/presentation/sales_recurring_invoice_create.dart`
+- `lib/modules/sales/presentation/sales_eway_bill_create.dart`
+- `lib/modules/sales/presentation/sales_delivery_challan_create.dart`
+
+**Inventory / Items**
+- `lib/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_creation.dart`
+- `lib/modules/items/items/presentation/sections/components/items_batch_dialogs.dart`
+
+#### 2. What changed
+
+**General pattern**
+- replaced raw `showDatePicker(...)` calls with `ZerpaiDatePicker.show(...)`
+- anchored each picker to the actual tapped field/button using a `GlobalKey`
+- preserved the original date range constraints and callback behavior
+
+**Specific cases**
+- audit logs filter bar now opens the shared picker from the `From date` and `To date` filter buttons
+- sales create screens now use anchored shared pickers in their existing `_datePicker(...)` helpers
+- inventory assembly creation now uses the shared picker for `Assembled Date`
+- item batch dialog now uses the shared picker for `Manufactured date` and `Expiry Date`
+
+#### 3. Outcome
+
+At this point there are no remaining raw `showDatePicker(...)` usages under `lib/`. Standard ERP date input behavior is now aligned with the shared picker rule across the remaining in-scope Flutter modules.
+
+#### 4. Verification completed
+
+**Commands run**
+- `rg -n "showDatePicker\\(" lib`
+- `dart format lib/modules/reports/presentation/reports_audit_logs_screen.dart lib/modules/sales/presentation/sales_credit_note_create.dart lib/modules/sales/presentation/sales_payment_create.dart lib/modules/sales/presentation/sales_order_create.dart lib/modules/sales/presentation/sales_retainer_invoice_create.dart lib/modules/sales/presentation/sales_invoice_create.dart lib/modules/sales/presentation/sales_quotation_create.dart lib/modules/sales/presentation/sales_recurring_invoice_create.dart lib/modules/sales/presentation/sales_eway_bill_create.dart lib/modules/sales/presentation/sales_delivery_challan_create.dart lib/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_creation.dart lib/modules/items/items/presentation/sections/components/items_batch_dialogs.dart`
+- `dart analyze lib/modules/reports/presentation/reports_audit_logs_screen.dart lib/modules/sales/presentation/sales_credit_note_create.dart lib/modules/sales/presentation/sales_payment_create.dart lib/modules/sales/presentation/sales_order_create.dart lib/modules/sales/presentation/sales_retainer_invoice_create.dart lib/modules/sales/presentation/sales_invoice_create.dart lib/modules/sales/presentation/sales_quotation_create.dart lib/modules/sales/presentation/sales_recurring_invoice_create.dart lib/modules/sales/presentation/sales_eway_bill_create.dart lib/modules/sales/presentation/sales_delivery_challan_create.dart lib/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_creation.dart lib/modules/items/items/presentation/sections/components/items_batch_dialogs.dart`
+
+**Result**
+- search confirmed no raw `showDatePicker(...)` usages remain under `lib/`
+- Flutter formatting passed
+- Flutter analysis passed
+
+### 2026-03-18 21:11 IST - Shared ZerpaiDatePicker rule standardized across docs, rules, and agent guidance
+
+The project already had a reusable shared picker at `lib/shared/widgets/inputs/zerpai_date_picker.dart`, and that picker is already used by Manual Journals. To prevent future drift back to raw Flutter date pickers, the date picker rule was standardized across repo-level docs, PRD/governance, UI compliance references, agent instructions, and repo wiki guidance.
+
+#### 1. Rule that was standardized
+
+**Locked rule**
+- use `ZerpaiDatePicker` as the default reusable date picker wherever possible
+- do not introduce new raw `showDatePicker(...)` usage for standard ERP business flows unless the shared picker cannot satisfy the requirement
+- keep date input behavior consistent with Manual Journals
+
+#### 2. Docs and governance files updated
+
+**Repo / product docs**
+- `AGENTS.md`
+- `README.md`
+- `CLAUDE.md`
+- `PRD/PRD.md`
+- `PRD/prd_ui.md`
+
+**Codex skills / references**
+- `.codex/skills/zerpai-prd-governance/SKILL.md`
+- `.codex/skills/zerpai-prd-governance/references/locked-decisions.md`
+- `.codex/skills/zerpai-ui-compliance/SKILL.md`
+- `.codex/skills/zerpai-ui-compliance/references/ui-rules.md`
+- `.codex/skills/zerpai-ui-compliance/references/table-and-form-patterns.md`
+
+**Agent guidance / repo wiki**
+- `.agent/ARCHITECTURE.md`
+- `.agent/rules/GEMINI.md`
+- `.agent/agents/frontend-specialist.md`
+- `.agent/agents/mobile-developer.md`
+- `repowiki/en/content/Development Guidelines.md`
+
+#### 3. Outcome
+
+This rule is now documented in the files future implementation passes are expected to follow. Any new date-input work should default to the shared picker used by Manual Journals rather than introducing a separate date-picker pattern.
+
+### 2026-03-18 20:35 IST - Items module deep-linking and refresh-safe route state
+
+The Items module was still losing context on browser refresh. Routes already existed for report, create, edit, and detail, but the active tab/filter state lived only in widget-local state, so refreshing the browser dropped users back into the generic Items flow instead of restoring the current section.
+
+#### 1. Router updated to pass query parameters into Items screens
+
+**File**
+- `lib/core/routing/app_router.dart`
+
+**What changed**
+- Items report route now passes `filter` from query params into the report screen
+- item create and edit routes now pass `tab` from query params into the create/edit screen
+- item detail route now passes the full query parameter map into the detail screen
+
+**Result**
+- the router can now hydrate screen-level state from the URL instead of rebuilding from defaults only
+
+#### 2. Items report filter now deep-links correctly
+
+**File**
+- `lib/modules/items/items/presentation/sections/report/items_report_overview.dart`
+
+**What changed**
+- added `initialFilter`
+- report screen now parses the filter from query params during startup
+- filter changes now update the route via `goNamed(...)`
+- default `all` filter is omitted from the URL to keep links clean
+
+**Examples**
+- `/items/report`
+- `/items/report?filter=active`
+- `/items/report?filter=lowstock`
+
+#### 3. Item create and edit tabs now persist through refresh
+
+**Files**
+- `lib/modules/items/items/presentation/items_item_create.dart`
+- `lib/modules/items/items/presentation/sections/items_item_create_tabs.dart`
+- `lib/modules/items/items/presentation/sections/items_item_create_primary_info.dart`
+
+**What changed**
+- added `initialTab`
+- create/edit screen now parses the tab from query params in `initState`
+- added route-sync helper for item tabs
+- tab header clicks now update the URL
+- goods/service type toggles and ecommerce-related tab resets now reuse the same route-aware tab setter
+
+**Examples**
+- `/items/create`
+- `/items/create?tab=formulation`
+- `/items/edit/<id>?tab=purchase`
+- `/items/edit/<id>?tab=more-info`
+
+#### 4. Item detail screen now hydrates and preserves route state
+
+**File**
+- `lib/modules/items/items/presentation/items_item_detail.dart`
+
+**What changed**
+- added `initialQueryParameters`
+- detail screen now hydrates:
+  - selected tab
+  - sidebar filter
+  - stock view
+  - batch filter
+  - warehouse filter
+  - show-empty-batches toggle
+  - serial warehouse filter
+  - show-all-serial-numbers toggle
+  - transaction type/status filters
+  - price list tab
+  - selected sales period
+- added route-sync helpers so the URL becomes the source of truth for detail-page state
+- selected tab is now resolved from `tab` query params before falling back to local index
+
+#### 5. Detail sub-sections now update route state instead of local-only state
+
+**Files**
+- `lib/modules/items/items/presentation/sections/items_item_detail_components.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_price_lists.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+
+**What changed**
+- sidebar item navigation now preserves current detail query params
+- warehouses stock toggle now syncs `stockView`
+- transaction filters now sync `transactionType` and `transactionStatus`
+- batch filters now sync `batchFilter`, `warehouseFilter`, and `showEmptyBatches`
+- associated price list tabs now sync `priceListTab`
+- sales summary period dropdown now syncs `period`
+- sidebar filter changes now sync `filter`
+
+**Examples**
+- `/items/detail/<id>?tab=warehouses&stockView=physical`
+- `/items/detail/<id>?tab=batch-details&batchFilter=expired&showEmptyBatches=false`
+- `/items/detail/<id>?tab=transactions&transactionType=invoices&transactionStatus=closed`
+- `/items/detail/<id>?tab=overview&period=This%20Quarter`
+
+#### 6. Resulting behavior
+
+After this change:
+- refreshing the browser no longer forces a jump back to the base Items page for supported Items module states
+- users can share/reopen URLs that restore the same Items section context
+- create/edit/detail/report all now preserve more state through route parameters instead of transient widget state
+
+#### 7. Verification completed
+
+**Commands run**
+- `dart format lib/core/routing/app_router.dart lib/modules/items/items/presentation/items_item_create.dart lib/modules/items/items/presentation/items_item_detail.dart lib/modules/items/items/presentation/sections/report/items_report_overview.dart lib/modules/items/items/presentation/sections/items_item_create_tabs.dart lib/modules/items/items/presentation/sections/items_item_create_primary_info.dart lib/modules/items/items/presentation/sections/items_item_detail_components.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart lib/modules/items/items/presentation/sections/items_item_detail_price_lists.dart lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+- `dart analyze lib/core/routing/app_router.dart lib/modules/items/items/presentation/items_item_create.dart lib/modules/items/items/presentation/items_item_detail.dart lib/modules/items/items/presentation/sections/report/items_report_overview.dart lib/modules/items/items/presentation/sections/items_item_create_tabs.dart lib/modules/items/items/presentation/sections/items_item_create_primary_info.dart lib/modules/items/items/presentation/sections/items_item_detail_components.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart lib/modules/items/items/presentation/sections/items_item_detail_price_lists.dart lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+
+**Result**
+- Flutter formatting passed
+- Flutter analysis passed
+
+### 2026-03-18 20:45 IST - Warehouse stock endpoint, permissions, UI parsing, and item stock dialog refinements
+
+The warehouse-stock flow was completed and then hardened after local testing exposed a mix of backend permissions, response-shape, and UI integration issues.
+
+#### 1. Dedicated product warehouse stock model and physical adjustment flow added
+
+**DB migrations**
+- `supabase/migrations/1002_product_warehouse_stocks.sql`
+- `supabase/migrations/1003_product_warehouse_stock_adjustments.sql`
+
+**What was added**
+- warehouse-wise stock storage in `product_warehouse_stocks`
+- dedicated physical-count adjustment ledger in `product_warehouse_stock_adjustments`
+- audit triggers on the new adjustment table
+
+**Behavior**
+- opening stock initializes both accounting stock and physical stock
+- physical adjustment updates only physical stock
+- accounting stock remains the ERP book stock
+- variance is logged separately for each physical count
+
+#### 2. Warehouse stock API and Flutter wiring completed
+
+**Backend files**
+- `backend/src/modules/products/products.controller.ts`
+- `backend/src/modules/products/products.service.ts`
+
+**Flutter files**
+- `lib/modules/items/items/services/products_api_service.dart`
+- `lib/modules/items/items/repositories/items_repository.dart`
+- `lib/modules/items/items/repositories/items_repository_impl.dart`
+- `lib/modules/items/items/repositories/supabase_item_repository.dart`
+- `lib/modules/items/items/controllers/items_controller.dart`
+- `lib/modules/items/items/models/items_stock_models.dart`
+- `lib/modules/items/items/presentation/items_item_detail.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+
+**What changed**
+- new API endpoint for warehouse stock retrieval
+- new API endpoint for physical stock adjustment
+- warehouse stock models now support:
+  - `available`
+  - `isOverCommitted`
+  - `shortfall`
+  - `variance`
+  - `hasVariance`
+- item warehouse tab now supports:
+  - accounting stock view
+  - physical stock view
+  - opening stock
+  - physical stock adjustment
+
+#### 3. Warehouse permissions issue diagnosed and fixed
+
+**Observed error**
+- `permission denied for table product_warehouse_stocks`
+
+**Fix**
+- added `supabase/migrations/1004_product_warehouse_stock_permissions.sql`
+
+**What it does**
+- disables RLS on:
+  - `product_warehouse_stocks`
+  - `product_warehouse_stock_adjustments`
+- grants access to:
+  - `postgres`
+  - `service_role`
+  - `anon`
+  - `authenticated`
+
+**Verification**
+- role grants were confirmed for `service_role`
+- direct local API call to:
+  - `/api/v1/products/:id/warehouse-stocks`
+  returned:
+  - `Central Logistics Hub`
+  - `ZABNIX DEMO`
+
+#### 4. Warehouse tab empty-state bug traced to Flutter response parsing
+
+**Root cause**
+- backend returns warehouse stock responses in envelope format:
+  - `{ data: [...], meta: {...} }`
+- Flutter client had incorrectly assumed a raw list response
+- repository error handling then swallowed the parse failure and returned `[]`
+
+**File**
+- `lib/modules/items/items/services/products_api_service.dart`
+
+**Fix**
+- added envelope-aware parsing for:
+  - `getProductWarehouseStocks`
+  - `updateProductWarehouseStocks`
+  - `adjustProductWarehousePhysicalStock`
+
+**Result**
+- warehouse tab now reads the returned `data` array correctly
+- active warehouses are visible even when stock values are zero
+
+#### 5. Warehouse master data behavior clarified
+
+The warehouse tab is now correctly linked to the real `warehouses` master table, not the storage-temperature table.
+
+**Confirmed rows**
+- `Central Logistics Hub`
+- `ZABNIX DEMO`
+
+**Interpretation**
+- `Central Logistics Hub` is valid warehouse master data
+- `ZABNIX DEMO` is demo/test data and should be removed or deactivated before production cleanup
+
+#### 6. Opening stock dialog now uses the shared accountant/manual-journal date picker
+
+**Files**
+- `lib/modules/items/items/presentation/items_item_detail.dart`
+- `lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart`
+
+**What changed**
+- replaced direct `showDatePicker(...)` usage in opening stock batch date fields
+- now uses `ZerpaiDatePicker.show(...)`
+- anchored popup behavior matches the manual journal date picker pattern
+
+**Result**
+- manufactured date and expiry date in the opening stock dialog now use the same shared Zerpai date picker as manual journals
+
+#### 7. Physical stock adjustment dialog visual cleanup
+
+**File**
+- `lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+
+**What changed**
+- adjustment modal surface changed to pure white
+- dialog content wrapped in a white container to avoid inheriting theme tint
+
+**Result**
+- the `Adjust Physical Stock` dialog now renders with a pure white modal body
+
+#### 8. Backend local watch warning cleaned up
+
+**Observed warning**
+- `DEP0190` from Node child-process handling during local backend watch mode
+
+**Root cause**
+- Nest CLI watch path uses `shell: true` internally
+
+**File**
+- `backend/package.json`
+
+**What changed**
+- replaced:
+  - `nest start --watch`
+with:
+  - `node --watch -r ts-node/register/transpile-only -r tsconfig-paths/register src/main.ts`
+
+**Result**
+- local `start:dev` / `dev` no longer rely on the Nest CLI watcher path that triggered the warning
+
+#### 9. Item stock detail semantics implemented
+
+**Files**
+- `lib/modules/items/items/models/items_stock_models.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_overview.dart`
+
+**Logic now in effect**
+- `Accounting Stock` = ERP book stock
+- `Physical Stock` = latest counted warehouse stock
+- `Committed Stock` reduces available saleable quantity
+- `Available for Sale` = `max(onHand - committed, 0)`
+- `Variance` = `physical.onHand - accounting.onHand`
+
+**UI additions**
+- summary banner explaining accounting vs physical interpretation
+- variance/warning highlighting
+- detail/overview resolution from warehouse rows where available
+
+#### 10. Verification completed
+
+**Commands run**
+- `dart format lib/modules/items/items/services/products_api_service.dart lib/modules/items/items/presentation/items_item_detail.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart`
+- `dart analyze lib/modules/items/items/services/products_api_service.dart lib/modules/items/items/repositories/items_repository_impl.dart lib/modules/items/items/presentation/items_item_detail.dart lib/modules/items/items/presentation/sections/items_item_detail_stock.dart lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart`
+- `npm run build --prefix backend`
+
+**Result**
+- Flutter formatting passed
+- Flutter analysis passed
+- backend build passed
+
 ### 2026-03-18 19:33 IST - Warehouse stock semantics for accounting vs physical stock
 
 The warehouse stock flow was updated so `Accounting Stock` and `Physical Stock` no longer behave like identical pass-through numbers.

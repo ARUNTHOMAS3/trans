@@ -60,7 +60,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                 const SizedBox(width: 8),
                 _buildWarehouseActions(item, warehouses),
                 const Spacer(),
-                _buildStockToggle(),
+                _buildStockToggle(item),
               ],
             ),
             const SizedBox(height: 12),
@@ -522,7 +522,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildTransactionFiltersRow(),
+              _buildTransactionFiltersRow(item),
               const SizedBox(height: 12),
               _buildTransactionsTable(filtered),
             ],
@@ -532,17 +532,17 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  Widget _buildTransactionFiltersRow() {
+  Widget _buildTransactionFiltersRow(Item item) {
     return Row(
       children: [
-        _buildTransactionTypeDropdown(),
+        _buildTransactionTypeDropdown(item),
         const SizedBox(width: 12),
-        _buildTransactionStatusDropdown(),
+        _buildTransactionStatusDropdown(item),
       ],
     );
   }
 
-  Widget _buildTransactionTypeDropdown() {
+  Widget _buildTransactionTypeDropdown(Item item) {
     final filterLabels = {
       'all': 'All',
       'salesOrders': 'Sales Orders',
@@ -561,11 +561,12 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       label: 'Filter By: ${filterLabels[_transactionTypeFilter] ?? 'All'}',
       currentValue: _transactionTypeFilter,
       items: filterLabels,
-      onSelected: (value) => updateState(() => _transactionTypeFilter = value),
+      onSelected: (value) =>
+          _setTransactionTypeFilter(value, _tabsForItem(item)),
     );
   }
 
-  Widget _buildTransactionStatusDropdown() {
+  Widget _buildTransactionStatusDropdown(Item item) {
     final statusLabels = {
       'all': 'All',
       'draft': 'Draft',
@@ -586,7 +587,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       currentValue: _transactionStatusFilter,
       items: statusLabels,
       onSelected: (value) =>
-          updateState(() => _transactionStatusFilter = value),
+          _setTransactionStatusFilter(value, _tabsForItem(item)),
     );
   }
 
@@ -894,11 +895,11 @@ extension _ItemDetailStock on _ItemDetailScreenState {
   Widget _buildBatchFiltersRow(Item item, List<BatchData> batches) {
     return Row(
       children: [
-        _buildBatchFilterDropdown(),
+        _buildBatchFilterDropdown(item),
         const SizedBox(width: 12),
         _buildWarehouseFilterDropdown(item),
         const SizedBox(width: 12),
-        _buildShowEmptyBatchesCheckbox(),
+        _buildShowEmptyBatchesCheckbox(item),
         const Spacer(),
         _buildBatchFindLink(batches),
         const SizedBox(width: 12),
@@ -907,7 +908,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  Widget _buildBatchFilterDropdown() {
+  Widget _buildBatchFilterDropdown(Item item) {
     final filterLabels = {
       'all': 'All Batches',
       'active': 'Active Batches',
@@ -920,7 +921,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       label: 'Filter By: ${filterLabels[_batchFilter] ?? 'All Batches'}',
       currentValue: _batchFilter,
       items: filterLabels,
-      onSelected: (value) => updateState(() => _batchFilter = value),
+      onSelected: (value) => _setBatchFilter(value, _tabsForItem(item)),
     );
   }
 
@@ -935,18 +936,18 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       label: 'Warehouse: ${warehouseLabels[_warehouseFilter] ?? 'All'}',
       currentValue: _warehouseFilter,
       items: warehouseLabels,
-      onSelected: (value) => updateState(() => _warehouseFilter = value),
+      onSelected: (value) => _setWarehouseFilter(value, _tabsForItem(item)),
     );
   }
 
-  Widget _buildShowEmptyBatchesCheckbox() {
+  Widget _buildShowEmptyBatchesCheckbox(Item item) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Checkbox(
           value: _showEmptyBatches,
           onChanged: (value) {
-            updateState(() => _showEmptyBatches = value ?? false);
+            _setShowEmptyBatches(value ?? false, _tabsForItem(item));
           },
           activeColor: const Color(0xFF2563EB),
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1675,7 +1676,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  Widget _buildStockToggle() {
+  Widget _buildStockToggle(Item item) {
     final bool isAccounting = _stockView == _StockView.accounting;
 
     Widget buildChip(String label, bool selected, VoidCallback onTap) {
@@ -1725,13 +1726,13 @@ extension _ItemDetailStock on _ItemDetailScreenState {
         children: [
           buildChip('Accounting Stock', isAccounting, () {
             if (_stockView != _StockView.accounting) {
-              updateState(() => _stockView = _StockView.accounting);
+              _setStockView(_StockView.accounting, _tabsForItem(item));
             }
           }),
           const SizedBox(width: 6),
           buildChip('Physical Stock', !isAccounting, () {
             if (_stockView != _StockView.physical) {
-              updateState(() => _stockView = _StockView.physical);
+              _setStockView(_StockView.physical, _tabsForItem(item));
             }
           }),
         ],

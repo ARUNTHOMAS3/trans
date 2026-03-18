@@ -7,6 +7,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/reports/repositories/reports_repository.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 class AuditLogsScreen extends ConsumerStatefulWidget {
@@ -28,6 +29,8 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _requestIdController = TextEditingController();
   final TextEditingController _sourceController = TextEditingController();
+  final GlobalKey _fromDateButtonKey = GlobalKey();
+  final GlobalKey _toDateButtonKey = GlobalKey();
 
   late final List<_AuditFilterNode> _moduleTree = _buildModuleTree();
   late final Map<String, _AuditModuleMeta> _tableMetaLookup =
@@ -637,6 +640,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
               ),
             ),
             _buildDateButton(
+              targetKey: _fromDateButtonKey,
               label: _fromDate == null
                   ? 'From date'
                   : DateFormat('dd MMM yyyy').format(_fromDate!),
@@ -644,6 +648,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
               onTap: () => _pickDate(isFromDate: true),
             ),
             _buildDateButton(
+              targetKey: _toDateButtonKey,
               label: _toDate == null
                   ? 'To date'
                   : DateFormat('dd MMM yyyy').format(_toDate!),
@@ -700,11 +705,13 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   }
 
   Widget _buildDateButton({
+    required GlobalKey targetKey,
     required String label,
     required IconData icon,
     required VoidCallback onTap,
   }) {
     return OutlinedButton.icon(
+      key: targetKey,
       onPressed: onTap,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(0, 42),
@@ -1278,11 +1285,12 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
     final DateTime now = DateTime.now();
     final DateTime initialDate = (isFromDate ? _fromDate : _toDate) ?? now;
 
-    final DateTime? picked = await showDatePicker(
-      context: context,
+    final DateTime? picked = await ZerpaiDatePicker.show(
+      context,
       initialDate: initialDate,
       firstDate: DateTime(now.year - 10),
       lastDate: DateTime(now.year + 2),
+      targetKey: isFromDate ? _fromDateButtonKey : _toDateButtonKey,
     );
 
     if (picked == null) return;

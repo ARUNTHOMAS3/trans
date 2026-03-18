@@ -7,10 +7,12 @@
 - Required labels should visually indicate required status, typically including a red asterisk.
 - Numeric fields such as quantity, rate, tax, HSN, and phone should block invalid non-numeric entry.
 - Empty date fields should hint `dd-MM-yyyy`.
+- Standard ERP date fields should use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` wherever the shared anchored picker pattern is viable.
 
 ## Dropdowns
 
 - Standard dropdown overlays should stay compact, left-aligned to the field, and not stretch full width.
+- Standard dropdown overlays, popup menus, and floating selectors must use a pure white `#FFFFFF` surface.
 - Searchable dropdowns are appropriate for currencies and item-like lookups.
 - Use richer dropdown rows when the user must disambiguate similar records.
 
@@ -33,3 +35,5 @@
 - Validation errors use red border plus red helper text.
 - Loading states should appear centrally if page transitions exceed roughly 200ms.
 - Empty states should guide the next action with one clear CTA.
+- Dialogs, popovers, and calendars must use explicit pure white surfaces rather than inherited tinted theme surfaces.
+- Avoid adding fresh raw `showDatePicker(...)` usage for ordinary form/dialog date entry unless the shared picker cannot satisfy the requirement.

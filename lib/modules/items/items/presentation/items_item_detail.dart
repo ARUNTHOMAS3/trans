@@ -70,7 +70,13 @@ enum _ItemDetailTab {
 
 class ItemDetailScreen extends ConsumerStatefulWidget {
   final String? itemId;
-  const ItemDetailScreen({super.key, this.itemId});
+  final Map<String, String> initialQueryParameters;
+
+  const ItemDetailScreen({
+    super.key,
+    this.itemId,
+    this.initialQueryParameters = const <String, String>{},
+  });
 
   @override
   ConsumerState<ItemDetailScreen> createState() => _ItemDetailScreenState();
@@ -135,6 +141,181 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
   // Sales period states
   String _selectedPeriod = 'This Month';
   OverlayEntry? _periodDropdownEntry;
+  String? _requestedInitialTabKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _hydrateRouteState();
+  }
+
+  void _hydrateRouteState() {
+    final params = widget.initialQueryParameters;
+    _requestedInitialTabKey = params['tab'];
+    _currentFilter = _parseItemsFilter(params['filter']);
+    _stockView = _parseStockView(params['stockView']);
+    _batchFilter = params['batchFilter'] ?? 'all';
+    _warehouseFilter = params['warehouseFilter'] ?? 'all';
+    _showEmptyBatches = params['showEmptyBatches'] != 'false';
+    _serialWarehouseFilter = params['serialWarehouseFilter'] ?? 'all';
+    _showAllSerialNumbers = params['showAllSerialNumbers'] == 'true';
+    _transactionTypeFilter = params['transactionType'] ?? 'salesOrders';
+    _transactionStatusFilter = params['transactionStatus'] ?? 'all';
+    _selectedPriceListTab =
+        int.tryParse(params['priceListTab'] ?? '')?.clamp(0, 1) ?? 0;
+    _selectedPeriod = params['period'] ?? 'This Month';
+  }
+
+  ItemsFilter _parseItemsFilter(String? value) {
+    if (value == null || value.isEmpty) {
+      return ItemsFilter.all;
+    }
+    return ItemsFilter.values
+            .where((filter) => filter.name == value)
+            .firstOrNull ??
+        ItemsFilter.all;
+  }
+
+  _StockView _parseStockView(String? value) {
+    return value == 'physical' ? _StockView.physical : _StockView.accounting;
+  }
+
+  String _detailTabKey(_ItemDetailTab tab) {
+    switch (tab) {
+      case _ItemDetailTab.overview:
+        return 'overview';
+      case _ItemDetailTab.warehouses:
+        return 'warehouses';
+      case _ItemDetailTab.serialNumbers:
+        return 'serial-numbers';
+      case _ItemDetailTab.batchNumbers:
+        return 'batch-details';
+      case _ItemDetailTab.transactions:
+        return 'transactions';
+      case _ItemDetailTab.history:
+        return 'history';
+    }
+  }
+
+  _ItemDetailTab? _parseDetailTab(String? value) {
+    switch (value) {
+      case 'overview':
+        return _ItemDetailTab.overview;
+      case 'warehouses':
+        return _ItemDetailTab.warehouses;
+      case 'serial-numbers':
+        return _ItemDetailTab.serialNumbers;
+      case 'batch-details':
+        return _ItemDetailTab.batchNumbers;
+      case 'transactions':
+        return _ItemDetailTab.transactions;
+      case 'history':
+        return _ItemDetailTab.history;
+      default:
+        return null;
+    }
+  }
+
+  Map<String, String> _buildDetailQueryParameters(List<_ItemDetailTab> tabs) {
+    final query = <String, String>{};
+    final selectedTab = tabs[_resolveTabIndex(tabs)];
+    if (selectedTab != _ItemDetailTab.overview) {
+      query['tab'] = _detailTabKey(selectedTab);
+    }
+    if (_currentFilter != ItemsFilter.all) {
+      query['filter'] = _currentFilter.name;
+    }
+    if (_stockView != _StockView.accounting) {
+      query['stockView'] = 'physical';
+    }
+    if (_batchFilter != 'all') {
+      query['batchFilter'] = _batchFilter;
+    }
+    if (_warehouseFilter != 'all') {
+      query['warehouseFilter'] = _warehouseFilter;
+    }
+    if (!_showEmptyBatches) {
+      query['showEmptyBatches'] = 'false';
+    }
+    if (_serialWarehouseFilter != 'all') {
+      query['serialWarehouseFilter'] = _serialWarehouseFilter;
+    }
+    if (_showAllSerialNumbers) {
+      query['showAllSerialNumbers'] = 'true';
+    }
+    if (_transactionTypeFilter != 'salesOrders') {
+      query['transactionType'] = _transactionTypeFilter;
+    }
+    if (_transactionStatusFilter != 'all') {
+      query['transactionStatus'] = _transactionStatusFilter;
+    }
+    if (_selectedPriceListTab != 0) {
+      query['priceListTab'] = _selectedPriceListTab.toString();
+    }
+    if (_selectedPeriod != 'This Month') {
+      query['period'] = _selectedPeriod;
+    }
+    return query;
+  }
+
+  void _syncDetailRoute(List<_ItemDetailTab> tabs) {
+    if (!mounted || widget.itemId == null) return;
+    context.goNamed(
+      AppRoutes.itemsDetail,
+      pathParameters: {'id': widget.itemId!},
+      queryParameters: _buildDetailQueryParameters(tabs),
+    );
+  }
+
+  void _setSelectedTabIndex(int index, List<_ItemDetailTab> tabs) {
+    setState(() => _selectedTabIndex = index);
+    _syncDetailRoute(tabs);
+  }
+
+  void _setCurrentFilter(ItemsFilter filter, List<_ItemDetailTab> tabs) {
+    setState(() => _currentFilter = filter);
+    _syncDetailRoute(tabs);
+  }
+
+  void _setStockView(_StockView view, List<_ItemDetailTab> tabs) {
+    setState(() => _stockView = view);
+    _syncDetailRoute(tabs);
+  }
+
+  void _setBatchFilter(String value, List<_ItemDetailTab> tabs) {
+    setState(() => _batchFilter = value);
+    _syncDetailRoute(tabs);
+  }
+
+  void _setWarehouseFilter(String value, List<_ItemDetailTab> tabs) {
+    setState(() => _warehouseFilter = value);
+    _syncDetailRoute(tabs);
+  }
+
+  void _setShowEmptyBatches(bool value, List<_ItemDetailTab> tabs) {
+    setState(() => _showEmptyBatches = value);
+    _syncDetailRoute(tabs);
+  }
+
+  void _setTransactionTypeFilter(String value, List<_ItemDetailTab> tabs) {
+    setState(() => _transactionTypeFilter = value);
+    _syncDetailRoute(tabs);
+  }
+
+  void _setTransactionStatusFilter(String value, List<_ItemDetailTab> tabs) {
+    setState(() => _transactionStatusFilter = value);
+    _syncDetailRoute(tabs);
+  }
+
+  void _setSelectedPriceListTab(int index, List<_ItemDetailTab> tabs) {
+    setState(() => _selectedPriceListTab = index);
+    _syncDetailRoute(tabs);
+  }
+
+  void _setSelectedPeriod(String period, List<_ItemDetailTab> tabs) {
+    setState(() => _selectedPeriod = period);
+    _syncDetailRoute(tabs);
+  }
 
   @override
   void dispose() {
@@ -343,7 +524,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                   final isSelected = selectedIndex == index;
 
                   return InkWell(
-                    onTap: () => setState(() => _selectedTabIndex = index),
+                    onTap: () => _setSelectedTabIndex(index, tabs),
                     child: Container(
                       height: 48,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -571,6 +752,15 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
   }
 
   int _resolveTabIndex(List<_ItemDetailTab> tabs) {
+    final requestedTab = _parseDetailTab(_requestedInitialTabKey);
+    if (requestedTab != null) {
+      final requestedIndex = tabs.indexOf(requestedTab);
+      if (requestedIndex >= 0) {
+        _selectedTabIndex = requestedIndex;
+        _requestedInitialTabKey = null;
+      }
+    }
+
     if (_selectedTabIndex < tabs.length) {
       return _selectedTabIndex;
     }

@@ -7,6 +7,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import '../controllers/sales_order_controller.dart';
 import '../models/sales_customer_model.dart';
 import '../models/sales_payment_model.dart';
@@ -197,13 +198,16 @@ class _SalesPaymentCreateScreenState
   }
 
   Widget _datePicker(DateTime value, ValueChanged<DateTime> onPicked) {
+    final fieldKey = GlobalKey();
     return InkWell(
+      key: fieldKey,
       onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
+        final picked = await ZerpaiDatePicker.show(
+          context,
           initialDate: value,
           firstDate: DateTime(2000),
           lastDate: DateTime(2100),
+          targetKey: fieldKey,
         );
         if (picked != null) onPicked(picked);
       },

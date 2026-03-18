@@ -87,6 +87,9 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                         context.goNamed(
                           AppRoutes.itemsDetail,
                           pathParameters: {'id': item.id!},
+                          queryParameters: _buildDetailQueryParameters(
+                            _tabsForItem(item),
+                          ),
                         );
                       } else {
                         ref
@@ -229,7 +232,22 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
             child: ItemsFilterDropdown(
               currentFilter: _currentFilter,
               onFilterChanged: (filter) {
-                updateState(() => _currentFilter = filter);
+                final selectedId =
+                    widget.itemId ??
+                    ref.read(itemsControllerProvider).selectedItemId;
+                final currentItem = ref
+                    .read(itemsControllerProvider)
+                    .items
+                    .cast<Item?>()
+                    .firstWhere(
+                      (item) => item?.id == selectedId,
+                      orElse: () => null,
+                    );
+                if (currentItem != null) {
+                  _setCurrentFilter(filter, _tabsForItem(currentItem));
+                } else {
+                  updateState(() => _currentFilter = filter);
+                }
               },
             ),
           ),

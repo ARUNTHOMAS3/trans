@@ -33,3 +33,5 @@
 - Business-owned transactional data remains organization-scoped.
 - Server-side pagination is mandatory for tables, defaulting to 100 rows.
 - `MenuAnchor` is mandatory for action menus and `FormDropdown` is mandatory for form selections.
+- Dialogs, dropdowns, popup menus, date pickers, and overlay surfaces must default to pure white `#FFFFFF`; do not rely on inherited Material surface tinting unless explicitly approved.
+- `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` is the standard reusable date picker for anchored business date inputs; do not add new raw `showDatePicker(...)` usage by default.

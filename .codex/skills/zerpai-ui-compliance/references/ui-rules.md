@@ -7,6 +7,7 @@
 - Success green: `#28A745`.
 - Input border: `#E0E0E0`.
 - Page background: `#FFFFFF`.
+- Modal, dropdown, menu, popover, date-picker, and overlay surface background: `#FFFFFF`.
 - Table header background: `#F5F5F5`.
 - Required-field red: `#D32F2F`.
 
@@ -25,6 +26,8 @@
 
 - Use `MenuAnchor` and `MenuItemButton` for action menus.
 - Use `FormDropdown` for form selections. Do not replace it with `DropdownButton` or a menu-style action trigger.
+- Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` for standard reusable date input flows instead of introducing new raw `showDatePicker(...)` calls.
+- Set explicit white backgrounds for dialogs, sheets, popup menus, dropdown overlays, floating calendars, and similar surfaces instead of relying on inherited Material surface tinting.
 - Use Lucide icons by default.
 - Keep labels aligned in a fixed-width column when building creation and edit forms.
 

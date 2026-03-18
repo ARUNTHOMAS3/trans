@@ -121,6 +121,8 @@ The sidebar at `lib/core/layout/zerpai_sidebar.dart` follows this EXACT order:
 | Border radius        | `4px`     |
 
 > ❌ MUST NOT hardcode hex values in widgets. Use theme tokens.
+> ✅ Dialogs, popup menus, dropdown overlays, date pickers, popovers, and similar floating surfaces must explicitly resolve to pure white `#FFFFFF` instead of inheriting tinted Material surfaces.
+> ✅ Reuse `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` for anchored business date input flows instead of adding fresh raw `showDatePicker(...)` usages by default.
 
 ### Typography (Non-Negotiable)
 

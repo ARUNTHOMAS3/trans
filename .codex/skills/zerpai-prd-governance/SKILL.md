@@ -16,6 +16,8 @@ Use this skill as the first pass when a task can drift away from Zerpai-specific
    - Do not edit PRD files unless explicitly requested.
    - Keep development auth-free until production approval.
    - Respect locked stack choices and naming conventions.
+   - Preserve the pure white `#FFFFFF` rule for modal, popup, dropdown, and overlay surfaces in PRD-governed UI.
+   - Preserve the shared `ZerpaiDatePicker` rule for reusable date inputs instead of introducing raw `showDatePicker(...)` usages by default.
    - Prefer minimal, verifiable changes over broad rewrites.
 
 ## Non-Negotiables

@@ -58,12 +58,14 @@ class ItemCreateScreen extends ConsumerStatefulWidget {
   final Item? item;
   final String? itemId;
   final bool isClone;
+  final String? initialTab;
 
   const ItemCreateScreen({
     super.key,
     this.item,
     this.itemId,
     this.isClone = false,
+    this.initialTab,
   });
 
   @override
@@ -87,6 +89,67 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
 
   void updateState(VoidCallback fn) => setState(fn);
 
+  ItemTab _parseItemTab(String? value) {
+    switch (value) {
+      case 'formulation':
+        return ItemTab.formulation;
+      case 'sales':
+        return ItemTab.sales;
+      case 'purchase':
+        return ItemTab.purchase;
+      case 'more-info':
+        return ItemTab.moreInfo;
+      case 'composition':
+      default:
+        return ItemTab.composition;
+    }
+  }
+
+  String _itemTabKey(ItemTab tab) {
+    switch (tab) {
+      case ItemTab.composition:
+        return 'composition';
+      case ItemTab.formulation:
+        return 'formulation';
+      case ItemTab.sales:
+        return 'sales';
+      case ItemTab.purchase:
+        return 'purchase';
+      case ItemTab.moreInfo:
+        return 'more-info';
+    }
+  }
+
+  void _setSelectedTab(ItemTab tab) {
+    if (!mounted) return;
+    setState(() => selectedTab = tab);
+
+    final queryParameters = <String, String>{};
+    if (tab != ItemTab.composition) {
+      queryParameters['tab'] = _itemTabKey(tab);
+    }
+
+    if (widget.itemId != null) {
+      context.goNamed(
+        AppRoutes.itemsEdit,
+        pathParameters: {'id': widget.itemId!},
+        queryParameters: queryParameters,
+        extra: widget.item ?? editingItem,
+      );
+      return;
+    }
+
+    context.goNamed(
+      AppRoutes.itemsCreate,
+      queryParameters: queryParameters,
+      extra:
+          widget.item ??
+          (widget.isClone && editingItem != null
+              ? {'cloneItem': editingItem}
+              : null),
+    );
+  }
+
   // ---------------- IMAGES ----------------
   final List<dynamic> _itemImages =
       []; // Can be String (URL) or PlatformFile (Local)
@@ -96,6 +159,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   @override
   void initState() {
     super.initState();
+    selectedTab = _parseItemTab(widget.initialTab);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });

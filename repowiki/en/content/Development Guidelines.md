@@ -34,6 +34,12 @@
 ## Introduction
 This document defines comprehensive development guidelines for ZerpAI ERP. It consolidates coding standards, file naming conventions, code organization principles, branching and pull request processes, testing requirements, and quality assurance practices. It also outlines the development workflow, change impact considerations (including backward compatibility), and collaboration practices grounded in the repository’s current structure and documented processes.
 
+## UI Surface Rule
+All dialogs, popup menus, dropdown overlays, date pickers, popovers, and similar floating surfaces must default to pure white `#FFFFFF`. Do not rely on inherited Material surface tinting or non-white theme surfaces for these components unless a design exception is explicitly approved.
+
+## Shared Date Picker Rule
+Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the standard reusable date picker wherever the shared anchored picker pattern is possible. Avoid new raw `showDatePicker(...)` usage for standard ERP date entry unless there is a documented exception.
+
 ## Project Structure
 ZerpAI ERP follows a monorepo layout with a Flutter frontend (web and Android), a NestJS backend, and Supabase-managed database migrations. The frontend is organized around core, shared, and feature modules. The backend is organized by domain modules (e.g., products, sales) and common infrastructure (middleware, database).
 

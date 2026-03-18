@@ -4,6 +4,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'widgets/add_batches_dialog.dart';
 
@@ -21,6 +22,7 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
     text: DateFormat('dd-MM-yyyy').format(DateTime.now()),
   );
   final _quantityCtrl = TextEditingController(text: '1');
+  final GlobalKey _assembledDateFieldKey = GlobalKey();
 
   String? _selectedCompositeItem;
   String? _selectedWarehouse = 'ZABNIX PRIVATE LIMITED';
@@ -105,12 +107,14 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                 labelColor: const Color(0xFFB91C1C),
                 labelWidth: 180,
                 child: InkWell(
+                  key: _assembledDateFieldKey,
                   onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
+                    final date = await ZerpaiDatePicker.show(
+                      context,
                       initialDate: DateTime.now(),
                       firstDate: DateTime(2000),
                       lastDate: DateTime(2100),
+                      targetKey: _assembledDateFieldKey,
                     );
                     if (date != null) {
                       setState(() {

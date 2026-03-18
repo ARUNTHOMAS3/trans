@@ -154,9 +154,20 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
     final isSelected = _selectedPriceListTab == index;
     return InkWell(
       onTap: () {
-        updateState(() {
-          _selectedPriceListTab = index;
-        });
+        final selectedId =
+            widget.itemId ?? ref.read(itemsControllerProvider).selectedItemId;
+        final currentItem = ref
+            .read(itemsControllerProvider)
+            .items
+            .cast<Item?>()
+            .firstWhere((item) => item?.id == selectedId, orElse: () => null);
+        if (currentItem != null) {
+          _setSelectedPriceListTab(index, _tabsForItem(currentItem));
+        } else {
+          updateState(() {
+            _selectedPriceListTab = index;
+          });
+        }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

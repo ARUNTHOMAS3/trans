@@ -111,6 +111,8 @@ When user's prompt is NOT in English:
 - **Testing**: Mandatory. Pyramid (Unit > Int > E2E) + AAA Pattern.
 - **Performance**: Measure first. Adhere to 2025 standards (Core Web Vitals).
 - **Infra/Safety**: 5-Phase Deployment. Verify secrets security.
+- **Zerpai UI Surface Rule**: Dialogs, popup menus, dropdown overlays, date pickers, popovers, and modal surfaces must default to pure white `#FFFFFF`; do not rely on inherited tinted Material surfaces unless explicitly requested.
+- **Zerpai Shared Date Picker Rule**: Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the default reusable date picker wherever the anchored/shared picker pattern is feasible. Do not introduce raw `showDatePicker(...)` by default for normal ERP date flows.
 
 ### 📁 File Dependency Awareness
 

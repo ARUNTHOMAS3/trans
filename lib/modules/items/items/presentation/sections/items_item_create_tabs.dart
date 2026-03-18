@@ -36,14 +36,12 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
                     _tabHeader(
                       title: 'Composition Information',
                       active: selectedTab == ItemTab.composition,
-                      onTap: () =>
-                          updateState(() => selectedTab = ItemTab.composition),
+                      onTap: () => _setSelectedTab(ItemTab.composition),
                     ),
                     _tabHeader(
                       title: 'Formulation Information',
                       active: selectedTab == ItemTab.formulation,
-                      onTap: () =>
-                          updateState(() => selectedTab = ItemTab.formulation),
+                      onTap: () => _setSelectedTab(ItemTab.formulation),
                     ),
                   ],
                   _tabTitleWithCheckbox(
@@ -51,28 +49,30 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
                     sellable,
                     (v) => updateState(() {
                       sellable = v ?? false;
-                      if (sellable) selectedTab = ItemTab.sales;
+                      if (sellable) {
+                        selectedTab = ItemTab.sales;
+                      }
                     }),
                     active: selectedTab == ItemTab.sales,
-                    onTap: () => updateState(() => selectedTab = ItemTab.sales),
+                    onTap: () => _setSelectedTab(ItemTab.sales),
                   ),
                   _tabTitleWithCheckbox(
                     'Purchase Information',
                     purchasable,
                     (v) => updateState(() {
                       purchasable = v ?? false;
-                      if (purchasable) selectedTab = ItemTab.purchase;
+                      if (purchasable) {
+                        selectedTab = ItemTab.purchase;
+                      }
                     }),
                     active: selectedTab == ItemTab.purchase,
-                    onTap: () =>
-                        updateState(() => selectedTab = ItemTab.purchase),
+                    onTap: () => _setSelectedTab(ItemTab.purchase),
                   ),
                   if (isGoods && pushToEcommerce)
                     _tabHeader(
                       title: 'More Informations',
                       active: selectedTab == ItemTab.moreInfo,
-                      onTap: () =>
-                          updateState(() => selectedTab = ItemTab.moreInfo),
+                      onTap: () => _setSelectedTab(ItemTab.moreInfo),
                     ),
                 ],
               ),

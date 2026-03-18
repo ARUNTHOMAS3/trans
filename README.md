@@ -34,6 +34,16 @@ zerpai_erp/
 - **Database**: Supabase (PostgreSQL) + Auth + Storage
 - **Multi-tenancy**: org_id + outlet_id filtering
 
+## 🎨 UI Surface Rule
+
+- Dialogs, popup menus, dropdown overlays, date pickers, popovers, and similar floating surfaces must default to pure white `#FFFFFF`.
+- Do not rely on inherited Material surface tinting for these components unless a design exception is explicitly requested.
+
+## 📅 Shared Date Picker Rule
+
+- Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the standard reusable date picker across the app wherever the shared anchored picker pattern is feasible.
+- Avoid new direct `showDatePicker(...)` usage for standard ERP date fields unless there is a documented reason the shared picker cannot be used.
+
 ## 🛠️ Development Setup
 
 ### Prerequisites

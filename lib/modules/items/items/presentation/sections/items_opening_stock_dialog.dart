@@ -264,26 +264,37 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
+        color: Colors.white,
         border: Border.all(color: const Color(0xFFD1D5DB)),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<int>(
-          value: _selectedWarehouseIndex,
-          isExpanded: true,
-          icon: const Icon(Icons.arrow_drop_down, size: 20),
-          style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
-          onChanged: (value) {
-            if (value != null) {
-              setState(() => _selectedWarehouseIndex = value);
-            }
-          },
-          items: _warehouseEntries.asMap().entries.map((e) {
-            return DropdownMenuItem<int>(
-              value: e.key,
-              child: Text(e.value.warehouseName),
-            );
-          }).toList(),
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          canvasColor: Colors.white,
+          highlightColor: Colors.white,
+          focusColor: Colors.white,
+          hoverColor: Colors.white,
+          splashColor: Colors.transparent,
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<int>(
+            value: _selectedWarehouseIndex,
+            isExpanded: true,
+            dropdownColor: Colors.white,
+            icon: const Icon(Icons.arrow_drop_down, size: 20),
+            style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _selectedWarehouseIndex = value);
+              }
+            },
+            items: _warehouseEntries.asMap().entries.map((e) {
+              return DropdownMenuItem<int>(
+                value: e.key,
+                child: Text(e.value.warehouseName),
+              );
+            }).toList(),
+          ),
         ),
       ),
     );
