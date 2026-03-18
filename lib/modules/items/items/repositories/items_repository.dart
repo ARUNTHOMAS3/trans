@@ -44,8 +44,8 @@ abstract class ItemRepository {
   });
 }
 
-// Mock repo for development
-class MockItemRepository implements ItemRepository {
+// Lightweight in-memory repository kept only for local test scaffolding.
+class InMemoryItemRepository implements ItemRepository {
   final List<Item> _items = [];
   int _nextId = 1;
 

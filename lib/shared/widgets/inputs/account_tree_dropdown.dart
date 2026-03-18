@@ -128,7 +128,7 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
       return;
     }
 
-    _debounce = Timer(const Duration(milliseconds: 500), () async {
+    _debounce = Timer(const Duration(milliseconds: 180), () async {
       setState(() => _isSearching = true);
       _markOverlayNeedsBuild();
       try {

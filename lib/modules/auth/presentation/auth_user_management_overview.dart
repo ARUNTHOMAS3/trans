@@ -2,7 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import '../models/user_model.dart';
+import '../repositories/user_management_repository.dart';
 import '../widgets/user_list_tile.dart';
 import '../widgets/user_form_dialog.dart';
 
@@ -17,10 +19,12 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
   List<User> _users = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  late final UserManagementRepository _repository;
 
   @override
   void initState() {
     super.initState();
+    _repository = UserManagementRepository(apiClient: ApiClient());
     _loadUsers();
   }
 
@@ -30,48 +34,10 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
     });
 
     try {
-      // Simulate API call
-      await Future.delayed(Duration(seconds: 1));
-
-      // Mock data for demonstration
-      final mockUsers = [
-        User(
-          id: '1',
-          email: 'admin@company.com',
-          fullName: 'Admin User',
-          role: 'ho_admin',
-          orgId: 'org1',
-          orgName: 'Main Organization',
-          isActive: true,
-          createdAt: DateTime.now().subtract(Duration(days: 30)),
-          updatedAt: DateTime.now(),
-        ),
-        User(
-          id: '2',
-          email: 'manager@store1.com',
-          fullName: 'Store Manager',
-          role: 'outlet_manager',
-          orgId: 'org1',
-          orgName: 'Main Organization',
-          isActive: true,
-          createdAt: DateTime.now().subtract(Duration(days: 15)),
-          updatedAt: DateTime.now(),
-        ),
-        User(
-          id: '3',
-          email: 'staff@store1.com',
-          fullName: 'Store Staff',
-          role: 'outlet_staff',
-          orgId: 'org1',
-          orgName: 'Main Organization',
-          isActive: true,
-          createdAt: DateTime.now().subtract(Duration(days: 5)),
-          updatedAt: DateTime.now(),
-        ),
-      ];
+      final users = await _repository.getUsers();
 
       setState(() {
-        _users = mockUsers;
+        _users = users;
         _isLoading = false;
       });
     } catch (e) {

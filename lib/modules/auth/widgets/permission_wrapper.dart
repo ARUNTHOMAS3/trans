@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../controller/auth_controller.dart';
 import '../models/user_model.dart';
 import '../services/permission_service.dart';
 
@@ -22,19 +23,10 @@ class PermissionWrapper extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // In a real implementation, you'd get the user from auth state
-    // For now, we'll simulate with a default user
-    final user = User(
-      id: 'demo-user',
-      email: 'demo@example.com',
-      fullName: 'Demo User',
-      role: 'ho_admin', // Default role for demo
-      orgId: 'demo-org',
-      orgName: 'Demo Organization',
-      isActive: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+    final User? user = ref.watch(authUserProvider);
+    if (user == null) {
+      return child;
+    }
 
     final hasPermission = PermissionService.hasPermission(user, permission);
 
@@ -66,17 +58,10 @@ class PermissionAllWrapper extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = User(
-      id: 'demo-user',
-      email: 'demo@example.com',
-      fullName: 'Demo User',
-      role: 'ho_admin',
-      orgId: 'demo-org',
-      orgName: 'Demo Organization',
-      isActive: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+    final User? user = ref.watch(authUserProvider);
+    if (user == null) {
+      return child;
+    }
 
     final hasAllPermissions = PermissionService.hasAllPermissions(
       user,
@@ -111,17 +96,10 @@ class PermissionAnyWrapper extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = User(
-      id: 'demo-user',
-      email: 'demo@example.com',
-      fullName: 'Demo User',
-      role: 'ho_admin',
-      orgId: 'demo-org',
-      orgName: 'Demo Organization',
-      isActive: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+    final User? user = ref.watch(authUserProvider);
+    if (user == null) {
+      return child;
+    }
 
     final hasAnyPermission = PermissionService.hasAnyPermission(
       user,

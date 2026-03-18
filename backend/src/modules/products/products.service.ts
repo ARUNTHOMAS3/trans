@@ -1165,8 +1165,9 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("manufacturers")
-      .select("*")
-      .eq("is_active", true);
+      .select("id, name, is_active")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
 
     if (error) throw new Error(error.message);
     return data;
@@ -1230,8 +1231,9 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("brands")
-      .select("*")
-      .eq("is_active", true);
+      .select("id, name, is_active")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
 
     if (error) throw new Error(error.message);
     return data;
@@ -1253,8 +1255,9 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("vendors")
-      .select("*")
-      .eq("is_active", true);
+      .select("id, display_name, vendor_number, company_name, is_active")
+      .eq("is_active", true)
+      .order("display_name", { ascending: true });
 
     if (error) throw new Error(error.message);
     return data;
@@ -1273,8 +1276,9 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("storage_locations")
-      .select("*")
-      .eq("is_active", true);
+      .select("id, location_name, temperature_range, description, is_active")
+      .eq("is_active", true)
+      .order("location_name", { ascending: true });
 
     if (error) throw new Error(error.message);
     return data;
@@ -1293,8 +1297,9 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("racks")
-      .select("*")
-      .eq("is_active", true);
+      .select("id, rack_code, rack_name, storage_id, capacity, is_active")
+      .eq("is_active", true)
+      .order("rack_code", { ascending: true });
 
     if (error) throw new Error(error.message);
     return data;
@@ -1316,9 +1321,9 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("reorder_terms")
-      .select("*")
+      .select("id, term_name, quantity, description, is_active")
       .eq("is_active", true)
-      .order("created_at", { ascending: true });
+      .order("term_name", { ascending: true });
 
     if (error) throw new Error(error.message);
     return data;
@@ -1448,8 +1453,9 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("accounts")
-      .select("*")
-      .eq("is_active", true);
+      .select("id, user_account_name, system_account_name, account_type, is_active")
+      .eq("is_active", true)
+      .order("system_account_name", { ascending: true });
 
     if (error) throw new Error(error.message);
     return data;
@@ -1471,8 +1477,9 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("contents")
-      .select("*")
-      .eq("is_active", true);
+      .select("id, content_name, is_active")
+      .eq("is_active", true)
+      .order("content_name", { ascending: true });
 
     if (error) return [];
     return data;
@@ -1491,8 +1498,9 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("strengths")
-      .select("*")
-      .eq("is_active", true);
+      .select("id, strength_name, is_active")
+      .eq("is_active", true)
+      .order("strength_name", { ascending: true });
 
     if (error) return [];
     return data;
@@ -1511,8 +1519,9 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("buying_rules")
-      .select("*")
-      .eq("is_active", true);
+      .select("id, buying_rule, is_active")
+      .eq("is_active", true)
+      .order("buying_rule", { ascending: true });
 
     if (error) return [];
     return data;
@@ -1531,11 +1540,69 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("schedules")
-      .select("*")
-      .eq("is_active", true);
+      .select("id, shedule_name, is_active")
+      .eq("is_active", true)
+      .order("shedule_name", { ascending: true });
 
     if (error) return [];
     return data;
+  }
+
+  async getLookupBootstrap() {
+    const [
+      units,
+      categories,
+      taxRates,
+      taxGroups,
+      manufacturers,
+      brands,
+      vendors,
+      storageLocations,
+      racks,
+      reorderTerms,
+      accounts,
+      contents,
+      strengths,
+      buyingRules,
+      drugSchedules,
+      uqc,
+    ] = await Promise.all([
+      this.getUnits(),
+      this.getCategories(),
+      this.getTaxRates(),
+      this.getTaxGroups(),
+      this.getManufacturers(),
+      this.getBrands(),
+      this.getVendors(),
+      this.getStorageLocations(),
+      this.getRacks(),
+      this.getReorderTerms(),
+      this.getAccounts(),
+      this.getContents(),
+      this.getStrengths(),
+      this.getBuyingRules(),
+      this.getDrugSchedules(),
+      this.getUQCs(),
+    ]);
+
+    return {
+      units,
+      categories,
+      taxRates,
+      taxGroups,
+      manufacturers,
+      brands,
+      vendors,
+      storageLocations,
+      racks,
+      reorderTerms,
+      accounts,
+      contents,
+      strengths,
+      buyingRules,
+      drugSchedules,
+      uqc,
+    };
   }
 
   async syncDrugSchedules(items: any[]) {
@@ -1745,9 +1812,10 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("manufacturers")
-      .select("*")
+      .select("id, name, is_active")
       .ilike("name", `%${query}%`)
       .eq("is_active", true)
+      .order("name", { ascending: true })
       .limit(20);
 
     if (error) {
@@ -1762,9 +1830,10 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("brands")
-      .select("*")
+      .select("id, name, is_active")
       .ilike("name", `%${query}%`)
       .eq("is_active", true)
+      .order("name", { ascending: true })
       .limit(20);
 
     if (error) {

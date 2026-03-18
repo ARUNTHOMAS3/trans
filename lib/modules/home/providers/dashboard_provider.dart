@@ -7,6 +7,8 @@ class DashboardState {
   final double payables;
   final double cashOnHand;
   final List<Map<String, dynamic>> salesTrend;
+  final List<Map<String, dynamic>> topCustomers;
+  final List<Map<String, dynamic>> topItems;
   final bool isLoading;
   final String? error;
 
@@ -15,6 +17,8 @@ class DashboardState {
     this.payables = 0,
     this.cashOnHand = 0,
     this.salesTrend = const [],
+    this.topCustomers = const [],
+    this.topItems = const [],
     this.isLoading = false,
     this.error,
   });
@@ -24,6 +28,8 @@ class DashboardState {
     double? payables,
     double? cashOnHand,
     List<Map<String, dynamic>>? salesTrend,
+    List<Map<String, dynamic>>? topCustomers,
+    List<Map<String, dynamic>>? topItems,
     bool? isLoading,
     String? error,
   }) {
@@ -32,6 +38,8 @@ class DashboardState {
       payables: payables ?? this.payables,
       cashOnHand: cashOnHand ?? this.cashOnHand,
       salesTrend: salesTrend ?? this.salesTrend,
+      topCustomers: topCustomers ?? this.topCustomers,
+      topItems: topItems ?? this.topItems,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
     );
@@ -60,6 +68,8 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
         payables: (data['payables'] ?? 0).toDouble(),
         cashOnHand: (data['cashOnHand'] ?? 0).toDouble(),
         salesTrend: List<Map<String, dynamic>>.from(data['salesTrend'] ?? []),
+        topCustomers: List<Map<String, dynamic>>.from(data['topCustomers'] ?? []),
+        topItems: List<Map<String, dynamic>>.from(data['topItems'] ?? []),
         isLoading: false,
       );
     } catch (e) {

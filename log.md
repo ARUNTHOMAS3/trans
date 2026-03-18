@@ -199,6 +199,85 @@ Renamed the intermediate table for active ingredients to better align with pharm
 
 ## 10. Item Edit Flow & Master-Detail Resilience (March 4, 2026)
 
+---
+
+## 11. Cross-Module Demo Data Seed Added (March 18, 2026)
+
+Added a single idempotent SQL seed file to populate the currently supported development modules with usable linked demo data.
+
+**Seed File:**
+
+- `supabase/migrations/996_cross_module_demo_seed.sql`
+
+**What it populates:**
+
+- Geography and finance setup:
+  - countries
+  - states
+  - currencies
+  - fiscal year
+  - journal number settings
+- Lookup data for forms and dropdowns:
+  - units
+  - categories
+  - buying rules
+  - schedules
+  - contents
+  - strengths
+  - manufacturers
+  - brands
+  - tax groups
+  - associated taxes
+  - storage locations
+  - racks
+  - reorder terms
+  - price lists
+- Accountant / dashboard base accounts:
+  - cash on hand
+  - accounts receivable
+  - accounts payable
+  - sales
+  - purchases
+  - stock
+- Sales and purchases business masters:
+  - customers
+  - customer contact persons
+  - vendors
+  - vendor contact persons
+  - vendor bank accounts
+- Items and inventory:
+  - products
+  - product contents
+  - price list items
+  - outlet inventory
+  - batches
+- Transactions and reporting sources:
+  - sales orders
+  - sales payments
+  - sales payment links
+  - account transactions
+- Accountant records:
+  - manual journals
+  - manual journal items
+  - recurring journals
+  - transaction locking
+
+**Why this was added:**
+
+- To remove empty states across Home, Items, Inventory, Accountant, Sales, Purchases, Reports, and Audit Logs during development and testing.
+- To populate the Home dashboard cards and charts with meaningful numbers.
+- To ensure searchable dropdowns have real lookup data.
+- To create linked business data instead of isolated random rows.
+- To produce audit activity automatically when audit triggers are active and the seed is run.
+
+**Important Notes:**
+
+- The script is designed to be reviewable and rerunnable.
+- It uses fixed IDs and conflict handling for most records.
+- It follows the dev org convention:
+  - `org_id = 00000000-0000-0000-0000-000000000000`
+- It uses a fixed development outlet id where outlet-bound tables need one.
+
 Addressed multiple UX glitches regarding item editing, particularly around dropdown state and the master-detail layout flow.
 
 ### Feature: Composition Dropdown Name Resolution
@@ -2049,3 +2128,528 @@ A TODO was added separately for building a fuller dedicated audit page/audit exp
 - `lib/modules/reports/presentation/reports_audit_logs_screen.dart`
 
 **Timestamp of Log Update:** March 17, 2026 - 22:10 (IST)
+
+### Full Testing Pass, New Test Modules, and Runtime Validation (March 18, 2026)
+
+After the audit module implementation and UI stabilization work, a dedicated testing pass was completed to cover the new audit surface more directly and to validate the broader project state.
+
+#### 1. New test modules added
+
+Added targeted test coverage for the new audit functionality across backend, Flutter, and E2E layers.
+
+**Backend tests added**
+- `backend/src/modules/reports/reports.controller.spec.ts`
+- `backend/src/modules/reports/reports.service.spec.ts`
+
+**What they cover**
+- controller query parsing for:
+  - `page`
+  - `pageSize`
+  - `tables`
+  - `actions`
+  - optional filters
+- service behavior for:
+  - page/pageSize normalization
+  - recent vs archived scope handling
+  - summary count generation
+  - query-builder filter application
+  - free-text search clause construction
+
+**Flutter test added**
+- `test/modules/reports/repositories/reports_repository_test.dart`
+
+**What it covers**
+- correct forwarding of audit-query parameters to the API client
+- omission of blank optional fields
+
+**E2E test added**
+- `tests/e2e/audit.spec.ts`
+
+**What it is intended to cover**
+- route loads at `/audit-logs`
+- `Audit Logs` heading is visible
+- `Activity Explorer` is visible
+- `All Logs` scope card is visible
+- `Entry Inspector` is visible
+
+#### 2. Real bug discovered during testing
+
+The new backend service test exposed a real bug in the audit-log search path.
+
+**Bug**
+- `ReportsService.getAuditLogs()` was building the Supabase `or(...)` search clause with literal strings like:
+  - `table_name.ilike.%${term}%`
+instead of interpolating the actual value of `term`
+
+**Impact**
+- audit free-text search would not have behaved correctly
+
+**Fix applied**
+- changed the search clause entries in `backend/src/modules/reports/reports.service.ts` from quoted literals to TypeScript template strings
+
+This bug was found by the new test module and fixed immediately during the testing pass.
+
+#### 3. Commands run during the testing pass
+
+**Targeted runs**
+- `npm test --prefix backend -- reports.controller.spec.ts reports.service.spec.ts --runInBand`
+- `flutter test test/modules/reports/repositories/reports_repository_test.dart`
+- `npm run build --prefix backend`
+
+**Full suite runs**
+- `npm run test:flutter`
+- `npm run test:backend`
+- `npm run test:e2e`
+
+**Captured-output rerun**
+- `cmd /c "npm run test:e2e > e2e_test_output.log 2>&1"`
+
+#### 4. Results of the testing pass
+
+**Flutter tests**
+- passed
+- `8` tests passed
+- included:
+  - `test/core/utils/error_handler_test.dart`
+  - `test/modules/accountant/manual_journals/models/manual_journal_model_test.dart`
+  - `test/modules/reports/repositories/reports_repository_test.dart`
+
+**Backend tests**
+- passed
+- `4` suites passed
+- `9` tests passed
+- included:
+  - `backend/src/modules/reports/reports.service.spec.ts`
+  - `backend/src/modules/reports/reports.controller.spec.ts`
+  - `backend/src/common/interceptors/standard_response.interceptor.spec.ts`
+  - `backend/src/modules/health/health.controller.spec.ts`
+
+**Backend build**
+- passed
+- `npm run build --prefix backend`
+
+#### 5. E2E result and current blocker
+
+The full Playwright suite did not pass in this testing phase.
+
+**Observed result**
+- `13` tests discovered
+- `11` failed
+- `2` skipped
+
+**Failure pattern**
+- all recorded failures were:
+  - `page.goto: net::ERR_CONNECTION_REFUSED`
+- the failing target URL was:
+  - `http://localhost:3000`
+
+**Meaning**
+- the browser never reached the app shell
+- these failures happened before selector/assertion logic
+- this currently indicates a local web-server/bootstrap problem for the Playwright target URL, not a confirmed route/UI assertion failure in the audit page or other modules
+
+**Affected E2E suites**
+- `tests/e2e/accountant.spec.ts`
+- `tests/e2e/audit.spec.ts`
+- `tests/e2e/home.spec.ts`
+- `tests/e2e/items.spec.ts`
+
+#### 6. Testing artifacts created
+
+**Files created during/for the testing pass**
+- `TESTING_RESULTS_2026-03-17.md`
+- `e2e_test_output.log`
+- `playwright-report/`
+- `test-results/`
+
+The testing results file contains the structured pass/fail summary and should be used together with the full session report when reviewing readiness.
+
+#### 7. Co-dev / deploy note
+
+At the end of this testing pass:
+- backend unit/build state is clean
+- Flutter unit-test state is clean
+- audit backend/controller/repository coverage now exists
+- one real backend search bug was found and fixed
+- E2E is still blocked by the app bootstrap/connection path on the configured Playwright base URL
+
+Recommended next step before treating E2E failures as feature regressions:
+1. stabilize the Playwright app boot path on the expected URL/port
+2. rerun `npm run test:e2e`
+3. only then classify any remaining failures as route/UI defects
+
+**Files changed in this testing phase**
+- `backend/src/modules/reports/reports.controller.spec.ts`
+- `backend/src/modules/reports/reports.service.spec.ts`
+- `backend/src/modules/reports/reports.service.ts`
+- `test/modules/reports/repositories/reports_repository_test.dart`
+- `tests/e2e/audit.spec.ts`
+- `TESTING_RESULTS_2026-03-17.md`
+
+**Timestamp of Log Update:** March 18, 2026 - 00:15 (IST)
+
+### Lookup / Dropdown Performance Optimization (March 18, 2026)
+
+A focused performance pass was completed for searchable and DB-backed dropdowns after repeated production-side lag was observed across item and lookup-heavy forms.
+
+#### 1. Root cause traced
+
+The slowdown was not caused by only one issue.
+
+The main causes identified were:
+
+- the shared searchable dropdown was waiting before showing useful results
+- remote search was being triggered even when relevant options were already loaded in memory
+- item forms were loading many lookup endpoints separately on open
+- backend lookup endpoints were returning broad payloads (`select("*")`) instead of lean lookup data
+- manufacturer/brand search endpoints used wildcard `ILIKE` queries without lookup-specific DB indexes for production
+
+#### 2. Shared dropdown UX/performance fix
+
+The shared dropdown behavior was improved so common lookups feel faster even before backend/index work.
+
+**Files changed**
+- `lib/shared/widgets/inputs/dropdown_input.dart`
+- `lib/shared/widgets/inputs/account_tree_dropdown.dart`
+
+**What changed**
+- local filtering now happens immediately against already-loaded items
+- remote search now enriches the current result list instead of replacing it with a blank loading panel
+- debounce was shortened to improve responsiveness
+- account-tree dropdown debounce was reduced from `500ms` to `180ms`
+- a small inline spinner is shown during remote search instead of a hard skeleton-only state
+
+**Expected effect**
+- less perceived lag when typing
+- better responsiveness for manufacturers, brands, accounts, and similar dropdowns
+- fewer "empty while loading" moments
+
+#### 3. Backend lookup bootstrap endpoint added
+
+The item form was still paying for many separate lookup calls on open.
+
+To reduce roundtrips, a new bootstrap endpoint was added.
+
+**Backend files changed**
+- `backend/src/modules/products/products.controller.ts`
+- `backend/src/modules/products/products.service.ts`
+
+**New endpoint**
+- `GET /products/lookups/bootstrap`
+
+**What it returns**
+- units
+- categories
+- tax rates
+- tax groups
+- manufacturers
+- brands
+- vendors
+- storage locations
+- racks
+- reorder terms
+- accounts
+- buying rules
+- drug schedules
+- UQC
+
+**Why**
+- one request replaces a large set of separate lookup GETs on item-form load
+- this reduces network chatter and improves initial form readiness
+
+#### 4. Frontend item lookup loading switched to bootstrap-first
+
+The item module controller was updated to use the new backend bootstrap endpoint as the primary lookup-loading path.
+
+**Frontend files changed**
+- `lib/modules/items/items/controllers/items_controller.dart`
+- `lib/modules/items/items/services/lookups_api_service.dart`
+
+**Behavior**
+- tries `GET /products/lookups/bootstrap` first
+- if unavailable or out of sync, falls back to the older parallel lookup-loading path
+
+**Why this matters**
+- safe rollout across environments
+- no hard failure if one side is deployed before the other
+
+#### 5. Backend lookup payload trimming and ordering
+
+Several lookup endpoints were tightened to return only lookup-relevant columns and stable ordering.
+
+**Affected backend lookup methods**
+- `getManufacturers()`
+- `getBrands()`
+- `getVendors()`
+- `getStorageLocations()`
+- `getRacks()`
+- `getReorderTerms()`
+- `getAccounts()`
+- `getContents()`
+- `getStrengths()`
+- `getBuyingRules()`
+- `getDrugSchedules()`
+- `searchManufacturers()`
+- `searchBrands()`
+
+**What changed**
+- replaced broad `select("*")` with narrower lookup-specific column selection
+- added ordering for more predictable and cache-friendly dropdown behavior
+- search results now return leaner payloads
+
+#### 6. Production DB index migration added
+
+A dedicated performance migration was added for lookup-heavy search patterns.
+
+**New file**
+- `supabase/migrations/995_products_lookup_performance_indexes.sql`
+
+**What it adds**
+- B-tree indexes for active lookup ordering/filtering on:
+  - manufacturers
+  - brands
+  - vendors
+  - accounts
+  - storage locations
+  - racks
+  - reorder terms
+  - categories
+  - contents
+  - strengths
+  - buying rules
+  - schedules
+- trigram (`pg_trgm`) indexes for case-insensitive partial search on:
+  - manufacturers.name
+  - brands.name
+  - vendors.display_name
+  - `COALESCE(user_account_name, system_account_name)` on accounts
+
+**Why**
+- the search endpoints use `%query%` style matching
+- those queries become slow on larger production tables without trigram support
+
+#### 7. Findings from tracing the current architecture
+
+The performance trace showed:
+
+- the API client already has a short-lived GET cache
+- the item controller already hydrates many lookups on startup
+- so the remaining cost was mostly:
+  - repeated roundtrips
+  - broad lookup payloads
+  - unnecessary remote searching
+  - DB search/index inefficiency on production-sized data
+
+#### 8. Verification completed
+
+**Commands run**
+- `npm run build --prefix backend`
+- `dart analyze lib/modules/items/items/controllers/items_controller.dart lib/modules/items/items/services/lookups_api_service.dart`
+- `dart analyze lib/shared/widgets/inputs/dropdown_input.dart lib/shared/widgets/inputs/account_tree_dropdown.dart`
+
+**Result**
+- backend build passed
+- Flutter analysis passed
+
+#### 9. Deployment / follow-up note
+
+To get the full production benefit, the DB migration must be applied:
+
+- `supabase/migrations/995_products_lookup_performance_indexes.sql`
+
+After that:
+- redeploy or restart backend
+- retest production dropdowns, especially:
+  - manufacturer
+  - brand
+  - vendor
+  - accounts
+  - storage
+  - racks
+  - reorder terms
+
+If lag still remains after this, the next likely phase is module-by-module tracing outside the products/items stack, starting with accountant and sales lookup endpoints.
+
+### 2026-03-18 11:55 IST - Runtime demo/dummy data cleanup
+
+To align the app with real database-backed behavior, active fake/demo runtime data paths were removed or replaced across the current repo.
+
+#### 1. Home dashboard now uses real report data
+
+**Files**
+- `backend/src/modules/reports/reports.service.ts`
+- `lib/modules/home/providers/dashboard_provider.dart`
+- `lib/modules/home/presentation/home_dashboard_overview.dart`
+
+**What changed**
+- `topItems` in dashboard summary now comes from real `outlet_inventory` + `products` data instead of a hardcoded empty array
+- dashboard provider now parses real `topCustomers` and `topItems`
+- dashboard lower cards now render live DB-backed lists instead of hardcoded “No recent data available” placeholders
+
+#### 2. Item detail stock views now avoid fabricated stock data
+
+**Files**
+- `backend/src/modules/products/products.controller.ts`
+- `lib/modules/items/items/services/products_api_service.dart`
+- `lib/modules/items/items/repositories/items_repository_impl.dart`
+- `lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`
+
+**What changed**
+- added real `GET /products/:id/batches` controller wiring
+- frontend product API now fetches batches from backend
+- item repository now maps real batch rows instead of returning fabricated stock detail content
+- item detail batch finder now opens with the real fetched batch list
+- warehouse tab no longer invents a `Primary Warehouse` row when no real storage rows are available
+- stock transactions now return an honest empty list instead of fabricated transaction history until a real source is wired
+
+#### 3. Item reporting no longer uses fake item rows
+
+**Files**
+- `lib/modules/items/items/presentation/sections/report/items_report_screen.dart`
+- `lib/modules/items/items/presentation/sections/report/items_report_overview.dart`
+- `lib/modules/items/items/presentation/sections/report/item_row.dart`
+- `lib/modules/items/items/repositories/items_repository.dart`
+
+**What changed**
+- items report now uses real `stockOnHand` values from API-backed item models
+- removed the old `dummyItems` constant from `item_row.dart`
+- renamed `MockItemRepository` to `InMemoryItemRepository` to make it explicit that it is non-production scaffolding only
+
+#### 4. Auth and customer fake/demo scaffolding removed
+
+**Files**
+- `lib/modules/auth/widgets/permission_wrapper.dart`
+- `lib/modules/auth/presentation/auth_auth_login.dart`
+- `lib/modules/auth/presentation/auth_user_management_overview.dart`
+- `lib/modules/auth/presentation/auth_profile_overview.dart`
+- `lib/modules/auth/presentation/auth_organization_management_overview.dart`
+- `lib/modules/sales/presentation/sales_customer_create.dart`
+- `lib/modules/sales/presentation/sections/sales_customer_custom_fields_section.dart`
+
+**What changed**
+- permission wrapper no longer fabricates a demo user
+- auth login page now calls the real auth repository instead of simulating login
+- auth management/profile/org overview pages were switched to repository/API-backed loading
+- removed leftover demo-only controller state from customer create
+- customer custom fields section no longer pre-fills a demo field and now shows an honest empty state when nothing is configured
+
+#### 5. Printing fake templates removed
+
+**Files**
+- `lib/modules/printing/repositories/print_template_repository.dart`
+- `lib/modules/printing/presentation/printing_templates_overview.dart`
+
+**What changed**
+- template list/load screens now use repository/API loading
+- repository no longer returns built-in fake templates
+- create/update/delete now fail honestly as unimplemented rather than pretending to succeed with mock data
+
+#### 6. Assemblies batch dialog no longer ships hardcoded batch references
+
+**Files**
+- `lib/modules/inventory/assemblies/presentation/widgets/add_batches_dialog.dart`
+
+**What changed**
+- removed hardcoded existing batch references like `B-2024-001`
+- dialog now accepts `existingBatches` from the caller and defaults to an honest empty list if none are available
+
+#### 7. Backend dummy artifacts removed from repo
+
+**Files deleted**
+- `backend/src/dummy.ts`
+- `backend/scripts/insert-dummy-data.ts`
+- `backend/scripts/insert-dummy-data.js`
+
+**Why**
+- these were explicit dummy/demo artifacts and were not referenced by production runtime code
+
+#### 8. Verification completed
+
+**Commands run**
+- `dart format lib/modules/items/items/presentation/sections/items_item_detail_stock.dart lib/modules/sales/presentation/sales_customer_create.dart lib/modules/inventory/assemblies/presentation/widgets/add_batches_dialog.dart lib/modules/auth/presentation/auth_auth_login.dart lib/modules/items/items/repositories/items_repository.dart lib/modules/items/items/presentation/sections/report/item_row.dart`
+- `dart analyze lib/modules/items/items/presentation/sections/items_item_detail_stock.dart lib/modules/sales/presentation/sales_customer_create.dart lib/modules/inventory/assemblies/presentation/widgets/add_batches_dialog.dart lib/modules/auth/presentation/auth_auth_login.dart lib/modules/items/items/repositories/items_repository.dart lib/modules/items/items/presentation/sections/report/item_row.dart lib/modules/home/presentation/home_dashboard_overview.dart lib/modules/home/providers/dashboard_provider.dart lib/modules/items/items/repositories/items_repository_impl.dart lib/modules/items/items/services/products_api_service.dart`
+- `npm run build --prefix backend`
+
+**Result**
+- Flutter formatting passed
+- Flutter analysis passed
+- backend build passed
+
+### 2026-03-18 12:20 IST - Item lookup bootstrap hardening and local-vs-deployed data diagnosis
+
+During item create/edit verification, manufacturer and brand dropdowns were loading while `Contents` and `Strength` stayed empty on localhost. The live deployed build from the previous night showed real strength/content rows, so this was traced as an environment/bootstrap issue rather than a widget issue.
+
+#### 1. Root cause found in item lookup bootstrap path
+
+**Observed behavior**
+- localhost item create screen showed:
+  - `manufacturers: 1000`
+  - `brands: 218`
+  - `contents: 0`
+  - `strengths: 0`
+- deployed app already showed real strength options like `20 mg`, `20 mg/0.4 ml`, etc.
+
+**Diagnosis**
+- local Flutter debug uses `http://localhost:3001`
+- deployed build uses `https://zabnix-backend.vercel.app`
+- the local app was therefore reading a different backend/runtime path than the deployed environment
+- a stale or incomplete bootstrap response could leave `contents` / `strengths` empty even though DB rows exist
+
+#### 2. DB data was confirmed to exist
+
+The `contents` / `strengths` issue was not due to missing DB rows. A direct count confirmed real data exists.
+
+**Evidence**
+- SQL count result returned:
+  - `2040`
+
+This confirmed the database is populated and the remaining issue was in the app/backend response path.
+
+#### 3. Fix applied to prevent stale bootstrap behavior
+
+**Files**
+- `lib/modules/items/items/services/lookups_api_service.dart`
+- `lib/modules/items/items/controllers/items_controller.dart`
+
+**What changed**
+- `/products/lookups/bootstrap` now bypasses the API GET cache
+- item lookup bootstrap now falls back to direct fetches for:
+  - `contents`
+  - `strengths`
+  when those two arrays come back empty from bootstrap
+
+**Why**
+- this protects the UI during partial backend rollouts, stale cache reuse, or bootstrap payload drift
+- manufacturers/brands can still come from bootstrap while `contents`/`strengths` are independently recovered
+
+#### 4. Audit logs confirmed real composition data is being written
+
+An audit entry was inspected for `product_contents`.
+
+**Example row**
+- `id`: `02086e86-483e-44d5-9ffa-601c529cb934`
+- `product_id`: `8cc35acc-fdb9-4f63-a44b-b3ca48529a89`
+- `content_id`: `7921f03d-d87e-40b7-8899-ecebb1cbbad6`
+- `strength_id`: `cb8991c4-5f2a-43ec-b2cf-b9e70c10ed0e`
+- `display_order`: `0`
+
+**What this confirms**
+- real composition rows are being inserted into `product_contents`
+- audit logging is capturing those inserts correctly
+- the production-phase data flow is active for product composition saves
+
+#### 5. Remaining interpretation
+
+At this point:
+- deployed version already has the real lookup data path working
+- localhost mismatch is now understood as a local backend / response / cache / environment gap, not missing feature logic
+
+#### 6. Verification completed
+
+**Commands run**
+- `dart format lib/modules/items/items/services/lookups_api_service.dart lib/modules/items/items/controllers/items_controller.dart`
+- `dart analyze lib/modules/items/items/services/lookups_api_service.dart lib/modules/items/items/controllers/items_controller.dart lib/modules/items/items/presentation/sections/items_item_create_tabs.dart lib/modules/items/items/presentation/sections/composition_section.dart`
+
+**Result**
+- Flutter formatting passed
+- Flutter analysis passed

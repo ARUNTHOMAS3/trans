@@ -223,7 +223,6 @@ class _SalesCustomerCreateScreenState
 
   // Tabs Data
   final List<_ContactPersonRow> contactRows = [];
-  final demoFieldCtrl = TextEditingController();
   String reportingTag = 'Select';
   _StaffOption? assignedStaff;
   _ReferralOption? referredBy;

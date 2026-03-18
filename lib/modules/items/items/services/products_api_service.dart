@@ -594,6 +594,28 @@ class ProductsApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getProductBatches(String id) async {
+    try {
+      final response = await _apiClient.get('/products/$id/batches');
+      if (response.statusCode == 200 && response.data is List) {
+        return (response.data as List)
+            .whereType<Map>()
+            .map((entry) => Map<String, dynamic>.from(entry))
+            .toList();
+      }
+      return [];
+    } on DioException catch (e) {
+      throw ApiException(
+        _formatDioError(e),
+        statusCode: e.response?.statusCode,
+        originalError: e,
+      );
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Error fetching product batches: $e');
+    }
+  }
+
   // =====================================
   // PRICE LISTS
   // =====================================

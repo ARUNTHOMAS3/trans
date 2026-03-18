@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'dart:async';
+import 'dart:collection';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 
 class FormDropdown<T> extends StatefulWidget {
@@ -116,7 +117,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   @override
   void initState() {
     super.initState();
-    _filteredItems = List<T>.from(widget.items);
+    _filteredItems = _localFilter('');
     _searchCtrl.addListener(_onSearchChanged);
   }
 
@@ -125,34 +126,10 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
     super.didUpdateWidget(oldWidget);
 
     if (oldWidget.items != widget.items || oldWidget.value != widget.value) {
-      final q = _searchCtrl.text.toLowerCase().trim();
-
-      // If we use external search, we only sync with widget.items if the query is empty
-      // or the dropdown is closed. Otherwise, we trust the results of onSearch.
-      if (widget.onSearch != null) {
-        if (q.isEmpty || !_isOpen) {
-          setState(() {
-            _filteredItems = List<T>.from(widget.items);
-          });
-        }
-      } else {
-        // Standard local filtering
-        setState(() {
-          _filteredItems = q.isEmpty
-              ? List<T>.from(widget.items)
-              : widget.items.where((e) {
-                  if (widget.searchStringForValue != null) {
-                    return widget.searchStringForValue!(e)
-                        .toLowerCase()
-                        .contains(q);
-                  }
-                  final String display = widget.displayStringForValue != null
-                      ? widget.displayStringForValue!(e)
-                      : e.toString();
-                  return display.toLowerCase().contains(q);
-                }).toList();
-        });
-      }
+      final q = _searchCtrl.text;
+      setState(() {
+        _filteredItems = _localFilter(q);
+      });
 
       // Refresh overlay if open
       if (_isOpen) {
@@ -180,46 +157,75 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
 
   void _onSearchChanged() => _filterItems(_searchCtrl.text);
 
+  bool _matchesQuery(T item, String query) {
+    final normalized = query.toLowerCase().trim();
+    if (normalized.isEmpty) return true;
+
+    if (widget.searchStringForValue != null) {
+      return widget.searchStringForValue!(item).toLowerCase().contains(
+        normalized,
+      );
+    }
+
+    final String display = widget.displayStringForValue != null
+        ? widget.displayStringForValue!(item)
+        : item.toString();
+    return display.toLowerCase().contains(normalized);
+  }
+
+  List<T> _localFilter(String query) {
+    final normalized = query.toLowerCase().trim();
+    if (normalized.isEmpty) {
+      return List<T>.from(widget.items);
+    }
+
+    return widget.items
+        .where((item) => _matchesQuery(item, normalized))
+        .toList();
+  }
+
   void _markOverlayNeedsBuild() {
     _overlayEntry?.markNeedsBuild();
   }
 
   void _filterItems(String query) async {
     final q = query.toLowerCase().trim();
+    final localMatches = _localFilter(q);
 
-    if (widget.onSearch != null) {
-      if (_debounce?.isActive ?? false) _debounce!.cancel();
-      _debounce = Timer(const Duration(milliseconds: 300), () async {
-        setState(() => _isSearching = true);
-        _markOverlayNeedsBuild();
+    setState(() {
+      _filteredItems = localMatches;
+      _isSearching = widget.onSearch != null && q.isNotEmpty;
+    });
+
+    if (widget.onSearch != null && q.isNotEmpty) {
+      if (_debounce?.isActive ?? false) {
+        _debounce!.cancel();
+      }
+
+      _debounce = Timer(const Duration(milliseconds: 180), () async {
         try {
           final results = await widget.onSearch!(q);
-          if (mounted) {
-            setState(() {
-              _filteredItems = results;
-              _isSearching = false;
-            });
+          if (!mounted || _searchCtrl.text.toLowerCase().trim() != q) {
+            return;
           }
+
+          final merged = LinkedHashSet<T>.from(localMatches)..addAll(results);
+
+          setState(() {
+            _filteredItems = merged.toList();
+            _isSearching = false;
+          });
         } catch (e) {
-          if (mounted) setState(() => _isSearching = false);
+          if (!mounted || _searchCtrl.text.toLowerCase().trim() != q) {
+            return;
+          }
+
+          setState(() => _isSearching = false);
         }
+        _markOverlayNeedsBuild();
       });
     } else {
-      setState(() {
-        _filteredItems = q.isEmpty
-            ? List<T>.from(widget.items)
-            : widget.items.where((e) {
-                if (widget.searchStringForValue != null) {
-                  return widget.searchStringForValue!(e).toLowerCase().contains(
-                    q,
-                  );
-                }
-                final String display = widget.displayStringForValue != null
-                    ? widget.displayStringForValue!(e)
-                    : e.toString();
-                return display.toLowerCase().contains(q);
-              }).toList();
-      });
+      _debounce?.cancel();
     }
 
     _markOverlayNeedsBuild();
@@ -425,6 +431,19 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                                     color: Color(0xFF9CA3AF),
                                   )
                                 : null,
+                            suffixIcon: _isSearching
+                                ? const Padding(
+                                    padding: EdgeInsets.all(10),
+                                    child: SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF2563EB),
+                                      ),
+                                    ),
+                                  )
+                                : null,
                             contentPadding: EdgeInsets.zero,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(4),
@@ -451,7 +470,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                     const Divider(height: 1, color: Color(0xFFE5E7EB)),
                   ],
 
-                  if (_isSearching)
+                  if (_isSearching && _filteredItems.isEmpty)
                     const SizedBox(
                       height: 80,
                       child: Center(
@@ -778,7 +797,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                 decoration: BoxDecoration(
                   color: widget.fillColor ?? Colors.white,
                   borderRadius: widget.borderRadius ?? BorderRadius.circular(4),
-                  border: widget.border ??
+                  border:
+                      widget.border ??
                       Border(
                         top: _getBorderSide(hasError),
                         bottom: _getBorderSide(hasError),
@@ -863,8 +883,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
       color: hasError
           ? const Color(0xFFEF4444) // Red on error
           : _isOpen
-              ? const Color(0xFF2563EB)
-              : const Color(0xFFD1D5DB),
+          ? const Color(0xFF2563EB)
+          : const Color(0xFFD1D5DB),
     );
   }
 }

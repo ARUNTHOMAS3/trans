@@ -68,10 +68,15 @@ export class ReportsService {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const { data: salesTrend, error: salesError } = await supabase
+    let salesTrendQuery = supabase
       .from("account_transactions")
-      .select("transaction_date, credit")
-      .eq("org_id", orgId)
+      .select("transaction_date, credit");
+
+    if (orgId) {
+      salesTrendQuery = salesTrendQuery.eq("org_id", orgId);
+    }
+
+    const { data: salesTrend, error: salesError } = await salesTrendQuery
       .gte("transaction_date", thirtyDaysAgo.toISOString())
       .filter("transaction_type", "in", '("invoice", "sales_receipt")');
 
@@ -89,12 +94,18 @@ export class ReportsService {
       .sort((a, b) => a.date.localeCompare(b.date));
 
     // 4. Top Customers
-    const { data: topCustomersData, error: customerError } = await supabase
+    let topCustomersQuery = supabase
       .from("account_transactions")
-      .select("contact_id, contact_type, credit")
-      .eq("org_id", orgId)
-      .eq("contact_type", "customer")
-      .filter("transaction_type", "in", '("invoice", "sales_receipt")');
+      .select("contact_id, contact_type, credit");
+
+    if (orgId) {
+      topCustomersQuery = topCustomersQuery.eq("org_id", orgId);
+    }
+
+    const { data: topCustomersData, error: customerError } =
+      await topCustomersQuery
+        .eq("contact_type", "customer")
+        .filter("transaction_type", "in", '("invoice", "sales_receipt")');
 
     if (customerError) console.warn("Error fetching top customers:", customerError);
 
@@ -119,13 +130,44 @@ export class ReportsService {
       })
     );
 
+    const inventoryConditions: any[] = [];
+    if (outletId) {
+      inventoryConditions.push(sql`oi.outlet_id = ${outletId}`);
+    }
+
+    const inventoryWhereClause =
+      inventoryConditions.length > 0
+        ? sql.join(inventoryConditions, sql` AND `)
+        : sql`1 = 1`;
+
+    const topItemsQuery = sql`
+      SELECT
+        p.id as "id",
+        p.product_name as "name",
+        COALESCE(SUM(oi.current_stock), 0) as "stockOnHand"
+      FROM outlet_inventory oi
+      JOIN products p ON oi.product_id = p.id
+      WHERE ${inventoryWhereClause}
+      GROUP BY p.id, p.product_name
+      HAVING COALESCE(SUM(oi.current_stock), 0) > 0
+      ORDER BY "stockOnHand" DESC, p.product_name ASC
+      LIMIT 5
+    `;
+
+    const topItemsRows = (await db.execute(topItemsQuery)) as Array<Record<string, unknown>>;
+    const topItems = topItemsRows.map((row) => ({
+      id: String(row.id ?? ""),
+      name: String(row.name ?? "Unknown Item"),
+      stockOnHand: Number(row.stockOnHand ?? 0),
+    }));
+
     return {
       receivables: totalReceivables,
       payables: totalPayables,
       cashOnHand: cashOnHand,
       salesTrend: trendData,
       topCustomers,
-      topItems: [],
+      topItems,
     };
   }
 
@@ -422,13 +464,13 @@ export class ReportsService {
       const term = params.search.trim().replaceAll(",", " ");
       query = query.or(
         [
-          "table_name.ilike.%${term}%",
-          "record_pk.ilike.%${term}%",
-          "actor_name.ilike.%${term}%",
-          "module_name.ilike.%${term}%",
-          "request_id.ilike.%${term}%",
-          "source.ilike.%${term}%",
-          "action.ilike.%${term}%",
+          `table_name.ilike.%${term}%`,
+          `record_pk.ilike.%${term}%`,
+          `actor_name.ilike.%${term}%`,
+          `module_name.ilike.%${term}%`,
+          `request_id.ilike.%${term}%`,
+          `source.ilike.%${term}%`,
+          `action.ilike.%${term}%`,
         ].join(","),
       );
     }

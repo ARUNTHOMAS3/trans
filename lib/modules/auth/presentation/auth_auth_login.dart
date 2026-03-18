@@ -3,7 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import '../models/auth_state.dart';
+import '../repositories/auth_repository.dart';
 
 // Simple provider for auth controller access
 final authControllerProvider = StateProvider<AuthState>((ref) => AuthInitial());
@@ -19,8 +21,15 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  late final AuthRepository _authRepository;
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _authRepository = AuthRepository(apiClient: ApiClient());
+  }
 
   @override
   void dispose() {
@@ -36,23 +45,34 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
       _isLoading = true;
     });
 
-    // Simulate login for now
-    await Future.delayed(Duration(seconds: 2));
-    
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-      
-      // For demo purposes, navigate to dashboard
-      context.go('/dashboard');
+    try {
+      await _authRepository.login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        context.go('/dashboard');
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Login failed: $error')));
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
@@ -72,7 +92,7 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
                     color: theme.colorScheme.primary,
                   ),
                   SizedBox(height: 24),
-                  
+
                   Text(
                     'Welcome to ZerpAI ERP',
                     style: theme.textTheme.headlineMedium?.copyWith(
@@ -82,7 +102,7 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
                     textAlign: TextAlign.center,
                   ),
                   SizedBox(height: 8),
-                  
+
                   Text(
                     'Sign in to your account',
                     style: theme.textTheme.bodyLarge?.copyWith(
@@ -124,8 +144,8 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
                       prefixIcon: Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword 
-                              ? Icons.visibility_off_outlined 
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
                               : Icons.visibility_outlined,
                         ),
                         onPressed: () {
@@ -163,12 +183,15 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
                         ? CircularProgressIndicator.adaptive()
                         : Text(
                             'Sign In',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                   ),
-                  
+
                   SizedBox(height: 24),
-                  
+
                   // Footer
                   Text(
                     '© 2026 ZerpAI ERP. All rights reserved.',

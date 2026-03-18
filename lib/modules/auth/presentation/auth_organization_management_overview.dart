@@ -2,7 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import '../repositories/auth_repository.dart';
 import '../models/organization_model.dart';
 
 class OrganizationManagementPage extends ConsumerStatefulWidget {
@@ -18,10 +20,14 @@ class _OrganizationManagementPageState
   List<Organization> _organizations = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  late final ApiClient _apiClient;
+  late final AuthRepository _authRepository;
 
   @override
   void initState() {
     super.initState();
+    _apiClient = ApiClient();
+    _authRepository = AuthRepository(apiClient: _apiClient);
     _loadOrganizations();
   }
 
@@ -31,59 +37,37 @@ class _OrganizationManagementPageState
     });
 
     try {
-      // Simulate API call
-      await Future.delayed(Duration(seconds: 1));
+      final user = await _authRepository.getUser();
+      final organizations = <Organization>[];
 
-      // Mock data for demonstration
-      final mockOrgs = [
-        Organization(
-          id: 'org1',
-          name: 'ABC Corporation',
-          legalName: 'ABC Corporation Pvt Ltd',
-          gstin: '27AABCCDEEFFGHH',
-          pan: 'ABCDE1234F',
-          phone: '+91 9876543210',
-          email: 'info@abccorp.com',
-          website: 'www.abccorp.com',
-          address: Address(
-            street: '123 Business Park',
-            city: 'Mumbai',
-            state: 'Maharashtra',
-            country: 'India',
-            postalCode: '400001',
-          ),
-          currency: 'INR',
-          timezone: 'Asia/Kolkata',
-          isActive: true,
-          createdAt: DateTime.now().subtract(Duration(days: 365)),
-          updatedAt: DateTime.now(),
-        ),
-        Organization(
-          id: 'org2',
-          name: 'XYZ Enterprises',
-          legalName: 'XYZ Enterprises Ltd',
-          gstin: '29ZZZYYYYXXXXWWW',
-          pan: 'XYZAB5678C',
-          phone: '+91 9876543211',
-          email: 'contact@xyzenterprises.com',
-          website: 'www.xyzenterprises.com',
-          address: Address(
-            street: '456 Industrial Area',
-            city: 'Bangalore',
-            state: 'Karnataka',
-            country: 'India',
-            postalCode: '560001',
-          ),
-          currency: 'INR',
-          timezone: 'Asia/Kolkata',
-          isActive: true,
-          createdAt: DateTime.now().subtract(Duration(days: 180)),
-          updatedAt: DateTime.now(),
-        ),
-      ];
+      if (user?.orgId.isNotEmpty == true) {
+        final response = await _apiClient.get('/lookups/org/${user!.orgId}');
+        if (response.success && response.data is Map<String, dynamic>) {
+          final orgData = Map<String, dynamic>.from(response.data as Map);
+          organizations.add(
+            Organization(
+              id: (orgData['id'] ?? '').toString(),
+              name: (orgData['name'] ?? '').toString(),
+              address: Address(
+                street: '',
+                city: '',
+                state: '',
+                country: '',
+                postalCode: '',
+              ),
+              currency: 'INR',
+              timezone: 'Asia/Kolkata',
+              isActive: true,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+              stateId: orgData['state_id']?.toString(),
+            ),
+          );
+        }
+      }
 
       setState(() {
-        _organizations = mockOrgs;
+        _organizations = organizations;
         _isLoading = false;
       });
     } catch (e) {

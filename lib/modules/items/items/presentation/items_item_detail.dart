@@ -19,6 +19,7 @@ import 'package:zerpai_erp/core/layout/zerpai_sidebar.dart';
 import 'sections/report/dialogs/import_items_dialog.dart';
 import 'sections/report/dialogs/export_items_dialog.dart';
 import 'sections/report/dialogs/bulk_update_dialog.dart';
+import 'sections/items_stock_providers.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';

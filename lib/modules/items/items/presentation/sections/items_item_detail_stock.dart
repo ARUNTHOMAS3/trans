@@ -60,51 +60,65 @@ extension _ItemDetailStock on _ItemDetailScreenState {
   }
 
   Widget _buildSerialNumbersTab(Item item) {
-    final serials = _getSampleSerials();
+    if (item.id == null) {
+      return _buildUnavailableStockState(
+        'Serial numbers are unavailable for this item.',
+      );
+    }
 
-    final filteredSerials = serials.where((serial) {
-      final matchesWarehouse =
-          _serialWarehouseFilter == 'all' ||
-          serial.warehouseName == _serialWarehouseFilter;
-      final matchesAvailability = _showAllSerialNumbers || serial.isAvailable;
-      return matchesWarehouse && matchesAvailability;
-    }).toList();
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text(
-                'Available Serial Numbers',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(width: 12),
-              _buildSerialFindLink(),
-              const Spacer(),
-              _buildSerialExportButton(),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _buildSerialWarehouseDropdown(),
-              const SizedBox(width: 16),
-              _buildShowAllSerialNumbersCheckbox(),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildSerialNumbersGrid(filteredSerials),
-        ],
+    final serialsAsync = ref.watch(itemSerialsProvider(item.id!));
+    return serialsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => _buildUnavailableStockState(
+        'Unable to load serial numbers from the database.',
       ),
+      data: (serials) {
+        final filteredSerials = serials.where((serial) {
+          final matchesWarehouse =
+              _serialWarehouseFilter == 'all' ||
+              serial.warehouseName == _serialWarehouseFilter;
+          final matchesAvailability =
+              _showAllSerialNumbers || serial.isAvailable;
+          return matchesWarehouse && matchesAvailability;
+        }).toList();
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'Available Serial Numbers',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(width: 12),
+                  _buildSerialFindLink(serials),
+                  const Spacer(),
+                  _buildSerialExportButton(),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _buildSerialWarehouseDropdown(serials),
+                  const SizedBox(width: 16),
+                  _buildShowAllSerialNumbersCheckbox(),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildSerialNumbersGrid(filteredSerials),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildSerialFindLink() {
+  Widget _buildSerialFindLink(List<SerialData> serials) {
     return InkWell(
-      onTap: _showSerialFindPanel,
+      onTap: () => _showSerialFindPanel(serials),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: const [
@@ -158,11 +172,13 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  Widget _buildSerialWarehouseDropdown() {
-    final warehouseLabels = {
-      'all': 'All',
-      'ZABNIX PRIVATE LIMITED': 'ZABNIX PRIVATE LIMITED',
-    };
+  Widget _buildSerialWarehouseDropdown(List<SerialData> serials) {
+    final warehouseLabels = <String, String>{'all': 'All'};
+    for (final serial in serials) {
+      if (serial.warehouseName.trim().isNotEmpty) {
+        warehouseLabels[serial.warehouseName] = serial.warehouseName;
+      }
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,8 +311,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  Future<void> _showSerialFindPanel() async {
-    final serials = _getSampleSerials();
+  Future<void> _showSerialFindPanel(List<SerialData> serials) async {
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -322,78 +337,33 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  List<SerialData> _getSampleSerials() {
-    return [
-      SerialData(
-        serialNumber: '1',
-        warehouseName: 'ZABNIX PRIVATE LIMITED',
-        isAvailable: true,
-      ),
-      SerialData(
-        serialNumber: '10',
-        warehouseName: 'ZABNIX PRIVATE LIMITED',
-        isAvailable: true,
-      ),
-      SerialData(
-        serialNumber: '2',
-        warehouseName: 'ZABNIX PRIVATE LIMITED',
-        isAvailable: true,
-      ),
-      SerialData(
-        serialNumber: '3',
-        warehouseName: 'ZABNIX PRIVATE LIMITED',
-        isAvailable: false,
-      ),
-      SerialData(
-        serialNumber: '4',
-        warehouseName: 'ZABNIX PRIVATE LIMITED',
-        isAvailable: true,
-      ),
-      SerialData(
-        serialNumber: '5',
-        warehouseName: 'ZABNIX PRIVATE LIMITED',
-        isAvailable: true,
-      ),
-      SerialData(
-        serialNumber: '6',
-        warehouseName: 'ZABNIX PRIVATE LIMITED',
-        isAvailable: true,
-      ),
-      SerialData(
-        serialNumber: '7',
-        warehouseName: 'ZABNIX PRIVATE LIMITED',
-        isAvailable: false,
-      ),
-      SerialData(
-        serialNumber: '8',
-        warehouseName: 'ZABNIX PRIVATE LIMITED',
-        isAvailable: true,
-      ),
-      SerialData(
-        serialNumber: '9',
-        warehouseName: 'ZABNIX PRIVATE LIMITED',
-        isAvailable: true,
-      ),
-    ];
-  }
-
   Widget _buildBatchNumbersTab(Item item) {
-    // Sample batch data - replace with actual data from your backend
-    final batches = _getSampleBatches();
+    if (item.id == null) {
+      return _buildUnavailableStockState(
+        'Batch details are unavailable for this item.',
+      );
+    }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildBatchFiltersRow(),
-          const SizedBox(height: 16),
-          if (_selectedBatchRefs.isNotEmpty) ...[
-            _buildBatchBulkActionsBar(),
-            const SizedBox(height: 12),
+    final batchesAsync = ref.watch(itemBatchesProvider(item.id!));
+    return batchesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => _buildUnavailableStockState(
+        'Unable to load batch details from the database.',
+      ),
+      data: (batches) => SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildBatchFiltersRow(item, batches),
+            const SizedBox(height: 16),
+            if (_selectedBatchRefs.isNotEmpty) ...[
+              _buildBatchBulkActionsBar(),
+              const SizedBox(height: 12),
+            ],
+            _buildBatchTable(batches),
           ],
-          _buildBatchTable(batches),
-        ],
+        ),
       ),
     );
   }
@@ -501,27 +471,41 @@ extension _ItemDetailStock on _ItemDetailScreenState {
   }
 
   Widget _buildTransactionsTab(Item item) {
-    final transactions = _getSampleTransactions();
-    final filtered = transactions.where((tx) {
-      final matchesType =
-          _transactionTypeFilter == 'all' ||
-          tx.documentType == _transactionTypeFilter;
-      final matchesStatus =
-          _transactionStatusFilter == 'all' ||
-          tx.status == _transactionStatusFilter;
-      return matchesType && matchesStatus;
-    }).toList();
+    if (item.id == null) {
+      return _buildUnavailableStockState(
+        'Stock transactions are unavailable for this item.',
+      );
+    }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildTransactionFiltersRow(),
-          const SizedBox(height: 12),
-          _buildTransactionsTable(filtered),
-        ],
+    final transactionsAsync = ref.watch(stockTransactionsProvider(item.id!));
+    return transactionsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => _buildUnavailableStockState(
+        'Unable to load stock transactions from the database.',
       ),
+      data: (transactions) {
+        final filtered = transactions.where((tx) {
+          final matchesType =
+              _transactionTypeFilter == 'all' ||
+              tx.documentType == _transactionTypeFilter;
+          final matchesStatus =
+              _transactionStatusFilter == 'all' ||
+              tx.status == _transactionStatusFilter;
+          return matchesType && matchesStatus;
+        }).toList();
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTransactionFiltersRow(),
+              const SizedBox(height: 12),
+              _buildTransactionsTable(filtered),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -856,61 +840,6 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  List<TransactionData> _getSampleTransactions() {
-    return [
-      TransactionData(
-        date: '22-05-2025',
-        documentNumber: 'SO-00014',
-        customerName: 'Althaf M',
-        quantitySold: 5,
-        price: 100,
-        total: 500,
-        status: 'confirmed',
-        documentType: 'salesOrders',
-      ),
-      TransactionData(
-        date: '22-05-2025',
-        documentNumber: 'SO-00015',
-        customerName: 'Althaf M',
-        quantitySold: 1,
-        price: 100,
-        total: 100,
-        status: 'confirmed',
-        documentType: 'salesOrders',
-      ),
-      TransactionData(
-        date: '10-05-2025',
-        documentNumber: 'INV-00042',
-        customerName: 'Test Vendor',
-        quantitySold: 2,
-        price: 200,
-        total: 400,
-        status: 'invoiced',
-        documentType: 'invoices',
-      ),
-      TransactionData(
-        date: '08-05-2025',
-        documentNumber: 'DC-00019',
-        customerName: 'Test Vendor',
-        quantitySold: 3,
-        price: 150,
-        total: 450,
-        status: 'shipped',
-        documentType: 'deliveryChallans',
-      ),
-      TransactionData(
-        date: '01-05-2025',
-        documentNumber: 'PO-00007',
-        customerName: 'ZABNIX PRIVATE LIMITED',
-        quantitySold: 4,
-        price: 80,
-        total: 320,
-        status: 'draft',
-        documentType: 'purchaseOrders',
-      ),
-    ];
-  }
-
   String _formatHistoryDate(DateTime date) {
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
@@ -939,16 +868,16 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  Widget _buildBatchFiltersRow() {
+  Widget _buildBatchFiltersRow(Item item, List<BatchData> batches) {
     return Row(
       children: [
         _buildBatchFilterDropdown(),
         const SizedBox(width: 12),
-        _buildWarehouseFilterDropdown(),
+        _buildWarehouseFilterDropdown(item),
         const SizedBox(width: 12),
         _buildShowEmptyBatchesCheckbox(),
         const Spacer(),
-        _buildBatchFindLink(),
+        _buildBatchFindLink(batches),
         const SizedBox(width: 12),
         _buildNewBatchButton(),
       ],
@@ -972,8 +901,12 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  Widget _buildWarehouseFilterDropdown() {
-    final warehouseLabels = {'all': 'All', 'zabnix': 'ZABNIX PRIVATE LIMITED'};
+  Widget _buildWarehouseFilterDropdown(Item item) {
+    final warehouseLabels = <String, String>{'all': 'All'};
+    final storageName = item.storageName?.trim();
+    if (storageName != null && storageName.isNotEmpty) {
+      warehouseLabels[storageName] = storageName;
+    }
 
     return _buildTransactionMenuButton(
       label: 'Warehouse: ${warehouseLabels[_warehouseFilter] ?? 'All'}',
@@ -1021,9 +954,9 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  Widget _buildBatchFindLink() {
+  Widget _buildBatchFindLink(List<BatchData> batches) {
     return InkWell(
-      onTap: _showBatchFindPanel,
+      onTap: () => _showBatchFindPanel(batches),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: const [
@@ -1042,8 +975,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  Future<void> _showBatchFindPanel() async {
-    final batches = _getSampleBatches();
+  Future<void> _showBatchFindPanel(List<BatchData> batches) async {
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -1502,81 +1434,13 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  List<BatchData> _getSampleBatches() {
-    return [
-      BatchData(
-        batchReference: '0001',
-        manufacturerBatch: '',
-        unitPack: 0,
-        manufacturedDate: '',
-        expiryDate: '08-03-2025',
-        quantityIn: 10,
-        quantityAvailable: 0,
+  Widget _buildUnavailableStockState(String message) {
+    return Center(
+      child: Text(
+        message,
+        style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
       ),
-      BatchData(
-        batchReference: '11114',
-        manufacturerBatch: '',
-        unitPack: 0,
-        manufacturedDate: '',
-        expiryDate: '27-03-2099',
-        quantityIn: 2,
-        quantityAvailable: 2,
-      ),
-      BatchData(
-        batchReference: 'AAAA',
-        manufacturerBatch: '',
-        unitPack: 0,
-        manufacturedDate: '',
-        expiryDate: '04-02-2025',
-        quantityIn: 1,
-        quantityAvailable: 1,
-      ),
-      BatchData(
-        batchReference: 'BBBB',
-        manufacturerBatch: '',
-        unitPack: 0,
-        manufacturedDate: '',
-        expiryDate: '26-02-2025',
-        quantityIn: 5,
-        quantityAvailable: 5,
-      ),
-      BatchData(
-        batchReference: 'FGFG',
-        manufacturerBatch: 'HGHGH',
-        unitPack: 0,
-        manufacturedDate: '14-04-2025',
-        expiryDate: '17-10-2025',
-        quantityIn: 0,
-        quantityAvailable: 0,
-      ),
-      BatchData(
-        batchReference: 'OOOO',
-        manufacturerBatch: '',
-        unitPack: 0,
-        manufacturedDate: '',
-        expiryDate: '08-03-2024',
-        quantityIn: 2,
-        quantityAvailable: 2,
-      ),
-      BatchData(
-        batchReference: 'SG',
-        manufacturerBatch: '1643',
-        unitPack: 0,
-        manufacturedDate: '01-02-2025',
-        expiryDate: '28-02-2025',
-        quantityIn: 0,
-        quantityAvailable: 0,
-      ),
-      BatchData(
-        batchReference: 'shabin',
-        manufacturerBatch: '',
-        unitPack: 0,
-        manufacturedDate: '15-04-2025',
-        expiryDate: '31-05-2025',
-        quantityIn: 0,
-        quantityAvailable: 0,
-      ),
-    ];
+    );
   }
 
   Widget _buildWarehouseTable(
@@ -1865,14 +1729,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
 
   List<WarehouseStockRow> _resolveWarehouseRows(ItemsState state, Item item) {
     if (state.storageLocations.isEmpty) {
-      return [
-        WarehouseStockRow(
-          name: 'Primary Warehouse',
-          isPrimary: true,
-          accounting: StockNumbers(onHand: item.stockOnHand ?? 0, committed: 0),
-          physical: StockNumbers(onHand: item.stockOnHand ?? 0, committed: 0),
-        ),
-      ];
+      return [];
     }
 
     return state.storageLocations.map((loc) {

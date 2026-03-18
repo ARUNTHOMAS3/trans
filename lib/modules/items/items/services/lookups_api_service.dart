@@ -9,6 +9,22 @@ import 'package:zerpai_erp/modules/items/items/models/uqc_model.dart';
 class LookupsApiService {
   final ApiClient _apiClient = ApiClient();
 
+  Future<Map<String, dynamic>> getLookupBootstrap() async {
+    try {
+      final response = await _apiClient.get(
+        '/products/lookups/bootstrap',
+        useCache: false,
+      );
+      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+        return Map<String, dynamic>.from(response.data as Map<String, dynamic>);
+      }
+      return <String, dynamic>{};
+    } catch (e) {
+      debugPrint('❌ Lookup bootstrap API Error: $e');
+      return <String, dynamic>{};
+    }
+  }
+
   Future<List<Uqc>> getUqc() async {
     try {
       final response = await _apiClient.get('/products/lookups/uqc');

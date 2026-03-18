@@ -142,9 +142,7 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
       isbn: item.isbn,
 
       // Inventory
-      stockOnHand: (item.isTrackInventory && item.sellingPrice != null)
-          ? '10.00' // TODO: Get real stock from inventory module
-          : '0.00',
+      stockOnHand: (item.stockOnHand ?? 0).toStringAsFixed(2),
       reorderLevel: item.reorderPoint > 0 ? item.reorderPoint.toString() : null,
       inventoryValuationMethod: item.inventoryValuationMethod,
       storageLocation: storageName,

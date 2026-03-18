@@ -101,23 +101,23 @@ class HomeDashboardScreen extends ConsumerWidget {
                   Expanded(
                     child: _InfoCard(
                       title: 'Top Customers',
-                      child: const Center(
-                        child: Text(
-                          'No recent data available',
-                          style: TextStyle(color: AppTheme.textSecondary),
-                        ),
+                      child: _TopMetricList(
+                        rows: state.topCustomers,
+                        emptyMessage: 'No customer sales data available',
+                        valueKey: 'amount',
+                        valueLabelBuilder: (value) => currencyFormat.format(value),
                       ),
                     ),
                   ),
                   const SizedBox(width: AppTheme.space16),
                   Expanded(
                     child: _InfoCard(
-                      title: 'Top Items by Sales',
-                      child: const Center(
-                        child: Text(
-                          'No recent data available',
-                          style: TextStyle(color: AppTheme.textSecondary),
-                        ),
+                      title: 'Top Inventory Items',
+                      child: _TopMetricList(
+                        rows: state.topItems,
+                        emptyMessage: 'No inventory movement data available',
+                        valueKey: 'stockOnHand',
+                        valueLabelBuilder: (value) => '${value.toStringAsFixed(0)} units',
                       ),
                     ),
                   ),
@@ -523,6 +523,79 @@ class _InfoCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _TopMetricList extends StatelessWidget {
+  final List<Map<String, dynamic>> rows;
+  final String emptyMessage;
+  final String valueKey;
+  final String Function(double value) valueLabelBuilder;
+
+  const _TopMetricList({
+    required this.rows,
+    required this.emptyMessage,
+    required this.valueKey,
+    required this.valueLabelBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) {
+      return Center(
+        child: Text(
+          emptyMessage,
+          style: const TextStyle(color: AppTheme.textSecondary),
+        ),
+      );
+    }
+
+    final visibleRows = rows.take(5).toList();
+    return Column(
+      children: visibleRows.asMap().entries.map((entry) {
+        final row = entry.value;
+        final value = (row[valueKey] as num?)?.toDouble() ?? 0;
+        return Container(
+          padding: EdgeInsets.only(
+            top: entry.key == 0 ? 0 : 12,
+            bottom: 12,
+          ),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: entry.key == visibleRows.length - 1
+                    ? Colors.transparent
+                    : AppTheme.borderColor,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  (row['name'] ?? 'Unknown').toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                valueLabelBuilder(value),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

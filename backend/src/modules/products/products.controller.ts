@@ -175,6 +175,11 @@ export class ProductsController {
     return this.productsService.getBrands();
   }
 
+  @Get("lookups/bootstrap")
+  getLookupBootstrap() {
+    return this.productsService.getLookupBootstrap();
+  }
+
   @Get("lookups/manufacturers/search")
   searchManufacturers(@Query("q") query: string) {
     return this.productsService.searchManufacturers(query);
@@ -433,6 +438,11 @@ export class ProductsController {
   @Get(":id/quick-stats")
   async getQuickStats(@Param("id") id: string) {
     return this.productsService.getQuickStats(id);
+  }
+
+  @Get(":id/batches")
+  async getBatches(@Param("id") id: string) {
+    return this.productsService.getBatches(id);
   }
 
   @Get(":id")

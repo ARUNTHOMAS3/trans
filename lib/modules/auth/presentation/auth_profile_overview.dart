@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
+import '../repositories/user_management_repository.dart';
 import '../models/user_profile_model.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
@@ -15,10 +17,12 @@ class ProfilePage extends ConsumerStatefulWidget {
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   UserProfile? _profile;
   bool _isLoading = true;
+  late final UserManagementRepository _repository;
 
   @override
   void initState() {
     super.initState();
+    _repository = UserManagementRepository(apiClient: ApiClient());
     _loadProfile();
   }
 
@@ -28,30 +32,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     });
 
     try {
-      // Simulate API call
-      await Future.delayed(Duration(seconds: 1));
-
-      // Mock data for demonstration
-      final mockProfile = UserProfile(
-        id: 'current-user',
-        email: 'user@example.com',
-        fullName: 'John Doe',
-        role: 'ho_admin',
-        orgId: 'org1',
-        orgName: 'Main Organization',
-        phoneNumber: '+1234567890',
-        department: 'Operations',
-        position: 'Manager',
-        avatarUrl: null,
-        isActive: true,
-        isVerified: true,
-        lastLoginAt: DateTime.now().subtract(Duration(hours: 2)),
-        createdAt: DateTime.now().subtract(Duration(days: 365)),
-        updatedAt: DateTime.now(),
-      );
+      final profile = await _repository.getCurrentUserProfile();
 
       setState(() {
-        _profile = mockProfile;
+        _profile = profile;
         _isLoading = false;
       });
     } catch (e) {

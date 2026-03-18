@@ -533,31 +533,9 @@ class ItemsRepositoryImpl implements ItemRepository {
   @override
   Future<List<SerialData>> getItemSerials(String itemId) async {
     try {
-      // Mock API call
-      await Future.delayed(const Duration(milliseconds: 300));
-      final serials = [
-        SerialData(
-          serialNumber: 'SN-001',
-          warehouseName: 'Primary Warehouse',
-          isAvailable: true,
-        ),
-        SerialData(
-          serialNumber: 'SN-002',
-          warehouseName: 'Primary Warehouse',
-          isAvailable: false,
-        ),
-        SerialData(
-          serialNumber: 'SN-003',
-          warehouseName: 'Secondary Warehouse',
-          isAvailable: true,
-        ),
-      ];
-
-      // Cache to Hive
-      await _hiveService.saveItemSerials(itemId, serials);
-      return serials;
+      return _hiveService.getItemSerials(itemId);
     } catch (e) {
-      AppLogger.warning('Failed to fetch serials from API, using cache');
+      AppLogger.warning('Failed to read cached serials', error: e);
       return _hiveService.getItemSerials(itemId);
     }
   }
@@ -565,43 +543,42 @@ class ItemsRepositoryImpl implements ItemRepository {
   @override
   Future<List<BatchData>> getItemBatches(String itemId) async {
     try {
-      await Future.delayed(const Duration(milliseconds: 300));
-      final batches = [
-        BatchData(
-          batchReference: 'B-2024-001',
-          manufacturerBatch: 'MF-88',
-          unitPack: 10,
-          manufacturedDate: '01-01-2024',
-          expiryDate: '01-01-2026',
-          quantityIn: 500,
-          quantityAvailable: 320,
-        ),
-      ];
+      final rawBatches = await _apiService.getProductBatches(itemId);
+      final batches = rawBatches.map((batch) {
+        String formatDate(dynamic raw) {
+          if (raw == null || raw.toString().trim().isEmpty) return '';
+          final parsed = DateTime.tryParse(raw.toString());
+          if (parsed == null) return raw.toString();
+          final day = parsed.day.toString().padLeft(2, '0');
+          final month = parsed.month.toString().padLeft(2, '0');
+          final year = parsed.year.toString();
+          return '$day-$month-$year';
+        }
+
+        return BatchData(
+          batchReference: (batch['batch'] ?? '').toString(),
+          manufacturerBatch:
+              (batch['manufacture_batch_number'] ?? '').toString(),
+          unitPack: int.tryParse((batch['unit_pack'] ?? '0').toString()) ?? 0,
+          manufacturedDate: formatDate(batch['manufacture_exp']),
+          expiryDate: formatDate(batch['exp']),
+          quantityIn: 0,
+          quantityAvailable: 0,
+        );
+      }).toList();
+
       await _hiveService.saveItemBatches(itemId, batches);
       return batches;
     } catch (e) {
-      return []; // Implement _hiveService.getItemBatches if needed
+      AppLogger.warning('Failed to fetch item batches from API', error: e);
+      return [];
     }
   }
 
   @override
   Future<List<TransactionData>> getItemStockTransactions(String itemId) async {
     try {
-      await Future.delayed(const Duration(milliseconds: 300));
-      final transactions = [
-        TransactionData(
-          date: '2024-03-01',
-          documentNumber: 'INV-1001',
-          customerName: 'General Pharma',
-          quantitySold: 10,
-          price: 15.0,
-          total: 150.0,
-          status: 'completed',
-          documentType: 'sale',
-        ),
-      ];
-      await _hiveService.saveItemStockTransactions(itemId, transactions);
-      return transactions;
+      return [];
     } catch (e) {
       return [];
     }

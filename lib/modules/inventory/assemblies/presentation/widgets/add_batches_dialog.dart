@@ -7,13 +7,14 @@ class AddBatchesDialog extends StatefulWidget {
   final String productName;
   final String warehouseName;
   final double totalQuantity;
+  final List<String> existingBatches;
 
   const AddBatchesDialog({
     super.key,
-
     required this.productName,
     required this.warehouseName,
     required this.totalQuantity,
+    this.existingBatches = const [],
   });
 
   @override
@@ -25,14 +26,6 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
   double _quantityToBeAdded = 0;
 
   final List<BatchRowControllers> _batchRows = [];
-
-  // Mock batches for demonstration
-  final List<String> _existingBatches = [
-    'B-2024-001',
-    'B-2024-002',
-    'B-2025-001',
-    'AL-BATCH-99',
-  ];
 
   @override
   void initState() {
@@ -318,8 +311,10 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
                         value: row.reference.text.isEmpty
                             ? null
                             : row.reference.text,
-                        items: _existingBatches,
-                        hint: 'Select Batch',
+                        items: widget.existingBatches,
+                        hint: widget.existingBatches.isEmpty
+                            ? 'No existing batches'
+                            : 'Select Batch',
                         height: 36,
                         onChanged: (val) {
                           setState(() {

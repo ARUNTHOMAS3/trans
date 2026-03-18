@@ -372,33 +372,154 @@ class ItemsController extends StateNotifier<ItemsState> {
       state = state.copyWith(isLoadingLookups: true);
       AppLogger.debug('Loading lookup data', module: 'items');
 
-      // Load all lookup data in parallel for significant performance improvement
-      // Load lookup data in parallel.
-      // NOTE: We EXCLUDE contents and strengths here because they can be very large
-      // and are better handled via search-on-demand (Autocomplete).
-      final futureResults = await Future.wait([
-        _lookupsService.getUnits(),
-        _lookupsService.getCategories(),
-        _lookupsService.getTaxRates(),
-        _lookupsService.getTaxGroups(),
-        _lookupsService.getManufacturers(),
-        _lookupsService.getBrands(),
-        _lookupsService.getVendors(),
-        _lookupsService.getStorageLocations(),
-        _lookupsService.getRacks(),
-        _lookupsService.getReorderTerms(),
-        _lookupsService.getAccounts(),
-        _lookupsService.getBuyingRules(),
-        _lookupsService.getDrugSchedules(),
-        _lookupsService.getUqc(),
-      ]);
+      final bootstrap = await _lookupsService.getLookupBootstrap();
 
-      final units = futureResults[0] as List<Unit>;
-      final categories = futureResults[1] as List<Map<String, dynamic>>;
-      final taxRates = futureResults[2] as List<TaxRate>;
-      final taxGroups = futureResults[3] as List<TaxRate>;
+      List<Unit> units;
+      List<Map<String, dynamic>> categories;
+      List<TaxRate> taxRates;
+      List<TaxRate> taxGroups;
+      List<Map<String, dynamic>> manufacturersRaw;
+      List<Map<String, dynamic>> brandsRaw;
+      List<Map<String, dynamic>> vendorsRaw;
+      List<Map<String, dynamic>> storageLocationsRaw;
+      List<Map<String, dynamic>> racksRaw;
+      List<Map<String, dynamic>> reorderTermsRaw;
+      List<Map<String, dynamic>> accountsRaw;
+      List<Map<String, dynamic>> contentsRaw;
+      List<Map<String, dynamic>> strengthsRaw;
+      List<Map<String, dynamic>> buyingRulesRaw;
+      List<Map<String, dynamic>> drugSchedulesRaw;
+      List<Uqc> uqcList;
 
-      final manufacturers = (futureResults[4] as List<Map<String, dynamic>>)
+      if (bootstrap.isNotEmpty) {
+        units = List<dynamic>.from(bootstrap['units'] ?? const [])
+            .map(
+              (json) => Unit.fromJson(Map<String, dynamic>.from(json as Map)),
+            )
+            .toList();
+        categories = List<Map<String, dynamic>>.from(
+          bootstrap['categories'] ?? const [],
+        );
+        taxRates = List<dynamic>.from(bootstrap['taxRates'] ?? const [])
+            .map(
+              (json) =>
+                  TaxRate.fromJson(Map<String, dynamic>.from(json as Map)),
+            )
+            .toList();
+        taxGroups = List<dynamic>.from(bootstrap['taxGroups'] ?? const []).map((
+          json,
+        ) {
+          final map = Map<String, dynamic>.from(json as Map);
+          return TaxRate.fromJson({...map, 'tax_name': map['tax_group_name']});
+        }).toList();
+        manufacturersRaw = List<Map<String, dynamic>>.from(
+          bootstrap['manufacturers'] ?? const [],
+        );
+        brandsRaw = List<Map<String, dynamic>>.from(
+          bootstrap['brands'] ?? const [],
+        );
+        vendorsRaw = List<Map<String, dynamic>>.from(
+          bootstrap['vendors'] ?? const [],
+        );
+        storageLocationsRaw = List<Map<String, dynamic>>.from(
+          bootstrap['storageLocations'] ?? const [],
+        );
+        racksRaw = List<Map<String, dynamic>>.from(
+          bootstrap['racks'] ?? const [],
+        );
+        reorderTermsRaw = List<Map<String, dynamic>>.from(
+          bootstrap['reorderTerms'] ?? const [],
+        );
+        accountsRaw = List<Map<String, dynamic>>.from(
+          bootstrap['accounts'] ?? const [],
+        );
+        contentsRaw = List<Map<String, dynamic>>.from(
+          bootstrap['contents'] ?? const [],
+        );
+        strengthsRaw = List<Map<String, dynamic>>.from(
+          bootstrap['strengths'] ?? const [],
+        );
+        buyingRulesRaw = List<Map<String, dynamic>>.from(
+          bootstrap['buyingRules'] ?? const [],
+        );
+        drugSchedulesRaw = List<Map<String, dynamic>>.from(
+          bootstrap['drugSchedules'] ?? const [],
+        );
+        uqcList = List<dynamic>.from(bootstrap['uqc'] ?? const [])
+            .map((json) => Uqc.fromJson(Map<String, dynamic>.from(json as Map)))
+            .toList();
+
+        if (contentsRaw.isEmpty) {
+          contentsRaw = await _lookupsService.getContents();
+        }
+        if (strengthsRaw.isEmpty) {
+          strengthsRaw = await _lookupsService.getStrengths();
+        }
+      } else {
+        // Fallback path keeps development resilient if the bootstrap endpoint
+        // is unavailable while the client/backend are out of sync.
+        final futureResults = await Future.wait([
+          _lookupsService.getUnits(),
+          _lookupsService.getCategories(),
+          _lookupsService.getTaxRates(),
+          _lookupsService.getTaxGroups(),
+          _lookupsService.getManufacturers(),
+          _lookupsService.getBrands(),
+          _lookupsService.getVendors(),
+          _lookupsService.getStorageLocations(),
+          _lookupsService.getRacks(),
+          _lookupsService.getReorderTerms(),
+          _lookupsService.getAccounts(),
+          _lookupsService.getContents(),
+          _lookupsService.getStrengths(),
+          _lookupsService.getBuyingRules(),
+          _lookupsService.getDrugSchedules(),
+          _lookupsService.getUqc(),
+        ]);
+
+        units = futureResults[0] as List<Unit>;
+        categories = futureResults[1] as List<Map<String, dynamic>>;
+        taxRates = futureResults[2] as List<TaxRate>;
+        taxGroups = futureResults[3] as List<TaxRate>;
+        manufacturersRaw = List<Map<String, dynamic>>.from(
+          futureResults[4] as List<Map<String, dynamic>>,
+        );
+        brandsRaw = List<Map<String, dynamic>>.from(
+          futureResults[5] as List<Map<String, dynamic>>,
+        );
+        vendorsRaw = List<Map<String, dynamic>>.from(
+          futureResults[6] as List<Map<String, dynamic>>,
+        );
+        storageLocationsRaw = List<Map<String, dynamic>>.from(
+          futureResults[7] as List<Map<String, dynamic>>,
+        );
+        racksRaw = List<Map<String, dynamic>>.from(
+          futureResults[8] as List<Map<String, dynamic>>,
+        );
+        reorderTermsRaw = List<Map<String, dynamic>>.from(
+          futureResults[9] as List<Map<String, dynamic>>,
+        );
+        accountsRaw = List<Map<String, dynamic>>.from(
+          futureResults[10] as List<Map<String, dynamic>>,
+        );
+        contentsRaw = List<Map<String, dynamic>>.from(
+          futureResults[11] as List<Map<String, dynamic>>,
+        );
+        strengthsRaw = List<Map<String, dynamic>>.from(
+          futureResults[12] as List<Map<String, dynamic>>,
+        );
+        buyingRulesRaw = List<Map<String, dynamic>>.from(
+          futureResults[13] as List<Map<String, dynamic>>,
+        );
+        drugSchedulesRaw = List<Map<String, dynamic>>.from(
+          futureResults[14] as List<Map<String, dynamic>>,
+        );
+        uqcList = (futureResults.length > 15)
+            ? (futureResults[15] as List<Uqc>)
+            : <Uqc>[];
+      }
+
+      final manufacturers = manufacturersRaw
           .map(
             (m) => {
               ...m,
@@ -407,11 +528,11 @@ class ItemsController extends StateNotifier<ItemsState> {
           )
           .toList();
 
-      final brands = (futureResults[5] as List<Map<String, dynamic>>)
+      final brands = brandsRaw
           .map((b) => {...b, 'name': b['name'] ?? b['brand_name'] ?? 'Unknown'})
           .toList();
 
-      final vendors = (futureResults[6] as List<Map<String, dynamic>>)
+      final vendors = vendorsRaw
           .map(
             (v) => {
               ...v,
@@ -424,23 +545,23 @@ class ItemsController extends StateNotifier<ItemsState> {
           )
           .toList();
 
-      final storageLocations = (futureResults[7] as List<Map<String, dynamic>>)
+      final storageLocations = storageLocationsRaw
           .map(
             (s) => {...s, 'name': s['name'] ?? s['location_name'] ?? 'Unknown'},
           )
           .toList();
 
-      final racks = (futureResults[8] as List<Map<String, dynamic>>)
+      final racks = racksRaw
           .map((r) => {...r, 'name': r['name'] ?? r['rack_code'] ?? 'Unknown'})
           .toList();
 
-      final reorderTerms = (futureResults[9] as List<Map<String, dynamic>>)
+      final reorderTerms = reorderTermsRaw
           .map(
             (rt) => {...rt, 'name': rt['name'] ?? rt['term_name'] ?? 'Unknown'},
           )
           .toList();
 
-      final accounts = (futureResults[10] as List<Map<String, dynamic>>)
+      final accounts = accountsRaw
           .map(
             (a) => {
               ...a,
@@ -449,7 +570,33 @@ class ItemsController extends StateNotifier<ItemsState> {
           )
           .toList();
 
-      final buyingRules = (futureResults[11] as List<Map<String, dynamic>>)
+      final contents = contentsRaw
+          .map(
+            (c) => {
+              ...c,
+              'name':
+                  c['name'] ??
+                  c['item_content'] ??
+                  c['content_name'] ??
+                  'Unknown',
+            },
+          )
+          .toList();
+
+      final strengths = strengthsRaw
+          .map(
+            (s) => {
+              ...s,
+              'name':
+                  s['name'] ??
+                  s['item_strength'] ??
+                  s['strength_name'] ??
+                  'Unknown',
+            },
+          )
+          .toList();
+
+      final buyingRules = buyingRulesRaw
           .map(
             (br) => {
               ...br,
@@ -462,7 +609,7 @@ class ItemsController extends StateNotifier<ItemsState> {
           )
           .toList();
 
-      final drugSchedules = (futureResults[12] as List<Map<String, dynamic>>)
+      final drugSchedules = drugSchedulesRaw
           .map(
             (ds) => {
               ...ds,
@@ -474,10 +621,6 @@ class ItemsController extends StateNotifier<ItemsState> {
             },
           )
           .toList();
-
-      final uqcList = (futureResults.length > 13)
-          ? (futureResults[13] as List<Uqc>)
-          : <Uqc>[];
 
       state = state.copyWith(
         units: units,
@@ -491,8 +634,8 @@ class ItemsController extends StateNotifier<ItemsState> {
         racks: racks,
         reorderTerms: reorderTerms,
         accounts: accounts,
-        contents: [], // Handled by search-on-demand
-        strengths: [], // Handled by search-on-demand
+        contents: contents,
+        strengths: strengths,
         buyingRules: buyingRules,
         drugSchedules: drugSchedules,
         uqcList: uqcList,

@@ -2,8 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import '../models/print_template.dart';
+import '../repositories/print_template_repository.dart';
 import '../widgets/template_editor.dart';
 
 class PrintTemplatesPage extends ConsumerStatefulWidget {
@@ -19,10 +21,12 @@ class _PrintTemplatesPageState extends ConsumerState<PrintTemplatesPage> {
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedType = 'all';
+  late final PrintTemplateRepository _repository;
 
   @override
   void initState() {
     super.initState();
+    _repository = PrintTemplateRepository(apiClient: ApiClient());
     _loadTemplates();
   }
 
@@ -32,53 +36,10 @@ class _PrintTemplatesPageState extends ConsumerState<PrintTemplatesPage> {
     });
 
     try {
-      // Simulate loading templates
-      await Future.delayed(Duration(seconds: 1));
-
-      final mockTemplates = [
-        PrintTemplate(
-          id: '1',
-          name: 'Standard Invoice Template',
-          type: TemplateType.invoice,
-          content: '<html>...</html>',
-          variables: {'company_name': 'Acme Corp'},
-          description: 'Default invoice template for all customers',
-          isDefault: true,
-          isActive: true,
-          createdBy: 'admin',
-          createdAt: DateTime.now().subtract(Duration(days: 30)),
-          updatedAt: DateTime.now(),
-        ),
-        PrintTemplate(
-          id: '2',
-          name: 'Professional Receipt Template',
-          type: TemplateType.receipt,
-          content: '<html>...</html>',
-          variables: {'company_name': 'Acme Corp'},
-          description: 'Elegant receipt design for customer payments',
-          isDefault: true,
-          isActive: true,
-          createdBy: 'admin',
-          createdAt: DateTime.now().subtract(Duration(days: 15)),
-          updatedAt: DateTime.now(),
-        ),
-        PrintTemplate(
-          id: '3',
-          name: 'Custom Purchase Order',
-          type: TemplateType.purchaseOrder,
-          content: '<html>...</html>',
-          variables: {'company_name': 'Acme Corp'},
-          description: 'Custom PO template for suppliers',
-          isDefault: false,
-          isActive: true,
-          createdBy: 'manager',
-          createdAt: DateTime.now().subtract(Duration(days: 5)),
-          updatedAt: DateTime.now(),
-        ),
-      ];
+      final templates = await _repository.getTemplates();
 
       setState(() {
-        _templates = mockTemplates;
+        _templates = templates;
         _applyFilters();
         _isLoading = false;
       });

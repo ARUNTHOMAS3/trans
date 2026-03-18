@@ -7,12 +7,31 @@ extension _CustomFieldsSection on _SalesCustomerCreateScreenState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildFormRow(
-            label: 'demo field',
-            child: CustomTextField(
-              height: _inputHeight,
-              controller: demoFieldCtrl,
-              forceUppercase: false,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No custom fields configured',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Custom customer fields will appear here after they are configured from the backend settings.',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
