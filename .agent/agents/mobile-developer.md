@@ -123,6 +123,8 @@ The sidebar at `lib/core/layout/zerpai_sidebar.dart` follows this EXACT order:
 > ❌ MUST NOT hardcode hex values in widgets. Use theme tokens.
 > ✅ Dialogs, popup menus, dropdown overlays, date pickers, popovers, and similar floating surfaces must explicitly resolve to pure white `#FFFFFF` instead of inheriting tinted Material surfaces.
 > ✅ Reuse `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` for anchored business date input flows instead of adding fresh raw `showDatePicker(...)` usages by default.
+> ✅ Prefer real DB-backed data and DB-backed lookup defaults, keep empty/error states explicit, centralize shared control styling, and keep warehouse/storage/accounting/physical concerns separated.
+> ✅ Keep save/create buttons, cancel/secondary buttons, upload controls, and border/divider colors on centralized shared styling rather than per-screen color choices.
 
 ### Typography (Non-Negotiable)
 

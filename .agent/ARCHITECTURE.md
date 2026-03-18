@@ -27,6 +27,15 @@
 - Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the standard reusable date picker for anchored business date inputs.
 - Treat new raw `showDatePicker(...)` usage as an exception that must be justified, not the default pattern.
 
+## Global Settings Rules
+
+- Prefer real DB-backed runtime data wherever a schema-backed source exists; do not normalize dummy/demo values into production paths.
+- Keep empty states and error states explicit instead of masking failures with fabricated business values.
+- Resolve master defaults from DB-backed rows where schema-backed master tables exist.
+- Centralize reusable control styling and behavior instead of duplicating ERP patterns per screen.
+- Keep warehouse masters, storage/location masters, accounting stock, and physical stock as separate concepts.
+- Keep save/create buttons, cancel/secondary actions, upload affordances, and border/divider treatments on centralized theme rules rather than screen-local color choices.
+
 ## 🚦 Agent Routing Quick Reference
 
 | Task                      | Use Agent            |

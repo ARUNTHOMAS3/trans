@@ -113,6 +113,8 @@ When user's prompt is NOT in English:
 - **Infra/Safety**: 5-Phase Deployment. Verify secrets security.
 - **Zerpai UI Surface Rule**: Dialogs, popup menus, dropdown overlays, date pickers, popovers, and modal surfaces must default to pure white `#FFFFFF`; do not rely on inherited tinted Material surfaces unless explicitly requested.
 - **Zerpai Shared Date Picker Rule**: Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the default reusable date picker wherever the anchored/shared picker pattern is feasible. Do not introduce raw `showDatePicker(...)` by default for normal ERP date flows.
+- **Zerpai Global Settings Rules**: Prefer real DB-backed data and DB-backed master defaults, keep empty/error states explicit, centralize shared control styling, and keep warehouse/storage/accounting/physical concerns separate.
+- **Zerpai Button/Border/Upload Rules**: Keep primary save/create buttons, neutral cancel actions, upload controls, and border/divider styling aligned to centralized theme tokens instead of screen-local color choices.
 
 ### 📁 File Dependency Awareness
 

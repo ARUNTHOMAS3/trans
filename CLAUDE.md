@@ -33,6 +33,8 @@ This file governs how Claude should behave when working in this repository. Read
 - **`app_theme.dart` tokens only** for colors, spacing, typography. No hardcoded values ever.
 - **Dialogs, modals, popup menus, dropdown overlays, calendars, and similar floating surfaces default to pure white `#FFFFFF`**. Do not rely on inherited Material tinting for these components.
 - **Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the default reusable date picker** wherever the shared anchored picker pattern is applicable. Do not add new raw `showDatePicker(...)` usages for standard ERP flows unless there is a specific exception.
+- **Prefer real DB-backed data and DB-backed master defaults**, keep empty/error states explicit, centralize shared UI styling, and keep warehouse/storage/accounting/physical concepts separated.
+- **Keep save/create buttons, cancel/secondary actions, upload controls, and borders/dividers on centralized theme styling** instead of per-screen color picks.
 - **GoRouter only** for navigation. Never use Navigator.push directly.
 - **Inter font** globally. No per-module font overrides.
 

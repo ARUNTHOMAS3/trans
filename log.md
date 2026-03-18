@@ -2574,6 +2574,119 @@ To align the app with real database-backed behavior, active fake/demo runtime da
 - Flutter formatting passed
 - Flutter analysis passed
 
+### 2026-03-18 22:08 IST - Global settings rules formalized across governance, skill, agent, and wiki docs
+
+The project-wide "global settings rules" were added to the remaining governance, skill, agent, and wiki guidance surfaces so future work follows the same policy automatically.
+
+#### 1. Files updated
+
+**Governance / project docs**
+- `AGENTS.md`
+- `README.md`
+- `PRD/PRD.md`
+- `PRD/prd_ui.md`
+- `CLAUDE.md`
+
+**Codex skills**
+- `.codex/skills/zerpai-prd-governance/SKILL.md`
+- `.codex/skills/zerpai-prd-governance/references/locked-decisions.md`
+- `.codex/skills/zerpai-ui-compliance/SKILL.md`
+- `.codex/skills/zerpai-ui-compliance/references/ui-rules.md`
+- `.codex/skills/zerpai-ui-compliance/references/table-and-form-patterns.md`
+
+**Agent / repo-operations docs**
+- `.agent/ARCHITECTURE.md`
+- `.agent/rules/GEMINI.md`
+- `.agent/agents/frontend-specialist.md`
+- `.agent/agents/mobile-developer.md`
+- `repowiki/en/content/Development Guidelines.md`
+
+#### 2. Rule content now standardized
+
+The added rule set formalizes these project-wide expectations:
+
+- prefer real DB-backed runtime data over dummy/demo/mock values where schema-backed sources exist
+- keep empty states and error states explicit instead of masking failures with fabricated business values
+- resolve master/lookup defaults from DB-backed rows instead of hardcoded IDs or labels
+- centralize reusable control behavior and styling in shared sources rather than screen-local variants
+- keep warehouse masters, storage/location masters, accounting stock, and physical stock as separate concepts
+- prefer additive migrations and scoped upserts over destructive resets in shared environments
+
+#### 3. Intent
+
+This makes the earlier UI/data rules enforceable not just in PRD text, but also in:
+- repo-level agent instructions
+- Codex skills
+- agent routing docs
+- wiki/development guidance
+
+That reduces repeated drift around:
+- fake runtime data
+- hardcoded master defaults
+- warehouse vs storage confusion
+- accounting stock vs physical stock confusion
+- scattered one-off UI styling decisions
+
+#### 4. Verification
+
+**Verification**
+- documentation/rule files updated successfully
+- no runtime code behavior changed in this documentation pass
+
+### 2026-03-18 22:16 IST - Button, border, and upload color/style rules formalized across guidance stack
+
+The documentation/rules stack was extended again so shared visual rules now explicitly cover button colors, border/divider styling, and upload controls in addition to the earlier pure-white surface and shared date picker rules.
+
+#### 1. Files updated
+
+**Governance / project docs**
+- `AGENTS.md`
+- `README.md`
+- `PRD/PRD.md`
+- `PRD/prd_ui.md`
+- `CLAUDE.md`
+
+**Codex skills**
+- `.codex/skills/zerpai-prd-governance/SKILL.md`
+- `.codex/skills/zerpai-prd-governance/references/locked-decisions.md`
+- `.codex/skills/zerpai-ui-compliance/SKILL.md`
+- `.codex/skills/zerpai-ui-compliance/references/ui-rules.md`
+- `.codex/skills/zerpai-ui-compliance/references/table-and-form-patterns.md`
+
+**Agent / repo-operations docs**
+- `.agent/ARCHITECTURE.md`
+- `.agent/rules/GEMINI.md`
+- `.agent/agents/frontend-specialist.md`
+- `.agent/agents/mobile-developer.md`
+- `repowiki/en/content/Development Guidelines.md`
+
+#### 2. Rules now explicitly covered
+
+The added guidance now standardizes:
+
+- primary save/create/confirm button styling
+- cancel/secondary button styling
+- add/new action styling
+- upload/select-image control styling
+- border, divider, outline, and separator color usage
+
+#### 3. Intent
+
+This closes the remaining guidance gap where floating surfaces and date pickers were already standardized, but repeated drift was still possible around:
+- save button colors
+- cancel button styling
+- add/new button treatment
+- upload controls
+- border and divider colors
+
+The project guidance now makes these controls part of the same centralized visual policy.
+
+#### 4. Verification
+
+**Verification**
+- documentation/rule files updated successfully
+- no runtime code behavior changed in this documentation pass
+
 ### 2026-03-18 21:56 IST - Shared ZerpaiDatePicker styling centralized
 
 The shared date-picker rollout was completed functionally earlier, but the visual styling for the picker popup and calendar internals was still scattered across `zerpai_date_picker.dart` and `zerpai_calendar.dart`. That styling has now been centralized so future visual tweaks happen in one place.

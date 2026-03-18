@@ -27,6 +27,8 @@ skills: clean-code, frontend-design
 - UI layout, forms, tables, modals
 - Pure-white modal, dropdown, popup, and overlay surfaces
 - Shared `ZerpaiDatePicker` usage for reusable date inputs
+- Global settings rules: real DB-backed data, DB-backed defaults, explicit empty/error states, centralized shared styling, and separation of warehouse/storage/accounting/physical concerns
+- Shared button, upload, and border styling rules for save/cancel/add/upload/divider treatments
 - The sidebar, theme, or design system
 
 ## When to use `frontend-specialist` (rare edge cases)

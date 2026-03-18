@@ -14,6 +14,11 @@ No authentication setup is allowed until production. The application must run wi
 
 The application standard date picker is `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart`. Wherever the shared anchored picker pattern is suitable, it must be reused instead of introducing fresh raw `showDatePicker(...)` implementations. Any deviation should be treated as an explicit exception, not the default.
 
+## 🌐 Global Settings Policy
+
+The application must prefer real DB-backed runtime data wherever a schema-backed source already exists. When real data is unavailable, the UI must show an explicit empty or error state instead of fabricated business values. Lookup defaults should resolve from DB-backed master rows rather than hardcoded IDs or labels. Reusable control behavior and visual styling should be centralized in shared sources. Warehouse master data, storage/location master data, accounting stock, and physical stock must remain separate concepts across schema, API, and UI. Shared environments must be updated with additive migrations and scoped upserts instead of destructive resets.
+Primary save/create/confirm actions, cancel/secondary actions, upload controls, borders, and separators must also follow centralized project styling rules instead of per-screen color choices.
+
 ---
 
 ## 1. Overview

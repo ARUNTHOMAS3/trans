@@ -104,6 +104,24 @@
 - **Date Picker:** Field with calendar icon; dropdown with month/year header, arrows, 7-column grid, highlighted active date, "today" indicator.
 - **Date Picker Implementation Rule:** Reuse `ZerpaiDatePicker` for business forms and dialogs wherever possible so calendar behavior stays consistent with Manual Journals and other accountant flows.
 
+## 4.5 Global Settings Rules
+
+- UI should prefer real DB-backed runtime data wherever a schema-backed source already exists.
+- Empty and error states must remain explicit; do not silently substitute fabricated business values.
+- Defaults for master-driven fields should come from DB-backed master rows rather than hardcoded IDs or display strings.
+- Reusable ERP controls and centralized style sources should be extended instead of replaced with screen-local variants.
+- Warehouse master data, storage/location master data, accounting stock, and physical stock must remain distinct in UI behavior and copy.
+- Shared environments should be updated with additive migrations and scoped upserts instead of destructive resets.
+
+## 4.6 Button, Border, And Upload Styling Rules
+
+- **Primary Save/Create/Confirm Buttons:** Use the approved primary/success button styling from the design system. Do not invent per-screen greens or blues for save-like actions.
+- **Cancel/Secondary Buttons:** Use the shared neutral secondary button style. They must remain visually subordinate to the primary action.
+- **New/Add Buttons:** Use the approved add/create action treatment already established by the module/theme instead of ad hoc button colors.
+- **Upload/Image Select Controls:** Use the shared upload affordance style with approved border, text, and hover/focus behavior. Do not restyle upload cards or image selectors per screen.
+- **Borders And Dividers:** Use the light approved border tokens for inputs, cards, tables, separators, and section dividers. Avoid darker local border guesses.
+- **Field Borders:** Default border, focused border, error border, and disabled border must come from centralized theme/input styling, not widget-local hardcoded colors.
+
 ---
 
 ## 5. Tabular Input (Item Table)

@@ -44,6 +44,16 @@ zerpai_erp/
 - Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the standard reusable date picker across the app wherever the shared anchored picker pattern is feasible.
 - Avoid new direct `showDatePicker(...)` usage for standard ERP date fields unless there is a documented reason the shared picker cannot be used.
 
+## 🌐 Global Settings Rules
+
+- Use real DB-backed runtime data wherever a schema-backed source exists; do not depend on dummy or demo values in active ERP flows.
+- If real data is missing, show explicit empty/error states rather than inventing placeholder operational values.
+- Resolve lookup defaults from DB-backed master rows where schema-backed masters exist instead of hardcoding IDs or visible labels.
+- Reuse shared controls and centralized style sources for common ERP patterns instead of rebuilding local one-off variants.
+- Keep warehouse master data, storage/location master data, accounting stock, and physical stock logically separate.
+- Prefer additive migrations and `INSERT ... ON CONFLICT DO UPDATE` style seeding over destructive resets in shared environments.
+- Keep button and control styling consistent: primary save/create/confirm actions use the approved primary/success button styling, cancel/secondary actions use neutral secondary styling, upload controls follow the shared upload pattern, and borders/dividers use the approved light border tokens.
+
 ## 🛠️ Development Setup
 
 ### Prerequisites

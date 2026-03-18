@@ -8,6 +8,8 @@
 - Numeric fields such as quantity, rate, tax, HSN, and phone should block invalid non-numeric entry.
 - Empty date fields should hint `dd-MM-yyyy`.
 - Standard ERP date fields should use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` wherever the shared anchored picker pattern is viable.
+- Primary submit/save buttons should use the shared primary/success styling, while cancel/secondary actions should use the shared neutral secondary styling.
+- Upload/image controls and dashed/bordered selection surfaces should follow the shared upload treatment instead of per-screen restyling.
 
 ## Dropdowns
 
@@ -37,3 +39,6 @@
 - Empty states should guide the next action with one clear CTA.
 - Dialogs, popovers, and calendars must use explicit pure white surfaces rather than inherited tinted theme surfaces.
 - Avoid adding fresh raw `showDatePicker(...)` usage for ordinary form/dialog date entry unless the shared picker cannot satisfy the requirement.
+- Keep empty states and error states distinct; do not silently convert backend failures into misleading empty business data.
+- Master-driven defaults should resolve from DB-backed lookup rows where schema-backed masters exist instead of hardcoded IDs or visible labels.
+- Keep borders, dividers, and control outlines on approved shared border colors so form/table styling does not drift per screen.

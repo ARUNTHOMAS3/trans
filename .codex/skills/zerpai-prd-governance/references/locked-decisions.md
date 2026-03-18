@@ -35,3 +35,5 @@
 - `MenuAnchor` is mandatory for action menus and `FormDropdown` is mandatory for form selections.
 - Dialogs, dropdowns, popup menus, date pickers, and overlay surfaces must default to pure white `#FFFFFF`; do not rely on inherited Material surface tinting unless explicitly approved.
 - `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` is the standard reusable date picker for anchored business date inputs; do not add new raw `showDatePicker(...)` usage by default.
+- Real DB-backed runtime data takes precedence over dummy/demo/mock values, master defaults should resolve from DB-backed rows, empty/error states must remain explicit, and warehouse/storage/accounting/physical concepts must stay separated across schema and UI.
+- Save/create/confirm buttons, cancel/secondary actions, upload controls, and border/divider styling must remain centralized and consistent with the approved project theme rather than screen-local color choices.

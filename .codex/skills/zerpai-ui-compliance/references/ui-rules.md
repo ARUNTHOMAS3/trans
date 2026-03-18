@@ -11,6 +11,13 @@
 - Table header background: `#F5F5F5`.
 - Required-field red: `#D32F2F`.
 
+## Button And Control Styling
+
+- Primary save/create/confirm buttons must use the approved primary/success token styling from the theme.
+- Cancel and other secondary actions must use the shared neutral secondary button styling and remain visually subordinate to the primary action.
+- Upload/image-select controls must use the shared upload treatment instead of per-screen custom colors.
+- Borders, dividers, input outlines, and separators must use approved light border tokens rather than arbitrary grays or tinted local values.
+
 ## Text Case
 
 - Page titles: Title Case.
@@ -28,6 +35,7 @@
 - Use `FormDropdown` for form selections. Do not replace it with `DropdownButton` or a menu-style action trigger.
 - Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` for standard reusable date input flows instead of introducing new raw `showDatePicker(...)` calls.
 - Set explicit white backgrounds for dialogs, sheets, popup menus, dropdown overlays, floating calendars, and similar surfaces instead of relying on inherited Material surface tinting.
+- Prefer real DB-backed data and DB-backed master defaults, keep empty/error states explicit, and extend shared visual behavior instead of introducing local one-off control logic.
 - Use Lucide icons by default.
 - Keep labels aligned in a fixed-width column when building creation and edit forms.
 
