@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +29,15 @@ void main() async {
 
   debugPrint('Build Version: 1.0.1 - Fix Alpha Crash');
   WidgetsFlutterBinding.ensureInitialized();
+
+  assert(() {
+    if (kIsWeb) {
+      // Flutter web can receive early key events before the framework
+      // registers the listener for this engine channel.
+      ui.channelBuffers.allowOverflow('flutter/keyevent', true);
+    }
+    return true;
+  }());
 
   if (kIsWeb) {
     FlutterError.onError = (details) {

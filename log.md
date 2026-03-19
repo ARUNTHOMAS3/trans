@@ -5454,3 +5454,69 @@ Item detail and opening stock screens were still instantiating the shared `Items
 - Item detail and opening stock screens stop triggering unnecessary lookup/bootstrap requests
 - Network noise and red failed lookup rows are reduced on warehouse-focused flows
 - The optional outlets fallback warning remains visible once for diagnosis without flooding the console
+
+## Sprint: Font Fallback And Dev Log Cleanup
+**Date:** 2026-03-19
+
+### Problem
+Console output still included route-diagnostic chatter, debug-level repository/controller logs, and Flutter web font fallback warnings for unsupported glyphs.
+
+### Changes
+
+**`lib/core/theme/app_theme.dart`**
+- Expanded the shared font fallback stack with broader system and emoji fallbacks after the bundled Noto families
+- Kept the existing explicit Noto asset chain intact and added runtime coverage for glyphs not handled by the bundled subset
+
+**`lib/core/routing/app_router.dart`**
+- Disabled GoRouter diagnostic logging for normal development sessions
+
+**`lib/core/logging/app_logger.dart`**
+- Made debug-level application logs opt-in through `--dart-define=ZERPAI_VERBOSE_LOGS=true`
+- Raised the default logger threshold to `info`
+- Limited debug, API request/response, cache, and performance logs to verbose sessions only
+
+### Result
+- Normal development output is quieter and easier to scan
+- GoRouter route traces no longer flood the console
+- Existing info, warning, and error logs remain available
+- Font fallback coverage is broader on web and desktop without adding another large font asset bundle
+
+**`lib/main.dart`**
+- Added a web-only debug bootstrap guard for the `flutter/keyevent` channel buffer
+- Allowed early keyevent overflow warnings to be discarded before the framework listener attaches
+- Scoped the change to debug assertions so release behavior remains unchanged
+
+## Sprint: Opening Stock Quantity Rules Alignment
+**Date:** 2026-03-19
+
+### Problem
+The batch and serial opening-stock footer logic was using the entered detailed quantity as both the amount already added and the amount still remaining to add. The save path was also persisting the opening-stock helper value instead of the batch or serial total for tracked items.
+
+### Changes
+
+**`lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart`**
+- Separated the opening-stock target quantity from the detailed batch/serial quantity total
+- Added remaining-quantity logic:
+  - `Quantity To Be Added = max(opening stock - detailed qty, 0)`
+- Added added-quantity logic:
+  - `Added Qty to Warehouse = detailed qty`
+- Updated mismatch conditions to compare opening stock against the detailed quantity total
+- Updated the save path so batch-tracked and serial-tracked items persist the detailed quantity total instead of blindly persisting the opening-stock helper field
+- Kept the simple non-batch, non-serial stock path unchanged
+
+### Result
+- The footer now reflects the correct batch/serial conditions
+- Mismatch warnings now represent the real gap between the target quantity and the detailed entered quantity
+- Save behavior now aligns with the batch/serial total that the user actually entered
+
+## Sprint: Shared Leave Dialog Top-Center Alignment
+**Date:** 2026-03-19
+
+### Changes
+
+**`lib/shared/widgets/dialogs/unsaved_changes_dialog.dart`**
+- Repositioned the shared unsaved-changes dialog from the default centered alert placement to a top-center aligned presentation
+- Added safe top spacing and a max-width constraint while keeping the existing dialog content and action behavior unchanged
+
+### Result
+- All screens using the shared leave-confirmation dialog now open it near the top center of the viewport instead of the middle

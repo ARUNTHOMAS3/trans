@@ -50,11 +50,15 @@ class AppTheme {
 
   // Additional text hierarchy
   static const Color textBody = Color(0xFF374151); // Body text (gray-700)
-  static const Color textSubtle = Color(0xFF4B5563); // Subtle secondary (gray-600)
+  static const Color textSubtle = Color(
+    0xFF4B5563,
+  ); // Subtle secondary (gray-600)
   static const Color textDisabled = Color(0xFF94A3B8); // Disabled / placeholder
 
   // Additional border variants
-  static const Color borderLight = Color(0xFFE2E8F0); // Light border (slate-200)
+  static const Color borderLight = Color(
+    0xFFE2E8F0,
+  ); // Light border (slate-200)
   static const Color borderMid = Color(0xFFCBD5E1); // Mid border (slate-300)
 
   // Status — Error
@@ -144,6 +148,12 @@ class AppTheme {
     'NotoSansOriya',
     'NotoSansTamil',
     'NotoSansTelugu',
+    'Segoe UI',
+    'Segoe UI Symbol',
+    'Arial Unicode MS',
+    'Noto Sans',
+    'Noto Color Emoji',
+    'sans-serif',
   ];
 
   static TextStyle _baseTextStyle({

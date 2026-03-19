@@ -1158,10 +1158,9 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
   }
 
   Widget _buildSerialSummaryRow(_OpeningStockWarehouseEntry entry) {
-    final qtyToAdd = entry.getDraftQuantityToAdd();
-    final addedQty = qtyToAdd;
-    final openingStock = int.tryParse(entry.openingStockController.text) ?? 0;
-    final hasMismatch = qtyToAdd != openingStock;
+    final qtyToAdd = entry.getRemainingQuantityToAdd();
+    final addedQty = entry.getDetailedQuantityTotal();
+    final hasMismatch = entry.hasDetailedQuantityMismatch;
 
     final Widget warningIcon = Tooltip(
       message:
@@ -1189,7 +1188,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
           style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         Text(
-          '$qtyToAdd',
+          entry.formatQuantity(qtyToAdd),
           style: const TextStyle(
             fontSize: 13,
             color: Color(0xFFF97316),
@@ -1203,7 +1202,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
           style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         Text(
-          '$addedQty',
+          entry.formatQuantity(addedQty),
           style: const TextStyle(
             fontSize: 13,
             color: AppTheme.textPrimary,
@@ -1215,10 +1214,9 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
   }
 
   Widget _buildBatchSummaryRow(_OpeningStockWarehouseEntry entry) {
-    final qtyToAdd = entry.getDraftQuantityToAdd();
-    final addedQty = qtyToAdd;
-    final openingStock = int.tryParse(entry.openingStockController.text) ?? 0;
-    final hasMismatch = qtyToAdd != openingStock;
+    final qtyToAdd = entry.getRemainingQuantityToAdd();
+    final addedQty = entry.getDetailedQuantityTotal();
+    final hasMismatch = entry.hasDetailedQuantityMismatch;
 
     final Widget warningIcon = Tooltip(
       message:
@@ -1248,7 +1246,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
           style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         Text(
-          '$qtyToAdd',
+          entry.formatQuantity(qtyToAdd),
           style: const TextStyle(
             fontSize: 13,
             color: Color(0xFFF97316),
@@ -1262,7 +1260,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
           style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         Text(
-          '$addedQty',
+          entry.formatQuantity(addedQty),
           style: const TextStyle(
             fontSize: 13,
             color: AppTheme.textPrimary,
@@ -1672,7 +1670,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
     double totalStock = 0;
 
     for (final entry in _warehouseEntries) {
-      final stock = double.tryParse(entry.openingStockController.text) ?? 0;
+      final stock = entry.getEffectiveStockForSave();
       final rate = double.tryParse(entry.openingStockValueController.text) ?? 0;
       totalStock += stock;
 
@@ -1799,27 +1797,59 @@ class _OpeningStockWarehouseEntry {
     return value.toString();
   }
 
-  int getTotalQuantityToAdd() {
+  double getTotalQuantityToAdd() {
     if (mode == OpeningStockMode.batches) {
-      return batchEntries.fold(0, (sum, batch) {
-        return sum + (int.tryParse(batch.quantityController.text) ?? 0);
+      return batchEntries.fold<double>(0, (sum, batch) {
+        return sum + (double.tryParse(batch.quantityController.text) ?? 0);
       });
     } else if (mode == OpeningStockMode.serials) {
       return serialNumbersController.text
           .split(',')
           .where((s) => s.trim().isNotEmpty)
-          .length;
+          .length
+          .toDouble();
     }
-    return int.tryParse(openingStockController.text) ?? 0;
+    return double.tryParse(openingStockController.text) ?? 0;
   }
 
-  int getDraftQuantityToAdd() {
-    final openingStock = int.tryParse(openingStockController.text) ?? 0;
-    if (mode == OpeningStockMode.batches) {
-      final batchQty = getTotalQuantityToAdd();
-      return batchQty > 0 ? batchQty : openingStock;
+  double getOpeningStockQuantity() {
+    return double.tryParse(openingStockController.text) ?? 0;
+  }
+
+  double getDetailedQuantityTotal() {
+    if (mode == OpeningStockMode.none) {
+      return getOpeningStockQuantity();
     }
     return getTotalQuantityToAdd();
+  }
+
+  double getRemainingQuantityToAdd() {
+    if (mode == OpeningStockMode.none) {
+      return getOpeningStockQuantity();
+    }
+    final remaining = getOpeningStockQuantity() - getDetailedQuantityTotal();
+    return remaining > 0 ? remaining : 0;
+  }
+
+  bool get hasDetailedQuantityMismatch {
+    if (mode == OpeningStockMode.none) {
+      return false;
+    }
+    return getDetailedQuantityTotal() != getOpeningStockQuantity();
+  }
+
+  double getEffectiveStockForSave() {
+    if (mode == OpeningStockMode.none) {
+      return getOpeningStockQuantity();
+    }
+    return getDetailedQuantityTotal();
+  }
+
+  String formatQuantity(double value) {
+    if (value == value.roundToDouble()) {
+      return value.round().toString();
+    }
+    return value.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
   }
 
   bool get hasUnsavedChanges {

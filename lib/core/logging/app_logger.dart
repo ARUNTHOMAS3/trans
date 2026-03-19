@@ -1,6 +1,7 @@
 // FILE: lib/core/logging/app_logger.dart
 // Structured logging service (PRD Section 18.2)
 
+import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 
 /// Centralized logging service with structured output
@@ -11,6 +12,11 @@ import 'package:logger/logger.dart';
 /// AppLogger.error('API failed', error: e, stackTrace: st);
 /// ```
 class AppLogger {
+  static const bool _enableVerboseDebugLogs = bool.fromEnvironment(
+    'ZERPAI_VERBOSE_LOGS',
+    defaultValue: false,
+  );
+
   static final Logger _logger = Logger(
     printer: PrettyPrinter(
       methodCount: 2,
@@ -20,7 +26,7 @@ class AppLogger {
       printEmojis: false,
       dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
     ),
-    level: Level.debug, // Change to Level.info for production
+    level: Level.info,
   );
 
   /// Log debug information (development only)
@@ -33,6 +39,7 @@ class AppLogger {
     String? orgId,
     String? userId,
   }) {
+    if (!kDebugMode || !_enableVerboseDebugLogs) return;
     final context = _buildContext(module, orgId, userId, data);
     _logger.d(
       '$message${context.isNotEmpty ? ' | $context' : ''}',
@@ -139,6 +146,7 @@ class AppLogger {
     Map<String, dynamic>? params,
     Map<String, dynamic>? body,
   }) {
+    if (!kDebugMode || !_enableVerboseDebugLogs) return;
     final details = <String>[];
     if (params != null && params.isNotEmpty) {
       details.add('params=$params');
@@ -160,6 +168,7 @@ class AppLogger {
     dynamic data,
     Duration? duration,
   }) {
+    if (!kDebugMode || !_enableVerboseDebugLogs) return;
     final status = statusCode >= 200 && statusCode < 300 ? 'SUCCESS' : 'ERROR';
     final durationText = duration != null
         ? ' (${duration.inMilliseconds}ms)'
@@ -177,6 +186,7 @@ class AppLogger {
     int? count,
     bool? hit,
   }) {
+    if (!kDebugMode || !_enableVerboseDebugLogs) return;
     final hitText = hit != null ? (hit ? ' HIT' : ' MISS') : '';
     final details = count != null ? ' ($count items)' : '';
 
@@ -202,6 +212,7 @@ class AppLogger {
     Duration duration, {
     Map<String, dynamic>? metrics,
   }) {
+    if (!kDebugMode || !_enableVerboseDebugLogs) return;
     final ms = duration.inMilliseconds;
     final metricsText = metrics != null ? ' | $metrics' : '';
 
