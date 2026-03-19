@@ -7,6 +7,8 @@ class AppRoutes {
   static const String itemsReport = '/items/report';
   static const String itemsCreate = '/items/create';
   static const String itemsDetail = '/items/detail/:id';
+  // Full path used when pushing by name; relative 'opening-stock' is the child path in the router.
+  static const String itemsOpeningStock = '/items/detail/:id/opening-stock';
   static const String itemsEdit = '/items/edit/:id';
 
   // Composite Items

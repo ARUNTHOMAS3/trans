@@ -1,16 +1,67 @@
 part of '../items_item_detail.dart';
 
+/// Public screen wrapper — used by GoRouter so the opening-stock flow has its
+/// own URL (`/items/detail/:id/opening-stock`) and supports deep linking.
+/// Rendered inside [ZerpaiShell] which already provides the sidebar and navbar,
+/// so this widget only renders the content panel.
+class ItemsOpeningStockScreen extends ConsumerWidget {
+  final String itemId;
+  final Map<String, String> initialQueryParameters;
+
+  const ItemsOpeningStockScreen({
+    super.key,
+    required this.itemId,
+    this.initialQueryParameters = const <String, String>{},
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final itemAsync = ref.watch(itemDetailByIdProvider(itemId));
+    final warehousesAsync = ref.watch(itemWarehouseStocksProvider(itemId));
+
+    return itemAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error loading item: $e')),
+      data: (item) {
+        if (item == null) {
+          return const Center(child: Text('Item not found'));
+        }
+        OpeningStockMode mode = OpeningStockMode.none;
+        if (item.trackBatches) mode = OpeningStockMode.batches;
+        if (item.trackSerialNumber) mode = OpeningStockMode.serials;
+
+        return warehousesAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Error loading warehouses: $e')),
+          data: (warehouses) => ColoredBox(
+            color: Colors.white,
+            child: _OpeningStockDialog(
+              itemId: item.id!,
+              itemName: item.productName,
+              mode: mode,
+              warehouses: warehouses,
+              initialQueryParameters: initialQueryParameters,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _OpeningStockDialog extends ConsumerStatefulWidget {
   final String itemId;
   final String itemName;
   final OpeningStockMode mode;
   final List<WarehouseStockRow> warehouses;
+  final Map<String, String> initialQueryParameters;
 
   const _OpeningStockDialog({
     required this.itemId,
     required this.itemName,
     required this.mode,
     required this.warehouses,
+    this.initialQueryParameters = const <String, String>{},
   });
 
   @override
@@ -84,7 +135,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.close, size: 20),
-                onPressed: () => Navigator.pop(context),
+                onPressed: _closeOpeningStockScreen,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -156,7 +207,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
               ),
               const SizedBox(width: 12),
               OutlinedButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: _closeOpeningStockScreen,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.textBody,
                   side: const BorderSide(color: AppTheme.borderColor),
@@ -1626,7 +1677,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
           .fetchQuickStats(widget.itemId);
 
       if (mounted) {
-        Navigator.pop(context, true);
+        _closeOpeningStockScreen(result: true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Opening stock updated successfully')),
         );
@@ -1642,6 +1693,23 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         setState(() => _isSaving = false);
       }
     }
+  }
+
+  void _closeOpeningStockScreen({bool? result}) {
+    if (result != null && context.canPop()) {
+      Navigator.pop(context, result);
+      return;
+    }
+
+    final queryParameters = <String, String>{
+      ...widget.initialQueryParameters,
+      'tab': 'warehouses',
+    };
+    context.goNamed(
+      AppRoutes.itemsDetail,
+      pathParameters: {'id': widget.itemId},
+      queryParameters: queryParameters,
+    );
   }
 }
 

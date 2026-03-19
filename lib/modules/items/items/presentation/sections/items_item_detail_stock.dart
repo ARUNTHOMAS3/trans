@@ -2421,54 +2421,17 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     );
   }
 
-  OpeningStockMode _resolveOpeningStockMode(Item item) {
-    if (item.trackBatches) return OpeningStockMode.batches;
-    if (item.trackSerialNumber) return OpeningStockMode.serials;
-    return OpeningStockMode.none;
-  }
-
   Future<void> _openOpeningStockDialog(
     Item item,
     List<WarehouseStockRow> warehouses,
   ) async {
-    final mode = _resolveOpeningStockMode(item);
-
-    final result = await showDialog<bool>(
-      context: context,
-      barrierColor: Colors.transparent,
-      builder: (_) => Dialog(
-        insetPadding: EdgeInsets.zero,
-        backgroundColor: Colors.transparent,
-        child: SafeArea(
-          child: Row(
-            children: [
-              SizedBox(
-                width: 230,
-                child: ZerpaiSidebar(onNavigate: (route) => context.go(route)),
-              ),
-              Expanded(
-                child: Container(
-                  color: Colors.white,
-                  child: _OpeningStockDialog(
-                    itemId: item.id!,
-                    itemName: item.productName,
-                    mode: mode,
-                    warehouses: warehouses,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    if (!mounted || item.id == null) return;
+    final id = item.id!;
+    context.goNamed(
+      AppRoutes.itemsOpeningStock,
+      pathParameters: {'id': id},
+      queryParameters: const {'tab': 'warehouses'},
     );
-
-    if (result == true && mounted && item.id != null) {
-      ref.invalidate(itemWarehouseStocksProvider(item.id!));
-      await ref
-          .read(itemsControllerProvider.notifier)
-          .fetchQuickStats(item.id!);
-    }
   }
 
   Future<void> _openPhysicalStockAdjustmentDialog(

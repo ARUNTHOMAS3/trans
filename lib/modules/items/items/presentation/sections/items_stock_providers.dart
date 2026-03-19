@@ -1,6 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/item_model.dart';
 import '../../models/items_stock_models.dart';
 import '../../repositories/items_repository_provider.dart';
+
+/// Fetches a single Item by ID — used by route-based screens that must
+/// self-fetch (e.g. ItemsOpeningStockScreen accessed via deep link).
+final itemDetailByIdProvider = FutureProvider.family<Item?, String>((ref, id) {
+  final repository = ref.watch(itemRepositoryProvider);
+  return repository.getItemById(id);
+});
 
 // Provider for serial numbers related to a specific item
 final itemSerialsProvider =

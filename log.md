@@ -90,6 +90,46 @@ This gives the header row a visible upper boundary instead of relying only on in
 
 ---
 
+## Opening Stock Deep-Link Route Hardening (March 19, 2026)
+
+Made the opening-stock screen use an explicit deep-link flow instead of sharing ambiguous detail-page URL state.
+
+- Updated [app_router.dart](/e:/zerpai-new/lib/core/routing/app_router.dart)
+  - opening-stock child route now forwards query parameters into the screen
+- Updated [items_item_detail_stock.dart](/e:/zerpai-new/lib/modules/items/items/presentation/sections/items_item_detail_stock.dart)
+  - warehouse action now opens opening stock via `context.pushNamed(...)`
+  - preserved warehouse-tab context in query parameters
+- Updated [items_opening_stock_dialog.dart](/e:/zerpai-new/lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart)
+  - close and cancel now resolve back to the item detail warehouse URL on direct loads
+  - save also returns through the same route-aware close path
+
+This makes the warehouse tab and opening-stock screen distinct deep-linkable states.
+
+---
+
+## Opening Stock Route Separation Fix (March 19, 2026)
+
+Separated the opening-stock route from the nested item-detail route so the browser URL cannot collapse back to the plain warehouse-tab path.
+
+- Updated [app_router.dart](/e:/zerpai-new/lib/core/routing/app_router.dart)
+  - `/items/detail/:id/opening-stock` is now a sibling shell route instead of a nested child under `/items/detail/:id`
+- Updated [items_item_detail_stock.dart](/e:/zerpai-new/lib/modules/items/items/presentation/sections/items_item_detail_stock.dart)
+  - opening stock now navigates with `context.goNamed(...)` directly to the dedicated route
+- Updated [items_opening_stock_dialog.dart](/e:/zerpai-new/lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart)
+  - save refreshes stock providers before navigating back
+  - close/cancel return to `/items/detail/:id?tab=warehouses`
+
+This makes the opening-stock screen and the warehouse tab visibly different URLs in the browser.
+
+Verified in browser:
+
+- warehouse tab URL: `/items/detail/:id?tab=warehouses`
+- opening stock URL: `/items/detail/:id/opening-stock?tab=warehouses`
+
+This confirms the opening-stock flow now has a distinct deep-linkable route.
+
+---
+
 ## 1. Core Feature: Deep Linking (Frontend)
 
 Implemented full Deep Linking support for Item Details to allow direct URL navigation and stable browser history.
@@ -5182,3 +5222,45 @@ No route changes required — GoRouter path parameters already cover every scree
 1. Get SHA-256 of release keystore: `keytool -list -v -keystore release.keystore`
 2. Paste fingerprint into `web/.well-known/assetlinks.json`
 3. Serve the file at `https://app.zerpai.com/.well-known/assetlinks.json` (Content-Type: `application/json`)
+
+---
+
+## Sprint: Opening Stock Deep Link Fix
+**Date:** 2026-03-19
+
+### Problem
+The Batch-wise Opening Stock screen was opened via `showDialog` with a manually embedded `ZerpaiSidebar` inside the dialog body. This caused two issues:
+1. No URL change — the browser stayed on `/items/detail/:id?tab=warehouses`, making deep linking impossible
+2. Double sidebar — when converted to a route, the dialog's own sidebar rendered on top of the `ZerpaiShell` sidebar
+
+### Changes
+
+**`lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart`**
+- Added public `ItemsOpeningStockScreen` wrapper at the top of the part file
+- Screen self-fetches item via `itemDetailByIdProvider(itemId)` and warehouses via `itemWarehouseStocksProvider(itemId)`
+- No sidebar or Scaffold — renders only the content panel (`_OpeningStockDialog`) since `ZerpaiShell` provides the shell
+
+**`lib/modules/items/items/presentation/sections/items_stock_providers.dart`**
+- Added `itemDetailByIdProvider` — `FutureProvider.family<Item?, String>` for fetching a single item by ID
+- Required for route-based screens that must self-fetch (deep link entry point)
+
+**`lib/core/routing/app_routes.dart`**
+- Added `itemsOpeningStock = '/items/detail/:id/opening-stock'`
+
+**`lib/core/routing/app_router.dart`**
+- Added `opening-stock` as a child route of `itemsDetail`
+- Result: full URL `/items/detail/:id/opening-stock` with proper GoRouter nesting
+
+**`lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`**
+- Replaced `showDialog(...)` in `_openOpeningStockDialog` with `context.push('/items/detail/$id/opening-stock')`
+- Removed now-unused `_resolveOpeningStockMode` helper (mode logic moved into `ItemsOpeningStockScreen`)
+- Provider invalidation on return handled via `.then()` after `await context.push(...)`
+
+**`lib/modules/items/items/presentation/items_item_detail.dart`**
+- Removed unused `import 'package:zerpai_erp/core/layout/zerpai_sidebar.dart'`
+
+### Result
+- URL changes to `/items/detail/:id/opening-stock` when screen opens
+- Browser back button returns to the item detail warehouses tab
+- Single sidebar (from shell)
+- Direct deep link to opening stock works — screen self-fetches all required data

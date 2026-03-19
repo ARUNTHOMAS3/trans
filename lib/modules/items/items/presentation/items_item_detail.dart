@@ -15,7 +15,6 @@ import 'package:zerpai_erp/modules/items/items/models/unit_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/report/items_filter_dropdown.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/report/items_filters.dart';
-import 'package:zerpai_erp/core/layout/zerpai_sidebar.dart';
 import 'sections/report/dialogs/import_items_dialog.dart';
 import 'sections/report/dialogs/export_items_dialog.dart';
 import 'sections/report/dialogs/bulk_update_dialog.dart';

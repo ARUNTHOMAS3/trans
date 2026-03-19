@@ -30,7 +30,8 @@
       "Bash(grep -r \"branch\\\\|outlet\\\\|location\" \"E:\\\\zerpai-new\\\\lib\" --include=\"*.dart\" -l 2>/dev/null | grep -i \"model\\\\|provider\" | head -10)",
       "Bash(grep -r \"getOrganization\\\\|fetchOrganization\\\\|orgId\" \"E:\\\\zerpai-new\\\\lib\\\\modules\\\\auth\" --include=\"*.dart\" 2>/dev/null | head -20)",
       "Bash(grep -r \"Organization\\\\|orgRepository\" \"E:\\\\zerpai-new\\\\lib\\\\modules\\\\auth\" --include=\"*.dart\" -l 2>/dev/null | head -5)",
-      "Bash(gh pr:*)"
+      "Bash(gh pr:*)",
+      "Bash(flutter analyze:*)"
     ]
   }
 }

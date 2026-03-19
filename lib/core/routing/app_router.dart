@@ -88,7 +88,9 @@ final GoRouter appRouter = GoRouter(
       path: '/not-found',
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;
-        return NotFoundPage(requestedRoute: extra?['requestedRoute'] as String?);
+        return NotFoundPage(
+          requestedRoute: extra?['requestedRoute'] as String?,
+        );
       },
     ),
     GoRoute(
@@ -191,6 +193,14 @@ final GoRouter appRouter = GoRouter(
               initialQueryParameters: state.uri.queryParameters,
             );
           },
+        ),
+        GoRoute(
+          path: AppRoutes.itemsOpeningStock,
+          name: AppRoutes.itemsOpeningStock,
+          builder: (context, state) => ItemsOpeningStockScreen(
+            itemId: state.pathParameters['id']!,
+            initialQueryParameters: state.uri.queryParameters,
+          ),
         ),
         GoRoute(
           path: AppRoutes.compositeItems,
