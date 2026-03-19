@@ -20,6 +20,7 @@ import '../../items/pricelist/providers/pricelist_provider.dart';
 import '../../items/pricelist/models/pricelist_model.dart';
 import 'widgets/sales_order_item_row.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 class SalesQuoteCreateScreen extends ConsumerStatefulWidget {
   const SalesQuoteCreateScreen({super.key});
@@ -32,6 +33,7 @@ class SalesQuoteCreateScreen extends ConsumerStatefulWidget {
 class _SalesQuoteCreateScreenState
     extends ConsumerState<SalesQuoteCreateScreen> {
   final _formKey = GlobalKey<FormState>();
+  bool _isDirty = false;
 
   String? selectedCustomerId;
   late final TextEditingController quoteNumberCtrl;
@@ -49,6 +51,29 @@ class _SalesQuoteCreateScreenState
   double subTotal = 0.0;
   double taxTotal = 0.0;
   double total = 0.0;
+
+  void _markDirty() {
+    if (!_isDirty && mounted) {
+      setState(() => _isDirty = true);
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    if (_isDirty) {
+      final shouldDiscard = await showUnsavedChangesDialog(
+        context,
+        message:
+            'If you leave, your unsaved quotation changes will be discarded.',
+      );
+      if (!mounted || !shouldDiscard) return;
+    }
+
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.salesQuotations);
+    }
+  }
 
   @override
   void initState() {
@@ -158,9 +183,12 @@ class _SalesQuoteCreateScreenState
     return ZerpaiLayout(
       pageTitle: 'New Quote',
       enableBodyScroll: true,
+      onCancel: _handleCancel,
+      isDirty: _isDirty,
       footer: _buildFooter(),
       child: Form(
         key: _formKey,
+        onChanged: _markDirty,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -587,16 +615,7 @@ class _SalesQuoteCreateScreenState
             child: const Text('Save'),
           ),
           const SizedBox(width: 12),
-          OutlinedButton(
-            onPressed: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go(AppRoutes.salesQuotations);
-              }
-            },
-            child: const Text('Cancel'),
-          ),
+          OutlinedButton(onPressed: _handleCancel, child: const Text('Cancel')),
         ],
       ),
     );
@@ -634,6 +653,7 @@ class _SalesQuoteCreateScreenState
           .read(salesOrderControllerProvider.notifier)
           .createSalesOrder(order);
       if (mounted) {
+        setState(() => _isDirty = false);
         if (context.canPop()) {
           context.pop();
         } else {

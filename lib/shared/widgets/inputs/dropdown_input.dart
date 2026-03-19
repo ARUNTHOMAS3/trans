@@ -162,16 +162,33 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
     final normalized = query.toLowerCase().trim();
     if (normalized.isEmpty) return true;
 
+    return _searchableText(item).contains(normalized);
+  }
+
+  String _searchableText(T item) {
     if (widget.searchStringForValue != null) {
-      return widget.searchStringForValue!(item).toLowerCase().contains(
-        normalized,
-      );
+      return widget.searchStringForValue!(item).toLowerCase().trim();
     }
 
     final String display = widget.displayStringForValue != null
         ? widget.displayStringForValue!(item)
         : item.toString();
-    return display.toLowerCase().contains(normalized);
+    return display.toLowerCase().trim();
+  }
+
+  int _matchRank(T item, String normalizedQuery) {
+    final text = _searchableText(item);
+    if (normalizedQuery.isEmpty) return 4;
+    if (text == normalizedQuery) return 0;
+    if (text.startsWith(normalizedQuery)) return 1;
+
+    final wordBoundaryMatch = text
+        .split(RegExp(r'[\s/(),.-]+'))
+        .any((part) => part.startsWith(normalizedQuery));
+    if (wordBoundaryMatch) return 2;
+
+    if (text.contains(normalizedQuery)) return 3;
+    return 4;
   }
 
   List<T> _localFilter(String query) {
@@ -180,9 +197,28 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
       return List<T>.from(widget.items);
     }
 
-    return widget.items
-        .where((item) => _matchesQuery(item, normalized))
-        .toList();
+    final indexedMatches =
+        widget.items
+            .asMap()
+            .entries
+            .where((entry) => _matchesQuery(entry.value, normalized))
+            .toList()
+          ..sort((a, b) {
+            final rankCompare = _matchRank(
+              a.value,
+              normalized,
+            ).compareTo(_matchRank(b.value, normalized));
+            if (rankCompare != 0) return rankCompare;
+
+            final aText = _searchableText(a.value);
+            final bText = _searchableText(b.value);
+            final textCompare = aText.compareTo(bText);
+            if (textCompare != 0) return textCompare;
+
+            return a.key.compareTo(b.key);
+          });
+
+    return indexedMatches.map((entry) => entry.value).toList();
   }
 
   void _markOverlayNeedsBuild() {
@@ -479,7 +515,9 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                           width: 100,
                           height: 20,
                           child: DecoratedBox(
-                            decoration: BoxDecoration(color: AppTheme.borderColor),
+                            decoration: BoxDecoration(
+                              color: AppTheme.borderColor,
+                            ),
                           ),
                         ),
                       ),
@@ -882,7 +920,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   BorderSide _getBorderSide(bool hasError) {
     return BorderSide(
       color: hasError
-          ? AppTheme.errorRed // Red on error
+          ? AppTheme
+                .errorRed // Red on error
           : _isOpen
           ? AppTheme.primaryBlueDark
           : AppTheme.borderColor,

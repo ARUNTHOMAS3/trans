@@ -14,6 +14,9 @@ import '../models/sales_order_model.dart';
 import '../models/sales_order_item_model.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/routing/app_router.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 class SalesRetainerInvoiceCreateScreen extends ConsumerStatefulWidget {
   const SalesRetainerInvoiceCreateScreen({super.key});
@@ -26,6 +29,7 @@ class SalesRetainerInvoiceCreateScreen extends ConsumerStatefulWidget {
 class _SalesRetainerInvoiceCreateScreenState
     extends ConsumerState<SalesRetainerInvoiceCreateScreen> {
   final _formKey = GlobalKey<FormState>();
+  bool _isDirty = false;
 
   String? selectedCustomerId;
   late final TextEditingController invoiceNumberCtrl;
@@ -35,6 +39,29 @@ class _SalesRetainerInvoiceCreateScreenState
   late final TextEditingController notesCtrl;
 
   DateTime invoiceDate = DateTime.now();
+
+  void _markDirty() {
+    if (!_isDirty && mounted) {
+      setState(() => _isDirty = true);
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    if (_isDirty) {
+      final shouldDiscard = await showUnsavedChangesDialog(
+        context,
+        message:
+            'If you leave, your unsaved retainer invoice changes will be discarded.',
+      );
+      if (!mounted || !shouldDiscard) return;
+    }
+
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.salesRetainerInvoices);
+    }
+  }
 
   @override
   void initState() {
@@ -65,9 +92,12 @@ class _SalesRetainerInvoiceCreateScreenState
     return ZerpaiLayout(
       pageTitle: 'New Retainer Invoice',
       enableBodyScroll: true,
+      onCancel: _handleCancel,
+      isDirty: _isDirty,
       footer: _buildFooter(),
       child: Form(
         key: _formKey,
+        onChanged: _markDirty,
         child: Column(
           children: [
             _buildHeader(customersAsync),
@@ -237,10 +267,7 @@ class _SalesRetainerInvoiceCreateScreenState
           child: const Text('Save'),
         ),
         const SizedBox(width: 12),
-        OutlinedButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
+        OutlinedButton(onPressed: _handleCancel, child: const Text('Cancel')),
       ],
     ),
   );
@@ -274,7 +301,10 @@ class _SalesRetainerInvoiceCreateScreenState
       await ref
           .read(salesOrderControllerProvider.notifier)
           .createSalesOrder(order);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        setState(() => _isDirty = false);
+        _handleCancel();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

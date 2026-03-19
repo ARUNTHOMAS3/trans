@@ -24,10 +24,10 @@ class ZerpaiToast {
     IconData icon;
 
     if (isError) {
-      bgColor = const Color(0xFFFFF5F5);
-      borderColor = const Color(0xFFFED7D7);
+      bgColor = AppTheme.errorBg;
+      borderColor = AppTheme.errorBgBorder;
       iconBgColor = AppTheme.errorRed;
-      textColor = const Color(0xFFC53030);
+      textColor = AppTheme.errorTextDark;
       icon = LucideIcons.alertCircle;
     } else if (isInfo) {
       bgColor = AppTheme.infoBg;
@@ -36,10 +36,10 @@ class ZerpaiToast {
       textColor = AppTheme.infoTextDark;
       icon = LucideIcons.info;
     } else {
-      bgColor = const Color(0xFFF0FDF4);
+      bgColor = const Color(0xFFF3FCF7);
       borderColor = AppTheme.successBg;
-      iconBgColor = const Color(0xFF5ED3B3);
-      textColor = AppTheme.textSubtle;
+      iconBgColor = AppTheme.successGreen;
+      textColor = AppTheme.successTextDark;
       icon = LucideIcons.check;
     }
 
@@ -123,7 +123,7 @@ class _ZerpaiToastWidgetState extends State<_ZerpaiToastWidget>
     );
     _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _slide = Tween<Offset>(
-      begin: const Offset(0, 0.15),
+      begin: const Offset(0, -0.12),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
 
@@ -144,54 +144,78 @@ class _ZerpaiToastWidgetState extends State<_ZerpaiToastWidget>
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      bottom: 32,
-      left: 24,
-      right: 24,
-      child: FadeTransition(
-        opacity: _opacity,
-        child: SlideTransition(
-          position: _slide,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: widget.bgColor,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: widget.borderColor, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 20,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 16, left: 24, right: 24),
+          child: FadeTransition(
+            opacity: _opacity,
+            child: SlideTransition(
+              position: _slide,
+              child: Material(
+                color: Colors.transparent,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
-                      color: widget.iconBgColor,
-                      borderRadius: BorderRadius.circular(10),
+                      color: widget.bgColor,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: widget.borderColor, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 20,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
-                    child: Icon(widget.icon, color: Colors.white, size: 18),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      widget.message,
-                      style: TextStyle(
-                        color: widget.textColor,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: widget.iconBgColor,
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Icon(
+                            widget.icon,
+                            color: Colors.white,
+                            size: 17,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            widget.message,
+                            style: TextStyle(
+                              color: widget.textColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: () => widget.onDismissed(),
+                          child: Icon(
+                            LucideIcons.x,
+                            size: 16,
+                            color: widget.textColor.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),

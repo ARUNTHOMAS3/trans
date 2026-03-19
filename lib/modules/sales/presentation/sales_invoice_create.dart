@@ -22,6 +22,7 @@ import '../../items/pricelist/models/pricelist_model.dart';
 import 'widgets/sales_order_item_row.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/utils/tax_engine.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 class SalesInvoiceCreateScreen extends ConsumerStatefulWidget {
   const SalesInvoiceCreateScreen({super.key});
@@ -34,6 +35,7 @@ class SalesInvoiceCreateScreen extends ConsumerStatefulWidget {
 class _SalesInvoiceCreateScreenState
     extends ConsumerState<SalesInvoiceCreateScreen> {
   final _formKey = GlobalKey<FormState>();
+  bool _isDirty = false;
 
   String? selectedCustomerId;
   GstTaxType _taxType = GstTaxType.unknown;
@@ -53,6 +55,29 @@ class _SalesInvoiceCreateScreenState
   double subTotal = 0.0;
   double taxTotal = 0.0;
   double total = 0.0;
+
+  void _markDirty() {
+    if (!_isDirty && mounted) {
+      setState(() => _isDirty = true);
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    if (_isDirty) {
+      final shouldDiscard = await showUnsavedChangesDialog(
+        context,
+        message:
+            'If you leave, your unsaved invoice changes will be discarded.',
+      );
+      if (!mounted || !shouldDiscard) return;
+    }
+
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.salesInvoices);
+    }
+  }
 
   @override
   void initState() {
@@ -162,9 +187,12 @@ class _SalesInvoiceCreateScreenState
     return ZerpaiLayout(
       pageTitle: 'New Invoice',
       enableBodyScroll: true,
+      onCancel: _handleCancel,
+      isDirty: _isDirty,
       footer: _buildFooter(),
       child: Form(
         key: _formKey,
+        onChanged: _markDirty,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -665,16 +693,7 @@ class _SalesInvoiceCreateScreenState
             child: const Text('Save and Send'),
           ),
           const SizedBox(width: 12),
-          OutlinedButton(
-            onPressed: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go(AppRoutes.salesInvoices);
-              }
-            },
-            child: const Text('Cancel'),
-          ),
+          OutlinedButton(onPressed: _handleCancel, child: const Text('Cancel')),
         ],
       ),
     );
@@ -713,6 +732,7 @@ class _SalesInvoiceCreateScreenState
           .read(salesOrderControllerProvider.notifier)
           .createSalesOrder(order);
       if (mounted) {
+        setState(() => _isDirty = false);
         if (context.canPop()) {
           context.pop();
         } else {

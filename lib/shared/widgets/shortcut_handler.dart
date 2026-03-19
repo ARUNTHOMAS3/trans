@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
-/// A wrapper widget that handles common keyboard shortcuts like Ctrl+S (Save), 
+/// A wrapper widget that handles common keyboard shortcuts like Ctrl+S (Save),
 /// Ctrl+Enter (Publish), Esc (Cancel), and '/' (Search Focus).
 class ShortcutHandler extends StatelessWidget {
   final Widget child;
@@ -29,28 +30,15 @@ class ShortcutHandler extends StatelessWidget {
     if (onCancel == null) return;
 
     if (isDirty) {
-      final discard = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Discard changes?'),
-          content: const Text(
-            'You have unsaved changes. Are you sure you want to discard them?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Discard'),
-            ),
-          ],
-        ),
+      final discard = await showUnsavedChangesDialog(
+        context,
+        title: 'Leave this page?',
+        message: 'If you leave, your unsaved changes will be discarded.',
+        stayLabel: 'Stay Here',
+        discardLabel: 'Leave & Discard Changes',
       );
 
-      if (discard == true) {
+      if (discard) {
         onCancel!();
       }
     } else {
@@ -71,18 +59,18 @@ class ShortcutHandler extends StatelessWidget {
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
         if (onSave != null)
-          const SingleActivator(LogicalKeyboardKey.keyS, control: true): onSave!,
+          const SingleActivator(LogicalKeyboardKey.keyS, control: true):
+              onSave!,
         if (onPublish != null)
-          const SingleActivator(LogicalKeyboardKey.enter, control: true): onPublish!,
+          const SingleActivator(LogicalKeyboardKey.enter, control: true):
+              onPublish!,
         if (onCancel != null)
-          const SingleActivator(LogicalKeyboardKey.escape): () => _handleCancel(context),
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              _handleCancel(context),
         if (searchFocusNode != null || onSearch != null)
           const SingleActivator(LogicalKeyboardKey.slash): _handleSearchFocus,
       },
-      child: Focus(
-        autofocus: autofocus,
-        child: child,
-      ),
+      child: Focus(autofocus: autofocus, child: child),
     );
   }
 }

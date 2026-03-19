@@ -7,6 +7,9 @@ import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import '../models/pricelist_model.dart';
 import '../providers/pricelist_provider.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/routing/app_router.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 /// Price List Creation Screen - Inventory → Items → Price Lists → New
 ///
@@ -33,6 +36,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
   String _roundOffTo = 'Never mind';
   bool _isDiscountEnabled = false;
   bool _isSubmitting = false;
+  bool _isDirty = false;
   bool _isSearchVisible = false;
   String _searchQuery = '';
   final Set<String> _selectedItemIds = {};
@@ -41,6 +45,29 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
   final Map<String, PriceListItemRate> _itemRateOverrides = {};
   final Map<String, TextEditingController> _rateControllers = {};
   final Map<String, TextEditingController> _discountControllers = {};
+
+  void _markDirty() {
+    if (!_isDirty && mounted) {
+      setState(() => _isDirty = true);
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    if (_isDirty) {
+      final shouldDiscard = await showUnsavedChangesDialog(
+        context,
+        message:
+            'If you leave, your unsaved price list changes will be discarded.',
+      );
+      if (!mounted || !shouldDiscard) return;
+    }
+
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.priceLists);
+    }
+  }
 
   @override
   void initState() {
@@ -122,6 +149,8 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
 
     return ZerpaiLayout(
       pageTitle: 'New Price List',
+      onCancel: _handleCancel,
+      isDirty: _isDirty,
       footer: _buildFooterActions(context),
       child: _buildFormContent(context, itemsState),
     );
@@ -143,6 +172,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
 
     return Form(
       key: _formKey,
+      onChanged: _markDirty,
       child: CustomScrollView(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -252,14 +282,20 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                         return Container(
                           decoration: BoxDecoration(
                             border: Border(
-                              left: const BorderSide(color: AppTheme.borderColor),
-                              right: const BorderSide(color: AppTheme.borderColor),
+                              left: const BorderSide(
+                                color: AppTheme.borderColor,
+                              ),
+                              right: const BorderSide(
+                                color: AppTheme.borderColor,
+                              ),
                               bottom: const BorderSide(
                                 color: AppTheme.borderColor,
                               ),
                               top: index == 0
                                   ? BorderSide.none
-                                  : const BorderSide(color: AppTheme.borderColor),
+                                  : const BorderSide(
+                                      color: AppTheme.borderColor,
+                                    ),
                             ),
                             borderRadius: isLast
                                 ? const BorderRadius.only(
@@ -1798,31 +1834,30 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
     ),
   );
 
-  InputDecoration _inputDecoration({String? hintText, String? prefixText}) =>
-      InputDecoration(
-        hintText: hintText,
-        prefixText: prefixText,
-        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 10,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: AppTheme.borderColor),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: AppTheme.borderColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: AppTheme.primaryBlueDark, width: 1),
-        ),
-        filled: true,
-        fillColor: Colors.white,
-        isDense: true,
-      );
+  InputDecoration _inputDecoration({
+    String? hintText,
+    String? prefixText,
+  }) => InputDecoration(
+    hintText: hintText,
+    prefixText: prefixText,
+    hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4),
+      borderSide: const BorderSide(color: AppTheme.borderColor),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4),
+      borderSide: const BorderSide(color: AppTheme.borderColor),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4),
+      borderSide: const BorderSide(color: AppTheme.primaryBlueDark, width: 1),
+    ),
+    filled: true,
+    fillColor: Colors.white,
+    isDense: true,
+  );
 
   Widget _buildFooterActions(BuildContext context) => Container(
     padding: const EdgeInsets.all(24),
@@ -1862,7 +1897,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
         ),
         const SizedBox(width: 12),
         OutlinedButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _handleCancel,
           style: OutlinedButton.styleFrom(
             foregroundColor: AppTheme.textBody,
             side: const BorderSide(color: AppTheme.borderColor),
@@ -1910,7 +1945,8 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
           .read(priceListNotifierProvider.notifier)
           .createPriceList(pricelist);
       if (mounted) {
-        Navigator.pop(context);
+        setState(() => _isDirty = false);
+        _handleCancel();
       }
     } catch (e) {
       if (mounted) {

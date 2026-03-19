@@ -17,6 +17,9 @@ import '../models/sales_order_item_model.dart';
 import 'widgets/sales_order_item_row.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/routing/app_router.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 class SalesChallanCreateScreen extends ConsumerStatefulWidget {
   const SalesChallanCreateScreen({super.key});
@@ -29,6 +32,7 @@ class SalesChallanCreateScreen extends ConsumerStatefulWidget {
 class _SalesChallanCreateScreenState
     extends ConsumerState<SalesChallanCreateScreen> {
   final _formKey = GlobalKey<FormState>();
+  bool _isDirty = false;
 
   String? selectedCustomerId;
   late final TextEditingController challanNumberCtrl;
@@ -39,6 +43,29 @@ class _SalesChallanCreateScreenState
   String challanType = 'Job Work';
 
   List<SalesOrderItemRow> rows = [];
+
+  void _markDirty() {
+    if (!_isDirty && mounted) {
+      setState(() => _isDirty = true);
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    if (_isDirty) {
+      final shouldDiscard = await showUnsavedChangesDialog(
+        context,
+        message:
+            'If you leave, your unsaved delivery challan changes will be discarded.',
+      );
+      if (!mounted || !shouldDiscard) return;
+    }
+
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.salesDeliveryChallans);
+    }
+  }
 
   @override
   void initState() {
@@ -82,10 +109,12 @@ class _SalesChallanCreateScreenState
     return ZerpaiLayout(
       pageTitle: 'New Delivery Challan',
       enableBodyScroll: true,
-
+      onCancel: _handleCancel,
+      isDirty: _isDirty,
       footer: _buildFooter(),
       child: Form(
         key: _formKey,
+        onChanged: _markDirty,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -300,10 +329,7 @@ class _SalesChallanCreateScreenState
       children: [
         ElevatedButton(onPressed: _saveChallan, child: const Text('Save')),
         const SizedBox(width: 12),
-        OutlinedButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
+        OutlinedButton(onPressed: _handleCancel, child: const Text('Cancel')),
       ],
     ),
   );
@@ -337,7 +363,10 @@ class _SalesChallanCreateScreenState
       await ref
           .read(salesOrderControllerProvider.notifier)
           .createSalesOrder(order);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        setState(() => _isDirty = false);
+        _handleCancel();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

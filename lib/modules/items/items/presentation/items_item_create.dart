@@ -33,6 +33,7 @@ import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/services/draft_storage_service.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 part 'sections/items_item_create_primary_info.dart';
 part 'sections/items_item_create_images.dart';
@@ -82,6 +83,8 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   Item? editingItem;
   bool isEditMode = false;
   bool _isHydratingInitialItem = false;
+  bool _isDirty = false;
+  bool _suspendDirtyTracking = true;
 
   // Ghost Draft
   static const _draftKey = 'item_create';
@@ -89,6 +92,19 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   bool _hasDraft = false;
 
   void updateState(VoidCallback fn) => setState(fn);
+
+  void _markDirty() {
+    if (!mounted || _suspendDirtyTracking || _isDirty) return;
+    setState(() => _isDirty = true);
+  }
+
+  void _resetDirty() {
+    if (mounted) {
+      setState(() => _isDirty = false);
+    } else {
+      _isDirty = false;
+    }
+  }
 
   ItemTab _parseItemTab(String? value) {
     switch (value) {
@@ -278,6 +294,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       manufacturerId = data['manufacturerId'] as String?;
       brandId = data['brandId'] as String?;
       _hasDraft = false;
+      _isDirty = true;
     });
 
     DraftStorageService.clear(_draftKey);
@@ -337,6 +354,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   }
 
   void _loadInitialData() async {
+    _suspendDirtyTracking = true;
     final controller = ref.read(itemsControllerProvider.notifier);
     final itemId = widget.itemId ?? widget.item?.id;
 
@@ -360,6 +378,16 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       _applyOperationalDefaultsIfMissing();
     } else {
       _applyOperationalDefaultsIfMissing();
+    }
+
+    if (mounted) {
+      setState(() {
+        _suspendDirtyTracking = false;
+        _isDirty = false;
+      });
+    } else {
+      _suspendDirtyTracking = false;
+      _isDirty = false;
     }
   }
 
@@ -387,9 +415,11 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
         await Future.delayed(Duration.zero);
         if (mounted) {
           _initializeWithItem(freshItem, isClone: widget.isClone);
+          _resetDirty();
         }
       } else if (widget.item != null) {
         _initializeWithItem(widget.item!, isClone: widget.isClone);
+        _resetDirty();
       }
     } finally {
       if (mounted) {
@@ -849,30 +879,58 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
             ? 'Edit Item'
             : 'New Item',
         enableBodyScroll: true,
+        onCancel: () async {
+          final shouldDiscard =
+              !_isDirty ||
+              await showUnsavedChangesDialog(
+                context,
+                title: 'Leave this page?',
+                message:
+                    'If you leave, your unsaved item changes will be discarded.',
+              );
+
+          if (!mounted || !shouldDiscard) return;
+          DraftStorageService.clear(_draftKey);
+          if (isEditMode && editingItem?.id != null) {
+            context.goNamed(
+              AppRoutes.itemsDetail,
+              pathParameters: {'id': editingItem!.id!},
+            );
+          } else if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(AppRoutes.itemsReport);
+          }
+        },
+        isDirty: _isDirty,
         footer: _buildSaveCancel(itemsController, itemsState),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_hasDraft) _buildDraftBanner(),
-            _buildTopPanel(itemsState),
-            const SizedBox(height: 24),
-            DefaultTaxRatesSection(
-              intraStateRateId: intraStateTaxId,
-              interStateRateId: interStateTaxId,
-              taxRates: itemsState.taxRates,
-              taxGroups: itemsState.taxGroups,
-              onChanged: (i, o) {
-                setState(() {
-                  intraStateTaxId = i;
-                  interStateTaxId = o;
-                });
-              },
-            ),
-            const SizedBox(height: 24),
-            _buildTabsCard(itemsState),
-            const SizedBox(height: 24),
-            if (isGoods) _buildInventoryFlags(itemsState),
-          ],
+        child: Form(
+          onChanged: _markDirty,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_hasDraft) _buildDraftBanner(),
+              _buildTopPanel(itemsState),
+              const SizedBox(height: 24),
+              DefaultTaxRatesSection(
+                intraStateRateId: intraStateTaxId,
+                interStateRateId: interStateTaxId,
+                taxRates: itemsState.taxRates,
+                taxGroups: itemsState.taxGroups,
+                onChanged: (i, o) {
+                  setState(() {
+                    intraStateTaxId = i;
+                    interStateTaxId = o;
+                  });
+                  _markDirty();
+                },
+              ),
+              const SizedBox(height: 24),
+              _buildTabsCard(itemsState),
+              const SizedBox(height: 24),
+              if (isGoods) _buildInventoryFlags(itemsState),
+            ],
+          ),
         ),
       ),
     );
@@ -1124,6 +1182,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                       if (!mounted) return;
                       if (success) {
                         DraftStorageService.clear(_draftKey);
+                        _resetDirty();
                         ZerpaiBuilders.showSuccessToast(
                           context,
                           'Item details have been saved.',
@@ -1162,10 +1221,20 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
             const SizedBox(width: 12),
             ZButton.secondary(
               label: "Cancel",
-              onPressed: () {
+              onPressed: () async {
+                final shouldDiscard =
+                    !_isDirty ||
+                    await showUnsavedChangesDialog(
+                      context,
+                      title: 'Leave this page?',
+                      message:
+                          'If you leave, your unsaved item changes will be discarded.',
+                    );
+
+                if (!mounted || !shouldDiscard) return;
+
                 DraftStorageService.clear(_draftKey);
                 if (isEditMode && editingItem?.id != null) {
-                  // If we are editing, go back to the details page (split view)
                   context.goNamed(
                     AppRoutes.itemsDetail,
                     pathParameters: {'id': editingItem!.id!},

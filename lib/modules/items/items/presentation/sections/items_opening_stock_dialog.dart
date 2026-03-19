@@ -78,6 +78,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
   TextEditingController? _serialGenerateController;
   TextEditingController? _serialGenerateCountController;
   bool _isSaving = false;
+  bool _allowPop = false;
 
   @override
   void initState() {
@@ -113,123 +114,138 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         : null;
     final bodyPadding = shellMetrics.isVeryTightContent ? 16.0 : 24.0;
 
-    return Column(
-      children: [
-        // Header
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-          ),
-          child: Row(
-            children: [
-              Text(
-                widget.itemName,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+    return PopScope(
+      canPop: _allowPop || !_hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          if (_allowPop && mounted) {
+            setState(() => _allowPop = false);
+          }
+          return;
+        }
+        _attemptCloseOpeningStockScreen();
+      },
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  widget.itemName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.close, size: 20),
-                onPressed: _closeOpeningStockScreen,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: _attemptCloseOpeningStockScreen,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
           ),
-        ),
 
-        // Body
-        Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(bodyPadding),
-            child: currentEntry == null
-                ? const Center(child: Text('No warehouses available'))
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (widget.mode == OpeningStockMode.serials)
-                        _buildSerialSection(currentEntry)
-                      else if (widget.mode == OpeningStockMode.batches)
-                        _buildBatchSection(currentEntry)
-                      else ...[
-                        _buildSimpleStockTable(currentEntry),
+          // Body
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(bodyPadding),
+              child: currentEntry == null
+                  ? const Center(child: Text('No warehouses available'))
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (widget.mode == OpeningStockMode.serials)
+                          _buildSerialSection(currentEntry)
+                        else if (widget.mode == OpeningStockMode.batches)
+                          _buildBatchSection(currentEntry)
+                        else ...[
+                          _buildSimpleStockTable(currentEntry),
+                        ],
                       ],
-                    ],
-                  ),
+                    ),
+            ),
           ),
-        ),
 
-        // Footer
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: AppTheme.borderColor)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              ElevatedButton(
-                onPressed: _isSaving ? null : _handleSave,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accentGreen,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
+          // Footer
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: AppTheme.borderColor)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                ElevatedButton(
+                  onPressed: _isSaving ? null : _handleSave,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentGreen,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                child: _isSaving
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Save',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      )
-                    : const Text(
-                        'Save',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-              ),
-              const SizedBox(width: 12),
-              OutlinedButton(
-                onPressed: _closeOpeningStockScreen,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.textBody,
-                  side: const BorderSide(color: AppTheme.borderColor),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton(
+                  onPressed: _attemptCloseOpeningStockScreen,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textBody,
+                    side: const BorderSide(color: AppTheme.borderColor),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                 ),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+
+  bool get _hasUnsavedChanges =>
+      _warehouseEntries.any((entry) => entry.hasUnsavedChanges);
 
   Widget _buildSimpleStockTable(_OpeningStockWarehouseEntry entry) {
     const borderColor = AppTheme.borderColor;
@@ -859,9 +875,13 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
       height: 36,
       child: TextField(
         controller: controller,
-        keyboardType: TextInputType.number,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textAlign: TextAlign.right,
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+        ],
         style: const TextStyle(fontSize: 13),
+        onTap: () => _selectAllNumericInput(controller),
         onChanged: (_) => setState(() {}),
         decoration: InputDecoration(
           contentPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -891,6 +911,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         textAlign: TextAlign.right,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         style: const TextStyle(fontSize: 13),
+        onTap: () => _selectAllNumericInput(controller),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
@@ -981,6 +1002,16 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
       return null;
     }
     return DateTime(year, month, day);
+  }
+
+  void _selectAllNumericInput(TextEditingController controller) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: controller.text.length,
+      );
+    });
   }
 
   Widget _buildSerialInputCell(
@@ -1127,8 +1158,8 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
   }
 
   Widget _buildSerialSummaryRow(_OpeningStockWarehouseEntry entry) {
-    final qtyToAdd = entry.getTotalQuantityToAdd();
-    final addedQty = 0;
+    final qtyToAdd = entry.getDraftQuantityToAdd();
+    final addedQty = qtyToAdd;
     final openingStock = int.tryParse(entry.openingStockController.text) ?? 0;
     final hasMismatch = qtyToAdd != openingStock;
 
@@ -1184,8 +1215,8 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
   }
 
   Widget _buildBatchSummaryRow(_OpeningStockWarehouseEntry entry) {
-    final qtyToAdd = entry.getTotalQuantityToAdd();
-    final addedQty = 0;
+    final qtyToAdd = entry.getDraftQuantityToAdd();
+    final addedQty = qtyToAdd;
     final openingStock = int.tryParse(entry.openingStockController.text) ?? 0;
     final hasMismatch = qtyToAdd != openingStock;
 
@@ -1659,9 +1690,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
     }
 
     if (totalStock <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter opening stock quantity')),
-      );
+      ZerpaiToast.error(context, 'Please enter opening stock quantity');
       return;
     }
 
@@ -1677,16 +1706,12 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
           .fetchQuickStats(widget.itemId);
 
       if (mounted) {
-        _closeOpeningStockScreen(result: true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Opening stock updated successfully')),
-        );
+        _performCloseOpeningStockScreen(result: true);
+        ZerpaiToast.success(context, 'Opening stock updated successfully');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update opening stock: $e')),
-        );
+        ZerpaiToast.error(context, 'Failed to update opening stock: $e');
       }
     } finally {
       if (mounted) {
@@ -1695,9 +1720,31 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
     }
   }
 
-  void _closeOpeningStockScreen({bool? result}) {
+  Future<void> _attemptCloseOpeningStockScreen() async {
+    if (_isSaving) return;
+
+    if (_hasUnsavedChanges) {
+      final shouldDiscard = await showUnsavedChangesDialog(
+        context,
+        title: 'Leave this page?',
+        message:
+            'If you leave, your unsaved opening stock changes will be discarded.',
+      );
+      if (!mounted || !shouldDiscard) return;
+    }
+
+    _performCloseOpeningStockScreen();
+  }
+
+  void _performCloseOpeningStockScreen({bool? result}) {
     if (result != null && context.canPop()) {
       Navigator.pop(context, result);
+      return;
+    }
+
+    if (context.canPop()) {
+      setState(() => _allowPop = true);
+      context.pop();
       return;
     }
 
@@ -1724,6 +1771,8 @@ class _OpeningStockWarehouseEntry {
   );
   final TextEditingController openingStockValueController =
       TextEditingController(text: '0');
+  final String _initialOpeningStockText;
+  final String _initialOpeningStockValueText;
   final TextEditingController serialNumbersController = TextEditingController();
   final List<_BatchEntry> batchEntries = [];
 
@@ -1734,9 +1783,10 @@ class _OpeningStockWarehouseEntry {
     required this.mode,
     double openingStock = 0,
     double openingStockValue = 0,
-  }) {
-    openingStockController.text = _formatInitialNumber(openingStock);
-    openingStockValueController.text = _formatInitialNumber(openingStockValue);
+  }) : _initialOpeningStockText = _formatInitialNumber(openingStock),
+       _initialOpeningStockValueText = _formatInitialNumber(openingStockValue) {
+    openingStockController.text = _initialOpeningStockText;
+    openingStockValueController.text = _initialOpeningStockValueText;
     if (mode == OpeningStockMode.batches) {
       batchEntries.add(_BatchEntry());
     }
@@ -1761,6 +1811,36 @@ class _OpeningStockWarehouseEntry {
           .length;
     }
     return int.tryParse(openingStockController.text) ?? 0;
+  }
+
+  int getDraftQuantityToAdd() {
+    final openingStock = int.tryParse(openingStockController.text) ?? 0;
+    if (mode == OpeningStockMode.batches) {
+      final batchQty = getTotalQuantityToAdd();
+      return batchQty > 0 ? batchQty : openingStock;
+    }
+    return getTotalQuantityToAdd();
+  }
+
+  bool get hasUnsavedChanges {
+    if (openingStockController.text.trim() != _initialOpeningStockText) {
+      return true;
+    }
+    if (openingStockValueController.text.trim() !=
+        _initialOpeningStockValueText) {
+      return true;
+    }
+    if (serialNumbersController.text.trim().isNotEmpty) {
+      return true;
+    }
+
+    for (final batch in batchEntries) {
+      if (batch.hasUnsavedChanges) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   String get displayWarehouseName {
@@ -1797,6 +1877,14 @@ class _BatchEntry {
   final TextEditingController quantityController = TextEditingController(
     text: '0',
   );
+
+  bool get hasUnsavedChanges =>
+      batchReferenceController.text.trim().isNotEmpty ||
+      mfrBatchController.text.trim().isNotEmpty ||
+      mfrDateController.text.trim().isNotEmpty ||
+      expiryDateController.text.trim().isNotEmpty ||
+      (int.tryParse(unitPackController.text.trim()) ?? 0) > 0 ||
+      (double.tryParse(quantityController.text.trim()) ?? 0) > 0;
 
   void dispose() {
     batchReferenceController.dispose();

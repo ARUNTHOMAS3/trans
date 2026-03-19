@@ -8,11 +8,14 @@ import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:go_router/go_router.dart';
 import '../controllers/sales_order_controller.dart';
 import '../models/sales_customer_model.dart';
 import '../models/sales_payment_model.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/core/routing/app_router.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 class SalesPaymentCreateScreen extends ConsumerStatefulWidget {
   const SalesPaymentCreateScreen({super.key});
@@ -25,6 +28,7 @@ class SalesPaymentCreateScreen extends ConsumerStatefulWidget {
 class _SalesPaymentCreateScreenState
     extends ConsumerState<SalesPaymentCreateScreen> {
   final _formKey = GlobalKey<FormState>();
+  bool _isDirty = false;
 
   String? selectedCustomerId;
   late final TextEditingController amountCtrl;
@@ -35,6 +39,29 @@ class _SalesPaymentCreateScreenState
   DateTime paymentDate = DateTime.now();
   String paymentMode = 'Cash';
   String? depositTo = 'Petty Cash';
+
+  void _markDirty() {
+    if (!_isDirty && mounted) {
+      setState(() => _isDirty = true);
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    if (_isDirty) {
+      final shouldDiscard = await showUnsavedChangesDialog(
+        context,
+        message:
+            'If you leave, your unsaved payment changes will be discarded.',
+      );
+      if (!mounted || !shouldDiscard) return;
+    }
+
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.salesPaymentsReceived);
+    }
+  }
 
   @override
   void initState() {
@@ -63,9 +90,12 @@ class _SalesPaymentCreateScreenState
     return ZerpaiLayout(
       pageTitle: 'Record Payment',
       enableBodyScroll: true,
+      onCancel: _handleCancel,
+      isDirty: _isDirty,
       footer: _buildFooter(),
       child: Form(
         key: _formKey,
+        onChanged: _markDirty,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -249,10 +279,7 @@ class _SalesPaymentCreateScreenState
         children: [
           ElevatedButton(onPressed: _savePayment, child: const Text('Save')),
           const SizedBox(width: 12),
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+          OutlinedButton(onPressed: _handleCancel, child: const Text('Cancel')),
         ],
       ),
     );
@@ -274,7 +301,10 @@ class _SalesPaymentCreateScreenState
 
     try {
       await ref.read(salesOrderApiServiceProvider).createPayment(payment);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        setState(() => _isDirty = false);
+        _handleCancel();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'shortcut_handler.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/unsaved_changes_guard.dart';
 
 class ZerpaiLayout extends StatelessWidget {
   final Widget child;
@@ -42,14 +43,18 @@ class ZerpaiLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShortcutHandler(
-      onSave: onSave,
-      onPublish: onPublish,
-      onCancel: onCancel,
-      onSearch: onSearch,
+    return UnsavedChangesGuard(
       isDirty: isDirty,
-      searchFocusNode: searchFocusNode,
-      child: _buildScaffold(context),
+      onDiscardChanges: onCancel,
+      child: ShortcutHandler(
+        onSave: onSave,
+        onPublish: onPublish,
+        onCancel: onCancel,
+        onSearch: onSearch,
+        isDirty: isDirty,
+        searchFocusNode: searchFocusNode,
+        child: _buildScaffold(context),
+      ),
     );
   }
 
@@ -57,7 +62,8 @@ class ZerpaiLayout extends StatelessWidget {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double responsivePadding = screenWidth < 1000 ? 16.0 : 40.0;
     final double horizontalPadding =
-        horizontalPaddingValue ?? (useHorizontalPadding ? responsivePadding : 0);
+        horizontalPaddingValue ??
+        (useHorizontalPadding ? responsivePadding : 0);
     final double topPadding = useTopPadding ? 24 : 0;
     final double bottomPadding = 32;
 

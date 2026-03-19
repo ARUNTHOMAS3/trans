@@ -19,6 +19,9 @@ import '../../items/pricelist/models/pricelist_model.dart';
 import 'widgets/sales_order_item_row.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/routing/app_router.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 class SalesCreditNoteCreateScreen extends ConsumerStatefulWidget {
   const SalesCreditNoteCreateScreen({super.key});
@@ -31,6 +34,7 @@ class SalesCreditNoteCreateScreen extends ConsumerStatefulWidget {
 class _SalesCreditNoteCreateScreenState
     extends ConsumerState<SalesCreditNoteCreateScreen> {
   final _formKey = GlobalKey<FormState>();
+  bool _isDirty = false;
 
   String? selectedCustomerId;
   late final TextEditingController creditNoteNumberCtrl;
@@ -44,6 +48,29 @@ class _SalesCreditNoteCreateScreenState
 
   double subTotal = 0.0;
   double total = 0.0;
+
+  void _markDirty() {
+    if (!_isDirty && mounted) {
+      setState(() => _isDirty = true);
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    if (_isDirty) {
+      final shouldDiscard = await showUnsavedChangesDialog(
+        context,
+        message:
+            'If you leave, your unsaved credit note changes will be discarded.',
+      );
+      if (!mounted || !shouldDiscard) return;
+    }
+
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.salesCreditNotes);
+    }
+  }
 
   @override
   void initState() {
@@ -143,10 +170,12 @@ class _SalesCreditNoteCreateScreenState
     return ZerpaiLayout(
       pageTitle: 'New Credit Note',
       enableBodyScroll: true,
-
+      onCancel: _handleCancel,
+      isDirty: _isDirty,
       footer: _buildFooter(),
       child: Form(
         key: _formKey,
+        onChanged: _markDirty,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -548,10 +577,7 @@ class _SalesCreditNoteCreateScreenState
             child: const Text('Save'),
           ),
           const SizedBox(width: 12),
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+          OutlinedButton(onPressed: _handleCancel, child: const Text('Cancel')),
         ],
       ),
     );
@@ -588,7 +614,10 @@ class _SalesCreditNoteCreateScreenState
       await ref
           .read(salesOrderControllerProvider.notifier)
           .createSalesOrder(order);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        setState(() => _isDirty = false);
+        _handleCancel();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

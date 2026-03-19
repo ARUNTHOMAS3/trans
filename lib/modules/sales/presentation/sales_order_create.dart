@@ -21,6 +21,7 @@ import '../../items/pricelist/models/pricelist_model.dart';
 import 'widgets/sales_order_item_row.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 class SalesOrderCreateScreen extends ConsumerStatefulWidget {
   const SalesOrderCreateScreen({super.key});
@@ -35,6 +36,7 @@ class SalesOrderCreateScreen extends ConsumerStatefulWidget {
 class _SalesOrderCreateScreenState
     extends ConsumerState<SalesOrderCreateScreen> {
   final _formKey = GlobalKey<FormState>();
+  bool _isDirty = false;
 
   String? selectedCustomerId;
   late final TextEditingController salesOrderNumberCtrl;
@@ -54,6 +56,29 @@ class _SalesOrderCreateScreenState
   double subTotal = 0.0;
   double taxTotal = 0.0;
   double total = 0.0;
+
+  void _markDirty() {
+    if (!_isDirty && mounted) {
+      setState(() => _isDirty = true);
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    if (_isDirty) {
+      final shouldDiscard = await showUnsavedChangesDialog(
+        context,
+        message:
+            'If you leave, your unsaved sales order changes will be discarded.',
+      );
+      if (!mounted || !shouldDiscard) return;
+    }
+
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.salesOrders);
+    }
+  }
 
   @override
   void initState() {
@@ -169,9 +194,12 @@ class _SalesOrderCreateScreenState
     return ZerpaiLayout(
       pageTitle: 'Create Sales Order',
       enableBodyScroll: true,
+      onCancel: _handleCancel,
+      isDirty: _isDirty,
       footer: _buildFooter(),
       child: Form(
         key: _formKey,
+        onChanged: _markDirty,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -658,16 +686,7 @@ class _SalesOrderCreateScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          OutlinedButton(
-            onPressed: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go(AppRoutes.salesOrders);
-              }
-            },
-            child: const Text('Cancel'),
-          ),
+          OutlinedButton(onPressed: _handleCancel, child: const Text('Cancel')),
           const SizedBox(width: 12),
           ElevatedButton(
             onPressed: () => _saveSalesOrder(status: 'draft'),
@@ -769,6 +788,7 @@ class _SalesOrderCreateScreenState
           .read(salesOrderControllerProvider.notifier)
           .createSalesOrder(order);
       if (mounted) {
+        setState(() => _isDirty = false);
         if (context.canPop()) {
           context.pop();
         } else {

@@ -7,6 +7,9 @@ import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import '../models/pricelist_model.dart';
 import '../providers/pricelist_provider.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/routing/app_router.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 /// Price List Edit Screen - Inventory → Items → Price Lists → Edit
 class PriceListEditScreen extends ConsumerStatefulWidget {
@@ -34,10 +37,34 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
   late bool _isDiscountEnabled;
   late String _status;
   bool _isSubmitting = false;
+  bool _isDirty = false;
 
   final Map<String, PriceListItemRate> _itemRateOverrides = {};
   final Map<String, TextEditingController> _rateControllers = {};
   final Map<String, TextEditingController> _discountControllers = {};
+
+  void _markDirty() {
+    if (!_isDirty && mounted) {
+      setState(() => _isDirty = true);
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    if (_isDirty) {
+      final shouldDiscard = await showUnsavedChangesDialog(
+        context,
+        message:
+            'If you leave, your unsaved price list changes will be discarded.',
+      );
+      if (!mounted || !shouldDiscard) return;
+    }
+
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.priceLists);
+    }
+  }
 
   @override
   void initState() {
@@ -61,7 +88,8 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
     _transactionType = p.transactionType;
     _priceListType = p.priceListType;
     _pricingScheme = p.pricingScheme;
-    _roundOffTo = p.roundOffPreference ?? RoundOffPreference.neverMind.displayName;
+    _roundOffTo =
+        p.roundOffPreference ?? RoundOffPreference.neverMind.displayName;
     _isDiscountEnabled = p.isDiscountEnabled;
     _status = p.status;
 
@@ -174,6 +202,8 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
 
     return ZerpaiLayout(
       pageTitle: 'Edit Price List',
+      onCancel: _handleCancel,
+      isDirty: _isDirty,
       footer: _buildFooterActions(context),
       child: _buildFormContent(context, itemsState),
     );
@@ -195,6 +225,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
 
     return Form(
       key: _formKey,
+      onChanged: _markDirty,
       child: CustomScrollView(
         slivers: [
           // 1. General InfoSection
@@ -272,14 +303,20 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                         return Container(
                           decoration: BoxDecoration(
                             border: Border(
-                              left: const BorderSide(color: AppTheme.borderColor),
-                              right: const BorderSide(color: AppTheme.borderColor),
+                              left: const BorderSide(
+                                color: AppTheme.borderColor,
+                              ),
+                              right: const BorderSide(
+                                color: AppTheme.borderColor,
+                              ),
                               bottom: const BorderSide(
                                 color: AppTheme.borderColor,
                               ),
                               top: index == 0
                                   ? BorderSide.none
-                                  : const BorderSide(color: AppTheme.borderColor),
+                                  : const BorderSide(
+                                      color: AppTheme.borderColor,
+                                    ),
                             ),
                             borderRadius: isLast
                                 ? const BorderRadius.only(
@@ -1642,9 +1679,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
           color: isSelected ? AppTheme.selectionActiveBg : Colors.white,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected
-                ? AppTheme.primaryBlueDark
-                : AppTheme.borderColor,
+            color: isSelected ? AppTheme.primaryBlueDark : AppTheme.borderColor,
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -1706,31 +1741,30 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
     ),
   );
 
-  InputDecoration _inputDecoration({String? hintText, String? prefixText}) =>
-      InputDecoration(
-        hintText: hintText,
-        prefixText: prefixText,
-        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 10,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: AppTheme.borderColor),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: AppTheme.borderColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: AppTheme.primaryBlueDark, width: 1),
-        ),
-        filled: true,
-        fillColor: Colors.white,
-        isDense: true,
-      );
+  InputDecoration _inputDecoration({
+    String? hintText,
+    String? prefixText,
+  }) => InputDecoration(
+    hintText: hintText,
+    prefixText: prefixText,
+    hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4),
+      borderSide: const BorderSide(color: AppTheme.borderColor),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4),
+      borderSide: const BorderSide(color: AppTheme.borderColor),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4),
+      borderSide: const BorderSide(color: AppTheme.primaryBlueDark, width: 1),
+    ),
+    filled: true,
+    fillColor: Colors.white,
+    isDense: true,
+  );
 
   Widget _buildFooterActions(BuildContext context) => Container(
     padding: const EdgeInsets.all(24),
@@ -1770,7 +1804,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
         ),
         const SizedBox(width: 12),
         OutlinedButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _handleCancel,
           style: OutlinedButton.styleFrom(
             foregroundColor: AppTheme.textBody,
             side: const BorderSide(color: AppTheme.borderColor),
@@ -1813,7 +1847,8 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
           .read(priceListNotifierProvider.notifier)
           .updatePriceList(updated);
       if (mounted) {
-        Navigator.pop(context);
+        setState(() => _isDirty = false);
+        _handleCancel();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Price list updated'),

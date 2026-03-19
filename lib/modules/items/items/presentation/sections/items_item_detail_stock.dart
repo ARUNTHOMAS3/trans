@@ -2797,9 +2797,7 @@ class _PhysicalStockAdjustmentDialogState
   Future<void> _handleSave() async {
     if (_selectedWarehouse == null) return;
     if (_selectedReason == null || _selectedReason!.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an adjustment reason')),
-      );
+      ZerpaiToast.error(context, 'Please select an adjustment reason');
       return;
     }
 
@@ -2819,15 +2817,11 @@ class _PhysicalStockAdjustmentDialogState
 
       if (mounted) {
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Physical stock adjusted successfully')),
-        );
+        ZerpaiToast.success(context, 'Physical stock adjusted successfully');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to adjust physical stock: $e')),
-        );
+        ZerpaiToast.error(context, 'Failed to adjust physical stock: $e');
       }
     } finally {
       if (mounted) {

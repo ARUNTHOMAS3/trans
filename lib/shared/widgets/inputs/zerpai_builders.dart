@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 typedef ZerpaiFieldBuilder =
     Widget Function({
@@ -157,7 +158,11 @@ class ZerpaiBuilders {
           const SizedBox(width: 8),
           GestureDetector(
             onTap: onClose,
-            child: const Icon(Icons.close, color: AppTheme.errorTextDark, size: 16),
+            child: const Icon(
+              Icons.close,
+              color: AppTheme.errorTextDark,
+              size: 16,
+            ),
           ),
         ],
       ),
@@ -166,141 +171,6 @@ class ZerpaiBuilders {
 
   static void showSuccessToast(BuildContext context, String message) {
     if (!context.mounted) return;
-
-    final overlay = Overlay.of(context);
-    OverlayEntry? entry;
-
-    entry = OverlayEntry(
-      builder: (context) => _ToastWidget(
-        message: message,
-        onDismiss: () {
-          if (entry != null && entry!.mounted) {
-            entry!.remove();
-            entry = null;
-          }
-        },
-      ),
-    );
-
-    overlay.insert(entry!);
-  }
-}
-
-class _ToastWidget extends StatefulWidget {
-  final String message;
-  final VoidCallback onDismiss;
-
-  const _ToastWidget({required this.message, required this.onDismiss});
-
-  @override
-  State<_ToastWidget> createState() => _ToastWidgetState();
-}
-
-class _ToastWidgetState extends State<_ToastWidget>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<Offset> _offsetAnimation;
-  late Animation<double> _opacityAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-
-    _offsetAnimation = Tween<Offset>(
-      begin: const Offset(0, -1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
-
-    _opacityAnimation = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
-
-    _controller.forward();
-
-    // Start exit animation after 2.6s (total 3s minus 400ms exit)
-    Future.delayed(const Duration(milliseconds: 2600), () {
-      if (mounted) {
-        _controller.reverse().then((_) => widget.onDismiss());
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 20),
-          child: SlideTransition(
-            position: _offsetAnimation,
-            child: FadeTransition(
-              opacity: _opacityAnimation,
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFBBF7D0)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.successGreen,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Icon(
-                          Icons.check,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Text(
-                          widget.message,
-                          style: const TextStyle(
-                            color: AppTheme.successTextDark,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    ZerpaiToast.success(context, message);
   }
 }

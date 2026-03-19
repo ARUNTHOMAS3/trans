@@ -18,6 +18,7 @@ import { R2StorageService } from "../accountant/r2-storage.service";
 @Injectable()
 export class ProductsService {
   private readonly defaultOrgId = "00000000-0000-0000-0000-000000000000";
+  private hasLoggedMissingOutletsLookup = false;
 
   constructor(
     private readonly supabaseService: SupabaseService,
@@ -2286,10 +2287,13 @@ export class ProductsService {
       (stocksResult.data ?? []).map((row: any) => [row.warehouse_id, row]),
     );
     if (outletsResult.error) {
-      console.warn(
-        "⚠️ [Warehouse Stocks] Optional outlets lookup unavailable, using warehouse names only:",
-        outletsResult.error.message,
-      );
+      if (!this.hasLoggedMissingOutletsLookup) {
+        console.warn(
+          "⚠️ [Warehouse Stocks] Optional outlets lookup unavailable, using warehouse names only:",
+          outletsResult.error.message,
+        );
+        this.hasLoggedMissingOutletsLookup = true;
+      }
     }
     const outletNames = new Map(
       ((outletsResult.error ? [] : outletsResult.data) ?? []).map((row: any) => [

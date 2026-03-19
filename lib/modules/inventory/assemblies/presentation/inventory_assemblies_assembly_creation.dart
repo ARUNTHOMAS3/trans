@@ -8,6 +8,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'widgets/add_batches_dialog.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 class AssemblyCreateScreen extends StatefulWidget {
   const AssemblyCreateScreen({super.key});
@@ -27,6 +28,7 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
 
   String? _selectedCompositeItem;
   String? _selectedWarehouse = 'ZABNIX PRIVATE LIMITED';
+  bool _isDirty = false;
 
   // Associated Items table data
   final List<Map<String, dynamic>> _associatedItems = [
@@ -38,10 +40,55 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
     },
   ];
 
+  void _markDirty() {
+    if (!_isDirty && mounted) {
+      setState(() => _isDirty = true);
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    if (_isDirty) {
+      final shouldDiscard = await showUnsavedChangesDialog(
+        context,
+        message:
+            'If you leave, your unsaved assembly changes will be discarded.',
+      );
+      if (!mounted || !shouldDiscard) return;
+    }
+
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _assemblyNumCtrl.addListener(_markDirty);
+    _descriptionCtrl.addListener(_markDirty);
+    _assembledDateCtrl.addListener(_markDirty);
+    _quantityCtrl.addListener(_markDirty);
+  }
+
+  @override
+  void dispose() {
+    _assemblyNumCtrl.removeListener(_markDirty);
+    _descriptionCtrl.removeListener(_markDirty);
+    _assembledDateCtrl.removeListener(_markDirty);
+    _quantityCtrl.removeListener(_markDirty);
+    _assemblyNumCtrl.dispose();
+    _descriptionCtrl.dispose();
+    _assembledDateCtrl.dispose();
+    _quantityCtrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ZerpaiLayout(
       pageTitle: 'New Assembly',
+      onCancel: _handleCancel,
+      isDirty: _isDirty,
       // icon: Icons.inventory_2_outlined, // Removed
       // enableBodyScroll: true, // Removed
       footer: _buildFooter(),
@@ -77,8 +124,10 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                 hint: 'Select a Composite Item',
                 allowClear: true,
                 items: const ['aaaaaaaaaaaaaaa', 'Item B', 'Item C'],
-                onChanged: (val) =>
-                    setState(() => _selectedCompositeItem = val),
+                onChanged: (val) {
+                  setState(() => _selectedCompositeItem = val);
+                  _markDirty();
+                },
               ),
             ),
             if (_selectedCompositeItem != null) ...[
@@ -123,6 +172,7 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                           'dd-MM-yyyy',
                         ).format(date);
                       });
+                      _markDirty();
                     }
                   },
                   child: IgnorePointer(
@@ -148,7 +198,10 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                     const SizedBox(height: 4),
                     const Text(
                       'You can Assemble 0 unit from the available stock.',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     InkWell(
@@ -194,7 +247,10 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                 child: FormDropdown<String>(
                   value: _selectedWarehouse,
                   items: const ['ZABNIX PRIVATE LIMITED', 'Warehouse B'],
-                  onChanged: (val) => setState(() => _selectedWarehouse = val),
+                  onChanged: (val) {
+                    setState(() => _selectedWarehouse = val);
+                    _markDirty();
+                  },
                 ),
               ),
             ],
@@ -247,7 +303,11 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, size: 18, color: AppTheme.primaryBlueDark),
+          const Icon(
+            Icons.info_outline,
+            size: 18,
+            color: AppTheme.primaryBlueDark,
+          ),
           const SizedBox(width: 8),
           const Expanded(
             child: Text(
@@ -288,7 +348,10 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                     padding: EdgeInsets.only(right: 12),
                     child: Text(
                       'Quantity Required',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSubtle),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSubtle,
+                      ),
                       textAlign: TextAlign.right,
                     ),
                   ),
@@ -300,7 +363,10 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                     padding: EdgeInsets.only(right: 12),
                     child: Text(
                       'Total Qty required',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSubtle),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSubtle,
+                      ),
                       textAlign: TextAlign.right,
                     ),
                   ),
@@ -312,7 +378,10 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                     padding: EdgeInsets.only(right: 12),
                     child: Text(
                       'Quantity Available',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSubtle),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSubtle,
+                      ),
                       textAlign: TextAlign.right,
                     ),
                   ),
@@ -583,10 +652,7 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
             ],
           ),
           const SizedBox(width: 12),
-          ZButton.secondary(
-            label: 'Cancel',
-            onPressed: () => Navigator.of(context).pop(),
-          ),
+          ZButton.secondary(label: 'Cancel', onPressed: _handleCancel),
         ],
       ),
     );

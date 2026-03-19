@@ -39,8 +39,6 @@ class ItemsController extends StateNotifier<ItemsState> {
     await Future.wait([
       loadItems(),
       loadCompositeItems(),
-      loadLookupData(),
-      loadAllPriceLists(),
     ]);
   }
 

@@ -130,6 +130,66 @@ This confirms the opening-stock flow now has a distinct deep-linkable route.
 
 ---
 
+## Opening Stock Numeric Input Replace Behavior Fix (March 19, 2026)
+
+Fixed the numeric field behavior in the opening-stock screen where typing into a default `0` field could append to the existing value and turn `10` into `100`.
+
+- Updated [items_opening_stock_dialog.dart](/e:/zerpai-new/lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart)
+  - numeric inputs now select the full existing value on tap
+  - decimal numeric fields now explicitly use a decimal-safe keyboard and input formatter
+  - integer fields keep digit-only input but now also replace the current value cleanly on click
+
+This makes stock and value entry behave like standard replace-on-edit numeric fields.
+
+---
+
+## Opening Stock Footer Summary Alignment Fix (March 19, 2026)
+
+Fixed the opening-stock footer summary so it reflects the current draft quantity instead of staying at `0`.
+
+- Updated [items_opening_stock_dialog.dart](/e:/zerpai-new/lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart)
+  - batch and serial summary rows now derive from the draft quantity being entered
+  - batch mode now falls back to `Opening Qty` when `QTY IN` has not been filled yet
+  - `Added Qty to Warehouse` now mirrors the current draft quantity instead of a hardcoded `0`
+
+This makes the footer consistent with what the user is actually entering on the screen.
+
+---
+
+## Stock Flow Toast Alignment Update (March 19, 2026)
+
+Replaced the bottom snackbars in the warehouse stock flows with the shared top-centered toast pattern.
+
+- Updated [zerpai_toast.dart](/e:/zerpai-new/lib/shared/utils/zerpai_toast.dart)
+  - moved shared toast placement from bottom to top-center
+  - tightened width and spacing to match the compact floating alert style
+  - added a dismiss `X` affordance
+- Updated [items_item_detail.dart](/e:/zerpai-new/lib/modules/items/items/presentation/items_item_detail.dart)
+  - imported the shared toast utility for item detail stock flows
+- Updated [items_opening_stock_dialog.dart](/e:/zerpai-new/lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart)
+  - opening stock validation/success/error feedback now uses `ZerpaiToast`
+- Updated [items_item_detail_stock.dart](/e:/zerpai-new/lib/modules/items/items/presentation/sections/items_item_detail_stock.dart)
+  - physical stock adjustment validation/success/error feedback now uses `ZerpaiToast`
+
+This replaces the bottom page notification with a top-centered floating toast for these stock actions.
+
+---
+
+## Searchable Dropdown Relevance Sorting Fix (March 19, 2026)
+
+Improved searchable dropdown ordering so strong matches do not stay buried lower in the list.
+
+- Updated [dropdown_input.dart](/e:/zerpai-new/lib/shared/widgets/inputs/dropdown_input.dart)
+  - search results now rank by relevance instead of keeping raw source order
+  - exact matches come first
+  - prefix matches come next
+  - word-boundary matches come before generic contains matches
+  - alphabetical order is used as a stable tie-breaker for similar matches
+
+This fixes cases like strength lookups where searching `50 mg` could previously leave the most relevant `50 mg ...` options below unrelated values such as `1250 mg`.
+
+---
+
 ## 1. Core Feature: Deep Linking (Frontend)
 
 Implemented full Deep Linking support for Item Details to allow direct URL navigation and stable browser history.
@@ -5264,3 +5324,133 @@ The Batch-wise Opening Stock screen was opened via `showDialog` with a manually 
 - Browser back button returns to the item detail warehouses tab
 - Single sidebar (from shell)
 - Direct deep link to opening stock works — screen self-fetches all required data
+
+## Sprint: Global Toast Visual Standardization
+**Date:** 2026-03-19
+
+### Problem
+The app had two toast systems with inconsistent visuals:
+1. `ZerpaiToast` was used widely across items and accountant flows
+2. `ZerpaiBuilders.showSuccessToast` rendered an older success-only toast with a different appearance
+
+This caused inconsistent success/error feedback across modules.
+
+### Changes
+
+**`lib/shared/utils/zerpai_toast.dart`**
+- Standardized success toasts to the pale green, top-centered compact style
+- Standardized error toasts to the matching pale red style
+- Kept info toasts on the same shared component
+- Slightly increased icon-chip size and aligned the entrance animation to a top toast feel
+
+**`lib/shared/widgets/inputs/zerpai_builders.dart`**
+- Replaced the legacy custom success toast overlay with a direct call to `ZerpaiToast.success(...)`
+- Removed the older duplicate `_ToastWidget` implementation
+
+### Result
+- Success toasts are green globally
+- Failure/error toasts are red globally
+- Accountant module and shared management dialogs now use the same toast presentation
+- One shared toast source controls the app-wide behavior
+
+## Sprint: Unsaved Changes Leave Guard
+**Date:** 2026-03-19
+
+### Problem
+Users could leave edit flows with unsaved values and lose data silently. The confirmation behavior was inconsistent and not aligned with the accountant confirmation pattern.
+
+### Changes
+
+**`lib/shared/widgets/dialogs/unsaved_changes_dialog.dart`**
+- Added a shared leave-page confirmation dialog with a white surface, warning icon, and accountant-style action layout
+
+**`lib/shared/widgets/unsaved_changes_guard.dart`**
+- Added a reusable unsaved-changes guard built on `PopScope`
+- Uses the shared leave-page dialog before allowing route pop/back navigation
+
+**`lib/shared/widgets/shortcut_handler.dart`**
+- Replaced the old generic discard alert with the shared leave-page dialog
+
+**`lib/shared/widgets/zerpai_layout.dart`**
+- Wrapped layout pages in the shared unsaved-changes guard
+- Any screen that already provides `isDirty` now gets the leave confirmation for back/pop flows automatically
+
+**`lib/modules/items/items/presentation/items_item_create.dart`**
+- Added dirty-state tracking to item create/edit
+- Wrapped the form in `Form(onChanged: ...)`
+- Cancel navigation now asks before discarding unsaved item changes
+- Dirty state resets after successful save and after initial hydration
+
+**`lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart`**
+- Added unsaved-change detection for opening stock
+- Header close, cancel, and browser back/pop now ask before leaving when batch/stock inputs were changed
+
+### Result
+- Unsaved-change confirmation now uses one shared modal pattern
+- Accountant pages that already mark `isDirty` benefit automatically via the layout wrapper
+- Item create/edit and opening stock now block accidental exit until users confirm discard
+
+### Rollout Expansion
+
+**`lib/modules/sales/presentation/sales_order_create.dart`**
+- Added dirty-state tracking to the sales order create flow
+- Cancel/back now uses the shared leave-page confirmation
+
+**`lib/modules/sales/presentation/sales_invoice_create.dart`**
+- Added dirty-state tracking to invoice creation
+- Cancel/back now asks before discarding unsaved invoice changes
+
+**`lib/modules/sales/presentation/sales_payment_create.dart`**
+- Added dirty-state tracking to payment creation
+- Cancel/back now asks before discarding unsaved payment changes
+
+**`lib/modules/sales/presentation/sales_quotation_create.dart`**
+- Added dirty-state tracking to quotation creation
+- Cancel/back now asks before discarding unsaved quotation changes
+
+**`lib/modules/sales/presentation/sales_credit_note_create.dart`**
+- Added dirty-state tracking to credit note creation
+- Cancel/back now asks before discarding unsaved credit note changes
+
+**`lib/modules/sales/presentation/sales_retainer_invoice_create.dart`**
+- Added dirty-state tracking to retainer invoice creation
+- Cancel/back now asks before discarding unsaved retainer invoice changes
+
+**`lib/modules/sales/presentation/sales_delivery_challan_create.dart`**
+- Added dirty-state tracking to delivery challan creation
+- Cancel/back now asks before discarding unsaved delivery challan changes
+
+**`lib/modules/items/pricelist/presentation/items_pricelist_create.dart`**
+- Added dirty-state tracking to price list creation
+- Cancel/back now asks before discarding unsaved price list changes
+
+**`lib/modules/items/pricelist/presentation/items_pricelist_edit.dart`**
+- Added dirty-state tracking to price list editing
+- Cancel/back now asks before discarding unsaved price list changes
+
+**`lib/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_creation.dart`**
+- Added listener-based dirty-state tracking for assembly creation
+- Cancel now asks before discarding unsaved assembly changes even though the save flow is still placeholder-only
+
+## Sprint: Item Detail Bootstrap Noise Reduction
+**Date:** 2026-03-19
+
+### Problem
+Item detail and opening stock screens were still instantiating the shared `ItemsController`, which automatically loaded the full lookup bootstrap and all price lists. That produced a large burst of unrelated network traffic such as manufacturers, brands, vendors, reorder terms, contents, strengths, and price lists while users were only viewing warehouse stock or opening stock flows.
+
+### Changes
+
+**`lib/modules/items/items/controllers/items_controller.dart`**
+- Removed automatic lookup bootstrap loading from controller initialization
+- Removed automatic global price-list loading from controller initialization
+- The controller now boots only the item and composite-item lists by default
+- Create/edit flows continue to load lookup masters explicitly where they are actually needed
+
+**`backend/src/modules/products/products.service.ts`**
+- Reduced repeated optional `outlets` lookup warning spam to a one-time warning
+- Warehouse stock fallback behavior remains unchanged: if `public.outlets` is unavailable, warehouse names are still used safely
+
+### Result
+- Item detail and opening stock screens stop triggering unnecessary lookup/bootstrap requests
+- Network noise and red failed lookup rows are reduced on warehouse-focused flows
+- The optional outlets fallback warning remains visible once for diagnosis without flooding the console
