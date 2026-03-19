@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SharedFieldLayout extends StatelessWidget {
   final String? label;
@@ -41,7 +42,7 @@ class SharedFieldLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveLabelColor =
         labelColor ??
-        (required ? const Color(0xFFE11D48) : const Color(0xFF6B7280));
+        (required ? AppTheme.errorRed : AppTheme.textSecondary);
 
     Widget buildLabel() {
       if (customLabel != null) return customLabel!;
@@ -60,7 +61,7 @@ class SharedFieldLayout extends StatelessWidget {
                   TextSpan(
                     text: " *",
                     style: TextStyle(
-                      color: Color(0xFFDC2626),
+                      color: AppTheme.errorRed,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -84,7 +85,7 @@ class SharedFieldLayout extends StatelessWidget {
               child: const Icon(
                 Icons.info_outline,
                 size: 14,
-                color: Color(0xFF9CA3AF),
+                color: AppTheme.textMuted,
               ),
             ),
           ),
@@ -134,7 +135,7 @@ class SharedFieldLayout extends StatelessWidget {
                         helper!,
                         style: const TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF9CA3AF),
+                          color: AppTheme.textMuted,
                         ),
                       ),
                     ],

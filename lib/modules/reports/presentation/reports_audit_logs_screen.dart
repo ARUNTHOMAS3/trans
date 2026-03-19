@@ -982,8 +982,8 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
     final (Color color, Color bg) = switch (action) {
       'INSERT' => (AppTheme.accentGreen, AppTheme.successBg),
       'UPDATE' => (AppTheme.primaryBlue, AppTheme.infoBg),
-      'DELETE' => (AppTheme.errorRed, const Color(0xFFFEE2E2)),
-      'TRUNCATE' => (AppTheme.warningOrange, const Color(0xFFFFF7ED)),
+      'DELETE' => (AppTheme.errorRed, AppTheme.errorBgBorder),
+      'TRUNCATE' => (AppTheme.warningOrange, AppTheme.warningBg),
       _ => (AppTheme.textSecondary, AppTheme.selectionInactiveBg),
     };
 
@@ -1020,7 +1020,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
         ),
         decoration: BoxDecoration(
           color: isArchived
-              ? const Color(0xFFFFF7ED)
+              ? AppTheme.warningBg
               : AppTheme.selectionInactiveBg,
           borderRadius: BorderRadius.circular(999),
         ),

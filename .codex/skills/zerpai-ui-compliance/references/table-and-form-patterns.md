@@ -23,6 +23,7 @@
 - Keep item details left-aligned and numeric columns right-aligned.
 - Support table-level contextual selectors such as warehouse or price list where the PRD calls for them.
 - Support row actions such as delete, drag, and advanced actions when relevant.
+- Dense or wide tables must use the shared responsive table shell so the table preserves usable minimum widths and falls back to horizontal scrolling instead of compressing headers and inputs into overflow-prone layouts.
 
 ## Pagination
 
@@ -42,3 +43,4 @@
 - Keep empty states and error states distinct; do not silently convert backend failures into misleading empty business data.
 - Master-driven defaults should resolve from DB-backed lookup rows where schema-backed masters exist instead of hardcoded IDs or visible labels.
 - Keep borders, dividers, and control outlines on approved shared border colors so form/table styling does not drift per screen.
+- Dialogs and form-heavy popovers should use the shared responsive dialog and responsive form row/grid primitives so width, label alignment, and wrap behavior stay consistent across screen sizes.

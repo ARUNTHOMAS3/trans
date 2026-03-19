@@ -119,7 +119,7 @@ extension _ItemCreateSettings on _ItemCreateScreenState {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF111827),
+                              color: AppTheme.textPrimary,
                             ),
                           ),
                           const Spacer(),
@@ -131,15 +131,15 @@ extension _ItemCreateSettings on _ItemCreateScreenState {
                         ],
                       ),
                     ),
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const Divider(height: 1, color: AppTheme.borderColor),
                     if (errorMessage != null)
                       Container(
                         margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF2F2),
+                          color: AppTheme.errorBg,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFFEE2E2)),
+                          border: Border.all(color: AppTheme.errorBgBorder),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.05),
@@ -154,7 +154,7 @@ extension _ItemCreateSettings on _ItemCreateScreenState {
                             Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEF4444),
+                                color: AppTheme.errorRed,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: const Icon(
@@ -168,7 +168,7 @@ extension _ItemCreateSettings on _ItemCreateScreenState {
                               child: Text(
                                 errorMessage!,
                                 style: const TextStyle(
-                                  color: Color(0xFF991B1B),
+                                  color: AppTheme.errorTextDark,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w400,
                                   height: 1.4,
@@ -181,7 +181,7 @@ extension _ItemCreateSettings on _ItemCreateScreenState {
                                   setDialogState(() => errorMessage = null),
                               child: const Icon(
                                 Icons.close,
-                                color: Color(0xFFEF4444),
+                                color: AppTheme.errorRed,
                                 size: 16,
                               ),
                             ),
@@ -201,7 +201,7 @@ extension _ItemCreateSettings on _ItemCreateScreenState {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                               ),
                             ),
                           ),
@@ -212,7 +212,7 @@ extension _ItemCreateSettings on _ItemCreateScreenState {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                               ),
                             ),
                           ),
@@ -292,9 +292,9 @@ extension _ItemCreateSettings on _ItemCreateScreenState {
                                               alignment: Alignment.centerLeft,
                                               decoration: BoxDecoration(
                                                 color: isHovered
-                                                    ? const Color(0xFF2563EB)
+                                                    ? AppTheme.primaryBlueDark
                                                     : isSelected
-                                                    ? const Color(0xFFEFF6FF)
+                                                    ? AppTheme.infoBg
                                                     : Colors.transparent,
                                               ),
                                               child: Text(
@@ -304,8 +304,8 @@ extension _ItemCreateSettings on _ItemCreateScreenState {
                                                   color: isHovered
                                                       ? Colors.white
                                                       : isSelected
-                                                      ? const Color(0xFF2563EB)
-                                                      : const Color(0xFF111827),
+                                                      ? AppTheme.primaryBlueDark
+                                                      : AppTheme.textPrimary,
                                                 ),
                                               ),
                                             );
@@ -332,7 +332,7 @@ extension _ItemCreateSettings on _ItemCreateScreenState {
                                           icon: const Icon(
                                             Icons.close,
                                             size: 16,
-                                            color: Color(0xFFEF4444),
+                                            color: AppTheme.errorRed,
                                           ),
                                           splashRadius: 16,
                                           onPressed: () {
@@ -358,7 +358,7 @@ extension _ItemCreateSettings on _ItemCreateScreenState {
                         },
                       ),
                     ),
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const Divider(height: 1, color: AppTheme.borderColor),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
                       child: StatefulBuilder(
@@ -396,14 +396,14 @@ extension _ItemCreateSettings on _ItemCreateScreenState {
                                 icon: const Icon(
                                   Icons.add_circle_outline,
                                   size: 18,
-                                  color: Color(0xFF2563EB),
+                                  color: AppTheme.primaryBlueDark,
                                 ),
                                 label: const Text(
                                   'Add New',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xFF2563EB),
+                                    color: AppTheme.primaryBlueDark,
                                   ),
                                 ),
                               ),

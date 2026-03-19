@@ -7,6 +7,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import '../models/sales_order_model.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import '../controllers/sales_order_controller.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SalesDocumentDetailScreen extends ConsumerWidget {
   final String id;
@@ -92,7 +93,7 @@ class SalesDocumentDetailScreen extends ConsumerWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -148,7 +149,7 @@ class SalesDocumentDetailScreen extends ConsumerWidget {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF2563EB),
+                      color: AppTheme.primaryBlueDark,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -170,7 +171,7 @@ class SalesDocumentDetailScreen extends ConsumerWidget {
       style: const TextStyle(
         fontSize: 10,
         fontWeight: FontWeight.bold,
-        color: Color(0xFF6B7280),
+        color: AppTheme.textSecondary,
       ),
     ),
   );
@@ -198,10 +199,10 @@ class SalesDocumentDetailScreen extends ConsumerWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: DataTable(
-        headingRowColor: WidgetStateProperty.all(const Color(0xFFF9FAFB)),
+        headingRowColor: WidgetStateProperty.all(AppTheme.bgLight),
         columns: const [
           DataColumn(
             label: Text(
@@ -263,7 +264,7 @@ class SalesDocumentDetailScreen extends ConsumerWidget {
         width: 100,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
+          color: AppTheme.bgLight,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(

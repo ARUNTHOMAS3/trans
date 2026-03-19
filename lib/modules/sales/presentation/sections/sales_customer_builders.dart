@@ -14,7 +14,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
           child: FormDropdown<String>(
             height: _inputHeight,
             value: code,
-            fillColor: const Color(0xFFF9FAFB),
+            fillColor: AppTheme.bgLight,
             showRightBorder: true,
             items: const ['+91', '+1', '+44', '+971', '+61', '+974'],
             displayStringForValue: (v) => v,
@@ -58,19 +58,19 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
   Widget _buildPhonePrefixRow(String code, bool isSelected, bool isHovered) {
     final label = phonePrefixLabels[code] ?? '';
     Color bg = Colors.transparent;
-    Color text = const Color(0xFF111827);
-    Color subtext = const Color(0xFF6B7280);
-    Color check = const Color(0xFF2563EB);
+    Color text = AppTheme.textPrimary;
+    Color subtext = AppTheme.textSecondary;
+    Color check = AppTheme.primaryBlueDark;
 
     if (isSelected) {
-      bg = const Color(0xFF3B82F6);
+      bg = AppTheme.infoBlue;
       text = Colors.white;
       subtext = Colors.white70;
       check = Colors.white;
     } else if (isHovered) {
-      bg = const Color(0xFFEFF6FF);
-      text = const Color(0xFF1D4ED8);
-      subtext = const Color(0xFF1D4ED8);
+      bg = AppTheme.infoBg;
+      text = AppTheme.primaryBlueDark;
+      subtext = AppTheme.primaryBlueDark;
     }
 
     return Container(
@@ -110,19 +110,19 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
     bool isHovered,
   ) {
     Color bg = Colors.transparent;
-    Color text = const Color(0xFF111827);
-    Color subtext = const Color(0xFF6B7280);
-    Color check = const Color(0xFF2563EB);
+    Color text = AppTheme.textPrimary;
+    Color subtext = AppTheme.textSecondary;
+    Color check = AppTheme.primaryBlueDark;
 
     if (isSelected) {
-      bg = const Color(0xFF3B82F6);
+      bg = AppTheme.infoBlue;
       text = Colors.white;
       subtext = Colors.white70;
       check = Colors.white;
     } else if (isHovered) {
-      bg = const Color(0xFFEFF6FF);
-      text = const Color(0xFF1D4ED8);
-      subtext = const Color(0xFF1D4ED8);
+      bg = AppTheme.infoBg;
+      text = AppTheme.primaryBlueDark;
+      subtext = AppTheme.primaryBlueDark;
     }
 
     return Container(
@@ -162,19 +162,19 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
     bool isHovered,
   ) {
     Color bg = Colors.transparent;
-    Color title = const Color(0xFF111827);
-    Color subtitle = const Color(0xFF6B7280);
-    Color check = const Color(0xFF2563EB);
+    Color title = AppTheme.textPrimary;
+    Color subtitle = AppTheme.textSecondary;
+    Color check = AppTheme.primaryBlueDark;
 
     if (isSelected) {
-      bg = const Color(0xFF3B82F6);
+      bg = AppTheme.infoBlue;
       title = Colors.white;
       subtitle = Colors.white70;
       check = Colors.white;
     } else if (isHovered) {
-      bg = const Color(0xFFEFF6FF);
-      title = const Color(0xFF1D4ED8);
-      subtitle = const Color(0xFF1D4ED8);
+      bg = AppTheme.infoBg;
+      title = AppTheme.primaryBlueDark;
+      subtitle = AppTheme.primaryBlueDark;
     }
 
     return Container(
@@ -275,9 +275,9 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
   Widget _buildPrefillBanner() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: AppTheme.infoBg,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFFDBEAFE)),
+        border: Border.all(color: AppTheme.infoBgBorder),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -286,7 +286,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
             const Icon(
               Icons.file_download_outlined,
               size: 20,
-              color: Color(0xFF2563EB),
+              color: AppTheme.primaryBlueDark,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -297,7 +297,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
                       "Customer's GSTIN. ",
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF1D4ED8),
+                    color: AppTheme.primaryBlueDark,
                   ),
                   children: [
                     WidgetSpan(
@@ -308,7 +308,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
                           'Prefill >',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF2563EB),
+                            color: AppTheme.primaryBlueDark,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -334,13 +334,13 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           const Spacer(),
           IconButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            icon: const Icon(Icons.close, size: 18, color: Color(0xFFE11D48)),
+            icon: const Icon(Icons.close, size: 18, color: AppTheme.errorRed),
             splashRadius: 20,
           ),
         ],
@@ -362,11 +362,11 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
           height: _inputHeight,
           width: _inputHeight,
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DB)),
+            border: Border.all(color: AppTheme.borderColor),
             borderRadius: BorderRadius.circular(4),
             color: Colors.white,
           ),
-          child: Icon(icon, size: 18, color: const Color(0xFF2563EB)),
+          child: Icon(icon, size: 18, color: AppTheme.primaryBlueDark),
         ),
       ),
     );
@@ -391,7 +391,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF374151),
+                color: AppTheme.textBody,
               ),
             ),
           ),
@@ -428,15 +428,15 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: hasError
-                          ? const Color(0xFFDC2626)
+                          ? AppTheme.errorRed
                           : (required
-                                ? const Color(0xFFDC2626)
-                                : const Color(0xFF374151)),
+                                ? AppTheme.errorRed
+                                : AppTheme.textBody),
                     ),
                   ),
                 ),
                 if (required)
-                  const Text(' *', style: TextStyle(color: Color(0xFFDC2626))),
+                  const Text(' *', style: TextStyle(color: AppTheme.errorRed)),
                 if (showInfo) ...[
                   const SizedBox(width: 4),
                   Tooltip(
@@ -450,7 +450,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
                     ),
                     margin: const EdgeInsets.symmetric(horizontal: 24),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1F2937),
+                      color: AppTheme.textPrimary,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     textStyle: const TextStyle(
@@ -461,7 +461,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
                     child: const Icon(
                       Icons.info_outline,
                       size: 14,
-                      color: Color(0xFF9CA3AF),
+                      color: AppTheme.textMuted,
                     ),
                   ),
                 ],
@@ -480,7 +480,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
                       decoration: hasError
                           ? BoxDecoration(
                               border: Border.all(
-                                color: const Color(0xFFDC2626),
+                                color: AppTheme.errorRed,
                                 width: 2,
                               ),
                               borderRadius: BorderRadius.circular(4),
@@ -504,7 +504,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
@@ -512,7 +512,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
             onPressed: _saveCustomer,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              backgroundColor: const Color(0xFF2563EB),
+              backgroundColor: AppTheme.primaryBlueDark,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -558,7 +558,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
             Container(
               height: 32,
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                border: Border.all(color: AppTheme.borderColor),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -600,7 +600,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
           const SizedBox(height: 12),
           Text(
             hintText,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
         ],
       ],
@@ -626,13 +626,13 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
         elevation: 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: Color(0xFFE5E7EB)),
+          side: const BorderSide(color: AppTheme.borderColor),
         ),
         child: Container(
           height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            color: const Color(0xFF3B82F6),
+            color: AppTheme.infoBlue,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
@@ -663,13 +663,13 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF3F4F6),
+                        color: AppTheme.bgDisabled,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Icon(
                         _getFileIcon(file.extension),
                         size: 20,
-                        color: const Color(0xFF3B82F6),
+                        color: AppTheme.infoBlue,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -682,7 +682,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
-                              color: Color(0xFF111827),
+                              color: AppTheme.textPrimary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -692,7 +692,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
                             'File Size: ${_formatFileSize(file.size)}',
                             style: const TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF6B7280),
+                              color: AppTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -706,7 +706,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
                       icon: const Icon(
                         LucideIcons.trash2,
                         size: 16,
-                        color: Color(0xFFEF4444),
+                        color: AppTheme.errorRed,
                       ),
                     ),
                   ],

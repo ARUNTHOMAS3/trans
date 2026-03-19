@@ -6,7 +6,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -27,8 +27,8 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: _isPriceListExpanded
-                          ? const Color(0xFF2563EB)
-                          : const Color(0xFF111827),
+                          ? AppTheme.primaryBlueDark
+                          : AppTheme.textPrimary,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -38,7 +38,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                         : Icons.chevron_right,
                     size: 18,
                     color: _isPriceListExpanded
-                        ? const Color(0xFF2563EB)
+                        ? AppTheme.primaryBlueDark
                         : Colors.grey[600],
                   ),
                 ],
@@ -46,7 +46,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
             ),
           ),
           if (_isPriceListExpanded) ...[
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            const Divider(height: 1, color: AppTheme.borderColor),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -69,7 +69,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF9FAFB),
+                      color: AppTheme.bgLight,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Row(
@@ -127,14 +127,14 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                         Icon(
                           Icons.add_circle_outline,
                           size: 16,
-                          color: const Color(0xFF2563EB),
+                          color: AppTheme.primaryBlueDark,
                         ),
                         const SizedBox(width: 6),
                         const Text(
                           'Associate Price List',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF2563EB),
+                            color: AppTheme.primaryBlueDark,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -172,12 +172,12 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2563EB) : Colors.white,
+          color: isSelected ? AppTheme.primaryBlueDark : Colors.white,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF2563EB)
-                : const Color(0xFFD1D5DB),
+                ? AppTheme.primaryBlueDark
+                : AppTheme.borderColor,
           ),
         ),
         child: Text(
@@ -185,7 +185,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : const Color(0xFF374151),
+            color: isSelected ? Colors.white : AppTheme.textBody,
           ),
         ),
       ),
@@ -207,7 +207,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
           child: RichText(
             textAlign: TextAlign.center,
             text: TextSpan(
-              style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               children: [
                 TextSpan(
                   text: _selectedPriceListTab == 0
@@ -217,7 +217,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                 const TextSpan(
                   text: 'Create Price List',
                   style: TextStyle(
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -245,7 +245,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                   name,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF374151),
+                    color: AppTheme.textBody,
                   ),
                 ),
               ),
@@ -254,7 +254,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                   rate.toString(),
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF374151),
+                    color: AppTheme.textBody,
                   ),
                 ),
               ),
@@ -263,7 +263,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                   discount.toString(),
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF374151),
+                    color: AppTheme.textBody,
                   ),
                 ),
               ),
@@ -315,7 +315,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF111827),
+                                    color: AppTheme.textPrimary,
                                   ),
                                 ),
                                 IconButton(
@@ -337,7 +337,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
-                                      color: Color(0xFF374151),
+                                      color: AppTheme.textBody,
                                     ),
                                   ),
                                 ),
@@ -349,7 +349,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                                       initialValue: selectedId,
                                       style: const TextStyle(
                                         fontSize: 12,
-                                        color: Color(0xFF374151),
+                                        color: AppTheme.textBody,
                                       ),
                                       decoration: InputDecoration(
                                         hintText: 'Select a Price List',
@@ -361,7 +361,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                                             4,
                                           ),
                                           borderSide: const BorderSide(
-                                            color: Color(0xFFD1D5DB),
+                                            color: AppTheme.borderColor,
                                           ),
                                         ),
                                         enabledBorder: OutlineInputBorder(
@@ -369,7 +369,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                                             4,
                                           ),
                                           borderSide: const BorderSide(
-                                            color: Color(0xFFD1D5DB),
+                                            color: AppTheme.borderColor,
                                           ),
                                         ),
                                         focusedBorder: OutlineInputBorder(
@@ -377,7 +377,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                                             4,
                                           ),
                                           borderSide: const BorderSide(
-                                            color: Color(0xFF2563EB),
+                                            color: AppTheme.primaryBlueDark,
                                           ),
                                         ),
                                         contentPadding:
@@ -425,7 +425,7 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                                     }
                                   },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF10B981),
+                                    backgroundColor: AppTheme.accentGreen,
                                     foregroundColor: Colors.white,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(
@@ -457,9 +457,9 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                                 OutlinedButton(
                                   onPressed: () => Navigator.of(context).pop(),
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF374151),
+                                    foregroundColor: AppTheme.textBody,
                                     side: const BorderSide(
-                                      color: Color(0xFFD1D5DB),
+                                      color: AppTheme.borderColor,
                                     ),
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(

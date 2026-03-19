@@ -325,7 +325,7 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
   Widget _buildCategorySidebar() {
     return Container(
       width: 260,
-      color: const Color(0xFFF9FAFB),
+      color: AppTheme.bgLight,
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 16),
         children: [
@@ -371,7 +371,7 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF6B7280),
+          color: AppTheme.textSecondary,
           letterSpacing: 0.5,
         ),
       ),
@@ -387,14 +387,14 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
       leading: Icon(
         icon,
         size: 18,
-        color: isSelected ? AppTheme.primaryBlue : const Color(0xFF6B7280),
+        color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondary,
       ),
       title: Text(
         title,
         style: TextStyle(
           fontSize: 13,
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          color: isSelected ? AppTheme.primaryBlue : const Color(0xFF374151),
+          color: isSelected ? AppTheme.primaryBlue : AppTheme.textBody,
         ),
       ),
       onTap: () => setState(() => _selectedCategory = title),
@@ -410,14 +410,14 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
       leading: Icon(
         LucideIcons.folder,
         size: 18,
-        color: isSelected ? AppTheme.primaryBlue : const Color(0xFF9CA3AF),
+        color: isSelected ? AppTheme.primaryBlue : AppTheme.textMuted,
       ),
       title: Text(
         title,
         style: TextStyle(
           fontSize: 13,
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          color: isSelected ? AppTheme.primaryBlue : const Color(0xFF374151),
+          color: isSelected ? AppTheme.primaryBlue : AppTheme.textBody,
         ),
       ),
       onTap: () => setState(() => _selectedCategory = title),
@@ -446,7 +446,7 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
                     prefixWidget: const Icon(
                       LucideIcons.search,
                       size: 18,
-                      color: Color(0xFF9CA3AF),
+                      color: AppTheme.textMuted,
                     ),
                   ),
                 ),
@@ -467,14 +467,14 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827),
+                  color: AppTheme.textPrimary,
                 ),
               ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: AppTheme.infoBg,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -515,7 +515,7 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: const BoxDecoration(
-        color: Color(0xFFF9FAFB),
+        color: AppTheme.bgLight,
         border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
@@ -575,7 +575,7 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
                   const Icon(
                     LucideIcons.star,
                     size: 16,
-                    color: Color(0xFFD1D5DB),
+                    color: AppTheme.borderColor,
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -596,7 +596,7 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
                   report['category'] ?? '-',
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF4B5563),
+                    color: AppTheme.textSubtle,
                   ),
                 ),
               ),
@@ -604,14 +604,14 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
               flex: 2,
               child: Text(
                 report['created_by']!,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSubtle),
               ),
             ),
             Expanded(
               flex: 2,
               child: Text(
                 report['last_visited']!,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSubtle),
               ),
             ),
           ],
@@ -623,7 +623,7 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
   static const _headerStyle = TextStyle(
     fontSize: 11,
     fontWeight: FontWeight.w700,
-    color: Color(0xFF6B7280),
+    color: AppTheme.textSecondary,
     letterSpacing: 0.5,
   );
 }

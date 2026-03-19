@@ -20,6 +20,7 @@ import '../../items/pricelist/providers/pricelist_provider.dart';
 import '../../items/pricelist/models/pricelist_model.dart';
 import 'widgets/sales_order_item_row.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SalesOrderCreateScreen extends ConsumerStatefulWidget {
   const SalesOrderCreateScreen({super.key});
@@ -194,7 +195,7 @@ class _SalesOrderCreateScreenState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -356,7 +357,7 @@ class _SalesOrderCreateScreenState
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFD1D5DB)),
+          border: Border.all(color: AppTheme.borderColor),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
@@ -369,7 +370,7 @@ class _SalesOrderCreateScreenState
             const Icon(
               LucideIcons.calendar,
               size: 16,
-              color: Color(0xFF6B7280),
+              color: AppTheme.textSecondary,
             ),
           ],
         ),
@@ -387,14 +388,14 @@ class _SalesOrderCreateScreenState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: const Color(0xFFF9FAFB),
+            color: AppTheme.bgLight,
             child: Row(
               children: const [
                 Expanded(
@@ -579,9 +580,9 @@ class _SalesOrderCreateScreenState
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFFF9FAFB),
+              color: AppTheme.bgLight,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              border: Border.all(color: AppTheme.borderColor),
             ),
             child: Column(
               children: [
@@ -652,7 +653,7 @@ class _SalesOrderCreateScreenState
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -673,7 +674,7 @@ class _SalesOrderCreateScreenState
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: Colors.black87,
-              side: const BorderSide(color: Color(0xFFD1D5DB)),
+              side: const BorderSide(color: AppTheme.borderColor),
             ),
             child: const Text('Save as Draft'),
           ),
@@ -690,7 +691,7 @@ class _SalesOrderCreateScreenState
   static const _tableHeaderStyle = TextStyle(
     fontWeight: FontWeight.bold,
     fontSize: 11,
-    color: Color(0xFF6B7280),
+    color: AppTheme.textSecondary,
   );
 
   void _showCreateCustomerDialog() {

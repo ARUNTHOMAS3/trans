@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_simple_list_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 /// First-level dialog that shows a list of items with + New button
 /// Clicking + New or Edit opens the ManageSimpleListDialog
@@ -178,7 +179,7 @@ class _ManageListDialogState extends State<ManageListDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildHeader(),
-            const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+            const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
             if (_errorMessage != null)
               ZerpaiBuilders.buildErrorAlert(
                 context: context,
@@ -208,13 +209,13 @@ class _ManageListDialogState extends State<ManageListDialog> {
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           const Spacer(),
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close, size: 18, color: Color(0xFFE11D48)),
+            icon: const Icon(Icons.close, size: 18, color: AppTheme.errorRed),
             splashRadius: 20,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -232,7 +233,7 @@ class _ManageListDialogState extends State<ManageListDialog> {
         borderRadius: BorderRadius.circular(4),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF10B981),
+            color: AppTheme.accentGreen,
             borderRadius: BorderRadius.circular(4),
           ),
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -253,14 +254,14 @@ class _ManageListDialogState extends State<ManageListDialog> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
-      color: const Color(0xFFF9FAFB),
+      color: AppTheme.bgLight,
       child: Text(
         widget.headerLabel.toUpperCase(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           fontSize: 11,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.5,
-          color: const Color(0xFF6B7280),
+          color: AppTheme.textSecondary,
         ),
       ),
     );
@@ -281,7 +282,7 @@ class _ManageListDialogState extends State<ManageListDialog> {
         child: Text(
           'No ${widget.headerLabel.toLowerCase()} found',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: const Color(0xFF9CA3AF),
+            color: AppTheme.textMuted,
             fontSize: 13,
           ),
         ),
@@ -303,9 +304,9 @@ class _ManageListDialogState extends State<ManageListDialog> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: hovered ? const Color(0xFFF9FAFB) : Colors.white,
+                color: hovered ? AppTheme.bgLight : Colors.white,
                 border: const Border(
-                  bottom: BorderSide(color: Color(0xFFE5E7EB), width: 0.5),
+                  bottom: BorderSide(color: AppTheme.borderColor, width: 0.5),
                 ),
               ),
               child: Row(
@@ -315,7 +316,7 @@ class _ManageListDialogState extends State<ManageListDialog> {
                       label,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontSize: 14,
-                        color: const Color(0xFF374151),
+                        color: AppTheme.textBody,
                         fontWeight: FontWeight.normal,
                       ),
                     ),
@@ -325,13 +326,13 @@ class _ManageListDialogState extends State<ManageListDialog> {
                       icon: const Icon(
                         Icons.edit_outlined,
                         size: 14,
-                        color: Color(0xFF2563EB),
+                        color: AppTheme.primaryBlueDark,
                       ),
                       label: Text(
                         'Edit',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           fontSize: 13,
-                          color: const Color(0xFF2563EB),
+                          color: AppTheme.primaryBlueDark,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -350,13 +351,13 @@ class _ManageListDialogState extends State<ManageListDialog> {
                       icon: const Icon(
                         Icons.delete_outline,
                         size: 14,
-                        color: Color(0xFFDC2626),
+                        color: AppTheme.errorRed,
                       ),
                       label: Text(
                         'Delete',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           fontSize: 13,
-                          color: const Color(0xFFDC2626),
+                          color: AppTheme.errorRed,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

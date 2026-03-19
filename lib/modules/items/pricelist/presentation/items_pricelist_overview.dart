@@ -69,7 +69,7 @@ class _PriceListOverviewScreenState
           width: 240,
           height: 36,
           decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
+            color: AppTheme.bgDisabled,
             borderRadius: BorderRadius.circular(4),
           ),
           child: TextField(
@@ -79,11 +79,11 @@ class _PriceListOverviewScreenState
             },
             decoration: const InputDecoration(
               hintText: 'Search in Price Lists',
-              hintStyle: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+              hintStyle: TextStyle(fontSize: 13, color: AppTheme.textMuted),
               prefixIcon: Icon(
                 Icons.search,
                 size: 18,
-                color: Color(0xFF9CA3AF),
+                color: AppTheme.textMuted,
               ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(vertical: 8),
@@ -96,7 +96,7 @@ class _PriceListOverviewScreenState
           icon: const Icon(Icons.add, size: 18),
           label: const Text('New Price List'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: AppTheme.successGreen,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             minimumSize: const Size(0, 36),
@@ -117,7 +117,7 @@ class _PriceListOverviewScreenState
       itemBuilder: (context, index) => Container(
         height: 60,
         margin: const EdgeInsets.only(bottom: 1),
-        color: index.isEven ? const Color(0xFFF9FAFB) : Colors.white,
+        color: index.isEven ? AppTheme.bgLight : Colors.white,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Row(
@@ -126,7 +126,7 @@ class _PriceListOverviewScreenState
                 width: 200,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
+                  color: AppTheme.borderColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -135,7 +135,7 @@ class _PriceListOverviewScreenState
                 width: 80,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
+                  color: AppTheme.borderColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -154,13 +154,13 @@ class _PriceListOverviewScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Color(0xFFDC2626)),
+            const Icon(Icons.error_outline, size: 64, color: AppTheme.errorRed),
             const SizedBox(height: 16),
             Text(
               'Unable to Load Price Lists',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -169,7 +169,7 @@ class _PriceListOverviewScreenState
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6B7280)),
+              ).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -213,7 +213,7 @@ class _PriceListOverviewScreenState
           // Data table
           Container(
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              border: Border.all(color: AppTheme.borderColor),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
@@ -244,13 +244,13 @@ class _PriceListOverviewScreenState
               width: 96,
               height: 96,
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
+                color: AppTheme.bgDisabled,
                 borderRadius: BorderRadius.circular(48),
               ),
               child: const Icon(
                 Icons.receipt_long_outlined,
                 size: 48,
-                color: Color(0xFF9CA3AF),
+                color: AppTheme.textMuted,
               ),
             ),
             const SizedBox(height: 24),
@@ -258,7 +258,7 @@ class _PriceListOverviewScreenState
               'No Price Lists Yet',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
             const SizedBox(height: 12),
@@ -268,7 +268,7 @@ class _PriceListOverviewScreenState
               'sales channel, contracts, or regions.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
                 height: 1.6,
               ),
             ),
@@ -298,8 +298,8 @@ class _PriceListOverviewScreenState
   Widget _buildTableHeader() {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFFF9FAFB),
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        color: AppTheme.bgLight,
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
       child: Row(
@@ -362,7 +362,7 @@ class _PriceListOverviewScreenState
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: isActive ? AppTheme.primaryBlue : const Color(0xFF374151),
+              color: isActive ? AppTheme.primaryBlue : AppTheme.textBody,
             ),
           ),
           if (sortable) ...[
@@ -372,7 +372,7 @@ class _PriceListOverviewScreenState
                   ? (_sortAscending ? Icons.arrow_upward : Icons.arrow_downward)
                   : Icons.unfold_more,
               size: 16,
-              color: isActive ? AppTheme.primaryBlue : const Color(0xFF9CA3AF),
+              color: isActive ? AppTheme.primaryBlue : AppTheme.textMuted,
             ),
           ],
         ],
@@ -395,7 +395,7 @@ class _PriceListOverviewScreenState
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          border: const Border(bottom: BorderSide(color: Color(0xFFF3F4F6))),
+          border: const Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Row(
@@ -413,7 +413,7 @@ class _PriceListOverviewScreenState
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF111827),
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -424,8 +424,8 @@ class _PriceListOverviewScreenState
                         ),
                         decoration: BoxDecoration(
                           color: priceList.status == 'active'
-                              ? const Color(0xFFDCFCE7)
-                              : const Color(0xFFF3F4F6),
+                              ? AppTheme.successBg
+                              : AppTheme.bgDisabled,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -434,8 +434,8 @@ class _PriceListOverviewScreenState
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             color: priceList.status == 'active'
-                                ? const Color(0xFF166534)
-                                : const Color(0xFF6B7280),
+                                ? AppTheme.successTextDark
+                                : AppTheme.textSecondary,
                           ),
                         ),
                       ),
@@ -448,7 +448,7 @@ class _PriceListOverviewScreenState
                       priceList.description!,
                       style: const TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF6B7280),
+                        color: AppTheme.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -462,7 +462,7 @@ class _PriceListOverviewScreenState
               flex: 12,
               child: Text(
                 priceList.transactionType,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF374151)),
+                style: const TextStyle(fontSize: 14, color: AppTheme.textBody),
               ),
             ),
             // Price List Type (15%)
@@ -472,7 +472,7 @@ class _PriceListOverviewScreenState
                 priceList.priceListType == 'all_items'
                     ? 'All Items'
                     : 'Individual Items',
-                style: const TextStyle(fontSize: 14, color: Color(0xFF374151)),
+                style: const TextStyle(fontSize: 14, color: AppTheme.textBody),
               ),
             ),
             // Details column (20%)
@@ -490,7 +490,7 @@ class _PriceListOverviewScreenState
               flex: 15,
               child: Text(
                 _getPricingSchemeDisplay(priceList.pricingScheme),
-                style: const TextStyle(fontSize: 14, color: Color(0xFF374151)),
+                style: const TextStyle(fontSize: 14, color: AppTheme.textBody),
               ),
             ),
             // Actions
@@ -500,7 +500,7 @@ class _PriceListOverviewScreenState
                 icon: const Icon(
                   Icons.more_vert,
                   size: 20,
-                  color: Color(0xFF6B7280),
+                  color: AppTheme.textSecondary,
                 ),
                 onSelected: (value) {
                   _handleAction(context, ref, value, priceList);
@@ -513,7 +513,7 @@ class _PriceListOverviewScreenState
                         Icon(
                           Icons.edit_outlined,
                           size: 18,
-                          color: Color(0xFF374151),
+                          color: AppTheme.textBody,
                         ),
                         SizedBox(width: 12),
                         Text('Edit'),
@@ -528,12 +528,12 @@ class _PriceListOverviewScreenState
                         Icon(
                           Icons.delete_outline,
                           size: 18,
-                          color: Color(0xFFDC2626),
+                          color: AppTheme.errorRed,
                         ),
                         SizedBox(width: 12),
                         Text(
                           'Delete',
-                          style: TextStyle(color: Color(0xFFDC2626)),
+                          style: TextStyle(color: AppTheme.errorRed),
                         ),
                       ],
                     ),
@@ -621,14 +621,14 @@ class _PriceListOverviewScreenState
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           content: Text(
             'Are you sure you want to deactivate "${priceList.name}"? This price list will no longer be available for new transactions.',
             style: const TextStyle(
               fontSize: 14,
-              color: Color(0xFF6B7280),
+              color: AppTheme.textSecondary,
               height: 1.5,
             ),
           ),
@@ -649,13 +649,13 @@ class _PriceListOverviewScreenState
                       content: Text(
                         'Price list "${priceList.name}" deactivated',
                       ),
-                      backgroundColor: const Color(0xFF16A34A),
+                      backgroundColor: AppTheme.successGreen,
                     ),
                   );
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
+                backgroundColor: AppTheme.errorRed,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Deactivate'),
@@ -680,14 +680,14 @@ class _PriceListOverviewScreenState
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           content: Text(
             'Activate "${priceList.name}"? This price list will become available for transactions.',
             style: const TextStyle(
               fontSize: 14,
-              color: Color(0xFF6B7280),
+              color: AppTheme.textSecondary,
               height: 1.5,
             ),
           ),
@@ -706,7 +706,7 @@ class _PriceListOverviewScreenState
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Price list "${priceList.name}" activated'),
-                      backgroundColor: const Color(0xFF16A34A),
+                      backgroundColor: AppTheme.successGreen,
                     ),
                   );
                 }
@@ -737,7 +737,7 @@ class _PriceListOverviewScreenState
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Color(0xFFDC2626),
+              color: AppTheme.errorRed,
             ),
           ),
           content: Column(
@@ -748,7 +748,7 @@ class _PriceListOverviewScreenState
                 'Are you sure you want to delete "${priceList.name}"?',
                 style: const TextStyle(
                   fontSize: 14,
-                  color: Color(0xFF111827),
+                  color: AppTheme.textPrimary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -757,7 +757,7 @@ class _PriceListOverviewScreenState
                 'This action cannot be undone. All pricing rules associated with this price list will be permanently removed.',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Color(0xFF6B7280),
+                  color: AppTheme.textSecondary,
                   height: 1.5,
                 ),
               ),
@@ -778,13 +778,13 @@ class _PriceListOverviewScreenState
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Price list "${priceList.name}" deleted'),
-                      backgroundColor: const Color(0xFFDC2626),
+                      backgroundColor: AppTheme.errorRed,
                     ),
                   );
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
+                backgroundColor: AppTheme.errorRed,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Delete'),

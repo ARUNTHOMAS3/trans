@@ -65,7 +65,7 @@ class _TransactionChip extends StatelessWidget {
           color: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(6),
-            side: const BorderSide(color: Color(0xFFD1D5DB)),
+            side: const BorderSide(color: AppTheme.borderColor),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -74,7 +74,7 @@ class _TransactionChip extends StatelessWidget {
               children: const [
                 Text(
                   'New Transaction',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                 ),
                 SizedBox(width: 6),
                 Icon(
@@ -136,11 +136,11 @@ class _SelectionOverflowChip extends StatelessWidget {
           color: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(6),
-            side: const BorderSide(color: Color(0xFFD1D5DB)),
+            side: const BorderSide(color: AppTheme.borderColor),
           ),
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Icon(Icons.more_horiz, size: 18, color: Color(0xFF111827)),
+            child: Icon(Icons.more_horiz, size: 18, color: AppTheme.textPrimary),
           ),
         ),
       ),
@@ -162,7 +162,7 @@ class _SelectionChip extends StatelessWidget {
         color: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(6),
-          side: const BorderSide(color: Color(0xFFD1D5DB)),
+          side: const BorderSide(color: AppTheme.borderColor),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(6),
@@ -171,7 +171,7 @@ class _SelectionChip extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: Text(
               label,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
             ),
           ),
         ),
@@ -201,8 +201,8 @@ class _HoverableMenuItemState extends State<_HoverableMenuItem> {
   @override
   Widget build(BuildContext context) {
     final bool isHovered = _hovering;
-    final Color bg = isHovered ? const Color(0xFF2563EB) : Colors.white;
-    final Color textColor = isHovered ? Colors.white : const Color(0xFF111827);
+    final Color bg = isHovered ? AppTheme.primaryBlueDark : Colors.white;
+    final Color textColor = isHovered ? Colors.white : AppTheme.textPrimary;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) => setState(() => _hovering = false),
@@ -243,7 +243,7 @@ extension _ItemsReportBodyFooter on _ItemsReportBodyState {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
@@ -252,7 +252,7 @@ extension _ItemsReportBodyFooter on _ItemsReportBodyState {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF4B5563),
+              color: AppTheme.textSubtle,
             ),
           ),
           Text(
@@ -260,7 +260,7 @@ extension _ItemsReportBodyFooter on _ItemsReportBodyState {
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           const Spacer(),
@@ -268,7 +268,7 @@ extension _ItemsReportBodyFooter on _ItemsReportBodyState {
             key: _paginationKey,
             padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              border: Border.all(color: AppTheme.borderColor),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Row(
@@ -286,35 +286,35 @@ extension _ItemsReportBodyFooter on _ItemsReportBodyState {
                         const Icon(
                           Icons.settings_outlined,
                           size: 18,
-                          color: Color(0xFF6B7280),
+                          color: AppTheme.textSecondary,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '${ref.read(itemsPerPageProvider)} per page',
                           style: const TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF4B5563),
+                            color: AppTheme.textSubtle,
                           ),
                         ),
                         const Icon(
                           Icons.arrow_drop_down,
                           size: 16,
-                          color: Color(0xFF6B7280),
+                          color: AppTheme.textSecondary,
                         ),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                Container(width: 1, height: 28, color: const Color(0xFFE5E7EB)),
+                Container(width: 1, height: 28, color: AppTheme.borderColor),
                 IconButton(
                   onPressed: onPrevPage,
                   icon: Icon(
                     Icons.chevron_left,
                     size: 18,
                     color: onPrevPage != null
-                        ? const Color(0xFF4B5563)
-                        : const Color(0xFF9CA3AF),
+                        ? AppTheme.textSubtle
+                        : AppTheme.textMuted,
                   ),
                   visualDensity: VisualDensity.compact,
                 ),
@@ -322,7 +322,7 @@ extension _ItemsReportBodyFooter on _ItemsReportBodyState {
                   '$rangeStart - $rangeEnd',
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF4B5563),
+                    color: AppTheme.textSubtle,
                   ),
                 ),
                 IconButton(
@@ -331,8 +331,8 @@ extension _ItemsReportBodyFooter on _ItemsReportBodyState {
                     Icons.chevron_right,
                     size: 18,
                     color: onNextPage != null
-                        ? const Color(0xFF4B5563)
-                        : const Color(0xFF9CA3AF),
+                        ? AppTheme.textSubtle
+                        : AppTheme.textMuted,
                   ),
                   visualDensity: VisualDensity.compact,
                 ),

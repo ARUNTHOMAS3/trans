@@ -31,13 +31,13 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
     const headerStyle = TextStyle(
       fontSize: 11,
       fontWeight: FontWeight.bold,
-      color: Color(0xFF6B7280),
+      color: AppTheme.textSecondary,
     );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        color: AppTheme.bgLight,
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -108,7 +108,7 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: AppTheme.borderColor),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
@@ -177,7 +177,7 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
               icon: const Icon(
                 Icons.close,
                 size: 18,
-                color: Color(0xFFEF4444),
+                color: AppTheme.errorRed,
               ),
             ),
           ],

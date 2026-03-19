@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../models/transaction_lock_model.dart';
 import '../../../core/api/dio_client.dart';
+import '../../../core/logging/app_logger.dart';
 
 final transactionLockProvider =
     StateNotifierProvider<
@@ -35,7 +36,7 @@ class TransactionLockNotifier
         state = locks;
       }
     } catch (e) {
-      print('Error fetching transaction locks: $e');
+      AppLogger.error('Error fetching transaction locks', error: e, module: 'transaction_lock');
     }
   }
 
@@ -58,7 +59,7 @@ class TransactionLockNotifier
     try {
       await _dio.post('transaction-locking', data: lock.toJson());
     } catch (e) {
-      print('Error locking module: $e');
+      AppLogger.error('Error locking module', error: e, module: 'transaction_lock');
       state = previousState; // Rollback
     }
   }
@@ -72,7 +73,7 @@ class TransactionLockNotifier
     try {
       await _dio.delete('transaction-locking/$moduleName');
     } catch (e) {
-      print('Error unlocking module: $e');
+      AppLogger.error('Error unlocking module', error: e, module: 'transaction_lock');
       state = previousState; // Rollback
     }
   }

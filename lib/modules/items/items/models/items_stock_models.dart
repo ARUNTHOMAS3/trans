@@ -3,6 +3,7 @@
 class WarehouseStockRow {
   final String id;
   final String name;
+  final String outletName;
   final bool isPrimary;
   final double openingStock;
   final double openingStockValue;
@@ -12,6 +13,7 @@ class WarehouseStockRow {
   WarehouseStockRow({
     required this.id,
     required this.name,
+    this.outletName = '',
     required this.accounting,
     required this.physical,
     this.isPrimary = false,
@@ -22,7 +24,9 @@ class WarehouseStockRow {
   factory WarehouseStockRow.fromJson(Map<String, dynamic> json) =>
       WarehouseStockRow(
         id: (json['warehouse_id'] ?? json['id'] ?? '').toString(),
-        name: json['name'],
+        name: (json['name'] ?? '').toString(),
+        outletName: (json['outlet_name'] ?? json['outletName'] ?? '')
+            .toString(),
         isPrimary: json['isPrimary'] ?? false,
         openingStock:
             (json['opening_stock'] as num?)?.toDouble() ??
@@ -39,12 +43,27 @@ class WarehouseStockRow {
   Map<String, dynamic> toJson() => {
     'warehouse_id': id,
     'name': name,
+    'outlet_name': outletName,
     'isPrimary': isPrimary,
     'opening_stock': openingStock,
     'opening_stock_value': openingStockValue,
     'accounting': accounting.toJson(),
     'physical': physical.toJson(),
   };
+
+  String get displayName {
+    final warehouseName = name.trim();
+    if (warehouseName.isNotEmpty) {
+      return warehouseName;
+    }
+
+    final resolvedOutletName = outletName.trim();
+    if (resolvedOutletName.isNotEmpty) {
+      return resolvedOutletName;
+    }
+
+    return 'Unnamed Outlet';
+  }
 
   double get variance => physical.onHand - accounting.onHand;
 

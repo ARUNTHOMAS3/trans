@@ -110,6 +110,8 @@
 - Empty and error states must remain explicit; do not silently substitute fabricated business values.
 - Defaults for master-driven fields should come from DB-backed master rows rather than hardcoded IDs or display strings.
 - Reusable ERP controls and centralized style sources should be extended instead of replaced with screen-local variants.
+- Shared responsive Flutter primitives must be used for web adaptability: global breakpoints, responsive table shells, responsive form rows/grids, responsive dialog width rules, and sidebar-aware content-width handling.
+- New modules and major internal sub-screens must be deep-linkable through GoRouter so refresh, browser navigation, and direct URLs preserve the current working page and state context.
 - Warehouse master data, storage/location master data, accounting stock, and physical stock must remain distinct in UI behavior and copy.
 - Shared environments should be updated with additive migrations and scoped upserts instead of destructive resets.
 

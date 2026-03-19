@@ -1,460 +1,8 @@
-// // FILE: lib/shared/widgets/inputs/manage_reorder_terms_dialog.dart
-// import 'package:flutter/material.dart';
-
-// class ManageReorderTermsDialog extends StatefulWidget {
-//   final List<Map<String, dynamic>> items;
-//   final String? selectedId;
-//   final ValueChanged<dynamic> onSelect;
-//   final Future<List<Map<String, dynamic>>> Function(List<Map<String, dynamic>>)?
-//   onSave;
-//   final Future<String?> Function(Map<String, dynamic> item)? onDeleteCheck;
-
-//   const ManageReorderTermsDialog({
-//     super.key,
-//     required this.items,
-//     required this.onSelect,
-//     this.onSave,
-//     this.onDeleteCheck,
-//     this.selectedId,
-//   });
-
-//   @override
-//   State<ManageReorderTermsDialog> createState() =>
-//       _ManageReorderTermsDialogState();
-// }
-
-// class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
-//   late List<Map<String, dynamic>> _rows;
-
-//   final TextEditingController _nameCtrl = TextEditingController();
-//   final TextEditingController _qtyCtrl = TextEditingController();
-//   int? _editingIndex;
-//   int? _hoverIndex;
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _rows = widget.items
-//         .map((item) => Map<String, dynamic>.from(item))
-//         .toList();
-//   }
-
-//   void _startEdit(int index) {
-//     setState(() {
-//       _editingIndex = index;
-//       final item = _rows[index];
-//       _nameCtrl.text = item['term_name'] ?? item['name'] ?? '';
-//       _qtyCtrl.text = item['quantity']?.toString() ?? '0';
-//     });
-//   }
-
-//   void _cancel() {
-//     setState(() {
-//       _editingIndex = null;
-//       _nameCtrl.clear();
-//       _qtyCtrl.clear();
-//     });
-//   }
-
-//   Future<void> _triggerSync() async {
-//     if (widget.onSave != null) {
-//       try {
-//         await widget.onSave!(_rows);
-//       } catch (e) {
-//         print('❌ Live Sync Error: $e');
-//       }
-//     }
-//   }
-
-//   Future<void> _saveItem({bool selectAfter = false}) async {
-//     final name = _nameCtrl.text.trim();
-//     if (name.isEmpty) return;
-//     final qty = double.tryParse(_qtyCtrl.text.trim()) ?? 0;
-
-//     final newItem = {'term_name': name, 'name': name, 'quantity': qty};
-
-//     setState(() {
-//       if (_editingIndex == null) {
-//         _rows.add(newItem);
-//       } else {
-//         _rows[_editingIndex!].addAll(newItem);
-//       }
-//     });
-
-//     final targetIndex = _editingIndex ?? _rows.length - 1;
-//     _editingIndex = null;
-//     _nameCtrl.clear();
-//     _qtyCtrl.clear();
-
-//     if (widget.onSave != null) {
-//       try {
-//         final updatedRows = await widget.onSave!(_rows);
-
-//         if (context.mounted) {
-//           ScaffoldMessenger.of(context).showSnackBar(
-//             const SnackBar(
-//               content: Text("Reorder Term saved successfully"),
-//               backgroundColor: Colors.green,
-//               duration: Duration(seconds: 2),
-//             ),
-//           );
-//         }
-
-//         if (updatedRows.isNotEmpty) {
-//           setState(() {
-//             _rows = updatedRows;
-//           });
-
-//           if (selectAfter) {
-//             final matching = updatedRows.firstWhere(
-//               (r) => (r['term_name'] ?? r['name']) == name,
-//               orElse: () => updatedRows[targetIndex],
-//             );
-//             _selectAndPop(matching);
-//           }
-//         } else if (selectAfter) {
-//           _selectAndPop(newItem);
-//         }
-//       } catch (e) {
-//         if (selectAfter) _selectAndPop(newItem);
-//       }
-//     } else if (selectAfter) {
-//       _selectAndPop(newItem);
-//     }
-//   }
-
-//   void _delete(int index) async {
-//     final item = _rows[index];
-
-//     if (widget.onDeleteCheck != null) {
-//       final error = await widget.onDeleteCheck!(item);
-//       if (error != null && mounted) {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           SnackBar(content: Text(error), backgroundColor: Colors.red),
-//         );
-//         return;
-//       }
-//     }
-
-//     setState(() {
-//       _rows.removeAt(index);
-//       if (_editingIndex == index) {
-//         _cancel();
-//       }
-//     });
-
-//     await _triggerSync();
-//   }
-
-//   void _selectAndPop(Map<String, dynamic> item) {
-//     if (!mounted) return;
-//     widget.onSelect(item);
-//     if (context.mounted) {
-//       Navigator.pop(context, item);
-//     }
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Dialog(
-//       alignment: Alignment.topCenter,
-//       insetPadding: const EdgeInsets.fromLTRB(0, 60, 0, 24),
-//       child: ConstrainedBox(
-//         constraints: const BoxConstraints(maxWidth: 620),
-//         child: Column(
-//           mainAxisSize: MainAxisSize.min,
-//           children: [
-//             _buildHeader(),
-//             const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
-//             Padding(
-//               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   _buildInlineForm(),
-//                   const SizedBox(height: 12),
-//                   _buildListHeader(),
-//                 ],
-//               ),
-//             ),
-//             SizedBox(height: _listHeight(), child: _buildList()),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _buildHeader() {
-//     return Padding(
-//       padding: const EdgeInsets.fromLTRB(24, 16, 12, 12),
-//       child: Row(
-//         children: [
-//           const Text(
-//             'Manage Reorder Terms',
-//             style: TextStyle(
-//               fontSize: 16,
-//               fontWeight: FontWeight.w600,
-//               color: Color(0xFF111827),
-//             ),
-//           ),
-//           const Spacer(),
-//           IconButton(
-//             onPressed: () => Navigator.pop(context),
-//             icon: const Icon(Icons.close, size: 18, color: Color(0xFFE11D48)),
-//             splashRadius: 20,
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _buildInlineForm() {
-//     return Container(
-//       width: double.infinity,
-//       padding: const EdgeInsets.all(16),
-//       decoration: BoxDecoration(
-//         color: const Color(0xFFF8FAFC),
-//         borderRadius: BorderRadius.circular(6),
-//         border: Border.all(color: const Color(0xFFE5E7EB)),
-//       ),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Row(
-//             children: [
-//               Expanded(
-//                 flex: 2,
-//                 child: Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     const Text(
-//                       "Term Name*",
-//                       style: TextStyle(
-//                         fontSize: 12,
-//                         fontWeight: FontWeight.w600,
-//                         color: Color(0xFFE11D48),
-//                       ),
-//                     ),
-//                     const SizedBox(height: 8),
-//                     SizedBox(
-//                       height: 40,
-//                       child: TextField(
-//                         controller: _nameCtrl,
-//                         decoration: const InputDecoration(
-//                           isDense: true,
-//                           border: OutlineInputBorder(),
-//                           filled: true,
-//                           fillColor: Colors.white,
-//                         ),
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//               const SizedBox(width: 12),
-//               Expanded(
-//                 flex: 1,
-//                 child: Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     const Text(
-//                       "Qty Added*",
-//                       style: TextStyle(
-//                         fontSize: 12,
-//                         fontWeight: FontWeight.w600,
-//                         color: Color(0xFF111827),
-//                       ),
-//                     ),
-//                     const SizedBox(height: 8),
-//                     SizedBox(
-//                       height: 40,
-//                       child: TextField(
-//                         controller: _qtyCtrl,
-//                         keyboardType: TextInputType.number,
-//                         decoration: const InputDecoration(
-//                           isDense: true,
-//                           border: OutlineInputBorder(),
-//                           filled: true,
-//                           fillColor: Colors.white,
-//                         ),
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//             ],
-//           ),
-//           const SizedBox(height: 12),
-//           Row(
-//             children: [
-//               ElevatedButton(
-//                 onPressed: () => _saveItem(selectAfter: true),
-//                 style: ElevatedButton.styleFrom(
-//                   elevation: 0,
-//                   backgroundColor: const Color(0xFF22C55E),
-//                   padding: const EdgeInsets.symmetric(
-//                     horizontal: 16,
-//                     vertical: 10,
-//                   ),
-//                 ),
-//                 child: const Text("Save and Select"),
-//               ),
-//               const SizedBox(width: 10),
-//               TextButton(
-//                 onPressed: _cancel,
-//                 child: const Text(
-//                   "Cancel",
-//                   style: TextStyle(color: Color(0xFF6B7280)),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _buildListHeader() {
-//     return Container(
-//       width: double.infinity,
-//       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-//       color: const Color(0xFFF3F4F6),
-//       child: Row(
-//         children: const [
-//           Expanded(
-//             child: Text(
-//               'TERM NAME',
-//               style: TextStyle(
-//                 fontSize: 11,
-//                 fontWeight: FontWeight.w700,
-//                 letterSpacing: 0.4,
-//                 color: Color(0xFF6B7280),
-//               ),
-//             ),
-//           ),
-//           SizedBox(width: 12),
-//           SizedBox(
-//             width: 80,
-//             child: Text(
-//               'QTY',
-//               style: TextStyle(
-//                 fontSize: 11,
-//                 fontWeight: FontWeight.w700,
-//                 letterSpacing: 0.4,
-//                 color: Color(0xFF6B7280),
-//               ),
-//             ),
-//           ),
-//           SizedBox(width: 80), // For actions
-//         ],
-//       ),
-//     );
-//   }
-
-//   double _listHeight() {
-//     const double rowHeight = 44.0;
-//     const double maxHeight = 400.0;
-//     final double height = _rows.length * rowHeight;
-//     return height.clamp(44.0, maxHeight);
-//   }
-
-//   Widget _buildList() {
-//     return ListView.builder(
-//       itemCount: _rows.length,
-//       itemBuilder: (context, index) {
-//         final item = _rows[index];
-//         final name = item['term_name'] ?? item['name'] ?? '';
-//         final qty = item['quantity']?.toString() ?? '0';
-//         final isSelected =
-//             item['id'] != null && item['id'] == widget.selectedId;
-//         final hovered = _hoverIndex == index;
-
-//         return MouseRegion(
-//           onEnter: (_) => setState(() => _hoverIndex = index),
-//           onExit: (_) => setState(() => _hoverIndex = null),
-//           child: InkWell(
-//             onTap: () => _selectAndPop(item),
-//             child: Container(
-//               height: 44,
-//               padding: const EdgeInsets.symmetric(horizontal: 16),
-//               decoration: BoxDecoration(
-//                 color: hovered ? const Color(0xFFF9FAFB) : Colors.white,
-//                 border: const Border(
-//                   bottom: BorderSide(color: Color(0xFFE5E7EB)),
-//                 ),
-//               ),
-//               child: Row(
-//                 children: [
-//                   Expanded(
-//                     child: Text(
-//                       name,
-//                       style: TextStyle(
-//                         fontSize: 13.5,
-//                         color: isSelected
-//                             ? const Color(0xFF2563EB)
-//                             : const Color(0xFF111827),
-//                         fontWeight: isSelected
-//                             ? FontWeight.w600
-//                             : FontWeight.normal,
-//                       ),
-//                     ),
-//                   ),
-//                   const SizedBox(width: 12),
-//                   SizedBox(
-//                     width: 80,
-//                     child: Text(
-//                       qty,
-//                       style: const TextStyle(
-//                         fontSize: 13,
-//                         color: Color(0xFF4B5563),
-//                       ),
-//                     ),
-//                   ),
-//                   if (isSelected)
-//                     const Icon(Icons.check, size: 16, color: Color(0xFF2563EB)),
-//                   const SizedBox(width: 8),
-//                   SizedBox(
-//                     width: 72,
-//                     child: hovered
-//                         ? Row(
-//                             mainAxisAlignment: MainAxisAlignment.end,
-//                             children: [
-//                               IconButton(
-//                                 icon: const Icon(
-//                                   Icons.edit_outlined,
-//                                   size: 16,
-//                                   color: Color(0xFF2563EB),
-//                                 ),
-//                                 onPressed: () => _startEdit(index),
-//                                 constraints: const BoxConstraints(),
-//                                 padding: const EdgeInsets.all(4),
-//                               ),
-//                               IconButton(
-//                                 icon: const Icon(
-//                                   Icons.delete_outline,
-//                                   size: 16,
-//                                   color: Color(0xFFDC2626),
-//                                 ),
-//                                 onPressed: () => _delete(index),
-//                                 constraints: const BoxConstraints(),
-//                                 padding: const EdgeInsets.all(4),
-//                               ),
-//                             ],
-//                           )
-//                         : null,
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ),
-//         );
-//       },
-//     );
-//   }
-// }
 // FILE: lib/shared/widgets/inputs/manage_reorder_terms_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:zerpai_erp/core/logging/app_logger.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
 
 class ManageReorderTermsDialog extends StatefulWidget {
@@ -527,12 +75,10 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
       _rows.add({'term_name': '', 'quantity': '', 'is_new': true});
       _editingIndex = _rows.length - 1;
       _editingField = 'term_name';
-      // Don't set _selectedIndex to keep white background
     });
   }
 
   Future<void> _saveChanges() async {
-    // First, check if any deleted terms are in use
     if (widget.onDeleteCheck != null && _deletedRows.isNotEmpty) {
       final List<Map<String, dynamic>> toRestore = [];
       String? firstError;
@@ -561,11 +107,10 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
             _isSaving = false;
           });
         }
-        return; // Stop save process
+        return;
       }
     }
 
-    // Validate all rows
     final seenNames = <String>{};
     for (var i = 0; i < _rows.length; i++) {
       final termName = _rows[i]['term_name']?.toString().trim() ?? '';
@@ -595,11 +140,9 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
       try {
         setState(() => _isSaving = true);
 
-        // Clean data before sending to backend - remove frontend-only fields
         final cleanedRows = _rows.map((row) {
           final cleaned = <String, dynamic>{};
 
-          // Only include database fields
           if (row['id'] != null) cleaned['id'] = row['id'];
           cleaned['term_name'] = row['term_name'];
           cleaned['quantity'] = row['quantity'];
@@ -630,16 +173,19 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
               }
               return map;
             }).toList();
-            _deletedRows.clear(); // Clear deleted items after successful save
+            _deletedRows.clear();
           });
 
-          // Close dialog after successful save
           if (mounted && context.mounted) {
             Navigator.of(context).pop();
           }
         }
       } catch (e) {
-        debugPrint('❌ Save Error: $e');
+        AppLogger.error(
+          'Save error in ManageReorderTermsDialog',
+          error: e,
+          module: 'items',
+        );
         _showError(ZerpaiBuilders.parseErrorMessage(e, 'reorder term'));
       } finally {
         if (mounted) {
@@ -652,16 +198,14 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
   void _deleteRow(int index) {
     final target = _rows[index];
 
-    // Track deleted item if it has an ID (exists in database)
     if (target['id'] != null) {
       _deletedRows.add(target);
     }
 
-    // Remove from UI immediately
     setState(() {
       _rows.removeAt(index);
       _selectedIndex = null;
-      _errorMessage = null; // Clear error if row removed
+      _errorMessage = null;
     });
   }
 
@@ -700,7 +244,7 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
             if (_errorMessage != null) _buildPremiumErrorAlert(),
             _buildTable(),
             _buildAddNewLink(),
-            const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+            const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
             _buildFooter(),
           ],
         ),
@@ -713,9 +257,9 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
+        color: AppTheme.errorBg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFEE2E2)),
+        border: Border.all(color: AppTheme.errorBgBorder),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -730,7 +274,7 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: const Color(0xFFEF4444),
+              color: AppTheme.errorRed,
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Icon(
@@ -744,7 +288,7 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
             child: Text(
               _errorMessage!,
               style: const TextStyle(
-                color: Color(0xFF991B1B),
+                color: AppTheme.errorTextDark,
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
                 height: 1.4,
@@ -754,7 +298,7 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
           const SizedBox(width: 8),
           GestureDetector(
             onTap: _clearError,
-            child: const Icon(Icons.close, color: Color(0xFFEF4444), size: 16),
+            child: const Icon(Icons.close, color: AppTheme.errorRed, size: 16),
           ),
         ],
       ),
@@ -766,22 +310,22 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
           const Text(
-            'Manage Reorder Terms',
+            'Manage Reorder Rules',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           const Spacer(),
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close, size: 18, color: Color(0xFFE11D48)),
+            icon: const Icon(Icons.close, size: 18, color: AppTheme.errorRed),
             splashRadius: 20,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -796,7 +340,7 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFD1D5DB)),
+          border: Border.all(color: AppTheme.borderColor),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Column(
@@ -820,8 +364,8 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
   Widget _buildTableHeader() {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFFF9FAFB),
-        border: Border(bottom: BorderSide(color: Color(0xFFD1D5DB))),
+        color: AppTheme.bgLight,
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
@@ -829,27 +373,27 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
               child: const Text(
-                'TERM NAME',
+                'RULE NAME',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.5,
-                  color: Color(0xFF6B7280),
+                  color: AppTheme.textSecondary,
                 ),
               ),
             ),
           ),
-          Container(width: 1, height: 36, color: const Color(0xFFD1D5DB)),
+          Container(width: 1, height: 36, color: AppTheme.borderColor),
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
               child: const Text(
-                'NUMBER OF UNIT',
+                'ADDITIONAL UNITS',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.5,
-                  color: Color(0xFF6B7280),
+                  color: AppTheme.textSecondary,
                 ),
               ),
             ),
@@ -892,7 +436,9 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
             color: (isSelected && !isNewRow)
                 ? const Color(0xFFF0F9FF)
                 : Colors.white,
-            border: const Border(bottom: BorderSide(color: Color(0xFFD1D5DB))),
+            border: const Border(
+              bottom: BorderSide(color: AppTheme.borderColor),
+            ),
           ),
           child: Row(
             children: [
@@ -904,7 +450,7 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
                   isSelected: isSelected,
                 ),
               ),
-              Container(width: 1, height: 40, color: const Color(0xFFD1D5DB)),
+              Container(width: 1, height: 40, color: AppTheme.borderColor),
               Expanded(
                 child: Row(
                   children: [
@@ -924,7 +470,7 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
                         icon: const Icon(
                           Icons.delete_outline,
                           size: 18,
-                          color: Color(0xFFDC2626),
+                          color: AppTheme.errorRed,
                         ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -967,13 +513,11 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
         decoration: BoxDecoration(
           color: isEditing ? Colors.white : Colors.transparent,
           border: isEditing
-              ? Border.all(color: const Color(0xFF2563EB), width: 1.5)
+              ? Border.all(color: AppTheme.primaryBlueDark, width: 1.5)
               : null,
           borderRadius: isEditing ? BorderRadius.zero : null,
         ),
-        margin: const EdgeInsets.all(
-          2,
-        ), // Subtle margin so it doesn't touch table borders
+        margin: const EdgeInsets.all(2),
         child: isEditing
             ? TextField(
                 controller: _getController(index, field),
@@ -984,7 +528,10 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
                 inputFormatters: isNumeric
                     ? [FilteringTextInputFormatter.digitsOnly]
                     : null,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textPrimary,
+                ),
                 decoration: const InputDecoration(
                   isDense: true,
                   border: InputBorder.none,
@@ -994,7 +541,7 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
                   disabledBorder: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                   hintText: 'Extra',
-                  hintStyle: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+                  hintStyle: TextStyle(fontSize: 13, color: AppTheme.textMuted),
                 ),
                 onChanged: (newValue) {
                   _rows[index][field] = newValue;
@@ -1008,7 +555,10 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
               )
             : Text(
                 value,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textPrimary,
+                ),
               ),
       ),
     );
@@ -1028,7 +578,7 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
             children: [
               Container(
                 decoration: const BoxDecoration(
-                  color: Color(0xFF2563EB),
+                  color: AppTheme.primaryBlueDark,
                   shape: BoxShape.circle,
                 ),
                 padding: const EdgeInsets.all(2),
@@ -1039,7 +589,7 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
                 'Add New',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF2563EB),
+                  color: AppTheme.primaryBlueDark,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1060,11 +610,11 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
             onPressed: () => Navigator.pop(context),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              side: const BorderSide(color: Color(0xFFD1D5DB)),
+              side: const BorderSide(color: AppTheme.borderColor),
             ),
             child: const Text(
               'Cancel',
-              style: TextStyle(color: Color(0xFF111827)),
+              style: TextStyle(color: AppTheme.textPrimary),
             ),
           ),
           const SizedBox(width: 12),
@@ -1072,7 +622,7 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
             onPressed: _isSaving ? null : _saveChanges,
             style: ElevatedButton.styleFrom(
               elevation: 0,
-              backgroundColor: const Color(0xFF22C55E),
+              backgroundColor: AppTheme.successGreen,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             ),
             child: _isSaving

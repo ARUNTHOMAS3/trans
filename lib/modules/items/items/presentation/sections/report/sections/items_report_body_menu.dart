@@ -78,7 +78,7 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
                 child: Container(
                   width: 240,
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(color: AppTheme.borderColor),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -89,8 +89,8 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
                         child: Container(
                           height: 36,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF9FAFB),
-                            border: Border.all(color: const Color(0xFFD1D5DB)),
+                            color: AppTheme.bgLight,
+                            border: Border.all(color: AppTheme.borderColor),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const TextField(
@@ -98,12 +98,12 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
                               hintText: 'Search',
                               hintStyle: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF9CA3AF),
+                                color: AppTheme.textMuted,
                               ),
                               prefixIcon: Icon(
                                 Icons.search,
                                 size: 16,
-                                color: Color(0xFF9CA3AF),
+                                color: AppTheme.textMuted,
                               ),
                               border: InputBorder.none,
                               contentPadding: EdgeInsets.only(bottom: 12),
@@ -143,7 +143,7 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF3F4F6) : Colors.transparent,
+          color: isSelected ? AppTheme.bgDisabled : Colors.transparent,
         ),
         child: Row(
           children: [
@@ -152,12 +152,12 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-                color: const Color(0xFF374151),
+                color: AppTheme.textBody,
               ),
             ),
             const Spacer(),
             if (isSelected)
-              const Icon(Icons.check, size: 16, color: Color(0xFF2563EB)),
+              const Icon(Icons.check, size: 16, color: AppTheme.primaryBlueDark),
           ],
         ),
       ),
@@ -212,7 +212,7 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(color: AppTheme.borderColor),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -241,7 +241,7 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
                                   color:
                                       (_isHoveringSortRow ||
                                           _isHoveringSortMenu)
-                                      ? const Color(0xFF2563EB)
+                                      ? AppTheme.primaryBlueDark
                                       : Colors.white,
                                   borderRadius: const BorderRadius.only(
                                     topLeft: Radius.circular(8),
@@ -257,7 +257,7 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
                                           (_isHoveringSortRow ||
                                               _isHoveringSortMenu)
                                           ? Colors.white
-                                          : const Color(0xFF2563EB),
+                                          : AppTheme.primaryBlueDark,
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
@@ -270,7 +270,7 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
                                               (_isHoveringSortRow ||
                                                   _isHoveringSortMenu)
                                               ? Colors.white
-                                              : const Color(0xFF111827),
+                                              : AppTheme.textPrimary,
                                         ),
                                       ),
                                     ),
@@ -281,7 +281,7 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
                                           (_isHoveringSortRow ||
                                               _isHoveringSortMenu)
                                           ? Colors.white
-                                          : const Color(0xFF2563EB),
+                                          : AppTheme.primaryBlueDark,
                                     ),
                                   ],
                                 ),
@@ -291,7 +291,7 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
                         },
                       ),
 
-                      const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                      const Divider(height: 1, color: AppTheme.borderColor),
                       Builder(
                         builder: (importRowContext) => _buildMoreMenuItem(
                           action: _ItemsMoreAction.importItems,
@@ -336,7 +336,7 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
                           ),
                         ),
                       ),
-                      const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                      const Divider(height: 1, color: AppTheme.borderColor),
                       _buildMoreMenuItem(
                         action: _ItemsMoreAction.preferences,
                         child: const _MenuRow(
@@ -444,14 +444,14 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
           final bool effectiveHover = isHovered || stickyImport || stickyExport;
 
           final Color bg = effectiveHover
-              ? const Color(0xFF2563EB)
+              ? AppTheme.primaryBlueDark
               : Colors.white;
           final Color textColor = effectiveHover
               ? Colors.white
-              : const Color(0xFF111827);
+              : AppTheme.textPrimary;
           final Color iconColor = effectiveHover
               ? Colors.white
-              : const Color(0xFF4B5563);
+              : AppTheme.textSubtle;
 
           return InkWell(
             hoverColor: Colors.transparent,
@@ -529,7 +529,7 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            border: Border.all(color: AppTheme.borderColor),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -558,10 +558,10 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
       child: ValueListenableBuilder<bool>(
         valueListenable: hover,
         builder: (context, isHovered, _) {
-          final Color bg = isHovered ? const Color(0xFF2563EB) : Colors.white;
+          final Color bg = isHovered ? AppTheme.primaryBlueDark : Colors.white;
           final Color textColor = isHovered
               ? Colors.white
-              : const Color(0xFF111827);
+              : AppTheme.textPrimary;
 
           return InkWell(
             hoverColor: Colors.transparent,
@@ -644,7 +644,7 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            border: Border.all(color: AppTheme.borderColor),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -673,10 +673,10 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
       child: ValueListenableBuilder<bool>(
         valueListenable: hover,
         builder: (context, isHovered, _) {
-          final Color bg = isHovered ? const Color(0xFF2563EB) : Colors.white;
+          final Color bg = isHovered ? AppTheme.primaryBlueDark : Colors.white;
           final Color textColor = isHovered
               ? Colors.white
-              : const Color(0xFF111827);
+              : AppTheme.textPrimary;
 
           return InkWell(
             hoverColor: Colors.transparent,
@@ -749,7 +749,7 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      border: Border.all(color: AppTheme.borderColor),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -803,16 +803,16 @@ extension _ItemsReportBodyMenu on _ItemsReportBodyState {
         builder: (context, isHovered, _) {
           final bool highlight = isSelected || isHovered;
           final Color bg = isHovered
-              ? const Color(0xFF2563EB)
+              ? AppTheme.primaryBlueDark
               : isSelected
-              ? const Color(0xFFF3F4F6)
+              ? AppTheme.bgDisabled
               : Colors.white;
           final Color textColor = isHovered
               ? Colors.white
-              : const Color(0xFF111827);
+              : AppTheme.textPrimary;
           final Color arrowColor = isHovered
               ? Colors.white
-              : const Color(0xFF2563EB);
+              : AppTheme.primaryBlueDark;
 
           return InkWell(
             onTap: () {

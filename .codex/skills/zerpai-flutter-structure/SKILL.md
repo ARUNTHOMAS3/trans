@@ -22,6 +22,7 @@ Use this skill to decide where Dart code belongs before editing. The main failur
 - `lib/modules/<module>/` is for business features and should contain `models/`, `providers/`, `repositories/`, optional `controllers/`, and `presentation/`.
 - Main business modules must match the PRD sidebar hierarchy.
 - Flutter routes must reflect the module hierarchy and stay centralized through GoRouter.
+- New modules and major sub-screens must include deep-linkable create/detail/edit/history/report-style routes where applicable so direct URLs and refresh preserve context.
 - Test paths should mirror the structure of `lib/`.
 
 ## Naming

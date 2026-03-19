@@ -76,39 +76,39 @@ class _PrintTemplatesPageState extends ConsumerState<PrintTemplatesPage> {
   }
 
   void _showTemplateEditor([PrintTemplate? template]) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => TemplateEditor(
-          template: template,
-          onSave: (savedTemplate) {
-            setState(() {
-              if (template == null) {
-                // New template
-                _templates.add(savedTemplate);
-              } else {
-                // Update existing template
-                final index = _templates.indexWhere(
-                  (t) => t.id == savedTemplate.id,
-                );
-                if (index != -1) {
-                  _templates[index] = savedTemplate;
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) =>
+          TemplateEditor(
+            template: template,
+            onSave: (savedTemplate) {
+              setState(() {
+                if (template == null) {
+                  _templates.add(savedTemplate);
+                } else {
+                  final index = _templates.indexWhere(
+                    (t) => t.id == savedTemplate.id,
+                  );
+                  if (index != -1) {
+                    _templates[index] = savedTemplate;
+                  }
                 }
+                _applyFilters();
+              });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      template == null
+                          ? 'Template created successfully'
+                          : 'Template updated successfully',
+                    ),
+                  ),
+                );
               }
-              _applyFilters();
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  template == null
-                      ? 'Template created successfully'
-                      : 'Template updated successfully',
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+            },
+          ),
     );
   }
 

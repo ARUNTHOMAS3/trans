@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/text_styles.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class FormTextInput extends StatelessWidget {
   final TextEditingController controller;
@@ -34,11 +35,11 @@ class FormTextInput extends StatelessWidget {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: Color(0xFFD1D5DB), width: 1),
+          borderSide: const BorderSide(color: AppTheme.borderColor, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1),
+          borderSide: const BorderSide(color: AppTheme.primaryBlueDark, width: 1),
         ),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),

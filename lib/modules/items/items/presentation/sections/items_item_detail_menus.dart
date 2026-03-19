@@ -49,7 +49,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(color: AppTheme.borderColor),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -78,7 +78,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
                                   color:
                                       (_isHoveringSortRow ||
                                           _isHoveringSortMenu)
-                                      ? const Color(0xFF2563EB)
+                                      ? AppTheme.primaryBlueDark
                                       : Colors.white,
                                   borderRadius: const BorderRadius.only(
                                     topLeft: Radius.circular(8),
@@ -94,7 +94,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
                                           (_isHoveringSortRow ||
                                               _isHoveringSortMenu)
                                           ? Colors.white
-                                          : const Color(0xFF2563EB),
+                                          : AppTheme.primaryBlueDark,
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
@@ -107,7 +107,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
                                               (_isHoveringSortRow ||
                                                   _isHoveringSortMenu)
                                               ? Colors.white
-                                              : const Color(0xFF111827),
+                                              : AppTheme.textPrimary,
                                         ),
                                       ),
                                     ),
@@ -118,7 +118,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
                                           (_isHoveringSortRow ||
                                               _isHoveringSortMenu)
                                           ? Colors.white
-                                          : const Color(0xFF2563EB),
+                                          : AppTheme.primaryBlueDark,
                                     ),
                                   ],
                                 ),
@@ -128,7 +128,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
                         },
                       ),
 
-                      const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                      const Divider(height: 1, color: AppTheme.borderColor),
                       Builder(
                         builder: (importRowContext) => _buildMoreMenuItem(
                           action: _ItemsMoreAction.importItems,
@@ -173,7 +173,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
                           ),
                         ),
                       ),
-                      const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                      const Divider(height: 1, color: AppTheme.borderColor),
                       _buildMoreMenuItem(
                         action: _ItemsMoreAction.preferences,
                         child: const _MenuRow(
@@ -229,14 +229,14 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
           final bool effectiveHover = isHovered || stickyImport || stickyExport;
 
           final Color bg = effectiveHover
-              ? const Color(0xFF2563EB)
+              ? AppTheme.primaryBlueDark
               : Colors.white;
           final Color textColor = effectiveHover
               ? Colors.white
-              : const Color(0xFF111827);
+              : AppTheme.textPrimary;
           final Color iconColor = effectiveHover
               ? Colors.white
-              : const Color(0xFF4B5563);
+              : AppTheme.textSubtle;
 
           return InkWell(
             hoverColor: Colors.transparent,
@@ -361,7 +361,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      border: Border.all(color: AppTheme.borderColor),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -438,7 +438,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            border: Border.all(color: AppTheme.borderColor),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -494,7 +494,7 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            border: Border.all(color: AppTheme.borderColor),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -520,10 +520,10 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
       child: ValueListenableBuilder<bool>(
         valueListenable: hover,
         builder: (context, isHovered, _) {
-          final Color bg = isHovered ? const Color(0xFF2563EB) : Colors.white;
+          final Color bg = isHovered ? AppTheme.primaryBlueDark : Colors.white;
           final Color textColor = isHovered
               ? Colors.white
-              : const Color(0xFF111827);
+              : AppTheme.textPrimary;
 
           return InkWell(
             hoverColor: Colors.transparent,
@@ -572,16 +572,16 @@ extension _ItemDetailMenus on _ItemDetailScreenState {
         builder: (context, isHovered, _) {
           final bool highlight = isSelected || isHovered;
           final Color bg = isHovered
-              ? const Color(0xFF2563EB)
+              ? AppTheme.primaryBlueDark
               : isSelected
-              ? const Color(0xFFF3F4F6)
+              ? AppTheme.bgDisabled
               : Colors.white;
           final Color textColor = isHovered
               ? Colors.white
-              : const Color(0xFF111827);
+              : AppTheme.textPrimary;
           final Color arrowColor = isHovered
               ? Colors.white
-              : const Color(0xFF2563EB);
+              : AppTheme.primaryBlueDark;
 
           return InkWell(
             onTap: () {

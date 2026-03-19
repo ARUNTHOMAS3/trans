@@ -167,11 +167,11 @@ extension _PrimaryInfoSection on _PurchasesVendorsVendorCreateScreenState {
           height: _inputHeight,
           width: _inputHeight,
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DB)),
+            border: Border.all(color: AppTheme.borderColor),
             borderRadius: BorderRadius.circular(4),
             color: Colors.white,
           ),
-          child: Icon(icon, size: 18, color: const Color(0xFF2563EB)),
+          child: Icon(icon, size: 18, color: AppTheme.primaryBlueDark),
         ),
       ),
     );

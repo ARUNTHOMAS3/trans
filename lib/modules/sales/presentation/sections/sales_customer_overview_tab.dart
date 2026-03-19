@@ -21,7 +21,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE5E7EB),
+                        color: AppTheme.borderColor,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Icon(
@@ -39,7 +39,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF111827),
+                            color: AppTheme.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -48,14 +48,14 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                             const Icon(
                               LucideIcons.phone,
                               size: 14,
-                              color: Color(0xFF6B7280),
+                              color: AppTheme.textSecondary,
                             ),
                             const SizedBox(width: 4),
                             const Text(
                               '7561005789',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF374151),
+                                color: AppTheme.textBody,
                               ),
                             ),
                           ],
@@ -66,14 +66,14 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                             const Icon(
                               LucideIcons.smartphone,
                               size: 14,
-                              color: Color(0xFF6B7280),
+                              color: AppTheme.textSecondary,
                             ),
                             const SizedBox(width: 4),
                             const Text(
                               '9446196641',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF374151),
+                                color: AppTheme.textBody,
                               ),
                             ),
                           ],
@@ -83,7 +83,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                           'Invite to Portal',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF2563EB),
+                            color: AppTheme.primaryBlueDark,
                           ),
                         ),
                       ],
@@ -160,7 +160,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                   'TAX INFORMATION',
                   const Text(
                     'No Tax Information found.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                   ),
                   showAdd: true,
                 ),
@@ -172,7 +172,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE5E7EB),
+                          color: AppTheme.borderColor,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Icon(
@@ -186,14 +186,14 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                         'info@starlex.in',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF374151),
+                          color: AppTheme.textBody,
                         ),
                       ),
                       const Spacer(),
                       const Icon(
                         LucideIcons.settings,
                         size: 16,
-                        color: Color(0xFFE5E7EB),
+                        color: AppTheme.borderColor,
                       ),
                     ],
                   ),
@@ -203,7 +203,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                   'ASSOCIATE TAGS',
                   const Text(
                     'No tags associated.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                   ),
                   showAdd: true,
                 ),
@@ -214,7 +214,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF0FDF4),
-                    border: Border.all(color: const Color(0xFFDCFCE7)),
+                    border: Border.all(color: AppTheme.successBg),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
@@ -222,7 +222,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                     children: [
                       const Icon(
                         LucideIcons.userCircle,
-                        color: Color(0xFF166534),
+                        color: AppTheme.successTextDark,
                         size: 24,
                       ),
                       const SizedBox(width: 16),
@@ -234,7 +234,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                               text: const TextSpan(
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Color(0xFF166534),
+                                  color: AppTheme.successTextDark,
                                   height: 1.5,
                                 ),
                                 children: [
@@ -244,7 +244,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                                   ),
                                   TextSpan(
                                     text: 'Learn More',
-                                    style: TextStyle(color: Color(0xFF2563EB)),
+                                    style: TextStyle(color: AppTheme.primaryBlueDark),
                                   ),
                                 ],
                               ),
@@ -254,10 +254,10 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                               onPressed: () {},
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.white,
-                                foregroundColor: const Color(0xFF374151),
+                                foregroundColor: AppTheme.textBody,
                                 elevation: 0,
                                 side: const BorderSide(
-                                  color: Color(0xFFD1D5DB),
+                                  color: AppTheme.borderColor,
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16,
@@ -285,7 +285,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                   'RECORD INFO',
                   const Text(
                     'Created on: 2026-01-18',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                   ),
                 ),
               ],
@@ -351,7 +351,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF374151),
+                color: AppTheme.textBody,
               ),
             ),
             if (showAdd) ...[
@@ -359,7 +359,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
               const Icon(
                 LucideIcons.plusCircle,
                 size: 16,
-                color: Color(0xFF2563EB),
+                color: AppTheme.primaryBlueDark,
               ),
             ],
           ],
@@ -367,7 +367,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
         trailing: const Icon(
           LucideIcons.chevronDown,
           size: 20,
-          color: Color(0xFF2563EB),
+          color: AppTheme.primaryBlueDark,
         ),
         children: [
           Padding(
@@ -390,7 +390,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
             const SizedBox(width: 8),
@@ -404,7 +404,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
               child: const Icon(
                 LucideIcons.edit2,
                 size: 14,
-                color: Color(0xFFD1D5DB),
+                color: AppTheme.borderColor,
               ),
             ),
           ],
@@ -415,12 +415,12 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
         else if (address == null || address.isEmpty)
           const Text(
             'No Address - New Address',
-            style: TextStyle(fontSize: 13, color: Color(0xFF2563EB)),
+            style: TextStyle(fontSize: 13, color: AppTheme.primaryBlueDark),
           )
         else
           Text(
             address,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+            style: const TextStyle(fontSize: 13, color: AppTheme.textSubtle),
           ),
       ],
     );
@@ -447,7 +447,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
               padding: EdgeInsets.only(top: isEditing ? 0 : 2),
               child: Text(
                 label,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
             ),
           ),
@@ -474,7 +474,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                                 value,
                                 style: const TextStyle(
                                   fontSize: 13,
-                                  color: Color(0xFFEF4444),
+                                  color: AppTheme.errorRed,
                                 ),
                               ),
                             ],
@@ -484,7 +484,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                             value,
                             style: const TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF111827),
+                              color: AppTheme.textPrimary,
                             ),
                           ),
                         const SizedBox(width: 8),
@@ -504,7 +504,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                           child: const Icon(
                             LucideIcons.edit2,
                             size: 14,
-                            color: Color(0xFFD1D5DB),
+                            color: AppTheme.borderColor,
                           ),
                         ),
                       ],
@@ -528,7 +528,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: const Color(0xFF2563EB)),
+              border: Border.all(color: AppTheme.primaryBlueDark),
               borderRadius: BorderRadius.circular(4),
             ),
             child: options != null
@@ -556,7 +556,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
           ),
         ),
         const SizedBox(width: 8),
-        _actionSquare(LucideIcons.check, const Color(0xFF22C55E), () {
+        _actionSquare(LucideIcons.check, AppTheme.successGreen, () {
           _state(() {
             _editingField = null;
             // logic to save would go here
@@ -631,7 +631,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                 child: const Icon(
                   LucideIcons.x,
                   size: 18,
-                  color: Color(0xFF2563EB),
+                  color: AppTheme.primaryBlueDark,
                 ),
               ),
             ],
@@ -645,7 +645,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
               const SizedBox(height: 16),
               const Text(
                 'Tax Preference*',
-                style: TextStyle(fontSize: 12, color: Color(0xFFEF4444)),
+                style: TextStyle(fontSize: 12, color: AppTheme.errorRed),
               ),
               const SizedBox(height: 8),
               RadioGroup<String>(
@@ -660,7 +660,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                         children: [
                           Radio<String>(
                             value: 'Taxable',
-                            activeColor: const Color(0xFF2563EB),
+                            activeColor: AppTheme.primaryBlueDark,
                             visualDensity: VisualDensity.compact,
                             materialTapTargetSize:
                                 MaterialTapTargetSize.shrinkWrap,
@@ -679,7 +679,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                         children: [
                           Radio<String>(
                             value: 'Tax Exempt',
-                            activeColor: const Color(0xFF2563EB),
+                            activeColor: AppTheme.primaryBlueDark,
                             visualDensity: VisualDensity.compact,
                             materialTapTargetSize:
                                 MaterialTapTargetSize.shrinkWrap,
@@ -702,7 +702,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF22C55E),
+                backgroundColor: AppTheme.successGreen,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
@@ -716,14 +716,14 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
             OutlinedButton(
               onPressed: () => Navigator.pop(context),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFD1D5DB)),
+                side: const BorderSide(color: AppTheme.borderColor),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
               child: const Text(
                 'Cancel',
-                style: TextStyle(fontSize: 12, color: Color(0xFF374151)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textBody),
               ),
             ),
           ],
@@ -738,7 +738,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
         ),
         const SizedBox(height: 4),
         Text(
@@ -752,13 +752,13 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
   Widget _receivablesTable(SalesCustomer customer) {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
         children: [
           Container(
-            color: const Color(0xFFF9FAFB),
+            color: AppTheme.bgLight,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: const Row(
               children: [
@@ -768,7 +768,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF6B7280),
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                 ),
@@ -777,7 +777,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF6B7280),
+                    color: AppTheme.textSecondary,
                   ),
                 ),
                 SizedBox(width: 48),
@@ -786,7 +786,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF6B7280),
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               ],
@@ -808,7 +808,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
                   ).format(customer.receivables),
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                   ),
                 ),
                 const SizedBox(width: 48),
@@ -826,7 +826,7 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+          style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
         ),
         const Text(': ', style: TextStyle(fontSize: 13)),
         Text(
@@ -859,18 +859,18 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
               ),
               const Text(
                 '03:56 PM',
-                style: TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+                style: TextStyle(fontSize: 10, color: AppTheme.textSecondary),
               ),
             ],
           ),
           const SizedBox(width: 16),
-          const Icon(LucideIcons.fileText, size: 16, color: Color(0xFF2563EB)),
+          const Icon(LucideIcons.fileText, size: 16, color: AppTheme.primaryBlueDark),
           const SizedBox(width: 16),
           Expanded(
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                border: Border.all(color: AppTheme.borderColor),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Column(

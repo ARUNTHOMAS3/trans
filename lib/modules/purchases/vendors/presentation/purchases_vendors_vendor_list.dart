@@ -5,6 +5,7 @@ import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_ve
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:flutter/services.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class PurchasesVendorsVendorListScreen extends ConsumerStatefulWidget {
   const PurchasesVendorsVendorListScreen({super.key});
@@ -72,7 +73,7 @@ class _PurchasesVendorsVendorListScreenState
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
@@ -94,7 +95,7 @@ class _PurchasesVendorsVendorListScreenState
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
+          color: AppTheme.bgDisabled,
           borderRadius: BorderRadius.circular(4),
         ),
         child: const Row(
@@ -105,11 +106,11 @@ class _PurchasesVendorsVendorListScreenState
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
             SizedBox(width: 8),
-            Icon(Icons.keyboard_arrow_down, size: 16, color: Color(0xFF2563EB)),
+            Icon(Icons.keyboard_arrow_down, size: 16, color: AppTheme.primaryBlueDark),
           ],
         ),
       ),
@@ -125,9 +126,9 @@ class _PurchasesVendorsVendorListScreenState
           SizedBox(width: 8),
           Text(
             'Update MSME Details',
-            style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+            style: TextStyle(fontSize: 13, color: AppTheme.textBody),
           ),
-          Icon(Icons.chevron_right, size: 16, color: Color(0xFF2563EB)),
+          Icon(Icons.chevron_right, size: 16, color: AppTheme.primaryBlueDark),
         ],
       ),
     );
@@ -142,7 +143,7 @@ class _PurchasesVendorsVendorListScreenState
         style: TextStyle(color: Colors.white, fontSize: 13),
       ),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF10B981),
+        backgroundColor: AppTheme.accentGreen,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         elevation: 0,
@@ -153,11 +154,11 @@ class _PurchasesVendorsVendorListScreenState
   Widget _buildMoreActionsButton() {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFD1D5DB)),
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(4),
       ),
       child: PopupMenuButton<String>(
-        icon: const Icon(Icons.more_horiz, size: 18, color: Color(0xFF374151)),
+        icon: const Icon(Icons.more_horiz, size: 18, color: AppTheme.textBody),
         padding: EdgeInsets.zero,
         onSelected: (value) {},
         itemBuilder: (context) => [
@@ -175,11 +176,11 @@ class _PurchasesVendorsVendorListScreenState
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.filter_list, size: 18, color: Color(0xFF6B7280)),
+          const Icon(Icons.filter_list, size: 18, color: AppTheme.textSecondary),
           const SizedBox(width: 12),
           SizedBox(
             width: 320,
@@ -195,16 +196,16 @@ class _PurchasesVendorsVendorListScreenState
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                  borderSide: const BorderSide(color: AppTheme.borderColor),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                  borderSide: const BorderSide(color: AppTheme.borderColor),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
                   borderSide: const BorderSide(
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                     width: 1,
                   ),
                 ),
@@ -241,17 +242,17 @@ class _PurchasesVendorsVendorListScreenState
                   dataRowMaxHeight: 56,
                   dataRowMinHeight: 48,
                   headingRowColor: WidgetStateProperty.all(
-                    const Color(0xFFF9FAFB),
+                    AppTheme.bgLight,
                   ),
                   checkboxHorizontalMargin: 16,
                   headingTextStyle: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF6B7280),
+                    color: AppTheme.textSecondary,
                   ),
                   dataTextStyle: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF374151),
+                    color: AppTheme.textBody,
                   ),
                   columns: const [
                     DataColumn(label: Text('Name')),
@@ -270,7 +271,7 @@ class _PurchasesVendorsVendorListScreenState
                           Text(
                             vendor.displayName,
                             style: const TextStyle(
-                              color: Color(0xFF2563EB),
+                              color: AppTheme.primaryBlueDark,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -367,20 +368,20 @@ class _EmptyVendorState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.business_outlined, size: 64, color: Color(0xFFD1D5DB)),
+          Icon(Icons.business_outlined, size: 64, color: AppTheme.borderColor),
           SizedBox(height: 16),
           Text(
             'No vendors found',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF374151),
+              color: AppTheme.textBody,
             ),
           ),
           SizedBox(height: 8),
           Text(
             'Create your first vendor to start managing your purchases.',
-            style: TextStyle(color: Color(0xFF6B7280)),
+            style: TextStyle(color: AppTheme.textSecondary),
           ),
         ],
       ),

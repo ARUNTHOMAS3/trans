@@ -224,7 +224,7 @@ class _GlTableHeaderDelegate extends SliverPersistentHeaderDelegate {
       height: _height,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: AppTheme.bgLight,
         border: const Border(
           top: BorderSide(color: AppTheme.borderColor),
           bottom: BorderSide(color: AppTheme.borderColor, width: 2),
@@ -249,7 +249,7 @@ class _GlTableHeaderDelegate extends SliverPersistentHeaderDelegate {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
-                color: Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
                 letterSpacing: 0.5,
               ),
             ),
@@ -261,7 +261,7 @@ class _GlTableHeaderDelegate extends SliverPersistentHeaderDelegate {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
-                color: Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
                 letterSpacing: 0.5,
               ),
             ),
@@ -274,7 +274,7 @@ class _GlTableHeaderDelegate extends SliverPersistentHeaderDelegate {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
-                color: Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
                 letterSpacing: 0.5,
               ),
             ),
@@ -287,7 +287,7 @@ class _GlTableHeaderDelegate extends SliverPersistentHeaderDelegate {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
-                color: Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
                 letterSpacing: 0.5,
               ),
             ),

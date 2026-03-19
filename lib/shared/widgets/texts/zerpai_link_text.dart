@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ZerpaiLinkText extends StatefulWidget {
   final String text;
@@ -34,11 +35,11 @@ class _ZerpaiLinkTextState extends State<ZerpaiLinkText> {
         child: Text(
           widget.text,
           style: baseStyle.copyWith(
-            color: const Color(0xFF2563EB),
+            color: AppTheme.primaryBlueDark,
             decoration: _isHovering
                 ? TextDecoration.underline
                 : TextDecoration.none,
-            decorationColor: const Color(0xFF2563EB),
+            decorationColor: AppTheme.primaryBlueDark,
           ),
         ),
       ),

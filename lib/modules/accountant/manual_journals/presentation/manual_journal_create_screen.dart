@@ -968,13 +968,13 @@ class _ManualJournalCreateScreenState
       ),
       child: Row(
         children: [
-          const Icon(Icons.history, color: Color(0xFFF59E0B), size: 18),
+          const Icon(Icons.history, color: AppTheme.warningOrange, size: 18),
           const SizedBox(width: 10),
           const Expanded(
             child: Text(
               'We found an unsaved draft. Would you like to restore it?',
               style: TextStyle(
-                color: Color(0xFF92400E),
+                color: AppTheme.warningTextDark,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
@@ -985,7 +985,7 @@ class _ManualJournalCreateScreenState
             child: const Text(
               'Restore',
               style: TextStyle(
-                color: Color(0xFFF59E0B),
+                color: AppTheme.warningOrange,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -997,7 +997,7 @@ class _ManualJournalCreateScreenState
             },
             child: const Text(
               'Discard',
-              style: TextStyle(color: Color(0xFF92400E)),
+              style: TextStyle(color: AppTheme.warningTextDark),
             ),
           ),
         ],
@@ -1921,7 +1921,7 @@ class _ManualJournalCreateScreenState
                 Container(
                   height: 40,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFF9FAFB),
+                    color: AppTheme.bgLight,
                     border: Border(
                       top: BorderSide(color: AppTheme.borderColor),
                       bottom: BorderSide(color: AppTheme.borderColor),
@@ -1939,14 +1939,14 @@ class _ManualJournalCreateScreenState
                               const Icon(
                                 LucideIcons.briefcase,
                                 size: 14,
-                                color: Color(0xFF64748B),
+                                color: AppTheme.textSecondary,
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 row.projectId ?? 'Select a project',
                                 style: const TextStyle(
                                   fontSize: 13,
-                                  color: Color(0xFF3B82F6),
+                                  color: AppTheme.infoBlue,
                                   fontWeight: FontWeight.w400,
                                 ),
                               ),
@@ -1954,7 +1954,7 @@ class _ManualJournalCreateScreenState
                               const Icon(
                                 Icons.keyboard_arrow_down,
                                 size: 16,
-                                color: Color(0xFF94A3B8),
+                                color: AppTheme.textDisabled,
                               ),
                             ],
                           ),
@@ -1969,7 +1969,7 @@ class _ManualJournalCreateScreenState
                               const Icon(
                                 LucideIcons.tag,
                                 size: 14,
-                                color: Color(0xFF64748B),
+                                color: AppTheme.textSecondary,
                               ),
                               const SizedBox(width: 8),
                               Text(
@@ -1984,7 +1984,7 @@ class _ManualJournalCreateScreenState
                               const Icon(
                                 Icons.keyboard_arrow_down,
                                 size: 16,
-                                color: Color(0xFF94A3B8),
+                                color: AppTheme.textDisabled,
                               ),
                             ],
                           ),
@@ -2286,7 +2286,7 @@ class _ManualJournalCreateScreenState
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                border: Border.all(color: AppTheme.borderColor),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.1),
@@ -2395,7 +2395,7 @@ class _ManualJournalCreateScreenState
           Row(
             children: [
               DottedBorder(
-                color: const Color(0xFF3B82F6).withValues(alpha: 0.5),
+                color: AppTheme.infoBlue.withValues(alpha: 0.5),
                 strokeWidth: 1,
                 dashPattern: const [4, 2],
                 borderType: BorderType.RRect,
@@ -2419,14 +2419,14 @@ class _ManualJournalCreateScreenState
                               Icon(
                                 LucideIcons.upload,
                                 size: 16,
-                                color: Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                               ),
                               SizedBox(width: 8),
                               Text(
                                 'Upload File',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Color(0xFF374151),
+                                  color: AppTheme.textBody,
                                 ),
                               ),
                             ],
@@ -2436,7 +2436,7 @@ class _ManualJournalCreateScreenState
                       Container(
                         width: 1,
                         height: 20,
-                        color: const Color(0xFFE5E7EB),
+                        color: AppTheme.borderColor,
                       ),
                       InkWell(
                         onTap: () {},
@@ -2445,7 +2445,7 @@ class _ManualJournalCreateScreenState
                           child: Icon(
                             Icons.keyboard_arrow_down,
                             size: 18,
-                            color: Color(0xFF6B7280),
+                            color: AppTheme.textSecondary,
                           ),
                         ),
                       ),
@@ -2458,7 +2458,7 @@ class _ManualJournalCreateScreenState
                 CompositedTransformTarget(
                   link: _attachmentsLink,
                   child: Material(
-                    color: const Color(0xFF3B82F6),
+                    color: AppTheme.infoBlue,
                     borderRadius: BorderRadius.circular(4),
                     child: InkWell(
                       onTap: _toggleAttachmentsOverlay,
@@ -3275,13 +3275,13 @@ class _MJFileItemWidgetState extends State<_MJFileItemWidget> {
       onExit: (_) => setState(() => _isHovered = false),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        color: _isHovered ? const Color(0xFF3B82F6) : Colors.transparent,
+        color: _isHovered ? AppTheme.infoBlue : Colors.transparent,
         child: Row(
           children: [
             Icon(
               isPdf ? LucideIcons.fileText : LucideIcons.image,
               size: 20,
-              color: _isHovered ? Colors.white : const Color(0xFF3B82F6),
+              color: _isHovered ? Colors.white : AppTheme.infoBlue,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -3298,7 +3298,7 @@ class _MJFileItemWidgetState extends State<_MJFileItemWidget> {
                       fontWeight: FontWeight.w500,
                       color: _isHovered
                           ? Colors.white
-                          : const Color(0xFF111827),
+                          : AppTheme.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -3308,7 +3308,7 @@ class _MJFileItemWidgetState extends State<_MJFileItemWidget> {
                       fontSize: 11,
                       color: _isHovered
                           ? Colors.white70
-                          : const Color(0xFF6B7280),
+                          : AppTheme.textSecondary,
                     ),
                   ),
                 ],

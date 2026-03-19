@@ -13,6 +13,7 @@ import '../models/sales_customer_model.dart';
 import '../models/sales_order_model.dart';
 import '../models/sales_order_item_model.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SalesRetainerInvoiceCreateScreen extends ConsumerStatefulWidget {
   const SalesRetainerInvoiceCreateScreen({super.key});
@@ -90,7 +91,7 @@ class _SalesRetainerInvoiceCreateScreenState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -144,7 +145,7 @@ class _SalesRetainerInvoiceCreateScreenState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -212,7 +213,7 @@ class _SalesRetainerInvoiceCreateScreenState
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFD1D5DB)),
+          border: Border.all(color: AppTheme.borderColor),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(

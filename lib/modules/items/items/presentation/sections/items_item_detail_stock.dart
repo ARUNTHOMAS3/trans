@@ -14,7 +14,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             SizedBox(height: 6),
             Text(
               'Enable tracking to view stock by warehouse.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
           ],
         ),
@@ -41,7 +41,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             SizedBox(height: 6),
             Text(
               'Refresh the item and try again.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
           ],
         ),
@@ -71,7 +71,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(color: AppTheme.borderColor),
                 ),
                 child: _buildWarehouseTable(stockLabel, warehouses),
               ),
@@ -145,13 +145,13 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: const [
-          Icon(Icons.search, size: 16, color: Color(0xFF2563EB)),
+          Icon(Icons.search, size: 16, color: AppTheme.primaryBlueDark),
           SizedBox(width: 6),
           Text(
             'Find Serial Number',
             style: TextStyle(
               fontSize: 13,
-              color: Color(0xFF2563EB),
+              color: AppTheme.primaryBlueDark,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -171,7 +171,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: const Color(0xFFD1D5DB)),
+          border: Border.all(color: AppTheme.borderColor),
           borderRadius: BorderRadius.circular(6),
         ),
         child: Row(
@@ -180,7 +180,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             Icon(
               Icons.file_upload_outlined,
               size: 16,
-              color: Color(0xFF6B7280),
+              color: AppTheme.textSecondary,
             ),
             SizedBox(width: 6),
             Text(
@@ -188,7 +188,11 @@ extension _ItemDetailStock on _ItemDetailScreenState {
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
             SizedBox(width: 6),
-            Icon(Icons.arrow_drop_down, size: 18, color: Color(0xFF6B7280)),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 18,
+              color: AppTheme.textSecondary,
+            ),
           ],
         ),
       ),
@@ -208,7 +212,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       children: [
         const Text(
           'Warehouse',
-          style: TextStyle(fontSize: 12, color: Color(0xFF111827)),
+          style: TextStyle(fontSize: 12, color: AppTheme.textPrimary),
         ),
         const SizedBox(height: 6),
         _buildTransactionMenuButton(
@@ -231,7 +235,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           onChanged: (value) {
             updateState(() => _showAllSerialNumbers = value ?? false);
           },
-          activeColor: const Color(0xFF2563EB),
+          activeColor: AppTheme.primaryBlueDark,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           visualDensity: VisualDensity.compact,
         ),
@@ -240,7 +244,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           message:
               'Enable this option to view both available and unavailable serial numbers. If disabled, only available serial numbers will be displayed.',
           decoration: BoxDecoration(
-            color: const Color(0xFF1F2937),
+            color: AppTheme.textPrimary,
             borderRadius: BorderRadius.circular(6),
           ),
           textStyle: const TextStyle(color: Colors.white, fontSize: 12),
@@ -250,10 +254,10 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             children: const [
               Text(
                 'Show All Serial Numbers',
-                style: TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
               ),
               SizedBox(width: 4),
-              Icon(Icons.help_outline, size: 14, color: Color(0xFF6B7280)),
+              Icon(Icons.help_outline, size: 14, color: AppTheme.textSecondary),
             ],
           ),
         ),
@@ -262,7 +266,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
   }
 
   Widget _buildSerialNumbersGrid(List<SerialData> serials) {
-    const borderColor = Color(0xFFE5E7EB);
+    const borderColor = AppTheme.borderColor;
     const columns = 4;
     final rows = <TableRow>[];
 
@@ -284,7 +288,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
               padding: EdgeInsets.all(16),
               child: Text(
                 'No serial numbers found.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
             ),
             SizedBox(),
@@ -323,8 +327,8 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       return const SizedBox();
     }
     final color = serial.isAvailable
-        ? const Color(0xFF111827)
-        : const Color(0xFF9CA3AF);
+        ? AppTheme.textPrimary
+        : AppTheme.textMuted;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       child: Text(
@@ -409,7 +413,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            border: Border.all(color: AppTheme.borderColor),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Column(
@@ -417,7 +421,9 @@ extension _ItemDetailStock on _ItemDetailScreenState {
               Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+                  border: Border(
+                    bottom: BorderSide(color: AppTheme.borderColor),
+                  ),
                 ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -443,7 +449,10 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                   padding: EdgeInsets.all(16),
                   child: Text(
                     'No audit history found for this item.',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 )
               else
@@ -460,7 +469,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
 
     return Container(
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -477,7 +486,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                   _formatHistoryDate(entry.createdAt),
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF111827),
+                    color: AppTheme.textPrimary,
                   ),
                 ),
               ),
@@ -488,7 +497,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                   entry.section,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF111827),
+                    color: AppTheme.textPrimary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -502,7 +511,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                       entry.summary,
                       style: const TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF111827),
+                        color: AppTheme.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -519,7 +528,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                border: Border.all(color: AppTheme.borderColor),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,7 +536,10 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                   if (changes.isEmpty)
                     const Text(
                       'No readable field changes available.',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
                     )
                   else
                     ...changes.map(
@@ -541,7 +553,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                               child: Icon(
                                 Icons.circle,
                                 size: 6,
-                                color: Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -551,7 +563,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                                 style: const TextStyle(
                                   fontSize: 13,
                                   height: 1.4,
-                                  color: Color(0xFF111827),
+                                  color: AppTheme.textPrimary,
                                 ),
                               ),
                             ),
@@ -853,30 +865,37 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     }
 
     final lookupMap = <String, String?>{
-      'buying_rule_id':
-          item.buyingRuleId == id ? item.buyingRuleName : null,
-      'schedule_of_drug_id':
-          item.scheduleOfDrugId == id ? item.drugScheduleName : null,
+      'buying_rule_id': item.buyingRuleId == id ? item.buyingRuleName : null,
+      'schedule_of_drug_id': item.scheduleOfDrugId == id
+          ? item.drugScheduleName
+          : null,
       'shedule_id': item.scheduleOfDrugId == id ? item.drugScheduleName : null,
       'storage_id': item.storageId == id ? item.storageName : null,
       'rack_id': item.rackId == id ? item.rackName : null,
-      'manufacturer_id':
-          item.manufacturerId == id ? item.manufacturerName : null,
+      'manufacturer_id': item.manufacturerId == id
+          ? item.manufacturerName
+          : null,
       'brand_id': item.brandId == id ? item.brandName : null,
-      'preferred_vendor_id':
-          item.preferredVendorId == id ? item.preferredVendorName : null,
-      'sales_account_id':
-          item.salesAccountId == id ? item.salesAccountName : null,
-      'purchase_account_id':
-          item.purchaseAccountId == id ? item.purchaseAccountName : null,
-      'inventory_account_id':
-          item.inventoryAccountId == id ? item.inventoryAccountName : null,
+      'preferred_vendor_id': item.preferredVendorId == id
+          ? item.preferredVendorName
+          : null,
+      'sales_account_id': item.salesAccountId == id
+          ? item.salesAccountName
+          : null,
+      'purchase_account_id': item.purchaseAccountId == id
+          ? item.purchaseAccountName
+          : null,
+      'inventory_account_id': item.inventoryAccountId == id
+          ? item.inventoryAccountName
+          : null,
       'unit_id': item.unitId == id ? item.unitName : null,
       'category_id': item.categoryId == id ? item.categoryName : null,
-      'intra_state_tax_id':
-          item.intraStateTaxId == id ? item.intraStateTaxName : null,
-      'inter_state_tax_id':
-          item.interStateTaxId == id ? item.interStateTaxName : null,
+      'intra_state_tax_id': item.intraStateTaxId == id
+          ? item.intraStateTaxName
+          : null,
+      'inter_state_tax_id': item.interStateTaxId == id
+          ? item.interStateTaxName
+          : null,
     };
 
     final currentItemName = lookupMap[field];
@@ -1038,7 +1057,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
   }
 
   Widget _buildTransactionsTable(List<TransactionData> transactions) {
-    const borderColor = Color(0xFFE5E7EB);
+    const borderColor = AppTheme.borderColor;
 
     return Container(
       decoration: BoxDecoration(
@@ -1061,7 +1080,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
               padding: EdgeInsets.all(16),
               child: Text(
                 'No transactions found.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
             ),
         ],
@@ -1102,7 +1121,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0xFFD1D5DB)),
+            border: Border.all(color: AppTheme.borderColor),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
@@ -1110,7 +1129,10 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             children: [
               Text(
                 label,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               const SizedBox(width: 6),
               const Icon(Icons.arrow_drop_down, size: 20),
@@ -1136,9 +1158,9 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           final showBlue = isHovered;
           final showGray = !isHovered && isSelected;
           final backgroundColor = showBlue
-              ? const Color(0xFF3B82F6)
-              : (showGray ? const Color(0xFFE5E7EB) : Colors.transparent);
-          final textColor = showBlue ? Colors.white : const Color(0xFF111827);
+              ? AppTheme.infoBlue
+              : (showGray ? AppTheme.borderColor : Colors.transparent);
+          final textColor = showBlue ? Colors.white : AppTheme.textPrimary;
 
           return MouseRegion(
             onEnter: (_) => setItemState(() => isHovered = true),
@@ -1208,14 +1230,14 @@ extension _ItemDetailStock on _ItemDetailScreenState {
 
   Widget _buildTransactionRow(TransactionData tx) {
     final statusColor = tx.status == 'confirmed'
-        ? const Color(0xFF2563EB)
-        : const Color(0xFF6B7280);
+        ? AppTheme.primaryBlueDark
+        : AppTheme.textSecondary;
 
     return InkWell(
       onTap: () => updateState(() => _selectedTransaction = tx),
       child: Container(
         decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+          border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1231,7 +1253,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                   tx.documentNumber,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                   ),
                 ),
               ),
@@ -1297,14 +1319,14 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF9CA3AF),
+            color: AppTheme.textMuted,
             letterSpacing: 0.3,
           ),
           textAlign: align,
         ),
         if (sortable) ...[
           const SizedBox(width: 4),
-          const Icon(Icons.unfold_more, size: 14, color: Color(0xFF9CA3AF)),
+          const Icon(Icons.unfold_more, size: 14, color: AppTheme.textMuted),
         ],
       ],
     );
@@ -1313,10 +1335,10 @@ extension _ItemDetailStock on _ItemDetailScreenState {
   Widget _buildHistoryActionBadge(String action) {
     final normalized = action.toUpperCase();
     final (backgroundColor, textColor) = switch (normalized) {
-      'INSERT' => (const Color(0xFFDCFCE7), const Color(0xFF166534)),
-      'UPDATE' => (const Color(0xFFDBEAFE), const Color(0xFF1D4ED8)),
-      'DELETE' => (const Color(0xFFFEE2E2), const Color(0xFFB91C1C)),
-      _ => (const Color(0xFFF3F4F6), const Color(0xFF374151)),
+      'INSERT' => (AppTheme.successBg, AppTheme.successTextDark),
+      'UPDATE' => (AppTheme.infoBgBorder, AppTheme.primaryBlueDark),
+      'DELETE' => (AppTheme.errorBgBorder, AppTheme.errorRedDark),
+      _ => (AppTheme.bgDisabled, AppTheme.textBody),
     };
 
     return Align(
@@ -1364,7 +1386,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       style: const TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF9CA3AF),
+        color: AppTheme.textMuted,
         letterSpacing: 0.3,
       ),
     );
@@ -1427,7 +1449,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           onChanged: (value) {
             _setShowEmptyBatches(value ?? false, _tabsForItem(item));
           },
-          activeColor: const Color(0xFF2563EB),
+          activeColor: AppTheme.primaryBlueDark,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           visualDensity: VisualDensity.compact,
         ),
@@ -1435,7 +1457,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
         Tooltip(
           message: 'Select this option to display batches with zero quantity',
           decoration: BoxDecoration(
-            color: const Color(0xFF1F2937),
+            color: AppTheme.textPrimary,
             borderRadius: BorderRadius.circular(6),
           ),
           textStyle: const TextStyle(color: Colors.white, fontSize: 12),
@@ -1445,7 +1467,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             children: [
               const Text(
                 'Show Empty Batches',
-                style: TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
               ),
               const SizedBox(width: 4),
               Icon(Icons.help_outline, size: 14, color: Colors.grey[600]),
@@ -1462,13 +1484,13 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: const [
-          Icon(Icons.search, size: 16, color: Color(0xFF2563EB)),
+          Icon(Icons.search, size: 16, color: AppTheme.primaryBlueDark),
           SizedBox(width: 6),
           Text(
             'Find Batch Number',
             style: TextStyle(
               fontSize: 13,
-              color: Color(0xFF2563EB),
+              color: AppTheme.primaryBlueDark,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1511,7 +1533,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       icon: const Icon(Icons.add, size: 16),
       label: const Text('New'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF10B981),
+        backgroundColor: AppTheme.accentGreen,
         foregroundColor: Colors.white,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -1522,7 +1544,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
   }
 
   Widget _buildBatchTable(List<BatchData> batches) {
-    const borderColor = Color(0xFFE5E7EB);
+    const borderColor = AppTheme.borderColor;
 
     return Container(
       decoration: BoxDecoration(
@@ -1565,7 +1587,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -1588,7 +1610,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFD1D5DB)),
+                border: Border.all(color: AppTheme.borderColor),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -1606,7 +1628,11 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.close, size: 18, color: Color(0xFF6B7280)),
+            icon: const Icon(
+              Icons.close,
+              size: 18,
+              color: AppTheme.textSecondary,
+            ),
             onPressed: () => updateState(() => _selectedBatchRefs.clear()),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -1652,7 +1678,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                   }
                 });
               },
-              activeColor: const Color(0xFF2563EB),
+              activeColor: AppTheme.primaryBlueDark,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,
             ),
@@ -1722,14 +1748,14 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF9CA3AF),
+            color: AppTheme.textMuted,
             letterSpacing: 0.3,
           ),
           textAlign: align,
         ),
         if (sortable) ...[
           const SizedBox(width: 4),
-          const Icon(Icons.unfold_more, size: 14, color: Color(0xFF9CA3AF)),
+          const Icon(Icons.unfold_more, size: 14, color: AppTheme.textMuted),
         ],
       ],
     );
@@ -1741,11 +1767,11 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     final isSelected = _selectedBatchRefs.contains(batch.batchReference);
     final isInactive = _inactiveBatchRefs.contains(batch.batchReference);
     final baseTextColor = isInactive
-        ? const Color(0xFF9CA3AF)
-        : const Color(0xFF111827);
+        ? AppTheme.textMuted
+        : AppTheme.textPrimary;
     final linkColor = isInactive
-        ? const Color(0xFF9CA3AF)
-        : const Color(0xFF2563EB);
+        ? AppTheme.textMuted
+        : AppTheme.primaryBlueDark;
 
     return MouseRegion(
       onEnter: (_) => updateState(() => _hoveredBatchIndex = index),
@@ -1768,7 +1794,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                     }
                   });
                 },
-                activeColor: const Color(0xFF2563EB),
+                activeColor: AppTheme.primaryBlueDark,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
               ),
@@ -1833,10 +1859,10 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                     style: TextStyle(
                       fontSize: 13,
                       color: isInactive
-                          ? const Color(0xFF9CA3AF)
+                          ? AppTheme.textMuted
                           : (isExpired
-                                ? const Color(0xFFEF4444)
-                                : const Color(0xFF111827)),
+                                ? AppTheme.errorRed
+                                : AppTheme.textPrimary),
                       fontWeight: FontWeight.normal,
                     ),
                   ),
@@ -1863,10 +1889,10 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                     style: TextStyle(
                       fontSize: 13,
                       color: isInactive
-                          ? const Color(0xFF9CA3AF)
+                          ? AppTheme.textMuted
                           : (isEmpty
-                                ? const Color(0xFF9CA3AF)
-                                : const Color(0xFF111827)),
+                                ? AppTheme.textMuted
+                                : AppTheme.textPrimary),
                       fontWeight: FontWeight.normal,
                     ),
                     textAlign: TextAlign.right,
@@ -1884,7 +1910,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                       child: const Icon(
                         Icons.check_circle,
                         size: 18,
-                        color: Color(0xFF10B981),
+                        color: AppTheme.accentGreen,
                       ),
                     )
                   : const SizedBox(),
@@ -1940,7 +1966,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     return Center(
       child: Text(
         message,
-        style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
       ),
     );
   }
@@ -1952,17 +1978,17 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     final TextStyle headerStyle = const TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.w700,
-      color: Color(0xFF6B7280),
+      color: AppTheme.textSecondary,
       letterSpacing: 0.2,
     );
 
     final TextStyle cellStyle = const TextStyle(
       fontSize: 13,
-      color: Color(0xFF111827),
+      color: AppTheme.textPrimary,
       fontWeight: FontWeight.w600,
     );
 
-    final borderColor = const Color(0xFFE5E7EB);
+    final borderColor = AppTheme.borderColor;
 
     List<TableRow> rows = [];
 
@@ -2041,7 +2067,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                 child: Center(
                   child: Text(
                     stockLabel.toUpperCase(),
-                    style: headerStyle.copyWith(color: const Color(0xFF374151)),
+                    style: headerStyle.copyWith(color: AppTheme.textBody),
                   ),
                 ),
               ),
@@ -2088,11 +2114,11 @@ extension _ItemDetailStock on _ItemDetailScreenState {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  warehouse.name,
+                  warehouse.displayName,
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF111827),
+                    color: AppTheme.textPrimary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2106,8 +2132,8 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: warehouse.variance > 0
-                          ? const Color(0xFF059669)
-                          : const Color(0xFFDC2626),
+                          ? AppTheme.successDark
+                          : AppTheme.errorRed,
                     ),
                   ),
                 ],
@@ -2117,7 +2143,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           if (warehouse.isPrimary)
             const Padding(
               padding: EdgeInsets.only(left: 6),
-              child: Icon(Icons.star, size: 16, color: Color(0xFFF59E0B)),
+              child: Icon(Icons.star, size: 16, color: AppTheme.warningOrange),
             ),
         ],
       ),
@@ -2135,7 +2161,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       child: Text(
         _formatQty(value),
         style: style.copyWith(
-          color: isWarning ? const Color(0xFFDC2626) : style.color,
+          color: isWarning ? AppTheme.errorRed : style.color,
         ),
       ),
     );
@@ -2148,7 +2174,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       child: showText
           ? const Text(
               'No warehouse stock yet',
-              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             )
           : const SizedBox(),
     );
@@ -2163,12 +2189,10 @@ extension _ItemDetailStock on _ItemDetailScreenState {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFF2563EB) : Colors.white,
+            color: selected ? AppTheme.primaryBlueDark : Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: selected
-                  ? const Color(0xFF2563EB)
-                  : const Color(0xFFD1D5DB),
+              color: selected ? AppTheme.primaryBlueDark : AppTheme.borderColor,
             ),
             boxShadow: selected
                 ? const [
@@ -2185,7 +2209,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: selected ? Colors.white : const Color(0xFF374151),
+              color: selected ? Colors.white : AppTheme.textBody,
             ),
           ),
         ),
@@ -2195,9 +2219,9 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
+        color: AppTheme.bgDisabled,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2224,13 +2248,13 @@ extension _ItemDetailStock on _ItemDetailScreenState {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
+          color: AppTheme.bgLight,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: AppTheme.borderColor),
         ),
         child: const Text(
           'Add opening stock to initialize warehouse-wise book stock and physical stock.',
-          style: TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+          style: TextStyle(fontSize: 13, color: AppTheme.textSubtle),
         ),
       );
     }
@@ -2254,9 +2278,9 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: AppTheme.bgLight,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2265,7 +2289,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             isAccounting
                 ? 'Accounting stock follows ERP book stock. Committed stock is reserved against open sales commitments, and available for sale is book stock minus committed stock.'
                 : 'Physical stock reflects the latest counted quantity in each warehouse. Use the variance against accounting stock to spot shortages or excess stock.',
-            style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+            style: const TextStyle(fontSize: 13, color: AppTheme.textSubtle),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -2290,10 +2314,10 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                     ? '+${_formatQty(variance)}'
                     : _formatQty(variance),
                 valueColor: variance > 0
-                    ? const Color(0xFF059669)
+                    ? AppTheme.successDark
                     : variance < 0
-                    ? const Color(0xFFDC2626)
-                    : const Color(0xFF111827),
+                    ? AppTheme.errorRed
+                    : AppTheme.textPrimary,
               ),
             ],
           ),
@@ -2305,18 +2329,18 @@ extension _ItemDetailStock on _ItemDetailScreenState {
   Widget _buildWarehouseSummaryChip(
     String label,
     String value, {
-    Color valueColor = const Color(0xFF111827),
+    Color valueColor = AppTheme.textPrimary,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           children: [
             TextSpan(text: '$label: '),
             TextSpan(
@@ -2336,7 +2360,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       constraints: const BoxConstraints(minWidth: 180, maxWidth: 220),
       tooltip: 'Warehouse actions',
@@ -2362,7 +2386,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
         ),
@@ -2375,7 +2399,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
         ),
@@ -2386,12 +2410,12 @@ extension _ItemDetailStock on _ItemDetailScreenState {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFFD1D5DB)),
+          border: Border.all(color: AppTheme.borderColor),
         ),
         child: const Icon(
           Icons.settings_outlined,
           size: 18,
-          color: Color(0xFF111827),
+          color: AppTheme.textPrimary,
         ),
       ),
     );
@@ -2553,7 +2577,7 @@ class _PhysicalStockAdjustmentDialogState
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
           ),
           child: Row(
             children: [
@@ -2562,7 +2586,7 @@ class _PhysicalStockAdjustmentDialogState
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF111827),
+                  color: AppTheme.textPrimary,
                 ),
               ),
               const Spacer(),
@@ -2581,7 +2605,7 @@ class _PhysicalStockAdjustmentDialogState
               children: [
                 const Text(
                   'Count the stock physically and record the counted quantity. Accounting stock stays unchanged; this flow only updates physical stock and logs the variance.',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSubtle),
                 ),
                 const SizedBox(height: 16),
                 FormDropdown<WarehouseStockRow>(
@@ -2660,14 +2684,14 @@ class _PhysicalStockAdjustmentDialogState
         Container(
           padding: const EdgeInsets.all(16),
           decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+            border: Border(top: BorderSide(color: AppTheme.borderColor)),
           ),
           child: Row(
             children: [
               ElevatedButton(
                 onPressed: _isSaving || warehouse == null ? null : _handleSave,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
+                  backgroundColor: AppTheme.primaryBlueDark,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,
@@ -2705,9 +2729,9 @@ class _PhysicalStockAdjustmentDialogState
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: AppTheme.bgLight,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       child: Wrap(
         spacing: 16,
@@ -2725,14 +2749,14 @@ class _PhysicalStockAdjustmentDialogState
   Widget _metricText(String label, double value) {
     return RichText(
       text: TextSpan(
-        style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
         children: [
           TextSpan(text: '$label: '),
           TextSpan(
             text: value.toStringAsFixed(2),
             style: const TextStyle(
               fontWeight: FontWeight.w700,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
         ],
@@ -2749,7 +2773,7 @@ class _PhysicalStockAdjustmentDialogState
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF111827),
+            color: AppTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 6),
@@ -2765,11 +2789,11 @@ class _PhysicalStockAdjustmentDialogState
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       enabledBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+        borderSide: const BorderSide(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(8),
       ),
       focusedBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: Color(0xFF2563EB)),
+        borderSide: const BorderSide(color: AppTheme.primaryBlueDark),
         borderRadius: BorderRadius.circular(8),
       ),
     );
@@ -2778,10 +2802,10 @@ class _PhysicalStockAdjustmentDialogState
   Widget _buildVarianceBanner() {
     final variance = _variance;
     final color = variance > 0
-        ? const Color(0xFF059669)
+        ? AppTheme.successDark
         : variance < 0
-        ? const Color(0xFFDC2626)
-        : const Color(0xFF111827);
+        ? AppTheme.errorRed
+        : AppTheme.textPrimary;
     final message = variance == 0
         ? 'No variance. Physical stock matches accounting stock.'
         : variance > 0
@@ -2792,9 +2816,9 @@ class _PhysicalStockAdjustmentDialogState
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: AppTheme.bgLight,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       child: Text(
         message,

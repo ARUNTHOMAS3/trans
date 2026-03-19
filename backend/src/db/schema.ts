@@ -268,11 +268,16 @@ export const rack = pgTable("racks", {
 // Reorder Term Table
 export const reorderTerm = pgTable("reorder_terms", {
   id: uuid("id").primaryKey().defaultRandom(),
-  termName: varchar("term_name", { length: 255 }).notNull().unique(),
-  presetFormula: varchar("preset_formula", { length: 100 }),
+  orgId: uuid("org_id")
+    .notNull()
+    .default("00000000-0000-0000-0000-000000000000"),
+  outletId: uuid("outlet_id"),
+  termName: varchar("term_name", { length: 255 }).notNull(),
+  quantity: integer("quantity").notNull().default(1),
   description: text("description"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Payment Terms Table
@@ -871,6 +876,26 @@ export const outletInventory = pgTable(
     check("outlet_inventory_current_stock_check", sql`current_stock >= 0`),
   ],
 );
+
+export const productOutletInventorySettings = pgTable("product_outlet_inventory_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .default("00000000-0000-0000-0000-000000000000"),
+  outletId: uuid("outlet_id"),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id, { onDelete: "cascade" }),
+  reorderPoint: integer("reorder_point").notNull().default(0),
+  reorderTermId: uuid("reorder_term_id").references(() => reorderTerm.id, {
+    onDelete: "set null",
+  }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdById: uuid("created_by_id"),
+  updatedById: uuid("updated_by_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull().unique(),

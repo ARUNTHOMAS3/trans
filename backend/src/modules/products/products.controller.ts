@@ -21,6 +21,21 @@ import { UpdateProductDto } from "./dto/update-product.dto";
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
+  private getScopeFromRequest(
+    req: any,
+    query?: { orgId?: string; outletId?: string },
+  ) {
+    return {
+      orgId:
+        query?.orgId ?? req?.tenantContext?.orgId ?? req?.user?.orgId ?? null,
+      outletId:
+        query?.outletId ??
+        req?.tenantContext?.outletId ??
+        req?.user?.outletId ??
+        null,
+    };
+  }
+
   @Get("lookups/units")
   getUnits() {
     return this.productsService.getUnits();
@@ -176,8 +191,14 @@ export class ProductsController {
   }
 
   @Get("lookups/bootstrap")
-  getLookupBootstrap() {
-    return this.productsService.getLookupBootstrap();
+  getLookupBootstrap(
+    @Req() req: any,
+    @Query("orgId") orgId?: string,
+    @Query("outletId") outletId?: string,
+  ) {
+    return this.productsService.getLookupBootstrap(
+      this.getScopeFromRequest(req, { orgId, outletId }),
+    );
   }
 
   @Get("lookups/manufacturers/search")
@@ -259,8 +280,14 @@ export class ProductsController {
   }
 
   @Get("lookups/reorder-terms")
-  getReorderTerms() {
-    return this.productsService.getReorderTerms();
+  getReorderTerms(
+    @Req() req: any,
+    @Query("orgId") orgId?: string,
+    @Query("outletId") outletId?: string,
+  ) {
+    return this.productsService.getReorderTerms(
+      this.getScopeFromRequest(req, { orgId, outletId }),
+    );
   }
 
   @Post("lookups/reorder-terms")
@@ -271,8 +298,16 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  async createReorderTerm(@Body() termData: any) {
-    return this.productsService.createReorderTerm(termData);
+  async createReorderTerm(
+    @Body() termData: any,
+    @Req() req: any,
+    @Query("orgId") orgId?: string,
+    @Query("outletId") outletId?: string,
+  ) {
+    return this.productsService.createReorderTerm(
+      termData,
+      this.getScopeFromRequest(req, { orgId, outletId }),
+    );
   }
 
   @Put("lookups/reorder-terms/:id")
@@ -283,13 +318,31 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  async updateReorderTerm(@Param("id") id: string, @Body() termData: any) {
-    return this.productsService.updateReorderTerm(id, termData);
+  async updateReorderTerm(
+    @Param("id") id: string,
+    @Body() termData: any,
+    @Req() req: any,
+    @Query("orgId") orgId?: string,
+    @Query("outletId") outletId?: string,
+  ) {
+    return this.productsService.updateReorderTerm(
+      id,
+      termData,
+      this.getScopeFromRequest(req, { orgId, outletId }),
+    );
   }
 
   @Delete("lookups/reorder-terms/:id")
-  async deleteReorderTerm(@Param("id") id: string) {
-    return this.productsService.deleteReorderTerm(id);
+  async deleteReorderTerm(
+    @Param("id") id: string,
+    @Req() req: any,
+    @Query("orgId") orgId?: string,
+    @Query("outletId") outletId?: string,
+  ) {
+    return this.productsService.deleteReorderTerm(
+      id,
+      this.getScopeFromRequest(req, { orgId, outletId }),
+    );
   }
 
   @Post("lookups/reorder-terms/sync")
@@ -300,14 +353,22 @@ export class ProductsController {
       forbidNonWhitelisted: false,
     }),
   )
-  async syncReorderTerms(@Body() items: any[]) {
+  async syncReorderTerms(
+    @Body() items: any[],
+    @Req() req: any,
+    @Query("orgId") orgId?: string,
+    @Query("outletId") outletId?: string,
+  ) {
     try {
       console.log(
         "📥 Received reorder terms sync request with",
         items.length,
         "items",
       );
-      const result = await this.productsService.syncReorderTerms(items);
+      const result = await this.productsService.syncReorderTerms(
+        items,
+        this.getScopeFromRequest(req, { orgId, outletId }),
+      );
       console.log("✅ Reorder terms sync completed successfully");
       return result;
     } catch (error) {
@@ -436,8 +497,14 @@ export class ProductsController {
   }
 
   @Get("composite")
-  async getComposite() {
-    return this.productsService.getCompositeItems();
+  async getComposite(
+    @Req() req: any,
+    @Query("orgId") orgId?: string,
+    @Query("outletId") outletId?: string,
+  ) {
+    return this.productsService.getCompositeItems(
+      this.getScopeFromRequest(req, { orgId, outletId }),
+    );
   }
 
   @Get(":id/quick-stats")
@@ -483,8 +550,16 @@ export class ProductsController {
   }
 
   @Get(":id")
-  async findOne(@Param("id") id: string) {
-    return this.productsService.findOne(id);
+  async findOne(
+    @Param("id") id: string,
+    @Req() req: any,
+    @Query("orgId") orgId?: string,
+    @Query("outletId") outletId?: string,
+  ) {
+    return this.productsService.findOne(
+      id,
+      this.getScopeFromRequest(req, { orgId, outletId }),
+    );
   }
 
   @Post()
@@ -494,16 +569,24 @@ export class ProductsController {
       "📥 Received product data:",
       JSON.stringify(createProductDto, null, 2),
     );
-    const userId = req.user?.id || null; // From JWT if available
-    return this.productsService.create(createProductDto, userId);
+    const userId = req.user?.id || req.tenantContext?.userId || null;
+    return this.productsService.create(
+      createProductDto,
+      userId,
+      this.getScopeFromRequest(req),
+    );
   }
 
   @Post("composite")
   @HttpCode(HttpStatus.CREATED)
   async createComposite(@Body() payload: any, @Req() req: any) {
     console.log("📥 Received composite product data");
-    const userId = req.user?.id || null;
-    return this.productsService.createComposite(payload, userId);
+    const userId = req.user?.id || req.tenantContext?.userId || null;
+    return this.productsService.createComposite(
+      payload,
+      userId,
+      this.getScopeFromRequest(req),
+    );
   }
 
   @Put("bulk")
@@ -523,8 +606,13 @@ export class ProductsController {
     @Body() updateProductDto: UpdateProductDto,
     @Req() req: any,
   ) {
-    const userId = req.user?.id || null;
-    return this.productsService.update(id, updateProductDto, userId);
+    const userId = req.user?.id || req.tenantContext?.userId || null;
+    return this.productsService.update(
+      id,
+      updateProductDto,
+      userId,
+      this.getScopeFromRequest(req),
+    );
   }
 
   @Delete(":id")

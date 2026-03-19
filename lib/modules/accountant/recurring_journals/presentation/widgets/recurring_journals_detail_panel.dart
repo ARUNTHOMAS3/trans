@@ -468,7 +468,7 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
             LucideIcons.wallet,
             amtFormatter.format(totalAmount),
             'Journal Amount',
-            const Color(0xFF10B981),
+            AppTheme.accentGreen,
             const Color(0xFFD1FAE5),
           ),
           Container(height: 48, width: 1, color: AppTheme.borderColor),
@@ -476,7 +476,7 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
             LucideIcons.refreshCw,
             frequency,
             'Recurring Interval',
-            const Color(0xFFF59E0B),
+            AppTheme.warningOrange,
             const Color(0xFFFEF3C7),
           ),
           Container(height: 48, width: 1, color: AppTheme.borderColor),
@@ -485,7 +485,7 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
             _calculateNextRun(j),
             'Next Journal Entry',
             AppTheme.primaryBlue,
-            const Color(0xFFDBEAFE),
+            AppTheme.infoBgBorder,
           ),
         ],
       ),
@@ -615,16 +615,16 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
 
     switch (status) {
       case RecurringJournalStatus.active:
-        color = const Color(0xFF166534);
-        bgColor = const Color(0xFFDCFCE7);
+        color = AppTheme.successTextDark;
+        bgColor = AppTheme.successBg;
         break;
       case RecurringJournalStatus.inactive:
-        color = const Color(0xFF92400E);
+        color = AppTheme.warningTextDark;
         bgColor = const Color(0xFFFEF3C7);
         break;
       case RecurringJournalStatus.draft:
-        color = const Color(0xFF1E40AF);
-        bgColor = const Color(0xFFDBEAFE);
+        color = AppTheme.infoTextDark;
+        bgColor = AppTheme.infoBgBorder;
         break;
     }
 
@@ -775,7 +775,7 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
             Container(
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              color: const Color(0xFFF3F4F6),
+              color: AppTheme.bgDisabled,
               child: _totalRow(
                 'Total',
                 j.totalDebit.toStringAsFixed(2),
@@ -990,16 +990,16 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
     switch (status.toLowerCase()) {
       case 'published':
       case 'posted':
-        color = const Color(0xFF166534);
-        bgColor = const Color(0xFFDCFCE7);
+        color = AppTheme.successTextDark;
+        bgColor = AppTheme.successBg;
         break;
       case 'draft':
-        color = const Color(0xFF92400E);
+        color = AppTheme.warningTextDark;
         bgColor = const Color(0xFFFEF3C7);
         break;
       case 'cancelled':
-        color = const Color(0xFF991B1B);
-        bgColor = const Color(0xFFFEE2E2);
+        color = AppTheme.errorTextDark;
+        bgColor = AppTheme.errorBgBorder;
         break;
       default:
         color = AppTheme.textSecondary;

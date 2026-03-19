@@ -125,6 +125,8 @@ The sidebar at `lib/core/layout/zerpai_sidebar.dart` follows this EXACT order:
 > ✅ Reuse `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` for anchored business date input flows instead of adding fresh raw `showDatePicker(...)` usages by default.
 > ✅ Prefer real DB-backed data and DB-backed lookup defaults, keep empty/error states explicit, centralize shared control styling, and keep warehouse/storage/accounting/physical concerns separated.
 > ✅ Keep save/create buttons, cancel/secondary buttons, upload controls, and border/divider colors on centralized shared styling rather than per-screen color choices.
+> ✅ Use the shared responsive Flutter foundation for web layouts: global breakpoints, shared responsive table shells, shared responsive form rows/grids, shared responsive dialog width rules, and sidebar-aware shell/content metrics instead of isolated overflow patches.
+> ✅ New modules and major internal sub-screens must expose deep-linkable GoRouter routes so refresh, direct URL access, and browser navigation preserve the user's current context.
 
 ### Typography (Non-Negotiable)
 

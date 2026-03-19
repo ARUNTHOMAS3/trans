@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/widgets/zerpai_layout.dart';
 import '../../../../core/routing/app_router.dart';
 import '../../../../core/routing/app_routes.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ReportsDashboardScreen extends StatelessWidget {
   const ReportsDashboardScreen({super.key});
@@ -21,7 +22,7 @@ class ReportsDashboardScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           const SizedBox(height: 16),
@@ -38,28 +39,28 @@ class ReportsDashboardScreen extends StatelessWidget {
           'Total Sales',
           'rs 1,24,500',
           Icons.trending_up,
-          Color(0xFF10B981),
+          AppTheme.accentGreen,
         ),
         const SizedBox(width: 16),
         _summaryCard(
           'Total Customers',
           '1,240',
           Icons.people_outline,
-          Color(0xFF2563EB),
+          AppTheme.primaryBlueDark,
         ),
         const SizedBox(width: 16),
         _summaryCard(
           'Pending Invoices',
           '14',
           Icons.description_outlined,
-          Color(0xFFF59E0B),
+          AppTheme.warningOrange,
         ),
         const SizedBox(width: 16),
         _summaryCard(
           'Escaped Profits',
           'rs 8,400',
           Icons.money_off,
-          Color(0xFFEF4444),
+          AppTheme.errorRed,
         ),
       ],
     );
@@ -72,7 +73,7 @@ class ReportsDashboardScreen extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: AppTheme.borderColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.02),
@@ -91,7 +92,7 @@ class ReportsDashboardScreen extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF6B7280),
+                    color: AppTheme.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -104,7 +105,7 @@ class ReportsDashboardScreen extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
           ],
@@ -164,7 +165,7 @@ class ReportsDashboardScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,7 +174,7 @@ class ReportsDashboardScreen extends StatelessWidget {
             children: [
               Icon(
                 cat['icon'] as IconData,
-                color: const Color(0xFF4B5563),
+                color: AppTheme.textSubtle,
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -182,7 +183,7 @@ class ReportsDashboardScreen extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF374151),
+                  color: AppTheme.textBody,
                 ),
               ),
             ],
@@ -201,7 +202,7 @@ class ReportsDashboardScreen extends StatelessWidget {
                   item,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

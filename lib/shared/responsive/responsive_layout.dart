@@ -1,45 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/shared/responsive/breakpoints.dart';
 
-/// A simple and clean responsive wrapper:
-/// - desktop: >= 1024px
-/// - tablet: 600–1023px
-/// - mobile: < 600px
 class ResponsiveLayout extends StatelessWidget {
-  final Widget Function(BuildContext, BoxConstraints) desktop;
-  final Widget Function(BuildContext, BoxConstraints)? tablet;
-  final Widget Function(BuildContext, BoxConstraints)? mobile;
+  final Widget Function(BuildContext context, BoxConstraints constraints)
+  mobile;
+  final Widget Function(BuildContext context, BoxConstraints constraints)?
+  tablet;
+  final Widget Function(BuildContext context, BoxConstraints constraints)?
+  desktop;
+  final Widget Function(BuildContext context, BoxConstraints constraints)?
+  wideDesktop;
 
   const ResponsiveLayout({
     super.key,
-    required this.desktop,
+    required this.mobile,
     this.tablet,
-    this.mobile,
-    required int maxWidth,
+    this.desktop,
+    this.wideDesktop,
   });
-
-  static bool isMobile(BuildContext context) =>
-      (MediaQuery.maybeOf(context)?.size.width ?? 1200) < 600;
-
-  static bool isTablet(BuildContext context) {
-    final width = MediaQuery.maybeOf(context)?.size.width ?? 1200;
-    return width >= 600 && width < 1024;
-  }
-
-  static bool isDesktop(BuildContext context) =>
-      (MediaQuery.maybeOf(context)?.size.width ?? 1200) >= 1024;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
+        final size = deviceSizeForWidth(width);
 
-        if (width >= 1024) {
-          return desktop(context, constraints);
-        } else if (width >= 600) {
-          return (tablet ?? desktop)(context, constraints);
-        } else {
-          return (mobile ?? tablet ?? desktop)(context, constraints);
+        switch (size) {
+          case DeviceSize.compactMobile:
+          case DeviceSize.mobile:
+            return mobile(context, constraints);
+          case DeviceSize.tablet:
+            return (tablet ?? desktop ?? mobile)(context, constraints);
+          case DeviceSize.desktop:
+            return (desktop ?? tablet ?? mobile)(context, constraints);
+          case DeviceSize.wideDesktop:
+            return (wideDesktop ?? desktop ?? tablet ?? mobile)(
+              context,
+              constraints,
+            );
         }
       },
     );

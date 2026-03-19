@@ -764,7 +764,7 @@ class _RecurringJournalsListPanelState
                     const Icon(
                       LucideIcons.alertTriangle,
                       size: 28,
-                      color: Color(0xFFF59E0B),
+                      color: AppTheme.warningOrange,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -772,7 +772,7 @@ class _RecurringJournalsListPanelState
                         text: TextSpan(
                           style: const TextStyle(
                             fontSize: 14,
-                            color: Color(0xFF111827),
+                            color: AppTheme.textPrimary,
                           ),
                           children: [
                             const TextSpan(
@@ -797,7 +797,7 @@ class _RecurringJournalsListPanelState
                   'This will delete ${selectedIds.length} selected journal(s).',
                   style: const TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF4B5563),
+                    color: AppTheme.textSubtle,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -821,8 +821,8 @@ class _RecurringJournalsListPanelState
                     OutlinedButton(
                       onPressed: () => dialogContext.pop(false),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF374151),
-                        side: const BorderSide(color: Color(0xFFD1D5DB)),
+                        foregroundColor: AppTheme.textBody,
+                        side: const BorderSide(color: AppTheme.borderColor),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 10,

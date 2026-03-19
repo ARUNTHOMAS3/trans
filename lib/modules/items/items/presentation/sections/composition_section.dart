@@ -3,6 +3,7 @@ import '../../models/item_composition_model.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_list_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class CompositionSection extends StatefulWidget {
   final List<ItemComposition> initialRows;
@@ -295,7 +296,7 @@ class _CompositionSectionState extends State<CompositionSection> {
                 setState(() => _trackActiveIngredients = val);
                 widget.onTrackActiveIngredientsChanged?.call(val);
               },
-              activeColor: const Color(0xFF2563EB),
+              activeColor: AppTheme.primaryBlueDark,
               visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
             ),
             const SizedBox(width: 6),
@@ -367,7 +368,7 @@ class _CompositionSectionState extends State<CompositionSection> {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(6),
-            side: const BorderSide(color: Color(0xFFE5E7EB)),
+            side: const BorderSide(color: AppTheme.borderColor),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -450,9 +451,9 @@ class _CompositionSectionState extends State<CompositionSection> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: AppTheme.bgLight,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -625,9 +626,9 @@ class _CompositionSectionState extends State<CompositionSection> {
           alignment: Alignment.centerLeft,
           decoration: BoxDecoration(
             color: isHovered
-                ? const Color(0xFF2563EB)
+                ? AppTheme.primaryBlueDark
                 : isSelected
-                ? const Color(0xFFEFF6FF)
+                ? AppTheme.infoBg
                 : Colors.transparent,
           ),
           child: Row(
@@ -640,8 +641,8 @@ class _CompositionSectionState extends State<CompositionSection> {
                     color: isHovered
                         ? Colors.white
                         : isSelected
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFF111827),
+                        ? AppTheme.primaryBlueDark
+                        : AppTheme.textPrimary,
                   ),
                 ),
               ),
@@ -649,7 +650,7 @@ class _CompositionSectionState extends State<CompositionSection> {
                 Icon(
                   Icons.check,
                   size: 16,
-                  color: isHovered ? Colors.white : const Color(0xFF2563EB),
+                  color: isHovered ? Colors.white : AppTheme.primaryBlueDark,
                 ),
             ],
           ),
@@ -758,7 +759,7 @@ class _Header extends StatelessWidget {
       style: const TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF374151),
+        color: AppTheme.textBody,
       ),
     );
   }

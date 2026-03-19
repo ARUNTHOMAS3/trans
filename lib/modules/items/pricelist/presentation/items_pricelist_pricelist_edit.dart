@@ -531,7 +531,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF6B7280),
+              color: AppTheme.textSecondary,
               letterSpacing: 0.4,
             ),
           ),
@@ -540,7 +540,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
             onPressed: _showSearch,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            color: const Color(0xFF6B7280),
+            color: AppTheme.textSecondary,
           ),
         ] else ...[
           SizedBox(
@@ -589,7 +589,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 6),
           child,
@@ -602,7 +602,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
     width: width,
     child: Text(
       label,
-      style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
     ),
   );
 
@@ -701,7 +701,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                             style: TextStyle(fontSize: 13),
                           ),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF374151),
+                            foregroundColor: AppTheme.textBody,
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppTheme.space12,
                             ),
@@ -768,7 +768,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF111827),
+                              color: AppTheme.textPrimary,
                             ),
                           ),
                           IconButton(
@@ -1034,7 +1034,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                               ),
                               label: const Text('Add New Range'),
                               style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xFF2563EB),
+                                foregroundColor: AppTheme.primaryBlueDark,
                                 textStyle: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
@@ -1114,7 +1114,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                               Navigator.pop(context);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF28A745),
+                              backgroundColor: AppTheme.successGreen,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
@@ -1131,7 +1131,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                           OutlinedButton(
                             onPressed: () => Navigator.pop(context),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF374151),
+                              foregroundColor: AppTheme.textBody,
                               side: const BorderSide(color: Color(0xFFE0E0E0)),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
@@ -1640,7 +1640,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
           alignment: Alignment.centerRight,
           child: Text(
             '\u20B9${rate.toStringAsFixed(2)}',
-            style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+            style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
           ),
         ),
       ),
@@ -1946,13 +1946,13 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         filled: true,
         fillColor: Colors.white,
-        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
         enabledBorder: OutlineInputBorder(
           borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
           borderRadius: BorderRadius.circular(4),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+          borderSide: const BorderSide(color: AppTheme.infoBlue, width: 1.5),
           borderRadius: BorderRadius.circular(4),
         ),
         border: OutlineInputBorder(
@@ -2043,7 +2043,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            border: Border.all(color: AppTheme.borderColor),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.1),
@@ -2065,27 +2065,27 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF374151),
+                        color: AppTheme.textBody,
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, size: 18),
                       onPressed: () => controller.close(),
-                      color: const Color(0xFFEF4444),
+                      color: AppTheme.errorRed,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFFE5E7EB)),
+              const Divider(height: 1, color: AppTheme.borderColor),
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Table(
-                  border: TableBorder.all(color: const Color(0xFFF3F4F6)),
+                  border: TableBorder.all(color: AppTheme.bgDisabled),
                   children: [
                     const TableRow(
-                      decoration: BoxDecoration(color: Color(0xFFF9FAFB)),
+                      decoration: BoxDecoration(color: AppTheme.bgLight),
                       children: [
                         _PopHeader('ROUND OFF TO'),
                         _PopHeader('INPUT VALUE'),
@@ -2108,7 +2108,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                     'Decimal Places',
                     style: TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF2563EB),
+                      color: AppTheme.primaryBlueDark,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -2148,15 +2148,15 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
               style: TextStyle(
                 fontSize: 13,
                 color: required
-                    ? const Color(0xFFD32F2F)
-                    : const Color(0xFF4B5563),
+                    ? AppTheme.errorRed
+                    : AppTheme.textSubtle,
                 fontWeight: FontWeight.w500,
               ),
               children: [
                 if (required)
                   const TextSpan(
                     text: '*',
-                    style: TextStyle(color: Color(0xFFD32F2F)),
+                    style: TextStyle(color: AppTheme.errorRed),
                   ),
               ],
             ),
@@ -2211,8 +2211,8 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
               shape: BoxShape.circle,
               border: Border.all(
                 color: isSelected
-                    ? const Color(0xFF3B82F6)
-                    : const Color(0xFF9CA3AF),
+                    ? AppTheme.infoBlue
+                    : AppTheme.textMuted,
                 width: isSelected ? 4 : 1,
               ),
             ),
@@ -2223,7 +2223,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
               label ?? v,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
             ),
           ),
         ],
@@ -2248,13 +2248,13 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isSelected
-                  ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
+                  ? AppTheme.infoBlue.withValues(alpha: 0.1)
                   : Colors.white,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isSelected
-                    ? const Color(0xFF3B82F6)
-                    : const Color(0xFFE5E7EB),
+                    ? AppTheme.infoBlue
+                    : AppTheme.borderColor,
                 width: isSelected ? 1.5 : 1,
               ),
             ),
@@ -2267,8 +2267,8 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                       Icons.check_circle,
                       size: 20,
                       color: isSelected
-                          ? const Color(0xFF3B82F6)
-                          : const Color(0xFFE5E7EB),
+                          ? AppTheme.infoBlue
+                          : AppTheme.borderColor,
                     ),
                     const SizedBox(width: 8),
                     Flexible(
@@ -2278,8 +2278,8 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: isSelected
-                              ? const Color(0xFF3B82F6)
-                              : const Color(0xFF374151),
+                              ? AppTheme.infoBlue
+                              : AppTheme.textBody,
                         ),
                       ),
                     ),
@@ -2291,8 +2291,8 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                   style: TextStyle(
                     fontSize: 11,
                     color: isSelected
-                        ? const Color(0xFF3B82F6).withValues(alpha: 0.8)
-                        : const Color(0xFF6B7280),
+                        ? AppTheme.infoBlue.withValues(alpha: 0.8)
+                        : AppTheme.textSecondary,
                     height: 1.3,
                   ),
                   maxLines: 2,
@@ -2316,7 +2316,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
     hintText: hintText,
     prefixText: prefixText,
     suffixText: suffixText,
-    hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+    hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     isDense: true,
     enabledBorder: OutlineInputBorder(
@@ -2324,7 +2324,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
       borderRadius: BorderRadius.circular(4),
     ),
     focusedBorder: OutlineInputBorder(
-      borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+      borderSide: const BorderSide(color: AppTheme.infoBlue, width: 1.5),
       borderRadius: BorderRadius.circular(4),
     ),
     border: OutlineInputBorder(
@@ -2337,14 +2337,14 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
     padding: const EdgeInsets.all(24),
     decoration: const BoxDecoration(
       color: Colors.white,
-      border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
+      border: Border(top: BorderSide(color: AppTheme.bgDisabled)),
     ),
     child: Row(
       children: [
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submitForm,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: AppTheme.successGreen,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             elevation: 0,
@@ -2373,8 +2373,8 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
         OutlinedButton(
           onPressed: () => context.pop(),
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF374151),
-            side: const BorderSide(color: Color(0xFFE5E7EB)),
+            foregroundColor: AppTheme.textBody,
+            side: const BorderSide(color: AppTheme.borderColor),
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(4),
@@ -2423,7 +2423,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppTheme.errorRed,
           ),
         );
       }
@@ -2468,7 +2468,7 @@ class _TrianglePainter extends CustomPainter {
       ..color = Colors.white
       ..style = PaintingStyle.fill;
     final borderPaint = Paint()
-      ..color = const Color(0xFFE5E7EB)
+      ..color = AppTheme.borderColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
@@ -2503,7 +2503,7 @@ class _PopHeader extends StatelessWidget {
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF6B7280),
+          color: AppTheme.textSecondary,
         ),
       ),
     );
@@ -2523,7 +2523,7 @@ class _PopCell extends StatelessWidget {
         content,
         style: TextStyle(
           fontSize: 12,
-          color: isLink ? const Color(0xFF2563EB) : const Color(0xFF374151),
+          color: isLink ? AppTheme.primaryBlueDark : AppTheme.textBody,
         ),
       ),
     );

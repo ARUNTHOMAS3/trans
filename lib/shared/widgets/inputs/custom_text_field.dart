@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 /// Zerpai-style Text Field:
 /// - Default height = 44 (matches dropdown)
@@ -122,13 +123,13 @@ class _CustomTextFieldState extends State<CustomTextField> {
     /// Border color logic
     Color borderColor;
     if (hasError) {
-      borderColor = const Color(0xFFEF4444); // Red on error
+      borderColor = AppTheme.errorRed; // Red on error
     } else if (!widget.enabled) {
-      borderColor = const Color(0xFFE5E7EB);
+      borderColor = AppTheme.borderColor;
     } else if (_effectiveFocusNode.hasFocus) {
-      borderColor = const Color(0xFF2563EB); // Blue on focus
+      borderColor = AppTheme.primaryBlueDark; // Blue on focus
     } else {
-      borderColor = const Color(0xFFD1D5DB); // Default grey
+      borderColor = AppTheme.borderColor; // Default grey
     }
 
     // Handle input formatters - copy to avoid modifying the original list
@@ -196,7 +197,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF374151),
+              color: AppTheme.textBody,
             ),
           ),
           const SizedBox(height: 6),
@@ -242,7 +243,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
                       height: fieldHeight,
                       decoration: const BoxDecoration(
                         border: Border(
-                          right: BorderSide(color: Color(0xFFD1D5DB)),
+                          right: BorderSide(color: AppTheme.borderColor),
                         ),
                         color: Colors.transparent,
                       ),
@@ -255,8 +256,8 @@ class _CustomTextFieldState extends State<CustomTextField> {
                             widget.prefixIcon,
                             size: 18,
                             color: widget.enabled
-                                ? const Color(0xFF6B7280)
-                                : const Color(0xFF9CA3AF),
+                                ? AppTheme.textSecondary
+                                : AppTheme.textMuted,
                           ),
                     )
                   else ...[
@@ -265,8 +266,8 @@ class _CustomTextFieldState extends State<CustomTextField> {
                           widget.prefixIcon,
                           size: 18,
                           color: widget.enabled
-                              ? const Color(0xFF6B7280)
-                              : const Color(0xFF9CA3AF),
+                              ? AppTheme.textSecondary
+                              : AppTheme.textMuted,
                         ),
                     const SizedBox(width: 8),
                   ],
@@ -296,8 +297,8 @@ class _CustomTextFieldState extends State<CustomTextField> {
                     style: TextStyle(
                       fontSize: 13,
                       color: widget.enabled
-                          ? const Color(0xFF111827)
-                          : const Color(0xFF9CA3AF),
+                          ? AppTheme.textPrimary
+                          : AppTheme.textMuted,
                     ),
                     decoration: InputDecoration(
                       filled: false,
@@ -309,7 +310,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
                       hintText: widget.hintText,
                       hintStyle: const TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF9CA3AF),
+                        color: AppTheme.textMuted,
                       ),
                       errorStyle: const TextStyle(
                         height: 0,
@@ -335,7 +336,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
           Text(
             widget.errorText!,
             style: const TextStyle(
-              color: Color(0xFFEF4444),
+              color: AppTheme.errorRed,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),

@@ -45,7 +45,7 @@ extension _OtherDetailsSection on _SalesCustomerCreateScreenState {
                   'Get Taxpayer details',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -208,7 +208,7 @@ extension _OtherDetailsSection on _SalesCustomerCreateScreenState {
                 'Configure in Accountant',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF2563EB),
+                  color: AppTheme.primaryBlueDark,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -278,7 +278,7 @@ extension _OtherDetailsSection on _SalesCustomerCreateScreenState {
                 Checkbox(
                   value: enablePortal,
                   onChanged: (v) => _state(() => enablePortal = v ?? false),
-                  activeColor: const Color(0xFF2563EB),
+                  activeColor: AppTheme.primaryBlueDark,
                 ),
                 const SizedBox(width: 4),
                 Expanded(
@@ -290,7 +290,7 @@ extension _OtherDetailsSection on _SalesCustomerCreateScreenState {
                           const TextSpan(
                             text: ' ( Email address is mandatory )',
                             style: TextStyle(
-                              color: Color(0xFF6B7280),
+                              color: AppTheme.textSecondary,
                               fontSize: 13,
                               fontWeight: FontWeight.w400,
                             ),
@@ -299,7 +299,7 @@ extension _OtherDetailsSection on _SalesCustomerCreateScreenState {
                     ),
                     style: const TextStyle(
                       fontSize: 14,
-                      color: Color(0xFF111827),
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                 ),

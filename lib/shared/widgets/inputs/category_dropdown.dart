@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 /// =======================================================
 /// CATEGORY DATA MODEL
@@ -321,11 +322,11 @@ class _BaseCategoryDropdownState extends State<_BaseCategoryDropdown> {
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                borderSide: const BorderSide(color: AppTheme.borderColor),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(color: Color(0xFF2563EB)),
+                borderSide: const BorderSide(color: AppTheme.primaryBlueDark),
               ),
             ),
             child: Row(
@@ -342,8 +343,8 @@ class _BaseCategoryDropdownState extends State<_BaseCategoryDropdown> {
                     style: TextStyle(
                       fontSize: 13,
                       color: _hasValue
-                          ? const Color(0xFF111827)
-                          : const Color(0xFF9CA3AF),
+                          ? AppTheme.textPrimary
+                          : AppTheme.textMuted,
                     ),
                   ),
                 ),
@@ -355,14 +356,14 @@ class _BaseCategoryDropdownState extends State<_BaseCategoryDropdown> {
                       child: Icon(
                         Icons.close,
                         size: 16,
-                        color: Color(0xFF9CA3AF),
+                        color: AppTheme.textMuted,
                       ),
                     ),
                   ),
                 Icon(
                   _isOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                   size: 18,
-                  color: const Color(0xFF6B7280),
+                  color: AppTheme.textSecondary,
                 ),
               ],
             ),
@@ -510,13 +511,13 @@ class _CategoryDropdownPanelState extends State<_CategoryDropdownPanel> {
               decoration: InputDecoration(
                 hintText: 'Search',
                 hintStyle: const TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: AppTheme.textDisabled,
                   fontSize: 13,
                 ),
                 prefixIcon: const Icon(
                   Icons.search,
                   size: 20,
-                  color: Color(0xFF94A3B8),
+                  color: AppTheme.textDisabled,
                 ),
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(
@@ -527,15 +528,15 @@ class _CategoryDropdownPanelState extends State<_CategoryDropdownPanel> {
                 filled: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  borderSide: const BorderSide(color: AppTheme.borderLight),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  borderSide: const BorderSide(color: AppTheme.borderLight),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
-                  borderSide: const BorderSide(color: Color(0xFF3B82F6)),
+                  borderSide: const BorderSide(color: AppTheme.infoBlue),
                 ),
               ),
             ),
@@ -546,7 +547,7 @@ class _CategoryDropdownPanelState extends State<_CategoryDropdownPanel> {
               child: LinearProgressIndicator(
                 minHeight: 2,
                 backgroundColor: Colors.transparent,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.infoBlue),
               ),
             ),
 
@@ -568,7 +569,7 @@ class _CategoryDropdownPanelState extends State<_CategoryDropdownPanel> {
 
           // ⚙️ Manage Action Footer
           if (widget.showManageAction) ...[
-            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            const Divider(height: 1, color: AppTheme.bgLight),
             InkWell(
               onTap: widget.onManageCategoriesTap,
               child: Container(
@@ -581,14 +582,14 @@ class _CategoryDropdownPanelState extends State<_CategoryDropdownPanel> {
                     const Icon(
                       Icons.settings_outlined,
                       size: 18,
-                      color: Color(0xFF3B82F6),
+                      color: AppTheme.infoBlue,
                     ),
                     const SizedBox(width: 12),
                     const Text(
                       'Manage Categories',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Color(0xFF2563EB),
+                        color: AppTheme.primaryBlueDark,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -640,12 +641,12 @@ class _CategoryDropdownPanelState extends State<_CategoryDropdownPanel> {
     final bool hovered = _hoverKey == node.id;
 
     // Theme: Blue on hover, Light blue on select
-    const Color strongBlue = Color(0xFF2563EB);
-    const Color softBlue = Color(0xFFEFF6FF);
+    const Color strongBlue = AppTheme.primaryBlueDark;
+    const Color softBlue = AppTheme.infoBg;
 
     Color bg = Colors.transparent;
     Color textColor = const Color(0xFF475569);
-    Color bulletColor = const Color(0xFF94A3B8);
+    Color bulletColor = AppTheme.textDisabled;
     Color checkColor = strongBlue;
 
     // Priority: Hover state wins for the background

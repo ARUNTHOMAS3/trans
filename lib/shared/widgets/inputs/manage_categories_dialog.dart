@@ -3,6 +3,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/category_dropdown.dart'
     show CategoryNode;
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 /// Dialog used when clicking "Manage Categories" from the Category dropdown.
 /// zerpai-like folder tree with hover actions and dynamic height.
@@ -215,7 +216,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildHeader(),
-                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                  const Divider(height: 1, color: AppTheme.borderColor),
                   if (_errorMessage != null)
                     ZerpaiBuilders.buildErrorAlert(
                       context: context,
@@ -253,7 +254,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
             ),
 
             // --- FIXED BOTTOM PART ---
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            const Divider(height: 1, color: AppTheme.borderColor),
             Padding(padding: const EdgeInsets.all(24), child: _buildFooter()),
           ],
         ),
@@ -281,7 +282,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
               borderRadius: BorderRadius.circular(4),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10B981),
+                  color: AppTheme.accentGreen,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 padding: const EdgeInsets.symmetric(
@@ -301,8 +302,8 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
           const SizedBox(width: 12),
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close, color: Color(0xFF64748B)),
-            hoverColor: const Color(0xFFF1F5F9),
+            icon: const Icon(Icons.close, color: AppTheme.textSecondary),
+            hoverColor: AppTheme.bgLight,
           ),
         ],
       ),
@@ -319,7 +320,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC), // Light grey fill from Image 3
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppTheme.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,7 +329,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
             'Category Name*',
             style: TextStyle(
               fontSize: 13,
-              color: Color(0xFFEF4444),
+              color: AppTheme.errorRed,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -340,15 +341,15 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
               isDense: true,
               border: const OutlineInputBorder(
                 borderRadius: BorderRadius.zero,
-                borderSide: BorderSide(color: Color(0xFFCBD5E1)),
+                borderSide: BorderSide(color: AppTheme.borderMid),
               ),
               enabledBorder: const OutlineInputBorder(
                 borderRadius: BorderRadius.zero,
-                borderSide: BorderSide(color: Color(0xFFCBD5E1)),
+                borderSide: BorderSide(color: AppTheme.borderMid),
               ),
               focusedBorder: const OutlineInputBorder(
                 borderRadius: BorderRadius.zero,
-                borderSide: BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                borderSide: BorderSide(color: AppTheme.primaryBlueDark, width: 1.5),
               ),
               fillColor: Colors.white,
               filled: true,
@@ -363,7 +364,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
             'Parent Category',
             style: TextStyle(
               fontSize: 13,
-              color: Color(0xFF64748B),
+              color: AppTheme.textSecondary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -386,12 +387,12 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
               final isRoot = depth == 0;
 
               // Theme Colors to match category_dropdown.dart
-              const Color strongBlue = Color(0xFF2563EB);
-              const Color softBlue = Color(0xFFEFF6FF);
+              const Color strongBlue = AppTheme.primaryBlueDark;
+              const Color softBlue = AppTheme.infoBg;
 
               Color bg = Colors.transparent;
               Color textColor = const Color(0xFF1E293B);
-              Color bulletColor = const Color(0xFF94A3B8);
+              Color bulletColor = AppTheme.textDisabled;
 
               if (isHovered) {
                 bg = strongBlue;
@@ -489,7 +490,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                 child: const Text(
                   'Cancel',
                   style: TextStyle(
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -521,7 +522,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
       style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w700,
-        color: Color(0xFF64748B),
+        color: AppTheme.textSecondary,
         letterSpacing: 0.8,
       ),
     );
@@ -549,7 +550,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
               width: 24,
               alignment: Alignment.center,
               child: parentHasNext[i]
-                  ? Container(width: 1, color: const Color(0xFFCBD5E1))
+                  ? Container(width: 1, color: AppTheme.borderMid)
                   : null,
             );
           }),
@@ -562,7 +563,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                   child: Container(
                     width: 1,
                     margin: EdgeInsets.only(bottom: isLast ? 22 : 0),
-                    color: const Color(0xFFCBD5E1),
+                    color: AppTheme.borderMid,
                   ),
                 ),
                 // Horizontal line
@@ -571,7 +572,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                   child: Container(
                     width: 12,
                     height: 1,
-                    color: const Color(0xFFCBD5E1),
+                    color: AppTheme.borderMid,
                   ),
                 ),
               ],
@@ -635,7 +636,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                           const Icon(
                             Icons.folder_open_outlined,
                             size: 18,
-                            color: Color(0xFF2563EB),
+                            color: AppTheme.primaryBlueDark,
                           ),
                           const SizedBox(width: 8),
                         ],
@@ -648,7 +649,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                                   ? FontWeight.w600
                                   : FontWeight.w400,
                               color: isHovered
-                                  ? const Color(0xFF2563EB)
+                                  ? AppTheme.primaryBlueDark
                                   : const Color(0xFF475569),
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -660,7 +661,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                                 ? Icons.arrow_drop_down
                                 : Icons.arrow_right,
                             size: 20,
-                            color: const Color(0xFF64748B),
+                            color: AppTheme.textSecondary,
                           ),
                       ],
                     ),
@@ -677,7 +678,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                         'Apply this Category',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF2563EB),
+                          color: AppTheme.primaryBlueDark,
                           fontWeight: FontWeight.normal,
                         ),
                       ),
@@ -688,7 +689,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                       icon: const Icon(
                         Icons.edit_outlined,
                         size: 18,
-                        color: Color(0xFF64748B),
+                        color: AppTheme.textSecondary,
                       ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -699,7 +700,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                       icon: const Icon(
                         Icons.delete_outline,
                         size: 18,
-                        color: Color(0xFFEF4444),
+                        color: AppTheme.errorRed,
                       ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -729,7 +730,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
         ElevatedButton(
           onPressed: () => Navigator.pop(context),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFF1F5F9), // Grey from Image 2
+            backgroundColor: AppTheme.bgLight, // Grey from Image 2
             foregroundColor: const Color(0xFF334155),
             elevation: 0,
             minimumSize: const Size(100, 42),

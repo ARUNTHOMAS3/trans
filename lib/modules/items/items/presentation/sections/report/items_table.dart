@@ -6,6 +6,7 @@ import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart
 import 'package:zerpai_erp/modules/items/items/presentation/sections/report/dialogs/items_custom_columns.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/report/item_row.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/report/column_visibility_manager.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 // -----------------------------------------------------------
 // HEADER MENU
@@ -94,7 +95,7 @@ class ItemsTableHeader extends ConsumerWidget {
       fontSize: 11,
       fontWeight: FontWeight.w600,
       letterSpacing: 0.4,
-      color: Color(0xFF6B7280),
+      color: AppTheme.textSecondary,
     );
 
     Widget header(
@@ -128,7 +129,7 @@ class ItemsTableHeader extends ConsumerWidget {
                   Icon(
                     asc ? Icons.arrow_drop_up : Icons.arrow_drop_down,
                     size: 14,
-                    color: const Color(0xFF9CA3AF),
+                    color: AppTheme.textMuted,
                   ),
               ],
             ),
@@ -154,7 +155,7 @@ class ItemsTableHeader extends ConsumerWidget {
             width: 32,
             child: Checkbox(
               value: allSelected,
-              activeColor: const Color(0xFF2563EB),
+              activeColor: AppTheme.primaryBlueDark,
               onChanged: (v) => onToggleAll(v ?? false),
             ),
           ),
@@ -237,7 +238,7 @@ class _HeaderMenuButton extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 210),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Container(
         height: 32,
@@ -248,7 +249,7 @@ class _HeaderMenuButton extends StatelessWidget {
           border: Border.all(color: const Color(0xFFDDE4FF)),
         ),
         alignment: Alignment.center,
-        child: const Icon(Icons.tune, size: 15, color: Color(0xFF6B7280)),
+        child: const Icon(Icons.tune, size: 15, color: AppTheme.textSecondary),
       ),
       onSelected: (action) {
         final manager = ProviderScope.containerOf(
@@ -334,8 +335,8 @@ class _MenuActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const blue = Color(0xFF2563EB);
-    const dark = Color(0xFF111827);
+    const blue = AppTheme.primaryBlueDark;
+    const dark = AppTheme.textPrimary;
     final textStyle = TextStyle(
       fontSize: 13,
       fontWeight: FontWeight.w700,
@@ -351,7 +352,7 @@ class _MenuActionTile extends StatelessWidget {
         ? Colors.white
         : accent
         ? blue
-        : const Color(0xFF6B7280);
+        : AppTheme.textSecondary;
 
     return Container(
       height: 42,
@@ -415,7 +416,7 @@ class ItemsTable extends ConsumerWidget {
     return ListView.separated(
       itemCount: items.length,
       separatorBuilder: (_, __) =>
-          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+          const Divider(height: 1, color: AppTheme.borderColor),
       itemBuilder: (context, i) {
         final it = items[i];
         final sel = selectedIds.contains(it.selectionId);
@@ -461,17 +462,28 @@ class _ItemTableRow extends ConsumerStatefulWidget {
 
 class _ItemTableRowState extends ConsumerState<_ItemTableRow> {
   bool _isHovered = false;
+  bool _isOverlayHovered = false;
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
   Timer? _hoverTimer;
+  Timer? _hideTimer;
+  Future<Map<String, dynamic>>? _quickStatsFuture;
 
   void _showOverlay() {
+    _hideTimer?.cancel();
     _hoverTimer?.cancel();
     _hoverTimer = Timer(const Duration(milliseconds: 600), () {
-      if (!mounted || !_isHovered || _overlayEntry != null) return;
+      if (!mounted ||
+          (!_isHovered && !_isOverlayHovered) ||
+          _overlayEntry != null) {
+        return;
+      }
 
       final id = widget.item.id;
       if (id == null) return;
+      _quickStatsFuture ??= ref
+          .read(itemsControllerProvider.notifier)
+          .fetchQuickStats(id);
 
       _overlayEntry = OverlayEntry(
         builder: (context) => UnconstrainedBox(
@@ -479,19 +491,31 @@ class _ItemTableRowState extends ConsumerState<_ItemTableRow> {
             link: _layerLink,
             showWhenUnlinked: false,
             offset: const Offset(60, -45),
-            child: FutureBuilder<Map<String, dynamic>>(
-              future: ref
-                  .read(itemsControllerProvider.notifier)
-                  .fetchQuickStats(id),
-              builder: (context, snapshot) {
-                return _QuickStatsOverlay(
-                  stats:
-                      snapshot.data ??
-                      {'current_stock': 0, 'last_purchase_price': 0.0},
-                  isLoading:
-                      snapshot.connectionState == ConnectionState.waiting,
-                );
+            child: MouseRegion(
+              onEnter: (_) {
+                _hideTimer?.cancel();
+                if (!_isOverlayHovered && mounted) {
+                  setState(() => _isOverlayHovered = true);
+                }
               },
+              onExit: (_) {
+                if (_isOverlayHovered && mounted) {
+                  setState(() => _isOverlayHovered = false);
+                }
+                _scheduleHideOverlay();
+              },
+              child: FutureBuilder<Map<String, dynamic>>(
+                future: _quickStatsFuture,
+                builder: (context, snapshot) {
+                  return _QuickStatsOverlay(
+                    stats:
+                        snapshot.data ??
+                        {'current_stock': 0, 'last_purchase_price': 0.0},
+                    isLoading:
+                        snapshot.connectionState == ConnectionState.waiting,
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -503,8 +527,17 @@ class _ItemTableRowState extends ConsumerState<_ItemTableRow> {
 
   void _hideOverlay() {
     _hoverTimer?.cancel();
+    _hideTimer?.cancel();
     _overlayEntry?.remove();
     _overlayEntry = null;
+  }
+
+  void _scheduleHideOverlay() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted || _isHovered || _isOverlayHovered) return;
+      _hideOverlay();
+    });
   }
 
   @override
@@ -513,7 +546,7 @@ class _ItemTableRowState extends ConsumerState<_ItemTableRow> {
     super.dispose();
   }
 
-  Widget _cell(double w, String text, {Color color = const Color(0xFF111827)}) {
+  Widget _cell(double w, String text, {Color color = AppTheme.textPrimary}) {
     return SizedBox(
       width: w,
       child: Text(
@@ -613,7 +646,7 @@ class _ItemTableRowState extends ConsumerState<_ItemTableRow> {
       },
       onExit: (_) {
         setState(() => _isHovered = false);
-        _hideOverlay();
+        _scheduleHideOverlay();
       },
       child: CompositedTransformTarget(
         link: _layerLink,
@@ -626,7 +659,7 @@ class _ItemTableRowState extends ConsumerState<_ItemTableRow> {
               color: widget.isSelected
                   ? const Color(0xFFF2F4FF)
                   : _isHovered
-                  ? const Color(0xFFF9FAFB)
+                  ? AppTheme.bgLight
                   : Colors.transparent,
               child: Row(
                 crossAxisAlignment: widget.wrapText
@@ -639,7 +672,7 @@ class _ItemTableRowState extends ConsumerState<_ItemTableRow> {
                     width: 32,
                     child: Checkbox(
                       value: widget.isSelected,
-                      activeColor: const Color(0xFF2563EB),
+                      activeColor: AppTheme.primaryBlueDark,
                       onChanged: (v) => widget.onSelectionChanged(v ?? false),
                     ),
                   ),
@@ -650,8 +683,8 @@ class _ItemTableRowState extends ConsumerState<_ItemTableRow> {
                       width,
                       val,
                       color: def.key == 'name'
-                          ? const Color(0xFF2563EB)
-                          : const Color(0xFF111827),
+                          ? AppTheme.primaryBlueDark
+                          : AppTheme.textPrimary,
                     );
                   }),
                 ],
@@ -691,7 +724,7 @@ class _QuickStatsOverlay extends StatelessWidget {
               offset: const Offset(0, 5),
             ),
           ],
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: AppTheme.borderColor),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -702,15 +735,15 @@ class _QuickStatsOverlay extends StatelessWidget {
                 'Loading Quick Stats...',
                 style: TextStyle(
                   fontSize: 10,
-                  color: Color(0xFF6B7280),
+                  color: AppTheme.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 8),
               const LinearProgressIndicator(
                 minHeight: 2,
-                backgroundColor: Color(0xFFF3F4F6),
-                valueColor: AlwaysStoppedAnimation(Color(0xFF2563EB)),
+                backgroundColor: AppTheme.bgDisabled,
+                valueColor: AlwaysStoppedAnimation(AppTheme.primaryBlueDark),
               ),
             ] else ...[
               _buildStat(
@@ -720,7 +753,7 @@ class _QuickStatsOverlay extends StatelessWidget {
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
-                child: Divider(height: 1, color: Color(0xFFF3F4F6)),
+                child: Divider(height: 1, color: AppTheme.bgDisabled),
               ),
               _buildStat(
                 'Last Purchase',
@@ -737,7 +770,7 @@ class _QuickStatsOverlay extends StatelessWidget {
   Widget _buildStat(String label, String value, IconData icon) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: const Color(0xFF6B7280)),
+        Icon(icon, size: 14, color: AppTheme.textSecondary),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -747,7 +780,7 @@ class _QuickStatsOverlay extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   fontSize: 9,
-                  color: Color(0xFF9CA3AF),
+                  color: AppTheme.textMuted,
                   fontWeight: FontWeight.w500,
                   letterSpacing: 0.1,
                 ),
@@ -756,7 +789,7 @@ class _QuickStatsOverlay extends StatelessWidget {
                 value,
                 style: const TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF111827),
+                  color: AppTheme.textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -811,7 +844,7 @@ class _ResizableHeaderCellState extends State<_ResizableHeaderCell> {
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 120),
                 opacity: _hover ? 1.0 : 0.0,
-                child: Container(width: 4, color: const Color(0xFFD1D5DB)),
+                child: Container(width: 4, color: AppTheme.borderColor),
               ),
             ),
           ),

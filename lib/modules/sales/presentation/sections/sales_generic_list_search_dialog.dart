@@ -124,7 +124,7 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
                               'Search',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -143,7 +143,7 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
                               'Filter',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -262,7 +262,7 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
                                               'GST Treatment',
                                               style: TextStyle(
                                                 fontSize: 13,
-                                                color: Color(0xFF374151),
+                                                color: AppTheme.textBody,
                                               ),
                                             ),
                                           ),
@@ -337,12 +337,12 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Searching with applied filters..'),
-                              backgroundColor: Color(0xFF22C55E),
+                              backgroundColor: AppTheme.successGreen,
                             ),
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF22C55E),
+                          backgroundColor: AppTheme.successGreen,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(
@@ -362,8 +362,8 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
                       OutlinedButton(
                         onPressed: () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFE5E7EB)),
-                          foregroundColor: const Color(0xFF374151),
+                          side: const BorderSide(color: AppTheme.borderColor),
+                          foregroundColor: AppTheme.textBody,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 12,
@@ -399,7 +399,7 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
             width: 150,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+              style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
             ),
           ),
           Expanded(
@@ -413,15 +413,15 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                  borderSide: const BorderSide(color: AppTheme.borderColor),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                  borderSide: const BorderSide(color: AppTheme.borderColor),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF2563EB)),
+                  borderSide: const BorderSide(color: AppTheme.primaryBlueDark),
                 ),
               ),
             ),
@@ -449,7 +449,7 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
               width: 150,
               child: Text(
                 label,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
               ),
             ),
           Expanded(
@@ -477,9 +477,9 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
                     vertical: 8,
                   ),
                   color: isSelected
-                      ? const Color(0xFFEFF6FF)
+                      ? AppTheme.infoBg
                       : isHovered
-                      ? const Color(0xFFF9FAFB)
+                      ? AppTheme.bgLight
                       : Colors.transparent,
                   child: Row(
                     children: [
@@ -495,7 +495,7 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
                                 fontWeight: isSelected
                                     ? FontWeight.w600
                                     : FontWeight.normal,
-                                color: const Color(0xFF111827),
+                                color: AppTheme.textPrimary,
                               ),
                             ),
                             if (subtitle != null)
@@ -503,7 +503,7 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
                                 subtitle,
                                 style: const TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF6B7280),
+                                  color: AppTheme.textSecondary,
                                 ),
                               ),
                           ],
@@ -513,7 +513,7 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
                         const Icon(
                           LucideIcons.check,
                           size: 16,
-                          color: Color(0xFF2563EB),
+                          color: AppTheme.primaryBlueDark,
                         ),
                     ],
                   ),

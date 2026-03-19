@@ -14,12 +14,12 @@ extension _LicenceSection on _SalesCustomerCreateScreenState {
               children: [
                 Checkbox(
                   value: isDrugRegistered,
-                  activeColor: const Color(0xFF2563EB),
+                  activeColor: AppTheme.primaryBlueDark,
                   onChanged: (v) => _state(() => isDrugRegistered = v ?? false),
                 ),
                 const Text(
                   'This Customer Is Registered Drug Licence',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textBody),
                 ),
               ],
             ),
@@ -170,13 +170,13 @@ extension _LicenceSection on _SalesCustomerCreateScreenState {
               children: [
                 Checkbox(
                   value: isFssaiRegistered,
-                  activeColor: const Color(0xFF2563EB),
+                  activeColor: AppTheme.primaryBlueDark,
                   onChanged: (v) =>
                       _state(() => isFssaiRegistered = v ?? false),
                 ),
                 const Text(
                   'This Customer Is Registered FSSAI License',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textBody),
                 ),
               ],
             ),
@@ -220,12 +220,12 @@ extension _LicenceSection on _SalesCustomerCreateScreenState {
               children: [
                 Checkbox(
                   value: isMsmeRegistered,
-                  activeColor: const Color(0xFF2563EB),
+                  activeColor: AppTheme.primaryBlueDark,
                   onChanged: (v) => _state(() => isMsmeRegistered = v ?? false),
                 ),
                 const Text(
                   'This Customer Is Registered MSME',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textBody),
                 ),
               ],
             ),

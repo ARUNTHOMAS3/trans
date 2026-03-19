@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 typedef ZerpaiFieldBuilder =
     Widget Function({
@@ -115,9 +116,9 @@ class ZerpaiBuilders {
       margin: margin ?? const EdgeInsets.fromLTRB(20, 0, 20, 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
+        color: AppTheme.errorBg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFEE2E2)),
+        border: Border.all(color: AppTheme.errorBgBorder),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -132,7 +133,7 @@ class ZerpaiBuilders {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: const Color(0xFFEF4444),
+              color: AppTheme.errorRed,
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Icon(
@@ -146,7 +147,7 @@ class ZerpaiBuilders {
             child: Text(
               message,
               style: const TextStyle(
-                color: Color(0xFF991B1B),
+                color: AppTheme.errorTextDark,
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
                 height: 1.4,
@@ -156,7 +157,7 @@ class ZerpaiBuilders {
           const SizedBox(width: 8),
           GestureDetector(
             onTap: onClose,
-            child: const Icon(Icons.close, color: Color(0xFF991B1B), size: 16),
+            child: const Icon(Icons.close, color: AppTheme.errorTextDark, size: 16),
           ),
         ],
       ),
@@ -272,7 +273,7 @@ class _ToastWidgetState extends State<_ToastWidget>
                       Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF22C55E),
+                          color: AppTheme.successGreen,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Icon(
@@ -286,7 +287,7 @@ class _ToastWidgetState extends State<_ToastWidget>
                         child: Text(
                           widget.message,
                           style: const TextStyle(
-                            color: Color(0xFF166534),
+                            color: AppTheme.successTextDark,
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                           ),

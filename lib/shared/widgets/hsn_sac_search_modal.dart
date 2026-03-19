@@ -5,6 +5,7 @@ import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
 import 'package:zerpai_erp/modules/sales/services/hsn_sac_lookup_service.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class HsnSacSearchModal extends StatefulWidget {
   final String type; // 'HSN' or 'SAC'
@@ -152,7 +153,7 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF1F2937),
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                   IconButton(
@@ -160,7 +161,7 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                     icon: const Icon(
                       LucideIcons.x,
                       size: 20,
-                      color: Color(0xFF9CA3AF),
+                      color: AppTheme.textMuted,
                     ),
                     constraints: const BoxConstraints(),
                     padding: EdgeInsets.zero,
@@ -232,10 +233,10 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
               Container(
                 decoration: const BoxDecoration(
                   border: Border(
-                    top: BorderSide(color: Color(0xFFE5E7EB)),
-                    bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                    top: BorderSide(color: AppTheme.borderColor),
+                    bottom: BorderSide(color: AppTheme.borderColor),
                   ),
-                  color: Color(0xFFF9FAFB),
+                  color: AppTheme.bgLight,
                 ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
@@ -304,7 +305,7 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                       padding: EdgeInsets.zero,
                       itemCount: _results.length,
                       separatorBuilder: (context, index) =>
-                          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                          const Divider(height: 1, color: AppTheme.borderColor),
                       itemBuilder: (context, index) {
                         final item = _results[index];
                         return InkWell(
@@ -336,7 +337,7 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                                     query,
                                     style: const TextStyle(
                                       fontSize: 13,
-                                      color: Color(0xFF374151),
+                                      color: AppTheme.textBody,
                                       height: 1.4,
                                     ),
                                   ),
@@ -354,12 +355,12 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
-                color: const Color(0xFFFEF2F2),
+                color: AppTheme.errorBg,
                 child: Text(
                   _errorMessage!,
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFFDC2626),
+                    color: AppTheme.errorRed,
                   ),
                   textAlign: TextAlign.center,
                 ),

@@ -7,7 +7,7 @@ extension _OverviewLeftPanel on _SalesCustomerOverviewScreenState {
     bool isExpanded,
   ) {
     return Container(
-      color: const Color(0xFFF9FAFB),
+      color: AppTheme.bgLight,
       child: Column(
         children: [
           // Header with filter/plus
@@ -24,14 +24,14 @@ extension _OverviewLeftPanel on _SalesCustomerOverviewScreenState {
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
-                          color: Color(0xFF111827),
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                       const SizedBox(width: 4),
                       const Icon(
                         LucideIcons.chevronDown,
                         size: 16,
-                        color: Color(0xFF2563EB),
+                        color: AppTheme.primaryBlueDark,
                       ),
                     ],
                   ),
@@ -42,13 +42,13 @@ extension _OverviewLeftPanel on _SalesCustomerOverviewScreenState {
                         onTap: () => context.push('/sales/customers/create'),
                         child: _smallIconButton(
                           LucideIcons.plus,
-                          const Color(0xFF22C55E),
+                          AppTheme.successGreen,
                         ),
                       ),
                       const SizedBox(width: 8),
                       _smallIconButton(
                         LucideIcons.moreHorizontal,
-                        const Color(0xFF374151),
+                        AppTheme.textBody,
                       ),
                       const SizedBox(width: 8),
                     ],
@@ -59,7 +59,7 @@ extension _OverviewLeftPanel on _SalesCustomerOverviewScreenState {
                         _isPanelCollapsed
                             ? LucideIcons.chevronsRight
                             : LucideIcons.chevronsLeft,
-                        const Color(0xFF374151),
+                        AppTheme.textBody,
                       ),
                     ),
                   ],
@@ -113,8 +113,8 @@ extension _OverviewLeftPanel on _SalesCustomerOverviewScreenState {
                                         ? FontWeight.w600
                                         : FontWeight.normal,
                                     color: isSelected
-                                        ? const Color(0xFF2563EB)
-                                        : const Color(0xFF374151),
+                                        ? AppTheme.primaryBlueDark
+                                        : AppTheme.textBody,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -126,7 +126,7 @@ extension _OverviewLeftPanel on _SalesCustomerOverviewScreenState {
                                   ).format(c.receivables),
                                   style: const TextStyle(
                                     fontSize: 12,
-                                    color: Color(0xFF6B7280),
+                                    color: AppTheme.textSecondary,
                                   ),
                                 ),
                               ],
@@ -149,7 +149,7 @@ extension _OverviewLeftPanel on _SalesCustomerOverviewScreenState {
     return Container(
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFD1D5DB)),
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(4),
         color: icon == LucideIcons.plus ? color : Colors.white,
       ),

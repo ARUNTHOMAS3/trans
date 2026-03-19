@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 Future<void> showExportItemsDialog(BuildContext context) {
   String module = 'items';
@@ -40,7 +41,7 @@ Future<void> showExportItemsDialog(BuildContext context) {
                           ),
                           decoration: const BoxDecoration(
                             border: Border(
-                              bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                              bottom: BorderSide(color: AppTheme.borderColor),
                             ),
                           ),
                           child: Row(
@@ -50,7 +51,7 @@ Future<void> showExportItemsDialog(BuildContext context) {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF111827),
+                                  color: AppTheme.textPrimary,
                                 ),
                               ),
                               const Spacer(),
@@ -262,7 +263,7 @@ Future<void> showExportItemsDialog(BuildContext context) {
                             children: [
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF16A34A),
+                                  backgroundColor: AppTheme.successGreen,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 28,
                                     vertical: 10,
@@ -335,7 +336,7 @@ class _Label extends StatelessWidget {
         fontWeight: FontWeight.w500,
         color: required
             ? const Color.fromARGB(255, 245, 10, 2)
-            : const Color(0xFF374151),
+            : AppTheme.textBody,
       ),
     );
   }

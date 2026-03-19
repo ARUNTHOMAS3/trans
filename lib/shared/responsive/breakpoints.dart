@@ -1,29 +1,27 @@
-// FILE: lib/shared/responsive/breakpoints.dart
-
 import 'package:flutter/widgets.dart';
 
-/// Logical breakpoints for the whole app.
-/// These do NOT change any UI by themselves.
-/// You will use them from ResponsiveLayout or context extensions.
 class ZpBreakpoints {
-  // < 600
-  static const double mobileMax = 599;
+  const ZpBreakpoints._();
 
-  // 600 - 1023
+  static const double compactMobileMax = 479;
+  static const double mobileMax = 599;
   static const double tabletMin = 600;
   static const double tabletMax = 1023;
-
-  // 1024 - 1439 (normal desktop / laptop)
   static const double desktopMin = 1024;
   static const double desktopMax = 1439;
+  static const double wideDesktopMin = 1440;
 
-  // 1440+ (very wide desktop)
-  static const double largeDesktopMin = 1440;
+  static const double compactContentWidth = 720;
+  static const double comfortableContentWidth = 1120;
+  static const double maxCanvasWidth = 1600;
 }
 
-enum DeviceSize { mobile, tablet, desktop, largeDesktop }
+enum DeviceSize { compactMobile, mobile, tablet, desktop, wideDesktop }
 
 DeviceSize deviceSizeForWidth(double width) {
+  if (width <= ZpBreakpoints.compactMobileMax) {
+    return DeviceSize.compactMobile;
+  }
   if (width <= ZpBreakpoints.mobileMax) {
     return DeviceSize.mobile;
   }
@@ -33,31 +31,47 @@ DeviceSize deviceSizeForWidth(double width) {
   if (width <= ZpBreakpoints.desktopMax) {
     return DeviceSize.desktop;
   }
-  return DeviceSize.largeDesktop;
+  return DeviceSize.wideDesktop;
 }
 
-bool isMobileWidth(double width) =>
-    deviceSizeForWidth(width) == DeviceSize.mobile;
+DeviceSize deviceSizeOf(BuildContext context) {
+  final width = MediaQuery.maybeOf(context)?.size.width ?? 1440;
+  return deviceSizeForWidth(width);
+}
+
+bool isCompactMobileWidth(double width) =>
+    deviceSizeForWidth(width) == DeviceSize.compactMobile;
+
+bool isMobileWidth(double width) {
+  final size = deviceSizeForWidth(width);
+  return size == DeviceSize.compactMobile || size == DeviceSize.mobile;
+}
 
 bool isTabletWidth(double width) =>
     deviceSizeForWidth(width) == DeviceSize.tablet;
 
 bool isDesktopWidth(double width) {
   final size = deviceSizeForWidth(width);
-  return size == DeviceSize.desktop || size == DeviceSize.largeDesktop;
+  return size == DeviceSize.desktop || size == DeviceSize.wideDesktop;
 }
 
-/// Convenience helpers using BuildContext directly.
-DeviceSize deviceSizeOf(BuildContext context) {
-  final width = MediaQuery.maybeOf(context)?.size.width ?? 1200;
-  return deviceSizeForWidth(width);
+int formColumnsForWidth(double width) {
+  if (width < ZpBreakpoints.tabletMin) return 1;
+  if (width < ZpBreakpoints.desktopMin) return 2;
+  if (width < ZpBreakpoints.wideDesktopMin) return 3;
+  return 4;
 }
 
-bool isMobile(BuildContext context) =>
-    isMobileWidth(MediaQuery.maybeOf(context)?.size.width ?? 1200);
+double horizontalPaddingForWidth(double width) {
+  if (width < ZpBreakpoints.tabletMin) return 16;
+  if (width < ZpBreakpoints.desktopMin) return 20;
+  if (width < ZpBreakpoints.wideDesktopMin) return 24;
+  return 32;
+}
 
-bool isTablet(BuildContext context) =>
-    isTabletWidth(MediaQuery.maybeOf(context)?.size.width ?? 1200);
-
-bool isDesktop(BuildContext context) =>
-    isDesktopWidth(MediaQuery.maybeOf(context)?.size.width ?? 1200);
+double dialogWidthForWidth(double width) {
+  if (width < ZpBreakpoints.tabletMin) return width - 24;
+  if (width < ZpBreakpoints.desktopMin) return 640;
+  if (width < ZpBreakpoints.wideDesktopMin) return 880;
+  return 1040;
+}

@@ -16,6 +16,7 @@ import '../models/sales_order_model.dart';
 import '../models/sales_order_item_model.dart';
 import 'widgets/sales_order_item_row.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SalesChallanCreateScreen extends ConsumerStatefulWidget {
   const SalesChallanCreateScreen({super.key});
@@ -109,7 +110,7 @@ class _SalesChallanCreateScreenState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -172,13 +173,13 @@ class _SalesChallanCreateScreenState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            color: const Color(0xFFF9FAFB),
+            color: AppTheme.bgLight,
             child: Row(
               children: const [
                 Expanded(
@@ -278,7 +279,7 @@ class _SalesChallanCreateScreenState
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFD1D5DB)),
+          border: Border.all(color: AppTheme.borderColor),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(

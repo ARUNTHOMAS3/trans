@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ZerpaiSidebarItem extends StatefulWidget {
   final IconData icon;
@@ -143,7 +144,7 @@ class _ExpandedView extends StatelessWidget {
                 width: 26,
                 height: 26,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10B981), // Green as per screenshot
+                  color: AppTheme.accentGreen, // Green as per screenshot
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Icon(
@@ -178,7 +179,7 @@ class _CollapsedView extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: showActiveIconHighlight
-                  ? const Color(0xFF10B981)
+                  ? AppTheme.accentGreen
                   : showActiveParentHighlight
                   ? const Color(0xFF2A3A55)
                   : Colors.transparent,

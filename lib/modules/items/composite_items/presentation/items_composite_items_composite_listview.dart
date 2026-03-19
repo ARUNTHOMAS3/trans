@@ -8,6 +8,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'items_composite_filters.dart';
 import 'items_composite_filter_dropdown.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class CompositeItemsListScreen extends ConsumerStatefulWidget {
   final String? initialItemId;
@@ -95,14 +96,14 @@ class _CompositeItemsListScreenState
                 _buildViewSelector(context)
               else
                 _buildBulkActionsToolbar(),
-              const Divider(height: 1, color: Color(0xFFE5E7EB)),
+              const Divider(height: 1, color: AppTheme.borderColor),
               _buildTableHeader(allSelected, filteredItems),
               Expanded(
                 child: filteredItems.isEmpty
                     ? Center(
                         child: Text(
                           'No composite items found for ${_selectedView.name}',
-                          style: const TextStyle(color: Color(0xFF6B7280)),
+                          style: const TextStyle(color: AppTheme.textSecondary),
                         ),
                       )
                     : ListView.builder(
@@ -353,7 +354,7 @@ class _CompositeItemsListScreenState
                   'Delete',
                   style: TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF3B82F6),
+                    color: AppTheme.infoBlue,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -362,13 +363,13 @@ class _CompositeItemsListScreenState
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
+                color: AppTheme.bgDisabled,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Icon(
                 Icons.more_horiz,
                 size: 18,
-                color: Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
               ),
             ),
           ),
@@ -376,7 +377,7 @@ class _CompositeItemsListScreenState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
+              color: AppTheme.infoBg,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -384,14 +385,14 @@ class _CompositeItemsListScreenState
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF3B82F6),
+                color: AppTheme.infoBlue,
               ),
             ),
           ),
           const SizedBox(width: 8),
           const Text(
             'Selected',
-            style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+            style: TextStyle(fontSize: 13, color: AppTheme.textBody),
           ),
           const Spacer(),
           TextButton.icon(
@@ -399,7 +400,7 @@ class _CompositeItemsListScreenState
             icon: const Icon(Icons.close, size: 18, color: Colors.red),
             label: const Text(
               'Esc',
-              style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
             ),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
           ),
@@ -425,7 +426,7 @@ class _CompositeItemsListScreenState
             icon: const Icon(Icons.add, size: 18),
             label: const Text('New'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
+              backgroundColor: AppTheme.accentGreen,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               elevation: 0,
@@ -437,9 +438,9 @@ class _CompositeItemsListScreenState
           const SizedBox(width: 8),
           IconButton(
             onPressed: () {},
-            icon: const Icon(Icons.more_horiz, color: Color(0xFF6B7280)),
+            icon: const Icon(Icons.more_horiz, color: AppTheme.textSecondary),
             style: IconButton.styleFrom(
-              backgroundColor: const Color(0xFFF3F4F6),
+              backgroundColor: AppTheme.bgDisabled,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -457,12 +458,12 @@ class _CompositeItemsListScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
-        color: Color(0xFFF9FAFB),
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        color: AppTheme.bgLight,
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.tune, size: 16, color: Color(0xFF3B82F6)),
+          const Icon(Icons.tune, size: 16, color: AppTheme.infoBlue),
           const SizedBox(width: 8),
           SizedBox(
             width: 24,
@@ -474,7 +475,7 @@ class _CompositeItemsListScreenState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
-              side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
+              side: const BorderSide(color: AppTheme.borderColor, width: 1.5),
             ),
           ),
           const SizedBox(width: 8),
@@ -489,7 +490,7 @@ class _CompositeItemsListScreenState
           _HeaderCell(label: 'CATEGORY', flex: 2),
           _HeaderCell(label: 'MANUFACTURER', flex: 2),
           _HeaderCell(label: 'BRAND', flex: 2),
-          const Icon(Icons.search, size: 18, color: Color(0xFF9CA3AF)),
+          const Icon(Icons.search, size: 18, color: AppTheme.textMuted),
         ],
       ),
     );
@@ -500,13 +501,13 @@ class _CompositeItemsListScreenState
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
           const Text(
             'Total Count: ',
-            style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
           GestureDetector(
             onTap: () {},
@@ -514,7 +515,7 @@ class _CompositeItemsListScreenState
               'View',
               style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFF3B82F6),
+                color: AppTheme.infoBlue,
                 fontWeight: FontWeight.w500,
                 decoration: TextDecoration.underline,
               ),
@@ -524,7 +525,7 @@ class _CompositeItemsListScreenState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              border: Border.all(color: AppTheme.borderColor),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
@@ -532,17 +533,17 @@ class _CompositeItemsListScreenState
                 const Icon(
                   Icons.settings_outlined,
                   size: 14,
-                  color: Color(0xFF6B7280),
+                  color: AppTheme.textSecondary,
                 ),
                 const SizedBox(width: 4),
                 const Text(
                   '10 per page',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF374151)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textBody),
                 ),
                 const Icon(
                   Icons.keyboard_arrow_down,
                   size: 16,
-                  color: Color(0xFF6B7280),
+                  color: AppTheme.textSecondary,
                 ),
               ],
             ),
@@ -556,7 +557,7 @@ class _CompositeItemsListScreenState
               ),
               const Text(
                 '1 - 10',
-                style: TextStyle(fontSize: 12, color: Color(0xFF374151)),
+                style: TextStyle(fontSize: 12, color: AppTheme.textBody),
               ),
               IconButton(
                 onPressed: null,
@@ -583,14 +584,14 @@ class _BulkButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: AppTheme.borderColor),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
           label,
           style: const TextStyle(
             fontSize: 13,
-            color: Color(0xFF374151),
+            color: AppTheme.textBody,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -628,7 +629,7 @@ class _HeaderCell extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF6B7280),
+                  color: AppTheme.textSecondary,
                   letterSpacing: 0.5,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -636,7 +637,7 @@ class _HeaderCell extends StatelessWidget {
             ),
             if (showSort) ...[
               const SizedBox(width: 4),
-              const Icon(Icons.unfold_more, size: 14, color: Color(0xFF9CA3AF)),
+              const Icon(Icons.unfold_more, size: 14, color: AppTheme.textMuted),
             ],
           ],
         ),
@@ -678,7 +679,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
           ),
           child: Row(
             children: [
@@ -693,7 +694,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
+                  side: const BorderSide(color: AppTheme.borderColor, width: 1.5),
                 ),
               ),
               const SizedBox(width: 8),
@@ -707,7 +708,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                       : Icons.folder_outlined,
                   size: 18,
                   color: widget.item.isActive
-                      ? const Color(0xFF3B82F6)
+                      ? AppTheme.infoBlue
                       : Colors.grey,
                 ),
               ),
@@ -731,7 +732,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: widget.item.isActive
-                            ? const Color(0xFF3B82F6)
+                            ? AppTheme.infoBlue
                             : Colors.grey.shade600,
                       ),
                     ),
@@ -746,7 +747,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                     widget.item.type.capitalize(),
                     style: const TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF111827),
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                 ),
@@ -759,7 +760,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                     widget.item.sku ?? '',
                     style: const TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF111827),
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                 ),
@@ -775,7 +776,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                         : '',
                     style: const TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF111827),
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                 ),
@@ -788,7 +789,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                     widget.categoryName == '-' ? '' : widget.categoryName,
                     style: const TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF111827),
+                      color: AppTheme.textPrimary,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -804,7 +805,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                         : widget.manufacturerName,
                     style: const TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF111827),
+                      color: AppTheme.textPrimary,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -818,7 +819,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                     widget.brandName == '-' ? '' : widget.brandName,
                     style: const TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF111827),
+                      color: AppTheme.textPrimary,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -858,7 +859,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                   left: 9,
                   top: 0,
                   bottom: isLast ? 22 : 0,
-                  child: Container(width: 1, color: const Color(0xFFE5E7EB)),
+                  child: Container(width: 1, color: AppTheme.borderColor),
                 ),
                 Positioned(
                   left: 9,
@@ -866,7 +867,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                   child: Container(
                     width: 16,
                     height: 1,
-                    color: const Color(0xFFE5E7EB),
+                    color: AppTheme.borderColor,
                   ),
                 ),
               ],
@@ -876,7 +877,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                 children: [
                   TextSpan(
                     text: (part.product?.productName ?? "Unknown Part")
@@ -886,7 +887,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                   TextSpan(
                     text: ' ( ${part.quantity.toStringAsFixed(0)} pcs )',
                     style: const TextStyle(
-                      color: Color(0xFF9CA3AF),
+                      color: AppTheme.textMuted,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -896,7 +897,7 @@ class _CompositeItemRowState extends State<_CompositeItemRow> {
                       text:
                           ' | SKU : ${part.product?.sku ?? part.product?.itemCode}',
                       style: const TextStyle(
-                        color: Color(0xFF9CA3AF),
+                        color: AppTheme.textMuted,
                         fontWeight: FontWeight.w400,
                       ),
                     ),

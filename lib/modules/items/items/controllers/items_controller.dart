@@ -1166,7 +1166,7 @@ class ItemsController extends StateNotifier<ItemsState> {
   Future<List<Map<String, dynamic>>> syncReorderTerms(
     List<Map<String, dynamic>> items,
   ) => _syncGeneric(
-    'Reorder Terms',
+    'Reorder Rule',
     () => _lookupsService.syncReorderTerms(items),
   );
 

@@ -29,20 +29,20 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
             if (isShipping) ...[
               const SizedBox(width: 8),
               const Text(
                 '(',
-                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
               const SizedBox(width: 4),
               const Icon(
                 Icons.arrow_downward,
                 size: 14,
-                color: Color(0xFF2563EB),
+                color: AppTheme.primaryBlueDark,
               ),
               const SizedBox(width: 2),
               InkWell(
@@ -63,7 +63,7 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
                   'Copy billing address',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -71,7 +71,7 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
               const SizedBox(width: 4),
               const Text(
                 ')',
-                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
             ],
           ],
@@ -199,7 +199,7 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
             width: 110,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+              style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
             ),
           ),
           const SizedBox(width: 12),

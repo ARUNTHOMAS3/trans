@@ -48,6 +48,33 @@ class AppTheme {
   static const Color bgDisabled = Color(0xFFF3F4F6); // Disabled states
   static const Color bgHover = Color(0xFFF3F4F6); // Hover states
 
+  // Additional text hierarchy
+  static const Color textBody = Color(0xFF374151); // Body text (gray-700)
+  static const Color textSubtle = Color(0xFF4B5563); // Subtle secondary (gray-600)
+  static const Color textDisabled = Color(0xFF94A3B8); // Disabled / placeholder
+
+  // Additional border variants
+  static const Color borderLight = Color(0xFFE2E8F0); // Light border (slate-200)
+  static const Color borderMid = Color(0xFFCBD5E1); // Mid border (slate-300)
+
+  // Status — Error
+  static const Color errorBg = Color(0xFFFEF2F2); // Error alert background
+  static const Color errorBgBorder = Color(0xFFFEE2E2); // Error alert border
+  static const Color errorTextDark = Color(0xFF991B1B); // Dark error text
+
+  // Status — Warning
+  static const Color warningBg = Color(0xFFFFF7ED); // Warning alert background
+  static const Color warningTextDark = Color(0xFF92400E); // Dark warning text
+
+  // Status — Success
+  static const Color successTextDark = Color(0xFF166534); // Dark success text
+  static const Color successDark = Color(0xFF059669); // Darker success green
+
+  // Status — Info
+  static const Color infoBgBorder = Color(0xFFDBEAFE); // Info alert border
+  static const Color infoTextDark = Color(0xFF1E40AF); // Dark info text
+  static const Color infoBlue = Color(0xFF3B82F6); // Info / secondary blue
+
   // Specific UI Component Colors
   static const Color successBg = Color(0xFFDCFCE7); // Success background
   static const Color infoBg = Color(0xFFEFF6FF); // Info background

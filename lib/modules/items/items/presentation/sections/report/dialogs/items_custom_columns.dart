@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/report/column_visibility_manager.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 /// Dialog that lets the user pick which columns are visible in the Items Report.
 class ItemsCustomColumnsDialog extends StatefulWidget {
@@ -66,11 +67,11 @@ class _ItemsCustomColumnsDialogState extends State<ItemsCustomColumnsDialog> {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.tune, size: 18, color: Color(0xFF2563EB)),
+          const Icon(Icons.tune, size: 18, color: AppTheme.primaryBlueDark),
           const SizedBox(width: 8),
           const Text(
             'Customize Columns',
@@ -79,7 +80,7 @@ class _ItemsCustomColumnsDialogState extends State<ItemsCustomColumnsDialog> {
           const Spacer(),
           Text(
             '${_workingSelection.length} of ${_allColumns.length} Selected',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
           const SizedBox(width: 12),
           IconButton(
@@ -100,7 +101,7 @@ class _ItemsCustomColumnsDialogState extends State<ItemsCustomColumnsDialog> {
           prefixIcon: const Icon(
             Icons.search,
             size: 18,
-            color: Color(0xFF9CA3AF),
+            color: AppTheme.textMuted,
           ),
           hintText: 'Search',
           isDense: true,
@@ -115,7 +116,7 @@ class _ItemsCustomColumnsDialogState extends State<ItemsCustomColumnsDialog> {
       return const Center(
         child: Text(
           'No columns match your search',
-          style: TextStyle(color: Color(0xFF6B7280)),
+          style: TextStyle(color: AppTheme.textSecondary),
         ),
       );
     }
@@ -124,7 +125,7 @@ class _ItemsCustomColumnsDialogState extends State<ItemsCustomColumnsDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       itemCount: _filteredColumns.length,
       separatorBuilder: (_, __) =>
-          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+          const Divider(height: 1, color: AppTheme.borderColor),
       itemBuilder: (context, i) => _buildColumnTile(_filteredColumns[i]),
     );
   }
@@ -137,7 +138,7 @@ class _ItemsCustomColumnsDialogState extends State<ItemsCustomColumnsDialog> {
       leading: const Icon(
         Icons.drag_indicator,
         size: 16,
-        color: Color(0xFF9CA3AF),
+        color: AppTheme.textMuted,
       ),
       title: Text(
         col.label,
@@ -147,7 +148,7 @@ class _ItemsCustomColumnsDialogState extends State<ItemsCustomColumnsDialog> {
         softWrap: false,
       ),
       trailing: col.isRequired
-          ? const Icon(Icons.lock, size: 16, color: Color(0xFF9CA3AF))
+          ? const Icon(Icons.lock, size: 16, color: AppTheme.textMuted)
           : Checkbox(
               value: checked,
               onChanged: (v) => setState(() {
@@ -157,7 +158,7 @@ class _ItemsCustomColumnsDialogState extends State<ItemsCustomColumnsDialog> {
                   _workingSelection.remove(col.key);
                 }
               }),
-              activeColor: const Color(0xFF2563EB),
+              activeColor: AppTheme.primaryBlueDark,
             ),
       onTap: col.isRequired
           ? null
@@ -175,7 +176,7 @@ class _ItemsCustomColumnsDialogState extends State<ItemsCustomColumnsDialog> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -187,7 +188,7 @@ class _ItemsCustomColumnsDialogState extends State<ItemsCustomColumnsDialog> {
           const SizedBox(width: 8),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF22C55E),
+              backgroundColor: AppTheme.successGreen,
             ),
             onPressed: () {
               widget.onSave(_workingSelection);

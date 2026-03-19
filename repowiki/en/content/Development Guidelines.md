@@ -44,6 +44,17 @@ Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` 
 Prefer real DB-backed runtime data wherever a schema-backed source exists. If real data is unavailable, show explicit empty or error states instead of fabricated business values. Resolve master defaults from DB-backed lookup rows rather than hardcoded IDs or labels. Keep reusable control behavior centralized in shared sources. Warehouse master data, storage/location master data, accounting stock, and physical stock must remain separate concepts.
 Primary save/create buttons, neutral cancel actions, upload controls, and border/divider treatments must also remain on shared theme rules rather than per-screen color choices.
 
+## Responsive Foundation Rule
+Flutter web layouts must use the shared responsive foundation instead of screen-local overflow patches. This includes:
+- global breakpoints
+- shared responsive table shells for dense and wide tables
+- shared responsive form rows and grids
+- shared responsive dialog width rules
+- sidebar-aware shell and content width metrics
+
+## Deep Linking Rule
+New modules and major internal sub-screens must expose deep-linkable GoRouter routes so refresh, direct URL entry, and browser navigation preserve working context instead of dropping users back to a parent page.
+
 ## Project Structure
 ZerpAI ERP follows a monorepo layout with a Flutter frontend (web and Android), a NestJS backend, and Supabase-managed database migrations. The frontend is organized around core, shared, and feature modules. The backend is organized by domain modules (e.g., products, sales) and common infrastructure (middleware, database).
 

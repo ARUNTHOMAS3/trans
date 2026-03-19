@@ -215,7 +215,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildVendorNumberDialogHeader(dialogContext),
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const Divider(height: 1, color: AppTheme.borderColor),
                     if (duplicateError != null)
                       Container(
                         width: double.infinity,
@@ -223,12 +223,12 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                           horizontal: 16,
                           vertical: 8,
                         ),
-                        color: const Color(0xFFFEE2E2),
+                        color: AppTheme.errorBgBorder,
                         child: Row(
                           children: [
                             const Icon(
                               Icons.error_outline,
-                              color: Color(0xFFDC2626),
+                              color: AppTheme.errorRed,
                               size: 16,
                             ),
                             const SizedBox(width: 8),
@@ -236,7 +236,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                               child: Text(
                                 duplicateError!,
                                 style: const TextStyle(
-                                  color: Color(0xFFDC2626),
+                                  color: AppTheme.errorRed,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -247,7 +247,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                                   setDialogState(() => duplicateError = null),
                               child: const Icon(
                                 Icons.close,
-                                color: Color(0xFFDC2626),
+                                color: AppTheme.errorRed,
                                 size: 16,
                               ),
                             ),
@@ -266,7 +266,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                             'incremented by 1.',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF6B7280),
+                              color: AppTheme.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -306,7 +306,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                             width: double.infinity,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFF7ED),
+                              color: AppTheme.warningBg,
                               border: Border.all(
                                 color: const Color(0xFFFED7AA),
                               ),
@@ -319,7 +319,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                               'field after closing this popup.',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF92400E),
+                                color: AppTheme.warningTextDark,
                               ),
                             ),
                           ),
@@ -380,7 +380,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                                       },
                                 style: ElevatedButton.styleFrom(
                                   elevation: 0,
-                                  backgroundColor: const Color(0xFF22C55E),
+                                  backgroundColor: AppTheme.successGreen,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 18,
                                     vertical: 10,
@@ -435,13 +435,13 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           const Spacer(),
           IconButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            icon: const Icon(Icons.close, size: 18, color: Color(0xFFE11D48)),
+            icon: const Icon(Icons.close, size: 18, color: AppTheme.errorRed),
             splashRadius: 20,
           ),
         ],

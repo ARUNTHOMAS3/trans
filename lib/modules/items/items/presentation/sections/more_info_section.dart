@@ -98,7 +98,7 @@ class MoreInfoSection extends StatelessWidget {
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF374151),
+            color: AppTheme.textBody,
           ),
         ),
         const SizedBox(height: 12),
@@ -134,14 +134,14 @@ class MoreInfoSection extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.add, size: 16, color: Color(0xFF2563EB)),
+                const Icon(Icons.add, size: 16, color: AppTheme.primaryBlueDark),
                 const SizedBox(width: 4),
                 Text(
                   "Add More",
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                   ),
                 ),
               ],

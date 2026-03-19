@@ -10,7 +10,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
       width: 320,
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(right: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(right: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Column(
         children: [
@@ -23,7 +23,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
             height: 42,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
             child: _SidebarSearchBar(
               onSearch: (q) => controller.performSearch(q),
@@ -50,7 +50,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 itemCount:
                     allFilteredItems.length + (state.isLoadingList ? 1 : 0),
                 separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                    const Divider(height: 1, color: AppTheme.bgDisabled),
                 itemBuilder: (context, index) {
                   if (index >= allFilteredItems.length) {
                     // Loading spinner row
@@ -123,7 +123,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                                   }
                                 });
                               },
-                              side: const BorderSide(color: Color(0xFFD1D5DB)),
+                              side: const BorderSide(color: AppTheme.borderColor),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(3),
                               ),
@@ -145,8 +145,8 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                                               ? FontWeight.w600
                                               : FontWeight.w500,
                                           color: isSelected
-                                              ? const Color(0xFF1D4ED8)
-                                              : const Color(0xFF111827),
+                                              ? AppTheme.primaryBlueDark
+                                              : AppTheme.textPrimary,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -157,7 +157,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                                       const Icon(
                                         Icons.business_center_outlined,
                                         size: 14,
-                                        color: Color(0xFF6B7280),
+                                        color: AppTheme.textSecondary,
                                       ),
                                     ],
                                   ],
@@ -169,7 +169,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                                     'SKU: ${item.sku}',
                                     style: const TextStyle(
                                       fontSize: 12,
-                                      color: Color(0xFF6B7280),
+                                      color: AppTheme.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -183,7 +183,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                               const Icon(
                                 Icons.currency_rupee,
                                 size: 14,
-                                color: Color(0xFF111827),
+                                color: AppTheme.textPrimary,
                               ),
                               const SizedBox(width: 2),
                               Text(
@@ -191,7 +191,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF111827),
+                                  color: AppTheme.textPrimary,
                                 ),
                               ),
                             ],
@@ -224,7 +224,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
@@ -258,7 +258,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
             child: ElevatedButton(
               onPressed: () => context.pushNamed(AppRoutes.itemsCreate),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
+                backgroundColor: AppTheme.accentGreen,
                 padding: EdgeInsets.zero,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -274,7 +274,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              border: Border.all(color: AppTheme.borderColor),
               borderRadius: BorderRadius.circular(6),
             ),
             child: IconButton(
@@ -282,7 +282,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
               icon: const Icon(
                 Icons.more_horiz,
                 size: 18,
-                color: Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
               ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
@@ -301,7 +301,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -325,7 +325,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                     }
                   });
                 },
-                side: const BorderSide(color: Color(0xFFD1D5DB)),
+                side: const BorderSide(color: AppTheme.borderColor),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(3),
                 ),
@@ -338,7 +338,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
               elevation: 8,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
-                side: const BorderSide(color: Color(0xFFE5E7EB)),
+                side: const BorderSide(color: AppTheme.borderColor),
               ),
               onSelected: (value) {
                 if (value == 'bulk-update') {
@@ -355,7 +355,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                     height: 44,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: const BoxDecoration(
-                      color: Color(0xFF3B82F6),
+                      color: AppTheme.infoBlue,
                       borderRadius: BorderRadius.only(
                         topLeft: Radius.circular(8),
                         topRight: Radius.circular(8),
@@ -393,7 +393,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(
-                    color: const Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                     width: 1.5,
                   ),
                   borderRadius: BorderRadius.circular(6),
@@ -406,21 +406,21 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111827),
+                        color: AppTheme.textPrimary,
                       ),
                     ),
                     SizedBox(width: 4),
                     Icon(
                       Icons.arrow_drop_down,
                       size: 18,
-                      color: Color(0xFF111827),
+                      color: AppTheme.textPrimary,
                     ),
                   ],
                 ),
               ),
             ),
             const SizedBox(width: 12),
-            Container(width: 1, height: 24, color: const Color(0xFFE5E7EB)),
+            Container(width: 1, height: 24, color: AppTheme.borderColor),
             const SizedBox(width: 12),
             Container(
               width: 32,
@@ -435,7 +435,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF2563EB),
+                  color: AppTheme.primaryBlueDark,
                 ),
               ),
             ),
@@ -445,13 +445,13 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF374151),
+                color: AppTheme.textBody,
               ),
             ),
             const SizedBox(width: 12),
             IconButton(
               onPressed: () => updateState(() => _selectedItemIds.clear()),
-              icon: const Icon(Icons.close, size: 20, color: Color(0xFFEF4444)),
+              icon: const Icon(Icons.close, size: 20, color: AppTheme.errorRed),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
@@ -467,7 +467,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
@@ -486,7 +486,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF111827),
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                     ),
@@ -500,16 +500,16 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF2F2),
+                          color: AppTheme.errorBg,
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0xFFFEE2E2)),
+                          border: Border.all(color: AppTheme.errorBgBorder),
                         ),
                         child: const Text(
                           'Low Stock',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFFEF4444),
+                            color: AppTheme.errorRed,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -524,14 +524,14 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                       const Icon(
                         Icons.sync,
                         size: 14,
-                        color: Color(0xFF6B7280),
+                        color: AppTheme.textSecondary,
                       ),
                       const SizedBox(width: 4),
                       const Text(
                         'Returnable Item',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF4B5563),
+                          color: AppTheme.textSubtle,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -571,7 +571,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 _openOpeningStockDialog(item, warehouses);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
+                backgroundColor: AppTheme.accentGreen,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(
@@ -595,7 +595,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
             elevation: 6,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(6),
-              side: const BorderSide(color: Color(0xFFE5E7EB)),
+              side: const BorderSide(color: AppTheme.borderColor),
             ),
             onSelected: (value) => _handleDetailMoreAction(item, value),
             itemBuilder: (context) => [
@@ -617,13 +617,13 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
                 ),
-                side: const BorderSide(color: Color(0xFFD1D5DB)),
+                side: const BorderSide(color: AppTheme.borderColor),
               ),
               child: Row(
                 children: const [
                   Text(
                     'More',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                   ),
                   Icon(Icons.arrow_drop_down, size: 18),
                 ],
@@ -639,7 +639,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 context.goNamed(AppRoutes.itemsReport);
               }
             },
-            icon: const Icon(Icons.close, size: 20, color: Color(0xFF6B7280)),
+            icon: const Icon(Icons.close, size: 20, color: AppTheme.textSecondary),
           ),
         ],
       ),
@@ -701,7 +701,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
         label,
         style: const TextStyle(
           fontSize: 13,
-          color: Color(0xFF374151),
+          color: AppTheme.textBody,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -719,7 +719,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
@@ -728,7 +728,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
               isSearching
                   ? 'Found $loadedItems result${loadedItems == 1 ? '' : 's'}'
                   : 'Showing $loadedItems of $totalItems',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
           ),
           if (onLoadMore != null)
@@ -741,7 +741,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 ),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                foregroundColor: const Color(0xFF2563EB),
+                foregroundColor: AppTheme.primaryBlueDark,
                 textStyle: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -852,7 +852,7 @@ class _SidebarSearchBarState extends State<_SidebarSearchBar> {
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 6),
         hintText: 'Search items...',
-        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
         prefixIcon: widget.isSearching
             ? const Padding(
                 padding: EdgeInsets.all(8),
@@ -861,17 +861,17 @@ class _SidebarSearchBarState extends State<_SidebarSearchBar> {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Color(0xFF6B7280),
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               )
-            : const Icon(Icons.search, size: 18, color: Color(0xFF9CA3AF)),
+            : const Icon(Icons.search, size: 18, color: AppTheme.textMuted),
         suffixIcon: _hasText
             ? IconButton(
                 icon: const Icon(
                   Icons.close,
                   size: 16,
-                  color: Color(0xFF6B7280),
+                  color: AppTheme.textSecondary,
                 ),
                 onPressed: () {
                   _ctrl.clear();
@@ -884,15 +884,15 @@ class _SidebarSearchBarState extends State<_SidebarSearchBar> {
             : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+          borderSide: const BorderSide(color: AppTheme.borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+          borderSide: const BorderSide(color: AppTheme.borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: Color(0xFF2563EB)),
+          borderSide: const BorderSide(color: AppTheme.primaryBlueDark),
         ),
       ),
     );

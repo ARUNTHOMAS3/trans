@@ -7,6 +7,12 @@ import 'zerpai_sidebar_item.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class ZerpaiSidebar extends StatefulWidget {
+  static const double expandedWidth = 230;
+  static const double collapsedWidth = 72;
+  static final ValueNotifier<bool> collapsedNotifier = ValueNotifier<bool>(
+    false,
+  );
+
   final ValueChanged<String>? onNavigate;
 
   const ZerpaiSidebar({super.key, this.onNavigate});
@@ -191,6 +197,7 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    ZerpaiSidebar.collapsedNotifier.value = _isCollapsed;
     _updateActiveMenuFromRoute();
   }
 
@@ -246,7 +253,9 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
     ZerpaiSidebarItem.isCollapsed = _isCollapsed;
 
     return AnimatedContainer(
-      width: _isCollapsed ? 72 : 230,
+      width: _isCollapsed
+          ? ZerpaiSidebar.collapsedWidth
+          : ZerpaiSidebar.expandedWidth,
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeInOut,
       color: const Color(0xFF1F2637), // ✅ Fixed to match backup
@@ -474,7 +483,10 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
             borderRadius: BorderRadius.circular(8),
             onTap: () {
               _removeFloatingMenu();
-              setState(() => _isCollapsed = !_isCollapsed);
+              setState(() {
+                _isCollapsed = !_isCollapsed;
+                ZerpaiSidebar.collapsedNotifier.value = _isCollapsed;
+              });
             },
             child: SizedBox(
               width: 40,

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
+import 'package:zerpai_erp/core/logging/app_logger.dart';
 
 class ItemComposition {
   final String? contentId; // content table id
@@ -30,7 +31,7 @@ class ItemComposition {
 
   factory ItemComposition.fromJson(Map<String, dynamic> json) {
     if (kDebugMode) {
-      print('[ItemComposition.fromJson] raw: ${jsonEncode(json)}');
+      AppLogger.debug('ItemComposition.fromJson', data: {'raw': jsonEncode(json)}, module: 'items');
     }
 
     // Handle Supabase join structure (can be Map or List of Map)

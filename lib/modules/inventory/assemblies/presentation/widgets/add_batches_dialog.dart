@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class AddBatchesDialog extends StatefulWidget {
   final String productName;
@@ -116,7 +117,7 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -126,12 +127,12 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF1F2937),
+              color: AppTheme.textPrimary,
             ),
           ),
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close, size: 20, color: Color(0xFF6B7280)),
+            icon: const Icon(Icons.close, size: 20, color: AppTheme.textSecondary),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
@@ -146,7 +147,7 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
         const Icon(
           Icons.warehouse_outlined,
           size: 16,
-          color: Color(0xFF6B7280),
+          color: AppTheme.textSecondary,
         ),
         const SizedBox(width: 8),
         Text(
@@ -165,7 +166,7 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6))),
+        border: Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -175,7 +176,7 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           Row(
@@ -215,15 +216,15 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
         Checkbox(
           value: _overwriteLineItem,
           onChanged: (val) => setState(() => _overwriteLineItem = val ?? false),
-          activeColor: const Color(0xFF2563EB),
+          activeColor: AppTheme.primaryBlueDark,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
         Text(
           'Overwrite the line item with ${widget.totalQuantity.toInt()} quantities',
-          style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+          style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
         ),
         const SizedBox(width: 4),
-        const Icon(Icons.help_outline, size: 14, color: Color(0xFF9CA3AF)),
+        const Icon(Icons.help_outline, size: 14, color: AppTheme.textMuted),
       ],
     );
   }
@@ -231,7 +232,7 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
   Widget _buildBatchTable() {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -239,7 +240,7 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
           // Table Header
           Container(
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-            color: const Color(0xFFF9FAFB),
+            color: AppTheme.bgLight,
             child: Row(
               children: [
                 _headerCell('BATCH REFERENCE*', flex: 3, isRequired: true),
@@ -276,14 +277,14 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: Color(0xFFEF4444),
+              color: AppTheme.errorRed,
               letterSpacing: 0.5,
             ),
             children: isRequired
                 ? [
                     const TextSpan(
                       text: '*',
-                      style: TextStyle(color: Color(0xFFEF4444)),
+                      style: TextStyle(color: AppTheme.errorRed),
                     ),
                   ]
                 : [],
@@ -338,7 +339,7 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
             onTap: () => _removeBatch(index),
             child: const Padding(
               padding: EdgeInsets.all(4),
-              child: Icon(Icons.cancel, size: 22, color: Color(0xFFEF4444)),
+              child: Icon(Icons.cancel, size: 22, color: AppTheme.errorRed),
             ),
           ),
         ],
@@ -373,19 +374,19 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
   InputDecoration _inputDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+      hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+        borderSide: const BorderSide(color: AppTheme.borderColor),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+        borderSide: const BorderSide(color: AppTheme.borderColor),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: Color(0xFF2563EB)),
+        borderSide: const BorderSide(color: AppTheme.primaryBlueDark),
       ),
     );
   }
@@ -406,7 +407,7 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
         ),
         Text(
           'Batches added: ${_batchRows.length}/100',
-          style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
         ),
       ],
     );
@@ -419,7 +420,7 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
         label,
         style: const TextStyle(
           fontSize: 13,
-          color: Color(0xFF2563EB),
+          color: AppTheme.primaryBlueDark,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -430,8 +431,8 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
-        color: Color(0xFFF9FAFB),
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+        color: AppTheme.bgLight,
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(8),
           bottomRight: Radius.circular(8),
@@ -442,7 +443,7 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
+              backgroundColor: AppTheme.accentGreen,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             ),

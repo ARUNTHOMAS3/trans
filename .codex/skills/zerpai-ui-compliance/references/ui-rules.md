@@ -36,6 +36,7 @@
 - Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` for standard reusable date input flows instead of introducing new raw `showDatePicker(...)` calls.
 - Set explicit white backgrounds for dialogs, sheets, popup menus, dropdown overlays, floating calendars, and similar surfaces instead of relying on inherited Material surface tinting.
 - Prefer real DB-backed data and DB-backed master defaults, keep empty/error states explicit, and extend shared visual behavior instead of introducing local one-off control logic.
+- For responsive Flutter web work, prefer the shared responsive foundation: global breakpoints, responsive table shells, responsive form rows/grids, responsive dialog width rules, and sidebar-aware shell/content metrics.
 - Use Lucide icons by default.
 - Keep labels aligned in a fixed-width column when building creation and edit forms.
 

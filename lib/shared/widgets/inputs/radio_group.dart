@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 /// Provides group value and onChanged to descendant [RadioGroupItem] widgets.
 class RadioScope<T> extends InheritedWidget {
@@ -74,7 +75,7 @@ class RadioGroupItem<T> extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label!,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF1F2937)),
+            style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary),
           ),
         ],
       ),

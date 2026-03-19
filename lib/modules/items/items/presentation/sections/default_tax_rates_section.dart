@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class DefaultTaxRatesSection extends StatefulWidget {
   final String? intraStateRateId;
@@ -127,7 +128,7 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF111827),
+                    color: AppTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -136,7 +137,7 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
                     icon: const Icon(
                       Icons.edit_outlined,
                       size: 16,
-                      color: Color(0xFF6B7280),
+                      color: AppTheme.textSecondary,
                     ),
                     constraints: const BoxConstraints(
                       minWidth: 24,
@@ -150,7 +151,7 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
             ),
 
             const SizedBox(height: 12),
-            const Divider(color: Color(0xFFE5E7EB)),
+            const Divider(color: AppTheme.borderColor),
             const SizedBox(height: 12),
 
             _buildResponsiveRow(
@@ -202,16 +203,16 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
                   label,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF4B5563),
+                    color: AppTheme.textSubtle,
                     decoration: TextDecoration.underline,
                     decorationStyle: TextDecorationStyle.dashed,
-                    decorationColor: Color(0xFFD1D5DB),
+                    decorationColor: AppTheme.borderColor,
                   ),
                 ),
               )
             : Text(
                 label,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSubtle),
               );
 
         if (narrow) {
@@ -251,7 +252,7 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
     if (!_isEditing) {
       return Text(
         _getTaxName(valueId, isInterstate),
-        style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+        style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
       );
     }
 
@@ -281,7 +282,7 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF6B7280),
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               ),
@@ -298,9 +299,9 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
           alignment: Alignment.centerLeft,
           decoration: BoxDecoration(
             color: isHovered
-                ? const Color(0xFF2563EB)
+                ? AppTheme.primaryBlueDark
                 : isSelected
-                ? const Color(0xFFEFF6FF)
+                ? AppTheme.infoBg
                 : Colors.transparent,
           ),
           child: Row(
@@ -313,8 +314,8 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
                     color: isHovered
                         ? Colors.white
                         : isSelected
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFF111827),
+                        ? AppTheme.primaryBlueDark
+                        : AppTheme.textPrimary,
                   ),
                 ),
               ),
@@ -322,7 +323,7 @@ class _DefaultTaxRatesSectionState extends State<DefaultTaxRatesSection> {
                 Icon(
                   Icons.check,
                   size: 16,
-                  color: isHovered ? Colors.white : const Color(0xFF2563EB),
+                  color: isHovered ? Colors.white : AppTheme.primaryBlueDark,
                 ),
             ],
           ),

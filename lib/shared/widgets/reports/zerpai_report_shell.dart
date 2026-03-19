@@ -308,7 +308,7 @@ class _ZerpaiReportShellState extends State<ZerpaiReportShell> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 32),
       decoration: const BoxDecoration(
-        color: Color(0xFFF9FAFB),
+        color: AppTheme.bgLight,
         border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Column(
@@ -329,7 +329,7 @@ class _ZerpaiReportShellState extends State<ZerpaiReportShell> {
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF374151), // Zoho Slate
+              color: AppTheme.textBody, // Zoho Slate
               fontFamily: 'Inter',
             ),
           ),
@@ -496,7 +496,7 @@ class _ZerpaiReportShellState extends State<ZerpaiReportShell> {
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Icon(icon, size: 18, color: const Color(0xFF6B7280)),
+          child: Icon(icon, size: 18, color: AppTheme.textSecondary),
         ),
       ),
     );

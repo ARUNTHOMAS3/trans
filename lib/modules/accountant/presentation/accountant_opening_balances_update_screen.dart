@@ -243,7 +243,7 @@ class _OpeningBalancesUpdateScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
-        color: Color(0xFFF9FAFB),
+        color: AppTheme.bgLight,
         borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       child: const Row(

@@ -14,12 +14,12 @@ extension _ItemCreateImages on _ItemCreateScreenState {
         height: 260,
         decoration: BoxDecoration(
           color: _isImageDragging
-              ? const Color(0xFFF0F7FF)
+              ? AppTheme.selectionActiveBg
               : const Color(0xFFFBFBFD),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: _isImageDragging
-                ? const Color(0xFF3B7CFF)
+                ? AppTheme.primaryBlue
                 : const Color(0xFFD4D7E2),
             width: _isImageDragging ? 2 : 1,
           ),
@@ -48,7 +48,7 @@ extension _ItemCreateImages on _ItemCreateScreenState {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: const [
-        Icon(Icons.image_outlined, size: 42, color: Color(0xFF9CA3AF)),
+        Icon(Icons.image_outlined, size: 42, color: AppTheme.textMuted),
         SizedBox(height: 12),
         Text(
           "Drag image(s) here or",
@@ -134,9 +134,9 @@ extension _ItemCreateImages on _ItemCreateScreenState {
 
   Widget _errorImagePlaceholder() {
     return Container(
-      color: const Color(0xFFF3F4F6),
+      color: AppTheme.bgDisabled,
       child: const Center(
-        child: Icon(Icons.broken_image_outlined, color: Color(0xFF9CA3AF)),
+        child: Icon(Icons.broken_image_outlined, color: AppTheme.textMuted),
       ),
     );
   }
@@ -155,14 +155,14 @@ extension _ItemCreateImages on _ItemCreateScreenState {
             ),
             child: Row(
               children: const [
-                Icon(Icons.check_circle, size: 14, color: Color(0xFF16A34A)),
+                Icon(Icons.check_circle, size: 14, color: AppTheme.successGreen),
                 SizedBox(width: 6),
                 Text(
                   "Primary",
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF166534),
+                    color: AppTheme.successTextDark,
                   ),
                 ),
               ],
@@ -170,7 +170,7 @@ extension _ItemCreateImages on _ItemCreateScreenState {
           )
         else
           Material(
-            color: const Color(0xFFEFF6FF),
+            color: AppTheme.infoBg,
             borderRadius: BorderRadius.circular(10),
             child: InkWell(
               borderRadius: BorderRadius.circular(10),
@@ -187,7 +187,7 @@ extension _ItemCreateImages on _ItemCreateScreenState {
                   "Mark as Primary",
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -218,7 +218,7 @@ extension _ItemCreateImages on _ItemCreateScreenState {
               child: Icon(
                 Icons.delete_outline,
                 size: 18,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
           ),
@@ -258,8 +258,8 @@ extension _ItemCreateImages on _ItemCreateScreenState {
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: isActive
-                          ? const Color(0xFF2563EB)
-                          : const Color(0xFFD1D5DB),
+                          ? AppTheme.primaryBlueDark
+                          : AppTheme.borderColor,
                       width: isActive ? 2 : 1,
                     ),
                   ),
@@ -293,8 +293,8 @@ extension _ItemCreateImages on _ItemCreateScreenState {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFFD1D5DB)),
-                color: const Color(0xFFF3F4F6),
+                border: Border.all(color: AppTheme.borderColor),
+                color: AppTheme.bgDisabled,
               ),
               child: Text(
                 '+$extraCount',
@@ -316,9 +316,9 @@ extension _ItemCreateImages on _ItemCreateScreenState {
             height: thumbSize,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: const Color(0xFFD1D5DB)),
+              border: Border.all(color: AppTheme.borderColor),
             ),
-            child: const Icon(Icons.add, color: Color(0xFF2563EB)),
+            child: const Icon(Icons.add, color: AppTheme.primaryBlueDark),
           ),
         ),
       ],

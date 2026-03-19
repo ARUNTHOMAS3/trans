@@ -12,7 +12,7 @@ export const adjustmentMode = pgEnum("adjustment_mode", ['quantity', 'value'])
 export const challanType = pgEnum("challan_type", ['supply', 'job_work', 'other'])
 export const compositeType = pgEnum("composite_type", ['assembly', 'kit'])
 export const hsnSacType = pgEnum("hsn_sac_type", ['HSN', 'SAC'])
-export const inventoryValuationMethod = pgEnum("inventory_valuation_method", ['FIFO', 'LIFO', 'Weighted Average', 'Specific Identification'])
+export const inventoryValuationMethod = pgEnum("inventory_valuation_method", ['FIFO', 'LIFO', 'FEFO', 'Weighted Average', 'Specific Identification'])
 export const productType = pgEnum("product_type", ['goods', 'service'])
 export const status = pgEnum("status", ['draft', 'active', 'inactive', 'sent', 'paid', 'void', 'open', 'delivered', 'invoiced', 'returned', 'assembled', 'not_shipped', 'shipped'])
 export const taxPreference = pgEnum("tax_preference", ['taxable', 'non-taxable', 'exempt'])
@@ -542,13 +542,15 @@ export const brands = pgTable("brands", {
 
 export const reorderTerms = pgTable("reorder_terms", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").default('00000000-0000-0000-0000-000000000000').notNull(),
+	outletId: uuid("outlet_id"),
 	termName: varchar("term_name", { length: 255 }).notNull(),
 	description: text(),
 	isActive: boolean("is_active").default(true),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
 	quantity: integer().default(1).notNull(),
 }, (table) => [
-	unique("reorder_terms_term_name_unique").on(table.termName),
 	check("reorder_terms_quantity_positive", sql`quantity > 0`),
 ]);
 
@@ -1407,6 +1409,62 @@ export const outletInventory = pgTable("outlet_inventory", {
 	index("idx_outlet_inventory_outlet_product").using("btree", table.outletId.asc().nullsLast().op("uuid_ops"), table.productId.asc().nullsLast().op("uuid_ops")),
 	unique("outlet_inventory_outlet_id_product_id_batch_no_key").on(table.outletId, table.productId, table.batchNo),
 	check("outlet_inventory_current_stock_check", sql`current_stock >= 0`),
+]);
+
+export const productOutletInventorySettings = pgTable("product_outlet_inventory_settings", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").default('00000000-0000-0000-0000-000000000000').notNull(),
+	outletId: uuid("outlet_id"),
+	productId: uuid("product_id").notNull(),
+	reorderPoint: integer("reorder_point").default(0).notNull(),
+	reorderTermId: uuid("reorder_term_id"),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdById: uuid("created_by_id"),
+	updatedById: uuid("updated_by_id"),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_product_outlet_inventory_settings_product").using("btree", table.productId.asc().nullsLast().op("uuid_ops")),
+	index("idx_product_outlet_inventory_settings_org_outlet").using("btree", table.orgId.asc().nullsLast().op("uuid_ops"), table.outletId.asc().nullsLast().op("uuid_ops")),
+	check("product_outlet_inventory_settings_reorder_point_check", sql`reorder_point >= 0`),
+	foreignKey({
+			columns: [table.productId],
+			foreignColumns: [products.id],
+			name: "product_outlet_inventory_settings_product_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.reorderTermId],
+			foreignColumns: [reorderTerms.id],
+			name: "product_outlet_inventory_settings_reorder_term_fkey"
+		}).onDelete("set null"),
+]);
+
+export const compositeItemOutletInventorySettings = pgTable("composite_item_outlet_inventory_settings", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").default('00000000-0000-0000-0000-000000000000').notNull(),
+	outletId: uuid("outlet_id"),
+	compositeItemId: uuid("composite_item_id").notNull(),
+	reorderPoint: integer("reorder_point").default(0).notNull(),
+	reorderTermId: uuid("reorder_term_id"),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdById: uuid("created_by_id"),
+	updatedById: uuid("updated_by_id"),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_composite_item_outlet_inventory_settings_item").using("btree", table.compositeItemId.asc().nullsLast().op("uuid_ops")),
+	index("idx_composite_item_outlet_inventory_settings_org_outlet").using("btree", table.orgId.asc().nullsLast().op("uuid_ops"), table.outletId.asc().nullsLast().op("uuid_ops")),
+	check("composite_item_outlet_inventory_settings_reorder_point_check", sql`reorder_point >= 0`),
+	foreignKey({
+			columns: [table.compositeItemId],
+			foreignColumns: [compositeItems.id],
+			name: "composite_item_outlet_inventory_settings_composite_item_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.reorderTermId],
+			foreignColumns: [reorderTerms.id],
+			name: "composite_item_outlet_inventory_settings_reorder_term_fkey"
+		}).onDelete("set null"),
 ]);
 
 export const uqc = pgTable("uqc", {

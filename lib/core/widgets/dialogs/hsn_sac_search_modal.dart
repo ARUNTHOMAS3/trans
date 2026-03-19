@@ -5,6 +5,7 @@ import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
 import 'package:zerpai_erp/modules/sales/services/hsn_sac_lookup_service.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class HsnSacSearchModal extends StatefulWidget {
   final String type; // 'HSN' or 'SAC'
@@ -90,7 +91,7 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
 
   Widget _highlightText(String text, String query, {TextStyle? style}) {
     final baseStyle =
-        style ?? const TextStyle(fontSize: 13, color: Color(0xFF111827));
+        style ?? const TextStyle(fontSize: 13, color: AppTheme.textPrimary);
     if (query.isEmpty || !text.toLowerCase().contains(query.toLowerCase())) {
       return Text(text, style: baseStyle);
     }
@@ -156,7 +157,7 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111827),
+                        color: AppTheme.textPrimary,
                       ),
                     ),
                   ),
@@ -165,14 +166,14 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                     icon: const Icon(
                       LucideIcons.x,
                       size: 18,
-                      color: Color(0xFFE11D48),
+                      color: AppTheme.errorRed,
                     ),
                     splashRadius: 20,
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            const Divider(height: 1, color: AppTheme.borderColor),
 
             // Search Input
             Padding(
@@ -190,8 +191,8 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
             // Loading Indicator
             if (_isLoading)
               const LinearProgressIndicator(
-                backgroundColor: Color(0xFFE5E7EB),
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                backgroundColor: AppTheme.borderColor,
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlueDark),
                 minHeight: 2,
               ),
 
@@ -202,14 +203,14 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEE2E2),
+                    color: AppTheme.errorBgBorder,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
                     children: [
                       const Icon(
                         LucideIcons.alertCircle,
-                        color: Color(0xFFDC2626),
+                        color: AppTheme.errorRed,
                         size: 20,
                       ),
                       const SizedBox(width: 8),
@@ -218,7 +219,7 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                           _errorMessage!,
                           style: const TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF991B1B),
+                            color: AppTheme.errorTextDark,
                           ),
                         ),
                       ),
@@ -248,7 +249,7 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                                   : 'No results found for "$query"',
                               style: const TextStyle(
                                 fontSize: 14,
-                                color: Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                               ),
                             ),
                           ],
@@ -260,7 +261,7 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                       itemCount: _results.length,
                       separatorBuilder: (context, index) =>
-                          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                          const Divider(height: 1, color: AppTheme.borderColor),
                       itemBuilder: (context, index) {
                         final item = _results[index];
                         return InkWell(
@@ -279,10 +280,10 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFEFF6FF),
+                                    color: AppTheme.infoBg,
                                     borderRadius: BorderRadius.circular(4),
                                     border: Border.all(
-                                      color: const Color(0xFF2563EB),
+                                      color: AppTheme.primaryBlueDark,
                                     ),
                                   ),
                                   child: Text(
@@ -290,7 +291,7 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                                     style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF2563EB),
+                                      color: AppTheme.primaryBlueDark,
                                       fontFamily: 'monospace',
                                     ),
                                   ),
@@ -308,7 +309,7 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                                           'GST Rate: ${item.gstRate}%',
                                           style: const TextStyle(
                                             fontSize: 11,
-                                            color: Color(0xFF6B7280),
+                                            color: AppTheme.textSecondary,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -319,7 +320,7 @@ class _HsnSacSearchModalState extends State<HsnSacSearchModal> {
                                 const Icon(
                                   LucideIcons.chevronRight,
                                   size: 14,
-                                  color: Color(0xFF9CA3AF),
+                                  color: AppTheme.textMuted,
                                 ),
                               ],
                             ),

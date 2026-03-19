@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'item_row.dart';
 import 'items_table.dart';
 import 'column_visibility_manager.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ItemsListView extends ConsumerStatefulWidget {
   final List<ItemRow> items;
@@ -161,7 +162,7 @@ class _ItemsListViewState extends ConsumerState<ItemsListView> {
                       onWrapChange: (v) => setState(() => _wrapText = v),
                     ),
 
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const Divider(height: 1, color: AppTheme.borderColor),
 
                     Expanded(
                       child: ItemsTable(

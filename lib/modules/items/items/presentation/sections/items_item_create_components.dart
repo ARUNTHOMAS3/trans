@@ -27,7 +27,7 @@ Widget _tabTitleWithCheckbox(
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: active ? const Color(0xFF2563EB) : Colors.transparent,
+            color: active ? AppTheme.primaryBlueDark : Colors.transparent,
             width: 3,
           ),
         ),
@@ -44,7 +44,7 @@ Widget _tabTitleWithCheckbox(
             style: TextStyle(
               fontSize: 14,
               fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-              color: active ? const Color(0xFF111827) : const Color(0xFF6B7280),
+              color: active ? AppTheme.textPrimary : AppTheme.textSecondary,
             ),
           ),
           const SizedBox(width: 12),
@@ -59,7 +59,7 @@ Widget _tabTitleWithCheckbox(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(3),
               ),
-              side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
+              side: const BorderSide(color: AppTheme.borderColor, width: 1.5),
             ),
           ),
         ],
@@ -95,7 +95,7 @@ class _InlineCheckbox extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: value ? FontWeight.w600 : FontWeight.w500,
-              color: value ? const Color(0xFF111827) : const Color(0xFF6B7280),
+              color: value ? AppTheme.textPrimary : AppTheme.textSecondary,
             ),
           ),
         ],

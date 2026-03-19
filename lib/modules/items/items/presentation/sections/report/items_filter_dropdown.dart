@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'items_filters.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 // -----------------------------------------------------------
 // CUSTOM FILTER DROPDOWN (zerpai STYLE PANEL)
@@ -160,7 +161,7 @@ class _ItemsFilterDropdownState extends State<ItemsFilterDropdown> {
                             prefixIcon: const Icon(
                               Icons.search,
                               size: 18,
-                              color: Color(0xFF9CA3AF),
+                              color: AppTheme.textMuted,
                             ),
                             hintText: 'Search filters',
                             isDense: true,
@@ -171,19 +172,19 @@ class _ItemsFilterDropdownState extends State<ItemsFilterDropdown> {
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: const BorderSide(
-                                color: Color(0xFFE5E7EB),
+                                color: AppTheme.borderColor,
                               ),
                             ),
                           ),
                           style: const TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF111827),
+                            color: AppTheme.textPrimary,
                           ),
                         ),
                       ),
                     ),
 
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const Divider(height: 1, color: AppTheme.borderColor),
 
                     // Scrollable sections
                     Expanded(
@@ -208,7 +209,7 @@ class _ItemsFilterDropdownState extends State<ItemsFilterDropdown> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                            const Divider(height: 1, color: AppTheme.borderColor),
                             const SizedBox(height: 8),
                             _Sectioner(
                               title: 'DEFAULT FILTERS',
@@ -256,8 +257,8 @@ class _ItemsFilterDropdownState extends State<ItemsFilterDropdown> {
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: _isOpen
-                  ? const Color(0xFF2563EB)
-                  : const Color(0xFFD1D5DB),
+                  ? AppTheme.primaryBlueDark
+                  : AppTheme.borderColor,
               width: 1,
             ),
           ),
@@ -270,14 +271,14 @@ class _ItemsFilterDropdownState extends State<ItemsFilterDropdown> {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF111827),
+                    color: AppTheme.textPrimary,
                   ),
                 ),
               ),
               Icon(
                 _isOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                 size: 22,
-                color: const Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
               ),
             ],
           ),
@@ -307,14 +308,14 @@ class _Sectioner extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
-              color: Color(0xFF9CA3AF),
+              color: AppTheme.textMuted,
             ),
           ),
           const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFF16A34A),
+              color: AppTheme.successGreen,
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
@@ -350,8 +351,8 @@ class _FilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color textColor = isActive
-        ? const Color(0xFF2563EB)
-        : const Color(0xFF111827);
+        ? AppTheme.primaryBlueDark
+        : AppTheme.textPrimary;
 
     return Container(
       height: 32,
@@ -384,8 +385,8 @@ class _FilterRow extends StatelessWidget {
                 isFavorite ? Icons.star : Icons.star_border,
                 size: 18,
                 color: isFavorite
-                    ? const Color(0xFFF59E0B)
-                    : const Color(0xFFD1D5DB),
+                    ? AppTheme.warningOrange
+                    : AppTheme.borderColor,
               ),
             ),
           ),

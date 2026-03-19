@@ -53,7 +53,7 @@ class _AccountantTransactionLockingScreenState
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF7ED),
+                        color: AppTheme.warningBg,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Row(
@@ -509,7 +509,7 @@ class _LockAllDialogState extends ConsumerState<_LockAllDialog> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFFEF4444),
+                      color: AppTheme.errorRed,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -559,7 +559,7 @@ class _LockAllDialogState extends ConsumerState<_LockAllDialog> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFFEF4444),
+                      color: AppTheme.errorRed,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -696,7 +696,7 @@ class _LockModuleDialogState extends ConsumerState<_LockModuleDialog> {
                       ),
                       const Text(
                         '*',
-                        style: TextStyle(color: Color(0xFFEF4444)),
+                        style: TextStyle(color: AppTheme.errorRed),
                       ),
                       const SizedBox(width: 4),
                       const Icon(
@@ -758,12 +758,12 @@ class _LockModuleDialogState extends ConsumerState<_LockModuleDialog> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFFEF4444),
+                          color: AppTheme.errorRed,
                         ),
                       ),
                       const Text(
                         '*',
-                        style: TextStyle(color: Color(0xFFEF4444)),
+                        style: TextStyle(color: AppTheme.errorRed),
                       ),
                     ],
                   ),

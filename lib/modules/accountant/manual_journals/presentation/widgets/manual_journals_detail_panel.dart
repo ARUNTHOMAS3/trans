@@ -263,8 +263,8 @@ class ManualJournalDetailPanel extends ConsumerWidget {
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        color: AppTheme.bgLight,
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -607,7 +607,7 @@ class ManualJournalDetailPanel extends ConsumerWidget {
                       item.accountName,
                       style: const TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF111827),
+                        color: AppTheme.textPrimary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -636,8 +636,8 @@ class ManualJournalDetailPanel extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 13,
                       color: (item.contactName ?? '').isNotEmpty
-                          ? const Color(0xFF111827)
-                          : const Color(0xFF111827).withValues(alpha: 0.4),
+                          ? AppTheme.textPrimary
+                          : AppTheme.textPrimary.withValues(alpha: 0.4),
                       fontWeight: (item.contactName ?? '').isNotEmpty
                           ? FontWeight.w600
                           : FontWeight.w400,
@@ -688,7 +688,7 @@ class ManualJournalDetailPanel extends ConsumerWidget {
               textAlign: TextAlign.right,
               style: const TextStyle(
                 fontSize: 13,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -700,7 +700,7 @@ class ManualJournalDetailPanel extends ConsumerWidget {
               textAlign: TextAlign.right,
               style: const TextStyle(
                 fontSize: 13,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -719,7 +719,7 @@ class ManualJournalDetailPanel extends ConsumerWidget {
     final style = TextStyle(
       fontSize: 13,
       fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
-      color: const Color(0xFF111827),
+      color: AppTheme.textPrimary,
     );
 
     return Padding(
@@ -735,7 +735,7 @@ class ManualJournalDetailPanel extends ConsumerWidget {
                 textAlign: TextAlign.right,
                 style: style.copyWith(
                   color: isBold
-                      ? const Color(0xFF111827)
+                      ? AppTheme.textPrimary
                       : AppTheme.textSecondary,
                 ),
               ),
@@ -850,7 +850,7 @@ class ManualJournalDetailPanel extends ConsumerWidget {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w500,
-            color: Color(0xFF111827),
+            color: AppTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 24),
@@ -879,14 +879,14 @@ class ManualJournalDetailPanel extends ConsumerWidget {
           width: 150,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+            style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
           ),
         ),
         Text(
           ': $value',
           style: const TextStyle(
             fontSize: 14,
-            color: Color(0xFF111827),
+            color: AppTheme.textPrimary,
             fontWeight: FontWeight.w500,
           ),
         ),

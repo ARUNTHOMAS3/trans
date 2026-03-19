@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class Skeleton extends StatelessWidget {
   final double? width;
@@ -20,8 +21,8 @@ class Skeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: baseColor ?? const Color(0xFFE5E7EB),
-      highlightColor: highlightColor ?? const Color(0xFFF3F4F6),
+      baseColor: baseColor ?? AppTheme.borderColor,
+      highlightColor: highlightColor ?? AppTheme.bgDisabled,
       child: Container(
         width: width,
         height: height,
@@ -86,13 +87,13 @@ class TableSkeleton extends StatelessWidget {
             ),
           ),
         ),
-        const Divider(height: 1, color: Color(0xFFE5E7EB)),
+        const Divider(height: 1, color: AppTheme.borderColor),
         // Rows
         Expanded(
           child: ListView.separated(
             itemCount: rows,
             separatorBuilder: (context, index) =>
-                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                const Divider(height: 1, color: AppTheme.borderColor),
             itemBuilder: (context, index) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               child: Row(
@@ -123,7 +124,7 @@ class CardSkeleton extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -155,7 +156,7 @@ class DetailSkeleton extends StatelessWidget {
           Container(
             width: 300,
             decoration: const BoxDecoration(
-              border: Border(right: BorderSide(color: Color(0xFFE5E7EB))),
+              border: Border(right: BorderSide(color: AppTheme.borderColor)),
             ),
             child: Column(
               children: [
@@ -298,7 +299,7 @@ class DocumentDetailSkeleton extends StatelessWidget {
               width: 300,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
+                color: AppTheme.bgLight,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(

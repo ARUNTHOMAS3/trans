@@ -25,7 +25,7 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
           Container(
             decoration: const BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                bottom: BorderSide(color: AppTheme.borderColor, width: 1),
               ),
             ),
             child: SingleChildScrollView(
@@ -123,7 +123,7 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: active ? const Color(0xFF2563EB) : Colors.transparent,
+              color: active ? AppTheme.primaryBlueDark : Colors.transparent,
               width: 3,
             ),
           ),
@@ -133,7 +133,7 @@ extension _ItemCreateTabs on _ItemCreateScreenState {
           style: TextStyle(
             fontSize: 14,
             fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-            color: active ? const Color(0xFF111827) : const Color(0xFF6B7280),
+            color: active ? AppTheme.textPrimary : AppTheme.textSecondary,
           ),
         ),
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 Future<String?> showImportItemsDialog(BuildContext context) {
   String selected = 'item';
@@ -39,7 +40,7 @@ Future<String?> showImportItemsDialog(BuildContext context) {
                               ),
                               decoration: const BoxDecoration(
                                 border: Border(
-                                  bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                                  bottom: BorderSide(color: AppTheme.borderColor),
                                 ),
                               ),
                               child: Row(
@@ -49,7 +50,7 @@ Future<String?> showImportItemsDialog(BuildContext context) {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF111827),
+                                      color: AppTheme.textPrimary,
                                     ),
                                   ),
                                   const Spacer(),
@@ -57,7 +58,7 @@ Future<String?> showImportItemsDialog(BuildContext context) {
                                     icon: const Icon(
                                       Icons.close,
                                       size: 18,
-                                      color: Color(0xFF6B7280),
+                                      color: AppTheme.textSecondary,
                                     ),
                                     onPressed: () =>
                                         Navigator.of(ctx).pop(null),
@@ -148,7 +149,7 @@ Future<String?> showImportItemsDialog(BuildContext context) {
                                             vertical: 10,
                                           ),
                                           side: const BorderSide(
-                                            color: Color(0xFF9CA3AF),
+                                            color: AppTheme.textMuted,
                                           ),
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(
@@ -162,7 +163,7 @@ Future<String?> showImportItemsDialog(BuildContext context) {
                                           'Cancel',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFF374151),
+                                            color: AppTheme.textBody,
                                           ),
                                         ),
                                       ),
@@ -219,7 +220,7 @@ class _ImportRadioRow extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
           ),
         ],
       ),

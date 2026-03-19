@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'shortcut_handler.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ZerpaiLayout extends StatelessWidget {
   final Widget child;
@@ -109,7 +110,7 @@ class ZerpaiLayout extends StatelessWidget {
                               style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF1F2937),
+                                color: AppTheme.textPrimary,
                               ),
                             ),
                             if (actions != null && actions!.isNotEmpty) ...[
@@ -130,7 +131,7 @@ class ZerpaiLayout extends StatelessWidget {
                                 style: const TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1F2937),
+                                  color: AppTheme.textPrimary,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,

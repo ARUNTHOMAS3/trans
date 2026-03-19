@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ZTooltip extends StatefulWidget {
   final String message;
@@ -72,7 +73,7 @@ class _ZTooltipState extends State<ZTooltip> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF111827), // Slate 800
+                            color: AppTheme.textPrimary, // Slate 800
                             borderRadius: BorderRadius.circular(6),
                             boxShadow: [
                               BoxShadow(
@@ -135,7 +136,7 @@ class _ZTooltipState extends State<ZTooltip> {
         },
         child:
             widget.child ??
-            const Icon(Icons.info_outline, size: 14, color: Color(0xFF9CA3AF)),
+            const Icon(Icons.info_outline, size: 14, color: AppTheme.textMuted),
       ),
     );
   }
@@ -145,7 +146,7 @@ class _TooltipArrowPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF111827)
+      ..color = AppTheme.textPrimary
       ..style = PaintingStyle.fill;
 
     final path = Path()

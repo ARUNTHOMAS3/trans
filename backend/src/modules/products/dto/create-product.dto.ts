@@ -22,6 +22,7 @@ export enum TaxPreference {
 export enum InventoryValuationMethod {
   FIFO = "FIFO",
   LIFO = "LIFO",
+  FEFO = "FEFO",
   WEIGHTED_AVERAGE = "Weighted Average",
   SPECIFIC_IDENTIFICATION = "Specific Identification",
 }

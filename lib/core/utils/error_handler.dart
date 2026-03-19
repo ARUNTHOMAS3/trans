@@ -1,10 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:zerpai_erp/core/pages/error_page.dart';
-import 'package:zerpai_erp/core/pages/maintenance_page.dart';
-import 'package:zerpai_erp/core/pages/not_found_page.dart';
-import 'package:zerpai_erp/core/pages/unauthorized_page.dart';
 
 class ErrorHandler {
   static const String _accountTransactionsSchemaMessage =
@@ -89,25 +85,14 @@ class ErrorHandler {
   }
 
   static void showNotFoundPage(BuildContext context, {String? requestedRoute}) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => NotFoundPage(requestedRoute: requestedRoute),
-      ),
-    );
+    context.go('/not-found', extra: {'requestedRoute': requestedRoute});
   }
 
   static void showUnauthorizedPage(
     BuildContext context, {
     String? requiredPermission,
   }) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            UnauthorizedPage(requiredPermission: requiredPermission),
-      ),
-    );
+    context.go('/unauthorized', extra: {'requiredPermission': requiredPermission});
   }
 
   static void showMaintenancePage(
@@ -115,15 +100,10 @@ class ErrorHandler {
     String? message,
     DateTime? estimatedCompletion,
   }) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MaintenancePage(
-          message: message,
-          estimatedCompletion: estimatedCompletion,
-        ),
-      ),
-    );
+    context.go('/maintenance', extra: {
+      'message': message,
+      'estimatedCompletion': estimatedCompletion,
+    });
   }
 
   static void showErrorPage(
@@ -133,17 +113,12 @@ class ErrorHandler {
     Object? error,
     StackTrace? stackTrace,
   }) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ErrorPage(
-          errorMessage: errorMessage,
-          errorCode: errorCode,
-          error: error,
-          stackTrace: stackTrace,
-        ),
-      ),
-    );
+    context.go('/error', extra: {
+      'errorMessage': errorMessage,
+      'errorCode': errorCode,
+      'error': error,
+      'stackTrace': stackTrace,
+    });
   }
 
   static void handleNavigationError(BuildContext context, String route) {

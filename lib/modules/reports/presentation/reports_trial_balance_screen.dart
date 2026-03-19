@@ -145,7 +145,7 @@ class TrialBalanceScreen extends ConsumerWidget {
         border: Border(
           bottom: BorderSide(color: AppTheme.borderColor, width: 2),
         ),
-        color: Color(0xFFF9FAFB),
+        color: AppTheme.bgLight,
       ),
       child: const Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -157,7 +157,7 @@ class TrialBalanceScreen extends ConsumerWidget {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
-                color: Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
               ),
             ),
           ),
@@ -169,7 +169,7 @@ class TrialBalanceScreen extends ConsumerWidget {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
-                color: Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
               ),
             ),
           ),
@@ -181,7 +181,7 @@ class TrialBalanceScreen extends ConsumerWidget {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
-                color: Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
               ),
             ),
           ),
@@ -270,7 +270,7 @@ class TrialBalanceScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
-        color: Color(0xFFF9FAFB),
+        color: AppTheme.bgLight,
         border: Border(top: BorderSide(color: AppTheme.borderColor, width: 2)),
       ),
       child: Row(
@@ -283,7 +283,7 @@ class TrialBalanceScreen extends ConsumerWidget {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: Color(0xFF374151),
+                color: AppTheme.textBody,
                 fontFamily: 'Inter',
               ),
             ),
@@ -296,7 +296,7 @@ class TrialBalanceScreen extends ConsumerWidget {
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: Color(0xFF374151),
+                color: AppTheme.textBody,
                 fontFamily: 'Inter',
               ),
             ),
@@ -309,7 +309,7 @@ class TrialBalanceScreen extends ConsumerWidget {
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: Color(0xFF374151),
+                color: AppTheme.textBody,
                 fontFamily: 'Inter',
               ),
             ),

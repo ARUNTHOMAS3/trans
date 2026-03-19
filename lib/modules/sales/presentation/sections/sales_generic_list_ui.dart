@@ -4,12 +4,12 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
   Widget _buildResizeBanner() {
     return Container(
       width: double.infinity,
-      color: const Color(0xFFEFF6FF),
+      color: AppTheme.infoBg,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       margin: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
-          const Icon(LucideIcons.info, size: 16, color: Color(0xFF2563EB)),
+          const Icon(LucideIcons.info, size: 16, color: AppTheme.primaryBlueDark),
           const SizedBox(width: 8),
           const Text(
             'You have resized the columns. Would you like to save the changes?',
@@ -19,7 +19,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           ElevatedButton(
             onPressed: _saveColumnPreferences,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
+              backgroundColor: AppTheme.successDark,
               foregroundColor: Colors.white,
               visualDensity: VisualDensity.compact,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -31,8 +31,8 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           OutlinedButton(
             onPressed: _resetColumnPreferences,
             style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF374151),
-              side: const BorderSide(color: Color(0xFFD1D5DB)),
+              foregroundColor: AppTheme.textBody,
+              side: const BorderSide(color: AppTheme.borderColor),
               visualDensity: VisualDensity.compact,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               minimumSize: const Size(0, 28),
@@ -66,14 +66,14 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111827),
+                        color: AppTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(width: 4),
                     const Icon(
                       LucideIcons.chevronDown,
                       size: 20,
-                      color: Color(0xFF2563EB),
+                      color: AppTheme.primaryBlueDark,
                     ),
                   ],
                 ),
@@ -85,7 +85,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
           const Spacer(),
@@ -96,14 +96,14 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
               height: 32,
               width: 32,
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF), // Light blue background
-                border: Border.all(color: const Color(0xFF2563EB)),
+                color: AppTheme.infoBg, // Light blue background
+                border: Border.all(color: AppTheme.primaryBlueDark),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Icon(
                 LucideIcons.search,
                 size: 16,
-                color: Color(0xFF2563EB), // Primary blue
+                color: AppTheme.primaryBlueDark, // Primary blue
               ),
             ),
           ),
@@ -114,7 +114,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
             child: ElevatedButton(
               onPressed: () => context.go(widget.createRoute),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF22C55E), // Zerpai Green
+                backgroundColor: AppTheme.successGreen, // Zerpai Green
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -149,7 +149,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           height: 32,
           width: 32,
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DB)),
+            border: Border.all(color: AppTheme.borderColor),
             borderRadius: BorderRadius.circular(4),
           ),
           child: IconButton(
@@ -163,7 +163,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
             icon: const Icon(
               LucideIcons.moreHorizontal,
               size: 18,
-              color: Color(0xFF374151),
+              color: AppTheme.textBody,
             ),
             padding: EdgeInsets.zero,
           ),
@@ -200,7 +200,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           leadingIcon: const Icon(
             LucideIcons.arrowUpDown,
             size: 18,
-            color: Color(0xFF2563EB),
+            color: AppTheme.primaryBlueDark,
           ),
           child: const Text('Sort by'),
         ),
@@ -214,7 +214,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           leadingIcon: const Icon(
             LucideIcons.download,
             size: 18,
-            color: Color(0xFF2563EB),
+            color: AppTheme.primaryBlueDark,
           ),
           child: const Text('Import'),
         ),
@@ -234,7 +234,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           leadingIcon: const Icon(
             LucideIcons.upload,
             size: 18,
-            color: Color(0xFF2563EB),
+            color: AppTheme.primaryBlueDark,
           ),
           child: const Text('Export'),
         ),
@@ -243,7 +243,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           leadingIcon: const Icon(
             LucideIcons.settings,
             size: 18,
-            color: Color(0xFF2563EB),
+            color: AppTheme.primaryBlueDark,
           ),
           onPressed: () {
             // TODO: Open Preferences
@@ -255,7 +255,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           leadingIcon: const Icon(
             LucideIcons.refreshCw,
             size: 18,
-            color: Color(0xFF2563EB),
+            color: AppTheme.primaryBlueDark,
           ),
           onPressed: () {
             // TODO: Refresh List
@@ -266,7 +266,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           leadingIcon: const Icon(
             LucideIcons.history,
             size: 18,
-            color: Color(0xFF2563EB),
+            color: AppTheme.primaryBlueDark,
           ),
           onPressed: _resetColumnPreferences,
           child: const Text('Reset Column Width'),
@@ -280,10 +280,10 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
       margin: const EdgeInsets.fromLTRB(24, 0, 24, 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: AppTheme.infoBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+          color: AppTheme.primaryBlueDark.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -292,7 +292,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF2563EB),
+              color: AppTheme.primaryBlueDark,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -341,7 +341,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(color: AppTheme.borderColor),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
@@ -349,13 +349,13 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
                       Icon(
                         LucideIcons.moreHorizontal,
                         size: 18,
-                        color: Color(0xFF6B7280),
+                        color: AppTheme.textSecondary,
                       ),
                       SizedBox(width: 4),
                       Icon(
                         LucideIcons.chevronDown,
                         size: 18,
-                        color: Color(0xFF6B7280),
+                        color: AppTheme.textSecondary,
                       ),
                     ],
                   ),
@@ -367,7 +367,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
                 leadingIcon: const Icon(
                   LucideIcons.receipt,
                   size: 18,
-                  color: Color(0xFF374151),
+                  color: AppTheme.textBody,
                 ),
                 onPressed: () {
                   // TODO: Implement request GST
@@ -378,14 +378,14 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
                 leadingIcon: const Icon(
                   LucideIcons.trash2,
                   size: 18,
-                  color: Color(0xFFEF4444),
+                  color: AppTheme.errorRed,
                 ),
                 onPressed: () {
                   // TODO: Implement delete
                 },
                 child: const Text(
                   'Delete',
-                  style: TextStyle(color: Color(0xFFEF4444)),
+                  style: TextStyle(color: AppTheme.errorRed),
                 ),
               ),
             ],
@@ -396,7 +396,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           // Close button
           IconButton(
             icon: const Icon(LucideIcons.x, size: 20),
-            color: const Color(0xFF6B7280),
+            color: AppTheme.textSecondary,
             onPressed: () {
               _state(() {
                 _selectedIds.clear();
@@ -422,8 +422,8 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
         icon: Icon(icon, size: 16),
         label: Text(label),
         style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF374151),
-          side: const BorderSide(color: Color(0xFFE5E7EB)),
+          foregroundColor: AppTheme.textBody,
+          side: const BorderSide(color: AppTheme.borderColor),
           backgroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
@@ -437,7 +437,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(LucideIcons.fileText, size: 64, color: Color(0xFFD1D5DB)),
+          const Icon(LucideIcons.fileText, size: 64, color: AppTheme.borderColor),
           const SizedBox(height: 16),
           Text(
             'No ${widget.title} found',
@@ -446,7 +446,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           const SizedBox(height: 8),
           Text(
             'Create a new ${widget.title} to get started.',
-            style: const TextStyle(color: Color(0xFF6B7280)),
+            style: const TextStyle(color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(

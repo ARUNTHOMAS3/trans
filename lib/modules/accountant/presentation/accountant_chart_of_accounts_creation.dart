@@ -784,10 +784,10 @@ class _ChartOfAccountsCreationPageState
                                             bottom: 8,
                                           ),
                                           decoration: const BoxDecoration(
-                                            color: Color(0xFFF9FAFB),
+                                            color: AppTheme.bgLight,
                                             border: Border(
                                               bottom: BorderSide(
-                                                color: Color(0xFFF3F4F6),
+                                                color: AppTheme.bgDisabled,
                                                 width: 1,
                                               ),
                                             ),
@@ -797,7 +797,7 @@ class _ChartOfAccountsCreationPageState
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w700,
                                               fontSize: 10,
-                                              color: Color(0xFF6B7280),
+                                              color: AppTheme.textSecondary,
                                               letterSpacing: 1.0,
                                             ),
                                           ),
@@ -810,9 +810,9 @@ class _ChartOfAccountsCreationPageState
                                           right: 12,
                                         ),
                                         color: isSelected
-                                            ? const Color(0xFFEFF6FF)
+                                            ? AppTheme.infoBg
                                             : isHovered
-                                            ? const Color(0xFFF9FAFB)
+                                            ? AppTheme.bgLight
                                             : Colors.transparent,
                                         child: Row(
                                           children: [
@@ -822,8 +822,8 @@ class _ChartOfAccountsCreationPageState
                                                 style: TextStyle(
                                                   fontSize: 13,
                                                   color: isSelected
-                                                      ? const Color(0xFF2563EB)
-                                                      : const Color(0xFF374151),
+                                                      ? AppTheme.primaryBlueDark
+                                                      : AppTheme.textBody,
                                                   fontWeight: isSelected
                                                       ? FontWeight.w500
                                                       : FontWeight.normal,
@@ -834,7 +834,7 @@ class _ChartOfAccountsCreationPageState
                                               const Icon(
                                                 LucideIcons.check,
                                                 size: 16,
-                                                color: Color(0xFF2563EB),
+                                                color: AppTheme.primaryBlueDark,
                                               ),
                                           ],
                                         ),
@@ -1301,7 +1301,7 @@ class _ChartOfAccountsCreationPageState
                                       '',
                                   style: const TextStyle(
                                     fontSize: 13,
-                                    color: Color(0xFFE2E8F0),
+                                    color: AppTheme.borderLight,
                                     height: 1.5,
                                   ),
                                 ),
@@ -1325,7 +1325,7 @@ class _ChartOfAccountsCreationPageState
                                           const Text(
                                             "• ",
                                             style: TextStyle(
-                                              color: Color(0xFFE2E8F0),
+                                              color: AppTheme.borderLight,
                                               fontSize: 13,
                                             ),
                                           ),
@@ -1333,7 +1333,7 @@ class _ChartOfAccountsCreationPageState
                                             child: Text(
                                               example,
                                               style: const TextStyle(
-                                                color: Color(0xFFE2E8F0),
+                                                color: AppTheme.borderLight,
                                                 fontSize: 13,
                                               ),
                                             ),
@@ -1394,8 +1394,8 @@ class _ChartOfAccountsCreationPageState
                       child: ElevatedButton(
                         onPressed: _onCancel,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF3F4F6),
-                          foregroundColor: const Color(0xFF374151),
+                          backgroundColor: AppTheme.bgDisabled,
+                          foregroundColor: AppTheme.textBody,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppTheme.space24,
@@ -1405,7 +1405,7 @@ class _ChartOfAccountsCreationPageState
                             borderRadius: BorderRadius.circular(
                               AppTheme.space4,
                             ),
-                            side: const BorderSide(color: Color(0xFFD1D5DB)),
+                            side: const BorderSide(color: AppTheme.borderColor),
                           ),
                         ),
                         child: const Text('Cancel'),
@@ -1440,7 +1440,7 @@ class _ChartOfAccountsCreationPageState
       itemBuilder: (item, isSelected, isHovered) {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          color: isHovered ? const Color(0xFFF9FAFB) : Colors.transparent,
+          color: isHovered ? AppTheme.bgLight : Colors.transparent,
           child: Row(
             children: [
               Expanded(
@@ -1454,14 +1454,14 @@ class _ChartOfAccountsCreationPageState
                         fontWeight: isSelected
                             ? FontWeight.bold
                             : FontWeight.normal,
-                        color: const Color(0xFF374151),
+                        color: AppTheme.textBody,
                       ),
                     ),
                     Text(
                       item.name,
                       style: const TextStyle(
                         fontSize: 11,
-                        color: Color(0xFF6B7280),
+                        color: AppTheme.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1473,7 +1473,7 @@ class _ChartOfAccountsCreationPageState
                 const Icon(
                   LucideIcons.check,
                   size: 16,
-                  color: Color(0xFF2563EB),
+                  color: AppTheme.primaryBlueDark,
                 ),
             ],
           ),
@@ -1495,13 +1495,13 @@ class _ChartOfAccountsCreationPageState
       itemBuilder: (item, isSelected, isHovered) {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          color: isHovered ? const Color(0xFFF9FAFB) : Colors.transparent,
+          color: isHovered ? AppTheme.bgLight : Colors.transparent,
           child: Text(
             item,
             style: TextStyle(
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: const Color(0xFF374151),
+              color: AppTheme.textBody,
             ),
           ),
         );
@@ -1553,7 +1553,7 @@ class _ChartOfAccountsCreationPageState
                         message: lockedTooltip ?? 'Field is locked',
                         preferBelow: false,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1F2937), // Zoho black
+                          color: AppTheme.textPrimary, // Zoho black
                           borderRadius: BorderRadius.circular(4),
                         ),
                         textStyle: const TextStyle(
@@ -1580,8 +1580,8 @@ class _ChartOfAccountsCreationPageState
             style: TextStyle(
               fontSize: 13,
               color: isRequired
-                  ? const Color(0xFFD32F2F)
-                  : const Color(0xFF374151),
+                  ? AppTheme.errorRed
+                  : AppTheme.textBody,
               fontWeight: isRequired ? FontWeight.bold : FontWeight.normal,
             ),
           ),
@@ -1590,7 +1590,7 @@ class _ChartOfAccountsCreationPageState
               text: '*',
               style: TextStyle(
                 fontSize: 13,
-                color: Color(0xFFD32F2F),
+                color: AppTheme.errorRed,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1605,7 +1605,7 @@ class _ChartOfAccountsCreationPageState
           message: tooltip,
           preferBelow: false,
           decoration: BoxDecoration(
-            color: const Color(0xFF1F2937),
+            color: AppTheme.textPrimary,
             borderRadius: BorderRadius.circular(4),
           ),
           textStyle: const TextStyle(color: Colors.white, fontSize: 11),

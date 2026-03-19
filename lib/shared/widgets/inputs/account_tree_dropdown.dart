@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class AccountTreeDropdown extends StatefulWidget {
   final String? value;
@@ -357,7 +358,7 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
                 height: overlayHeight,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  border: Border.all(color: const Color(0xFFD1D5DB)),
+                  border: Border.all(color: AppTheme.borderColor),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Column(
@@ -367,7 +368,7 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
                         height: 2,
                         child: LinearProgressIndicator(
                           backgroundColor: Colors.transparent,
-                          valueColor: AlwaysStoppedAnimation(Color(0xFF3B82F6)),
+                          valueColor: AlwaysStoppedAnimation(AppTheme.infoBlue),
                         ),
                       ),
                     Padding(
@@ -382,12 +383,12 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
                             hintText: 'Search accounts...',
                             hintStyle: const TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF9CA3AF),
+                              color: AppTheme.textMuted,
                             ),
                             prefixIcon: const Icon(
                               LucideIcons.search,
                               size: 14,
-                              color: Color(0xFF6B7280),
+                              color: AppTheme.textSecondary,
                             ),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 10,
@@ -396,19 +397,19 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(4),
                               borderSide: const BorderSide(
-                                color: Color(0xFFD1D5DB),
+                                color: AppTheme.borderColor,
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(4),
                               borderSide: const BorderSide(
-                                color: Color(0xFFD1D5DB),
+                                color: AppTheme.borderColor,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(4),
                               borderSide: const BorderSide(
-                                color: Color(0xFF2563EB),
+                                color: AppTheme.primaryBlueDark,
                                 width: 1.5,
                               ),
                             ),
@@ -455,7 +456,7 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
                                 border: isType
                                     ? const Border(
                                         top: BorderSide(
-                                          color: Color(0xFFF3F4F6),
+                                          color: AppTheme.bgDisabled,
                                           width: 1,
                                         ),
                                       )
@@ -471,24 +472,24 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
                                   fontSize: isGroup ? 13 : 12,
                                   fontWeight: FontWeight.bold,
                                   color: isGroup
-                                      ? const Color(0xFF374151)
-                                      : const Color(0xFF4B5563),
+                                      ? AppTheme.textBody
+                                      : AppTheme.textSubtle,
                                 ),
                               ),
                             );
                           }
 
                           Color bg = Colors.transparent;
-                          Color text = const Color(0xFF1F2937);
+                          Color text = AppTheme.textPrimary;
                           Color check = Colors.transparent;
 
                           if (selected) {
-                            bg = const Color(0xFF2563EB);
+                            bg = AppTheme.primaryBlueDark;
                             text = Colors.white;
                             check = Colors.white;
                           } else if (hovered) {
-                            bg = const Color(0xFFF9FAFB);
-                            text = const Color(0xFF1F2937);
+                            bg = AppTheme.bgLight;
+                            text = AppTheme.textPrimary;
                           }
 
                           final double paddingLeft =
@@ -645,10 +646,10 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
                         widget.border ??
                         Border.all(
                           color: hasError
-                              ? const Color(0xFFEF4444) // Red on error
+                              ? AppTheme.errorRed // Red on error
                               : _isOpen
-                              ? const Color(0xFF2563EB)
-                              : const Color(0xFFD1D5DB),
+                              ? AppTheme.primaryBlueDark
+                              : AppTheme.borderColor,
                         ),
                     borderRadius:
                         widget.borderRadius ?? BorderRadius.circular(4),
@@ -662,8 +663,8 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
                           style: TextStyle(
                             fontSize: 13,
                             color: widget.value == null
-                                ? const Color(0xFF9CA3AF)
-                                : const Color(0xFF111827),
+                                ? AppTheme.textMuted
+                                : AppTheme.textPrimary,
                           ),
                         ),
                       ),
@@ -684,7 +685,7 @@ class _AccountTreeDropdownState extends State<AccountTreeDropdown> {
           Text(
             widget.errorText!,
             style: const TextStyle(
-              color: Color(0xFFEF4444),
+              color: AppTheme.errorRed,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),

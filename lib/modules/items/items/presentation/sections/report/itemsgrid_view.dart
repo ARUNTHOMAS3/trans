@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:zerpai_erp/shared/services/storage_service.dart';
 
 import 'item_row.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ItemsGridView extends StatelessWidget {
   final List<dynamic> items;
@@ -28,7 +29,7 @@ class ItemsGridView extends StatelessWidget {
 
     Color stockColor(String? value) {
       final double qty = double.tryParse(value ?? '') ?? 0;
-      return qty <= 0 ? const Color(0xFFE11D48) : const Color(0xFF16A34A);
+      return qty <= 0 ? AppTheme.errorRed : AppTheme.successGreen;
     }
 
     return GridView.builder(
@@ -65,8 +66,8 @@ class ItemsGridView extends StatelessWidget {
               builder: (context, isHovered, _) {
                 final bool showCheckbox = isHovered || isSelected;
                 final Color borderColor = isSelected
-                    ? const Color(0xFF2563EB)
-                    : const Color(0xFFE5E7EB);
+                    ? AppTheme.primaryBlueDark
+                    : AppTheme.borderColor;
 
                 return GestureDetector(
                   onTap: () => onItemTap?.call(item),
@@ -101,7 +102,7 @@ class ItemsGridView extends StatelessWidget {
                                 height: 86,
                                 decoration: const BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Color(0xFFDBEAFE),
+                                  color: AppTheme.infoBgBorder,
                                 ),
                                 alignment: Alignment.center,
                                 child:
@@ -121,7 +122,7 @@ class ItemsGridView extends StatelessWidget {
                                                   Icons
                                                       .image_not_supported_outlined,
                                                   size: 36,
-                                                  color: Color(0xFF94A3B8),
+                                                  color: AppTheme.textDisabled,
                                                 );
                                               },
                                         ),
@@ -129,7 +130,7 @@ class ItemsGridView extends StatelessWidget {
                                     : const Icon(
                                         Icons.image_outlined,
                                         size: 36,
-                                        color: Color(0xFF2563EB),
+                                        color: AppTheme.primaryBlueDark,
                                       ),
                               ),
                               const SizedBox(height: 14),
@@ -141,7 +142,7 @@ class ItemsGridView extends StatelessWidget {
                                 style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF111827),
+                                  color: AppTheme.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 10),
@@ -201,7 +202,7 @@ class _PriceRow extends StatelessWidget {
     return RichText(
       textAlign: TextAlign.center,
       text: TextSpan(
-        style: const TextStyle(fontSize: 12, color: Color(0xFF374151)),
+        style: const TextStyle(fontSize: 12, color: AppTheme.textBody),
         children: [
           TextSpan(
             text: '$label : ',

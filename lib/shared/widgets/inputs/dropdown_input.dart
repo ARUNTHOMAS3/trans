@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'dart:async';
 import 'dart:collection';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class FormDropdown<T> extends StatefulWidget {
   final T? value;
@@ -403,7 +404,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                     offset: const Offset(0, 4),
                   ),
                 ],
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                border: Border.all(color: AppTheme.borderColor),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -421,14 +422,14 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                             isDense: true,
                             hintText: 'Search',
                             hintStyle: const TextStyle(
-                              color: Color(0xFF9CA3AF),
+                              color: AppTheme.textMuted,
                               fontSize: 13,
                             ),
                             prefixIcon: widget.showSearchIcon
                                 ? const Icon(
                                     Icons.search,
                                     size: 16,
-                                    color: Color(0xFF9CA3AF),
+                                    color: AppTheme.textMuted,
                                   )
                                 : null,
                             suffixIcon: _isSearching
@@ -439,7 +440,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                                       height: 14,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: Color(0xFF2563EB),
+                                        color: AppTheme.primaryBlueDark,
                                       ),
                                     ),
                                   )
@@ -448,26 +449,26 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(4),
                               borderSide: const BorderSide(
-                                color: Color(0xFFD1D5DB),
+                                color: AppTheme.borderColor,
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(4),
                               borderSide: const BorderSide(
-                                color: Color(0xFFD1D5DB),
+                                color: AppTheme.borderColor,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(4),
                               borderSide: const BorderSide(
-                                color: Color(0xFF2563EB),
+                                color: AppTheme.primaryBlueDark,
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const Divider(height: 1, color: AppTheme.borderColor),
                   ],
 
                   if (_isSearching && _filteredItems.isEmpty)
@@ -478,7 +479,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                           width: 100,
                           height: 20,
                           child: DecoratedBox(
-                            decoration: BoxDecoration(color: Color(0xFFE5E7EB)),
+                            decoration: BoxDecoration(color: AppTheme.borderColor),
                           ),
                         ),
                       ),
@@ -490,7 +491,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                         child: Text(
                           'No results found',
                           style: TextStyle(
-                            color: Color(0xFF9CA3AF),
+                            color: AppTheme.textMuted,
                             fontSize: 13,
                           ),
                         ),
@@ -614,13 +615,13 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                     ),
 
                   if (widget.showSettings) ...[
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const Divider(height: 1, color: AppTheme.borderColor),
                     InkWell(
                       onTap: () {
                         _removeOverlay();
                         widget.onSettingsTap?.call();
                       },
-                      hoverColor: const Color(0xFFF3F4F6),
+                      hoverColor: AppTheme.bgDisabled,
                       splashColor: Colors.transparent,
                       highlightColor: Colors.transparent,
                       child: Container(
@@ -633,7 +634,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                             Icon(
                               widget.settingsIcon ?? Icons.settings,
                               size: 14,
-                              color: const Color(0xFF2563EB),
+                              color: AppTheme.primaryBlueDark,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -643,7 +644,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontSize: 13,
-                                  color: Color(0xFF2563EB),
+                                  color: AppTheme.primaryBlueDark,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -664,7 +665,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                         return display.toLowerCase() ==
                             _searchCtrl.text.trim().toLowerCase();
                       })) ...[
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const Divider(height: 1, color: AppTheme.borderColor),
                     InkWell(
                       onTap: () {
                         final newValue = _searchCtrl.text.trim();
@@ -679,7 +680,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                           widget.onChanged(newValue as T);
                         }
                       },
-                      hoverColor: const Color(0xFFEFF6FF),
+                      hoverColor: AppTheme.infoBg,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -690,7 +691,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                             const Icon(
                               Icons.add_circle_outline,
                               size: 14,
-                              color: Color(0xFF2563EB),
+                              color: AppTheme.primaryBlueDark,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -698,7 +699,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                                 'Add "${_searchCtrl.text.trim()}"',
                                 style: const TextStyle(
                                   fontSize: 13,
-                                  color: Color(0xFF2563EB),
+                                  color: AppTheme.primaryBlueDark,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -719,19 +720,19 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
 
   Widget _defaultRow(T item, bool isSelected, bool isHovered, bool enabled) {
     Color bg = Colors.transparent;
-    Color text = const Color(0xFF111827); // Gray-900 default
+    Color text = AppTheme.textPrimary; // Gray-900 default
 
     if (!enabled) {
-      text = const Color(0xFF9CA3AF); // Gray-400
+      text = AppTheme.textMuted; // Gray-400
     } else {
       if (isHovered) {
         // Hover gets prominent blue
-        bg = const Color(0xFF3B82F6);
+        bg = AppTheme.infoBlue;
         text = Colors.white;
       } else if (isSelected) {
         // Selection gets light blue
-        bg = const Color(0xFFEFF6FF);
-        text = const Color(0xFF1D4ED8);
+        bg = AppTheme.infoBg;
+        text = AppTheme.primaryBlueDark;
       }
     }
 
@@ -761,7 +762,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
             const Icon(
               Icons.check,
               size: 16,
-              color: Color(0xFF2563EB), // Blue-600 checkmark
+              color: AppTheme.primaryBlueDark, // Blue-600 checkmark
             ),
         ],
       ),
@@ -825,8 +826,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                         style: TextStyle(
                           fontSize: 13,
                           color: hasValue
-                              ? const Color(0xFF111827)
-                              : const Color(0xFF9CA3AF),
+                              ? AppTheme.textPrimary
+                              : AppTheme.textMuted,
                         ),
                       ),
                     ),
@@ -840,7 +841,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                         child: const Icon(
                           Icons.edit,
                           size: 14,
-                          color: Color(0xFF2563EB),
+                          color: AppTheme.primaryBlueDark,
                         ),
                       ),
                     ],
@@ -851,7 +852,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                         child: const Icon(
                           Icons.close,
                           size: 14,
-                          color: Color(0xFFEF4444),
+                          color: AppTheme.errorRed,
                         ),
                       ),
                     ],
@@ -863,8 +864,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                             : Icons.keyboard_arrow_down,
                         size: widget.iconSize ?? 18,
                         color: _isOpen
-                            ? const Color(0xFF2563EB)
-                            : const Color(0xFF6B7280),
+                            ? AppTheme.primaryBlueDark
+                            : AppTheme.textSecondary,
                       ),
                     ],
                   ],
@@ -881,10 +882,10 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   BorderSide _getBorderSide(bool hasError) {
     return BorderSide(
       color: hasError
-          ? const Color(0xFFEF4444) // Red on error
+          ? AppTheme.errorRed // Red on error
           : _isOpen
-          ? const Color(0xFF2563EB)
-          : const Color(0xFFD1D5DB),
+          ? AppTheme.primaryBlueDark
+          : AppTheme.borderColor,
     );
   }
 }

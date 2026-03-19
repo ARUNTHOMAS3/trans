@@ -19,6 +19,7 @@ import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
 import 'package:zerpai_erp/core/widgets/dialogs/hsn_sac_search_modal.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/category_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_categories_dialog.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 enum CompositeItemType { assembly, kit }
 
@@ -284,7 +285,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: const [
-        Icon(Icons.image_outlined, size: 42, color: Color(0xFF9CA3AF)),
+        Icon(Icons.image_outlined, size: 42, color: AppTheme.textMuted),
         SizedBox(height: 12),
         Text(
           "Drag images here or",
@@ -364,14 +365,18 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
             ),
             child: Row(
               children: const [
-                Icon(Icons.check_circle, size: 14, color: Color(0xFF16A34A)),
+                Icon(
+                  Icons.check_circle,
+                  size: 14,
+                  color: AppTheme.successGreen,
+                ),
                 SizedBox(width: 6),
                 Text(
                   "Primary",
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF166534),
+                    color: AppTheme.successTextDark,
                   ),
                 ),
               ],
@@ -379,7 +384,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
           )
         else
           Material(
-            color: const Color(0xFFEFF6FF),
+            color: AppTheme.infoBg,
             borderRadius: BorderRadius.circular(10),
             child: InkWell(
               borderRadius: BorderRadius.circular(10),
@@ -396,7 +401,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                   "Mark as Primary",
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -414,7 +419,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
               child: Icon(
                 Icons.delete_outline,
                 size: 18,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
           ),
@@ -451,8 +456,8 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: isActive
-                          ? const Color(0xFF2563EB)
-                          : const Color(0xFFD1D5DB),
+                          ? AppTheme.primaryBlueDark
+                          : AppTheme.borderColor,
                       width: isActive ? 2 : 1,
                     ),
                   ),
@@ -478,8 +483,8 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFFD1D5DB)),
-                color: const Color(0xFFF3F4F6),
+                border: Border.all(color: AppTheme.borderColor),
+                color: AppTheme.bgDisabled,
               ),
               child: Text(
                 '+$extraCount',
@@ -499,9 +504,9 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
             height: thumbSize,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: const Color(0xFFD1D5DB)),
+              border: Border.all(color: AppTheme.borderColor),
             ),
-            child: const Icon(Icons.add, color: Color(0xFF2563EB)),
+            child: const Icon(Icons.add, color: AppTheme.primaryBlueDark),
           ),
         ),
       ],
@@ -574,7 +579,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                               ),
                               decoration: const BoxDecoration(
                                 border: Border(
-                                  top: BorderSide(color: Color(0xFFE5E7EB)),
+                                  top: BorderSide(color: AppTheme.borderColor),
                                 ),
                               ),
                               child: Column(
@@ -584,7 +589,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                       Material(
                                         color: current == 0
                                             ? const Color(0xFFE6F4EA)
-                                            : const Color(0xFFEFF6FF),
+                                            : AppTheme.infoBg,
                                         borderRadius: BorderRadius.circular(10),
                                         child: InkWell(
                                           borderRadius: BorderRadius.circular(
@@ -616,7 +621,8 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                                   const Icon(
                                                     Icons.check_circle,
                                                     size: 14,
-                                                    color: Color(0xFF16A34A),
+                                                    color:
+                                                        AppTheme.successGreen,
                                                   ),
                                                   const SizedBox(width: 6),
                                                 ],
@@ -643,7 +649,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                       ),
                                       const Spacer(),
                                       Material(
-                                        color: const Color(0xFFFEE2E2),
+                                        color: AppTheme.errorBgBorder,
                                         borderRadius: BorderRadius.circular(10),
                                         child: InkWell(
                                           borderRadius: BorderRadius.circular(
@@ -675,7 +681,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                                 Icon(
                                                   Icons.delete,
                                                   size: 16,
-                                                  color: Color(0xFFDC2626),
+                                                  color: AppTheme.errorRed,
                                                 ),
                                                 SizedBox(width: 6),
                                                 Text(
@@ -683,7 +689,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                                   style: TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w700,
-                                                    color: Color(0xFFDC2626),
+                                                    color: AppTheme.errorRed,
                                                   ),
                                                 ),
                                               ],
@@ -714,8 +720,8 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                                   BorderRadius.circular(6),
                                               border: Border.all(
                                                 color: active
-                                                    ? const Color(0xFF2563EB)
-                                                    : const Color(0xFFD1D5DB),
+                                                    ? AppTheme.primaryBlueDark
+                                                    : AppTheme.borderColor,
                                                 width: active ? 2 : 1,
                                               ),
                                             ),
@@ -956,11 +962,11 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                       },
                     ),
                     const SizedBox(height: 32),
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const Divider(height: 1, color: AppTheme.borderColor),
                     const SizedBox(height: 32),
                     _buildDefaultTaxRatesSection(itemsState),
                     const SizedBox(height: 32),
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const Divider(height: 1, color: AppTheme.borderColor),
                     const SizedBox(height: 32),
                     _buildDimensionsWeightSection(),
                     const SizedBox(height: 24),
@@ -969,7 +975,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                     _buildIdentifiersSection(),
                     if (_itemType != CompositeItemType.kit) ...[
                       const SizedBox(height: 32),
-                      const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                      const Divider(height: 1, color: AppTheme.borderColor),
                       const SizedBox(height: 32),
                       _buildInventoryTrackingSection(itemsState),
                     ],
@@ -1081,9 +1087,9 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                       alignment: Alignment.centerLeft,
                       decoration: BoxDecoration(
                         color: isHovered
-                            ? const Color(0xFF2563EB)
+                            ? AppTheme.primaryBlueDark
                             : isSelected
-                            ? const Color(0xFFEFF6FF)
+                            ? AppTheme.infoBg
                             : Colors.transparent,
                       ),
                       child: Row(
@@ -1096,8 +1102,8 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                 color: isHovered
                                     ? Colors.white
                                     : isSelected
-                                    ? const Color(0xFF2563EB)
-                                    : const Color(0xFF111827),
+                                    ? AppTheme.primaryBlueDark
+                                    : AppTheme.textPrimary,
                               ),
                             ),
                           ),
@@ -1107,7 +1113,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                               size: 16,
                               color: isHovered
                                   ? Colors.white
-                                  : const Color(0xFF2563EB),
+                                  : AppTheme.primaryBlueDark,
                             ),
                         ],
                       ),
@@ -1147,9 +1153,9 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                           value: _isReturnable,
                           onChanged: (value) =>
                               setState(() => _isReturnable = value ?? false),
-                          activeColor: const Color(0xFF2563EB),
+                          activeColor: AppTheme.primaryBlueDark,
                           side: const BorderSide(
-                            color: Color(0xFFD1D5DB),
+                            color: AppTheme.borderColor,
                             width: 1.5,
                           ),
                           shape: RoundedRectangleBorder(
@@ -1163,7 +1169,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF374151),
+                          color: AppTheme.textBody,
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -1173,7 +1179,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                         child: Icon(
                           Icons.help_outline,
                           size: 16,
-                          color: Color(0xFF9CA3AF),
+                          color: AppTheme.textMuted,
                         ),
                       ),
                     ],
@@ -1190,9 +1196,9 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                           value: _pushToEcommerce,
                           onChanged: (value) =>
                               setState(() => _pushToEcommerce = value ?? false),
-                          activeColor: const Color(0xFF2563EB),
+                          activeColor: AppTheme.primaryBlueDark,
                           side: const BorderSide(
-                            color: Color(0xFFD1D5DB),
+                            color: AppTheme.borderColor,
                             width: 1.5,
                           ),
                           shape: RoundedRectangleBorder(
@@ -1206,7 +1212,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF374151),
+                          color: AppTheme.textBody,
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -1216,7 +1222,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                         child: Icon(
                           Icons.help_outline,
                           size: 16,
-                          color: Color(0xFF9CA3AF),
+                          color: AppTheme.textMuted,
                         ),
                       ),
                     ],
@@ -1284,9 +1290,9 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                         alignment: Alignment.centerLeft,
                         decoration: BoxDecoration(
                           color: isHovered
-                              ? const Color(0xFF2563EB)
+                              ? AppTheme.primaryBlueDark
                               : isSelected
-                              ? const Color(0xFFEFF6FF)
+                              ? AppTheme.infoBg
                               : Colors.transparent,
                         ),
                         child: Row(
@@ -1299,8 +1305,8 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                   color: isHovered
                                       ? Colors.white
                                       : isSelected
-                                      ? const Color(0xFF2563EB)
-                                      : const Color(0xFF111827),
+                                      ? AppTheme.primaryBlueDark
+                                      : AppTheme.textPrimary,
                                 ),
                               ),
                             ),
@@ -1310,7 +1316,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                 size: 16,
                                 color: isHovered
                                     ? Colors.white
-                                    : const Color(0xFF2563EB),
+                                    : AppTheme.primaryBlueDark,
                               ),
                           ],
                         ),
@@ -1337,7 +1343,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFFB91C1C),
+            color: AppTheme.errorRedDark,
           ),
         ),
         const SizedBox(height: 8),
@@ -1357,11 +1363,14 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                 icon: const Icon(
                   Icons.add_circle_outline,
                   size: 16,
-                  color: Color(0xFF2563EB),
+                  color: AppTheme.primaryBlueDark,
                 ),
                 label: const Text(
                   'Add New Row',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF2563EB)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.primaryBlueDark,
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
@@ -1378,11 +1387,14 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                   icon: const Icon(
                     Icons.add_circle_outline,
                     size: 16,
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                   ),
                   label: const Text(
                     'Add Services',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF2563EB)),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.primaryBlueDark,
+                    ),
                   ),
                 ),
             ],
@@ -1405,7 +1417,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFFB91C1C),
+            color: AppTheme.errorRedDark,
           ),
         ),
         const SizedBox(height: 8),
@@ -1423,11 +1435,11 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
             icon: const Icon(
               Icons.add_circle_outline,
               size: 16,
-              color: Color(0xFF2563EB),
+              color: AppTheme.primaryBlueDark,
             ),
             label: const Text(
               'Add New Row',
-              style: TextStyle(fontSize: 12, color: Color(0xFF2563EB)),
+              style: TextStyle(fontSize: 12, color: AppTheme.primaryBlueDark),
             ),
           ),
         ),
@@ -1459,7 +1471,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
             Row(
@@ -1468,7 +1480,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                 Checkbox(
                   value: _isSellable,
                   onChanged: (val) => setState(() => _isSellable = val ?? true),
-                  activeColor: const Color(0xFF2563EB),
+                  activeColor: AppTheme.primaryBlueDark,
                   visualDensity: VisualDensity.compact,
                 ),
                 const Text(
@@ -1500,7 +1512,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                         'Copy from total',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF2563EB),
+                          color: AppTheme.primaryBlueDark,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -1589,7 +1601,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
             Row(
@@ -1599,7 +1611,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                   value: _isPurchasable,
                   onChanged: (val) =>
                       setState(() => _isPurchasable = val ?? true),
-                  activeColor: const Color(0xFF2563EB),
+                  activeColor: AppTheme.primaryBlueDark,
                   visualDensity: VisualDensity.compact,
                 ),
                 const Text(
@@ -1630,7 +1642,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                         'Copy from total',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF2563EB),
+                          color: AppTheme.primaryBlueDark,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -1725,7 +1737,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
             const SizedBox(width: 8),
@@ -1736,7 +1748,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                     ? Icons.check_circle_outline
                     : Icons.edit_outlined,
                 size: 16,
-                color: const Color(0xFF2563EB),
+                color: AppTheme.primaryBlueDark,
               ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
@@ -1822,7 +1834,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                 decoration: const BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: Color(0xFF9CA3AF),
+                      color: AppTheme.textMuted,
                       width: 0.8,
                       style: BorderStyle
                           .none, // We'll use a custom painter if we want dashed
@@ -1834,10 +1846,10 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF374151),
+                    color: AppTheme.textBody,
                     decoration: TextDecoration.underline,
                     decorationStyle: TextDecorationStyle.dashed,
-                    decorationColor: Color(0xFF9CA3AF),
+                    decorationColor: AppTheme.textMuted,
                   ),
                 ),
               ),
@@ -1849,7 +1861,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
               value,
               style: const TextStyle(
                 fontSize: 13,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -1906,7 +1918,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                             u,
                             style: const TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF1F2937),
+                              color: AppTheme.textPrimary,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -1926,7 +1938,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: u == unitValue
-                                  ? const Color(0xFF3B82F6)
+                                  ? AppTheme.infoBlue
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(6),
                             ),
@@ -1936,7 +1948,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                 fontSize: 13,
                                 color: u == unitValue
                                     ? Colors.white
-                                    : const Color(0xFF374151),
+                                    : AppTheme.textBody,
                                 fontWeight: u == unitValue
                                     ? FontWeight.w600
                                     : FontWeight.w400,
@@ -1950,7 +1962,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                   icon: const Icon(
                     Icons.arrow_drop_down,
                     size: 18,
-                    color: Color(0xFF1F2937),
+                    color: AppTheme.textPrimary,
                   ),
                   isDense: true,
                 ),
@@ -1977,7 +1989,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF111827),
+                        color: AppTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -1985,7 +1997,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                       '(Length X Width X Height)',
                       style: TextStyle(
                         fontSize: 11,
-                        color: Color(0xFF6B7280),
+                        color: AppTheme.textSecondary,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
@@ -2211,7 +2223,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF111827),
+            color: AppTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 16),
@@ -2224,8 +2236,8 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                 value: _trackBinLocation,
                 onChanged: (val) =>
                     setState(() => _trackBinLocation = val ?? false),
-                activeColor: const Color(0xFF2563EB),
-                side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
+                activeColor: AppTheme.primaryBlueDark,
+                side: const BorderSide(color: AppTheme.borderColor, width: 1.5),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
                 ),
@@ -2237,7 +2249,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF374151),
+                color: AppTheme.textBody,
               ),
             ),
           ],
@@ -2247,7 +2259,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
           padding: EdgeInsets.only(left: 32),
           child: Text(
             'Enable this option if you want to track the bin locations for this item while creating transactions',
-            style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
         ),
         const SizedBox(height: 24),
@@ -2256,7 +2268,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF111827),
+            color: AppTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 12),
@@ -2330,7 +2342,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
             const SizedBox(width: 32),
             Expanded(
               child: SharedFieldLayout(
-                label: 'Reorder Terms',
+                label: 'Reorder Rule',
                 labelWidth: _labelWidth,
                 child: FormDropdown<String>(
                   value: _selectedReorderTermId,
@@ -2382,7 +2394,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
               width: 20,
               child: Radio<CompositeItemType>(
                 value: type,
-                activeColor: const Color(0xFF2563EB),
+                activeColor: AppTheme.primaryBlueDark,
                 visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
@@ -2398,7 +2410,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF111827),
+                    color: AppTheme.textPrimary,
                     height: 1.2,
                   ),
                 ),
@@ -2407,7 +2419,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                   description,
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF9CA3AF),
+                    color: AppTheme.textMuted,
                     height: 1.4,
                   ),
                 ),
@@ -2444,14 +2456,14 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            color: const Color(0xFFF9FAFB),
+            color: AppTheme.bgLight,
             child: Row(
               children: [
                 Expanded(
@@ -2460,7 +2472,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                     title,
                     style: const TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF4B5563),
+                      color: AppTheme.textSubtle,
                     ),
                   ),
                 ),
@@ -2469,7 +2481,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                   flex: 2,
                   child: Text(
                     'Quantity',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF4B5563)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSubtle),
                     textAlign: TextAlign.right,
                   ),
                 ),
@@ -2478,7 +2490,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                   flex: 2,
                   child: Text(
                     'Selling Price',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF4B5563)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSubtle),
                     textAlign: TextAlign.right,
                   ),
                 ),
@@ -2487,7 +2499,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                   flex: 2,
                   child: Text(
                     'Cost Price',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF4B5563)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSubtle),
                     textAlign: TextAlign.right,
                   ),
                 ),
@@ -2516,13 +2528,13 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                               width: 32,
                               height: 32,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF3F4F6),
+                                color: AppTheme.bgDisabled,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: const Icon(
                                 Icons.image_outlined,
                                 size: 16,
-                                color: Color(0xFF9CA3AF),
+                                color: AppTheme.textMuted,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -2546,9 +2558,9 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                     alignment: Alignment.centerLeft,
                                     decoration: BoxDecoration(
                                       color: isHovered
-                                          ? const Color(0xFF2563EB)
+                                          ? AppTheme.primaryBlueDark
                                           : isSelected
-                                          ? const Color(0xFFEFF6FF)
+                                          ? AppTheme.infoBg
                                           : Colors.transparent,
                                     ),
                                     child: Row(
@@ -2561,8 +2573,8 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                               color: isHovered
                                                   ? Colors.white
                                                   : isSelected
-                                                  ? const Color(0xFF2563EB)
-                                                  : const Color(0xFF111827),
+                                                  ? AppTheme.primaryBlueDark
+                                                  : AppTheme.textPrimary,
                                             ),
                                           ),
                                         ),
@@ -2572,7 +2584,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                             size: 16,
                                             color: isHovered
                                                 ? Colors.white
-                                                : const Color(0xFF2563EB),
+                                                : AppTheme.primaryBlueDark,
                                           ),
                                       ],
                                     ),
@@ -2670,7 +2682,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                           icon: const Icon(
                             Icons.close,
                             size: 16,
-                            color: Color(0xFFEF4444),
+                            color: AppTheme.errorRed,
                           ),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
@@ -2695,7 +2707,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF374151),
+                      color: AppTheme.textBody,
                     ),
                   ),
                 ),
@@ -2709,7 +2721,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF111827),
+                      color: AppTheme.textPrimary,
                     ),
                     textAlign: TextAlign.right,
                   ),
@@ -2722,7 +2734,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF111827),
+                      color: AppTheme.textPrimary,
                     ),
                     textAlign: TextAlign.right,
                   ),
@@ -2742,7 +2754,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2752,7 +2764,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           const SizedBox(height: 12),
@@ -2760,7 +2772,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
           const SizedBox(height: 12),
           const Text(
             'You can add up to 15 images, each not exceeding 5 MB.',
-            style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+            style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
           ),
         ],
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ResizableBox extends StatefulWidget {
   final Widget child;
@@ -74,7 +75,7 @@ class _ResizeHandlePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF9CA3AF)
+      ..color = AppTheme.textMuted
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round;
 

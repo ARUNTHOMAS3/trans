@@ -36,6 +36,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         _OpeningStockWarehouseEntry(
           warehouseId: wh.id,
           warehouseName: wh.name,
+          outletName: wh.outletName,
           mode: widget.mode,
           openingStock: wh.openingStock,
           openingStockValue: wh.openingStockValue,
@@ -55,9 +56,11 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final shellMetrics = context.shellMetrics;
     final currentEntry = _warehouseEntries.isNotEmpty
         ? _warehouseEntries[_selectedWarehouseIndex]
         : null;
+    final bodyPadding = shellMetrics.isVeryTightContent ? 16.0 : 24.0;
 
     return Column(
       children: [
@@ -66,7 +69,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           decoration: const BoxDecoration(
             color: Colors.white,
-            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
           ),
           child: Row(
             children: [
@@ -75,7 +78,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827),
+                  color: AppTheme.textPrimary,
                 ),
               ),
               const Spacer(),
@@ -92,7 +95,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         // Body
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(bodyPadding),
             child: currentEntry == null
                 ? const Center(child: Text('No warehouses available'))
                 : Column(
@@ -115,7 +118,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
           padding: const EdgeInsets.all(16),
           decoration: const BoxDecoration(
             color: Colors.white,
-            border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+            border: Border(top: BorderSide(color: AppTheme.borderColor)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -123,7 +126,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
               ElevatedButton(
                 onPressed: _isSaving ? null : _handleSave,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
+                  backgroundColor: AppTheme.accentGreen,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(
@@ -155,8 +158,8 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
               OutlinedButton(
                 onPressed: () => Navigator.pop(context),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF374151),
-                  side: const BorderSide(color: Color(0xFFD1D5DB)),
+                  foregroundColor: AppTheme.textBody,
+                  side: const BorderSide(color: AppTheme.borderColor),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,
@@ -178,7 +181,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
   }
 
   Widget _buildSimpleStockTable(_OpeningStockWarehouseEntry entry) {
-    const borderColor = Color(0xFFE5E7EB);
+    const borderColor = AppTheme.borderColor;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
@@ -187,73 +190,77 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
           color: Colors.white,
           border: Border.all(color: borderColor),
         ),
-        child: Table(
-          columnWidths: const {
-            0: FlexColumnWidth(2.2),
-            1: FlexColumnWidth(1.1),
-            2: FlexColumnWidth(1.2),
-            3: FixedColumnWidth(48),
-          },
-          border: TableBorder(
-            horizontalInside: BorderSide(color: borderColor),
-            verticalInside: BorderSide(color: borderColor),
-          ),
-          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-          children: [
-            TableRow(
-              decoration: const BoxDecoration(color: Color(0xFFF9FAFB)),
-              children: [
-                _buildSerialHeaderCell('WAREHOUSE'),
-                _buildSerialHeaderCopyCell('OPENING STOCK', () {}),
-                _buildSerialHeaderCopyCell(
-                  'OPENING STOCK VALUE\nPER UNIT',
-                  () {},
-                ),
-                const SizedBox.shrink(),
-              ],
+        child: _buildScrollableTableShell(
+          minWidth: 720,
+          child: Table(
+            columnWidths: const {
+              0: FlexColumnWidth(2.2),
+              1: FlexColumnWidth(1.1),
+              2: FlexColumnWidth(1.2),
+              3: FixedColumnWidth(48),
+            },
+            border: TableBorder(
+              top: BorderSide(color: borderColor),
+              horizontalInside: BorderSide(color: borderColor),
+              verticalInside: BorderSide(color: borderColor),
             ),
-            TableRow(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 16,
+            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+            children: [
+              TableRow(
+                decoration: const BoxDecoration(color: AppTheme.bgLight),
+                children: [
+                  _buildSerialHeaderCell('WAREHOUSE'),
+                  _buildSerialHeaderCopyCell('OPENING STOCK', () {}),
+                  _buildSerialHeaderCopyCell(
+                    'OPENING STOCK VALUE\nPER UNIT',
+                    () {},
                   ),
-                  child: _buildWarehouseSelector(),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 16,
-                  ),
-                  child: _buildNumberInput(entry.openingStockController),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 16,
-                  ),
-                  child: _buildNumberInput(entry.openingStockValueController),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 16,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      color: Color(0xFFEF4444),
-                      size: 20,
+                  const SizedBox.shrink(),
+                ],
+              ),
+              TableRow(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
                     ),
-                    onPressed: null,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                    child: _buildWarehouseSelector(),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
+                    ),
+                    child: _buildNumberInput(entry.openingStockController),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
+                    ),
+                    child: _buildNumberInput(entry.openingStockValueController),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 16,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: AppTheme.errorRed,
+                        size: 20,
+                      ),
+                      onPressed: null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -265,7 +272,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0xFFD1D5DB)),
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Theme(
@@ -282,7 +289,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
             isExpanded: true,
             dropdownColor: Colors.white,
             icon: const Icon(Icons.arrow_drop_down, size: 20),
-            style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
             onChanged: (value) {
               if (value != null) {
                 setState(() => _selectedWarehouseIndex = value);
@@ -291,7 +298,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
             items: _warehouseEntries.asMap().entries.map((e) {
               return DropdownMenuItem<int>(
                 value: e.key,
-                child: Text(e.value.warehouseName),
+                child: Text(e.value.displayWarehouseName),
               );
             }).toList(),
           ),
@@ -301,7 +308,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
   }
 
   Widget _buildBatchSection(_OpeningStockWarehouseEntry entry) {
-    const borderColor = Color(0xFFE5E7EB);
+    const borderColor = AppTheme.borderColor;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
@@ -313,176 +320,238 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: Row(children: [const Spacer(), _buildBatchSearchField()]),
-            ),
-            Table(
-              columnWidths: const {
-                0: FlexColumnWidth(2.2),
-                1: FlexColumnWidth(1.1),
-                2: FlexColumnWidth(1.2),
-                3: FlexColumnWidth(1.6),
-                4: FlexColumnWidth(1.4),
-                5: FlexColumnWidth(1.0),
-                6: FlexColumnWidth(1.2),
-                7: FlexColumnWidth(1.2),
-                8: FlexColumnWidth(1.0),
-                9: FixedColumnWidth(32),
-                10: FixedColumnWidth(48),
-              },
-              border: TableBorder(
-                horizontalInside: BorderSide(color: borderColor),
-                verticalInside: BorderSide(color: borderColor),
-              ),
-              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-              children: [
-                TableRow(
-                  decoration: const BoxDecoration(color: Color(0xFFF9FAFB)),
-                  children: [
-                    _buildBatchHeaderCell('WAREHOUSE'),
-                    _buildSerialHeaderCopyCell('OPENING STOCK', () {}),
-                    _buildSerialHeaderCopyCell(
-                      'OPENING STOCK VALUE\nPER UNIT',
-                      () {},
-                    ),
-                    _buildBatchHeaderCell(
-                      'BATCH REFERENCE#*',
-                      color: const Color(0xFFEF4444),
-                    ),
-                    _buildBatchHeaderCell('MANUFACTURER BATCH#'),
-                    _buildBatchHeaderCell('UNIT PACK'),
-                    _buildBatchHeaderCell('MANUFACTURED DATE'),
-                    _buildBatchHeaderCell('EXPIRY DATE'),
-                    _buildBatchHeaderCell(
-                      'QUANTITY IN*',
-                      color: const Color(0xFFEF4444),
-                      textAlign: TextAlign.right,
-                    ),
-                    const SizedBox.shrink(),
-                    const SizedBox.shrink(),
-                  ],
-                ),
-                ...entry.batchEntries.asMap().entries.map((e) {
-                  final batch = e.value;
-                  final isFirstRow = e.key == 0;
-
-                  return TableRow(
-                    children: [
-                      _buildBatchBodyCell(
-                        isFirstRow
-                            ? _buildWarehouseSelector()
-                            : const SizedBox.shrink(),
-                      ),
-                      _buildBatchBodyCell(
-                        isFirstRow
-                            ? _buildNumberInput(entry.openingStockController)
-                            : const SizedBox.shrink(),
-                      ),
-                      _buildBatchBodyCell(
-                        isFirstRow
-                            ? _buildNumberInput(
-                                entry.openingStockValueController,
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                      _buildBatchBodyCell(
-                        _buildTextField(
-                          batch.batchReferenceController,
-                          'Enter Batch#',
-                        ),
-                      ),
-                      _buildBatchBodyCell(
-                        _buildTextField(
-                          batch.mfrBatchController,
-                          'Enter MFR Batch#',
-                        ),
-                      ),
-                      _buildBatchBodyCell(
-                        _buildIntegerInput(batch.unitPackController, hint: '0'),
-                      ),
-                      _buildBatchBodyCell(
-                        _buildDateField(batch.mfrDateController, 'dd-MM-yyyy'),
-                      ),
-                      _buildBatchBodyCell(
-                        _buildDateField(
-                          batch.expiryDateController,
-                          'dd-MM-yyyy',
-                        ),
-                      ),
-                      _buildBatchBodyCell(
-                        _buildNumberInput(batch.quantityController),
-                      ),
-                      _buildBatchActionCell(
-                        IconButton(
-                          icon: const Icon(
-                            Icons.close,
-                            color: Color(0xFFEF4444),
-                            size: 18,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              entry.batchEntries.removeAt(e.key);
-                              if (entry.batchEntries.isEmpty) {
-                                entry.batchEntries.add(_BatchEntry());
-                              }
-                            });
-                          },
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ),
-                      _buildBatchActionCell(
-                        isFirstRow
-                            ? IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Color(0xFFEF4444),
-                                  size: 20,
-                                ),
-                                onPressed: null,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
-                  );
-                }),
-              ],
-            ),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: borderColor)),
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
               child: Row(
                 children: [
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        entry.batchEntries.add(_BatchEntry());
-                      });
-                    },
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.add, size: 16, color: Color(0xFF2563EB)),
-                        SizedBox(width: 4),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          'New Batch',
+                          'Batch-wise Opening Stock',
                           style: TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF2563EB),
-                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Enter warehouse opening quantity, batch details, and received quantity.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Spacer(),
-                  _buildBatchSummaryRow(entry),
+                  const SizedBox(width: 16),
+                  _buildBatchSearchField(),
                 ],
+              ),
+            ),
+            _buildScrollableTableShell(
+              minWidth: 1240,
+              child: Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(2.5),
+                  1: FlexColumnWidth(1.05),
+                  2: FlexColumnWidth(1.15),
+                  3: FlexColumnWidth(1.55),
+                  4: FlexColumnWidth(1.45),
+                  5: FlexColumnWidth(1.0),
+                  6: FlexColumnWidth(1.15),
+                  7: FlexColumnWidth(1.15),
+                  8: FlexColumnWidth(0.95),
+                  9: FixedColumnWidth(36),
+                  10: FixedColumnWidth(36),
+                },
+                border: TableBorder(
+                  top: BorderSide(color: borderColor),
+                  horizontalInside: BorderSide(color: borderColor),
+                  verticalInside: BorderSide(color: borderColor),
+                ),
+                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                children: [
+                  TableRow(
+                    decoration: const BoxDecoration(color: AppTheme.bgLight),
+                    children: [
+                      _buildBatchHeaderCell('WAREHOUSE'),
+                      _buildSerialHeaderCopyCell('OPENING QTY', () {}),
+                      _buildSerialHeaderCopyCell('UNIT VALUE', () {}),
+                      _buildBatchHeaderCell(
+                        'BATCH REF#*',
+                        color: AppTheme.errorRed,
+                      ),
+                      _buildBatchHeaderCell('MFR BATCH#'),
+                      _buildBatchHeaderCell('UNIT PACK'),
+                      _buildBatchHeaderCell('MFD DATE'),
+                      _buildBatchHeaderCell('EXPIRY DATE'),
+                      _buildBatchHeaderCell(
+                        'QTY IN*',
+                        color: AppTheme.errorRed,
+                        textAlign: TextAlign.right,
+                      ),
+                      const SizedBox.shrink(),
+                      const SizedBox.shrink(),
+                    ],
+                  ),
+                  ...entry.batchEntries.asMap().entries.map((e) {
+                    final batch = e.value;
+                    final isFirstRow = e.key == 0;
+
+                    return TableRow(
+                      children: [
+                        _buildBatchBodyCell(
+                          isFirstRow
+                              ? _buildWarehouseSelector()
+                              : const SizedBox.shrink(),
+                        ),
+                        _buildBatchBodyCell(
+                          isFirstRow
+                              ? _buildNumberInput(entry.openingStockController)
+                              : const SizedBox.shrink(),
+                        ),
+                        _buildBatchBodyCell(
+                          isFirstRow
+                              ? _buildNumberInput(
+                                  entry.openingStockValueController,
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                        _buildBatchBodyCell(
+                          _buildTextField(
+                            batch.batchReferenceController,
+                            'Enter Batch#',
+                          ),
+                        ),
+                        _buildBatchBodyCell(
+                          _buildTextField(
+                            batch.mfrBatchController,
+                            'Enter MFR Batch#',
+                          ),
+                        ),
+                        _buildBatchBodyCell(
+                          _buildIntegerInput(
+                            batch.unitPackController,
+                            hint: '0',
+                          ),
+                        ),
+                        _buildBatchBodyCell(
+                          _buildDateField(
+                            batch.mfrDateController,
+                            'dd-MM-yyyy',
+                          ),
+                        ),
+                        _buildBatchBodyCell(
+                          _buildDateField(
+                            batch.expiryDateController,
+                            'dd-MM-yyyy',
+                          ),
+                        ),
+                        _buildBatchBodyCell(
+                          _buildNumberInput(batch.quantityController),
+                        ),
+                        _buildBatchActionCell(
+                          IconButton(
+                            icon: const Icon(
+                              Icons.close,
+                              color: AppTheme.errorRed,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                entry.batchEntries.removeAt(e.key);
+                                if (entry.batchEntries.isEmpty) {
+                                  entry.batchEntries.add(_BatchEntry());
+                                }
+                              });
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ),
+                        _buildBatchActionCell(
+                          isFirstRow
+                              ? IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: AppTheme.errorRed,
+                                    size: 20,
+                                  ),
+                                  onPressed: null,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+            ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: borderColor)),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final useCompactLayout = constraints.maxWidth < 980;
+
+                  return Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    runSpacing: 12,
+                    spacing: 16,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            entry.batchEntries.add(_BatchEntry());
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5F8FF),
+                            border: Border.all(color: AppTheme.borderColor),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(
+                                Icons.add,
+                                size: 16,
+                                color: AppTheme.primaryBlueDark,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'New Batch',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.primaryBlueDark,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: useCompactLayout ? double.infinity : null,
+                        child: _buildBatchSummaryRow(entry),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -493,22 +562,22 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
 
   Widget _buildBatchSearchField() {
     return Container(
-      width: 200,
+      width: 240,
       height: 36,
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0xFFD1D5DB)),
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(6),
       ),
       child: TextField(
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
           hintText: 'Find Batch Number',
-          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+          hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
           prefixIcon: const Icon(
             Icons.search,
             size: 18,
-            color: Color(0xFF6B7280),
+            color: AppTheme.textSecondary,
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
@@ -523,7 +592,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
 
   Widget _buildBatchHeaderCell(
     String label, {
-    Color color = const Color(0xFF6B7280),
+    Color color = AppTheme.textSecondary,
     TextAlign textAlign = TextAlign.left,
   }) {
     final alignment = textAlign == TextAlign.right
@@ -531,7 +600,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         : Alignment.centerLeft;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Align(
         alignment: alignment,
         child: Text(
@@ -541,7 +610,6 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
             fontSize: 11,
             fontWeight: FontWeight.w600,
             color: color,
-            letterSpacing: 0.5,
           ),
         ),
       ),
@@ -550,14 +618,14 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
 
   Widget _buildBatchBodyCell(Widget child) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       child: child,
     );
   }
 
   Widget _buildBatchActionCell(Widget child) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 14),
       child: Align(alignment: Alignment.center, child: child),
     );
   }
@@ -569,7 +637,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         .where((s) => s.isNotEmpty)
         .toList();
 
-    const borderColor = Color(0xFFE5E7EB);
+    const borderColor = AppTheme.borderColor;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
@@ -578,91 +646,108 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
           color: Colors.white,
           border: Border.all(color: borderColor),
         ),
-        child: Table(
-          columnWidths: const {
-            0: FlexColumnWidth(2.2),
-            1: FlexColumnWidth(1.1),
-            2: FlexColumnWidth(1.2),
-            3: FlexColumnWidth(3.1),
-            4: FixedColumnWidth(48),
-          },
-          border: TableBorder(
-            horizontalInside: BorderSide(color: borderColor),
-            verticalInside: BorderSide(color: borderColor),
-          ),
-          defaultVerticalAlignment: TableCellVerticalAlignment.top,
-          children: [
-            TableRow(
-              decoration: const BoxDecoration(color: Color(0xFFF9FAFB)),
-              children: [
-                _buildSerialHeaderCell('WAREHOUSE'),
-                _buildSerialHeaderCopyCell('OPENING STOCK', () {}),
-                _buildSerialHeaderCopyCell(
-                  'OPENING STOCK VALUE\nPER UNIT',
-                  () {},
-                ),
-                _buildSerialNumbersHeaderCell(() {}),
-                const SizedBox.shrink(),
-              ],
+        child: _buildScrollableTableShell(
+          minWidth: 920,
+          child: Table(
+            columnWidths: const {
+              0: FlexColumnWidth(2.2),
+              1: FlexColumnWidth(1.1),
+              2: FlexColumnWidth(1.2),
+              3: FlexColumnWidth(3.1),
+              4: FixedColumnWidth(48),
+            },
+            border: TableBorder(
+              top: BorderSide(color: borderColor),
+              horizontalInside: BorderSide(color: borderColor),
+              verticalInside: BorderSide(color: borderColor),
             ),
-            TableRow(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 16,
+            defaultVerticalAlignment: TableCellVerticalAlignment.top,
+            children: [
+              TableRow(
+                decoration: const BoxDecoration(color: AppTheme.bgLight),
+                children: [
+                  _buildSerialHeaderCell('WAREHOUSE'),
+                  _buildSerialHeaderCopyCell('OPENING STOCK', () {}),
+                  _buildSerialHeaderCopyCell(
+                    'OPENING STOCK VALUE\nPER UNIT',
+                    () {},
                   ),
-                  child: _buildWarehouseSelector(),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 16,
-                  ),
-                  child: _buildNumberInput(entry.openingStockController),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 16,
-                  ),
-                  child: _buildNumberInput(entry.openingStockValueController),
-                ),
-                _buildSerialInputCell(entry, serialNumbers),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 16,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      color: Color(0xFFEF4444),
-                      size: 20,
+                  _buildSerialNumbersHeaderCell(() {}),
+                  const SizedBox.shrink(),
+                ],
+              ),
+              TableRow(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
                     ),
-                    onPressed: null,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                    child: _buildWarehouseSelector(),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
+                    ),
+                    child: _buildNumberInput(entry.openingStockController),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
+                    ),
+                    child: _buildNumberInput(entry.openingStockValueController),
+                  ),
+                  _buildSerialInputCell(entry, serialNumbers),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 16,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: AppTheme.errorRed,
+                        size: 20,
+                      ),
+                      onPressed: null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
+  Widget _buildScrollableTableShell({
+    required double minWidth,
+    required Widget child,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final effectiveMinWidth = constraints.maxWidth > minWidth
+            ? constraints.maxWidth
+            : minWidth;
+        return ResponsiveTableShell(minWidth: effectiveMinWidth, child: child);
+      },
+    );
+  }
+
   Widget _buildSerialHeaderCell(String label) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Text(
         label,
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF6B7280),
-          letterSpacing: 0.5,
+          color: AppTheme.textSecondary,
         ),
       ),
     );
@@ -670,7 +755,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
 
   Widget _buildSerialHeaderCopyCell(String label, VoidCallback onTap) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -679,8 +764,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF6B7280),
-              letterSpacing: 0.5,
+              color: AppTheme.textSecondary,
             ),
             textAlign: TextAlign.right,
           ),
@@ -691,7 +775,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
               'COPY TO ALL',
               style: TextStyle(
                 fontSize: 10,
-                color: Color(0xFF2563EB),
+                color: AppTheme.primaryBlueDark,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -711,7 +795,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: Color(0xFFEF4444),
+              color: AppTheme.errorRed,
             ),
           ),
         ],
@@ -732,15 +816,15 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+            borderSide: const BorderSide(color: AppTheme.borderColor),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+            borderSide: const BorderSide(color: AppTheme.borderColor),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFF2563EB)),
+            borderSide: const BorderSide(color: AppTheme.primaryBlueDark),
           ),
         ),
       ),
@@ -758,19 +842,19 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+          hintStyle: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+            borderSide: const BorderSide(color: AppTheme.borderColor),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+            borderSide: const BorderSide(color: AppTheme.borderColor),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFF2563EB)),
+            borderSide: const BorderSide(color: AppTheme.primaryBlueDark),
           ),
         ),
       ),
@@ -789,19 +873,19 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         onTap: () => _pickDate(controller),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+          hintStyle: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+            borderSide: const BorderSide(color: AppTheme.borderColor),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+            borderSide: const BorderSide(color: AppTheme.borderColor),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFF2563EB)),
+            borderSide: const BorderSide(color: AppTheme.primaryBlueDark),
           ),
         ),
       ),
@@ -852,7 +936,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
     _OpeningStockWarehouseEntry entry,
     List<String> serialNumbers,
   ) {
-    const cellBorderColor = Color(0xFFE5E7EB);
+    const cellBorderColor = AppTheme.borderColor;
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -864,7 +948,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
             constraints: const BoxConstraints(minHeight: 120),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFD1D5DB)),
+              border: Border.all(color: AppTheme.borderColor),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Column(
@@ -923,13 +1007,16 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
             children: [
               Text(
                 'Count: ${serialNumbers.length}',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               const SizedBox(width: 8),
               Tooltip(
                 message: 'Generate Serial Numbers',
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1F2937),
+                  color: AppTheme.textPrimary,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 textStyle: const TextStyle(color: Colors.white, fontSize: 12),
@@ -951,7 +1038,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                     child: const Icon(
                       Icons.auto_awesome,
                       size: 14,
-                      color: Color(0xFF2563EB),
+                      color: AppTheme.primaryBlueDark,
                     ),
                   ),
                 ),
@@ -966,7 +1053,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                   'Clear All',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFFEF4444),
+                    color: AppTheme.errorRed,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1000,9 +1087,9 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF2563EB)),
+        border: Border.all(color: AppTheme.primaryBlueDark),
       ),
-      textStyle: const TextStyle(color: Color(0xFF111827), fontSize: 12),
+      textStyle: const TextStyle(color: AppTheme.textPrimary, fontSize: 12),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       preferBelow: true,
       child: const Icon(
@@ -1017,7 +1104,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
       children: [
         const Text(
           'Quantity To Be Added: ',
-          style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         Text(
           '$qtyToAdd',
@@ -1031,13 +1118,13 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         if (hasMismatch) ...[warningIcon, const SizedBox(width: 8)],
         const Text(
           'Added Qty to Warehouse: ',
-          style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         Text(
           '$addedQty',
           style: const TextStyle(
             fontSize: 13,
-            color: Color(0xFF111827),
+            color: AppTheme.textPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1057,9 +1144,9 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF2563EB)),
+        border: Border.all(color: AppTheme.primaryBlueDark),
       ),
-      textStyle: const TextStyle(color: Color(0xFF111827), fontSize: 12),
+      textStyle: const TextStyle(color: AppTheme.textPrimary, fontSize: 12),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       preferBelow: true,
       child: const Icon(
@@ -1069,12 +1156,14 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
       ),
     );
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      runSpacing: 8,
+      spacing: 8,
       children: [
         const Text(
           'Quantity To Be Added: ',
-          style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         Text(
           '$qtyToAdd',
@@ -1084,17 +1173,17 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 8),
         if (hasMismatch) ...[warningIcon, const SizedBox(width: 8)],
         const Text(
           'Added Qty to Warehouse: ',
-          style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         Text(
           '$addedQty',
           style: const TextStyle(
             fontSize: 13,
-            color: Color(0xFF111827),
+            color: AppTheme.textPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1146,19 +1235,19 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+          hintStyle: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+            borderSide: const BorderSide(color: AppTheme.borderColor),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+            borderSide: const BorderSide(color: AppTheme.borderColor),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFF2563EB)),
+            borderSide: const BorderSide(color: AppTheme.primaryBlueDark),
           ),
         ),
       ),
@@ -1236,9 +1325,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                               height: 12,
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                border: Border.all(
-                                  color: const Color(0xFFE5E7EB),
-                                ),
+                                border: Border.all(color: AppTheme.borderColor),
                               ),
                             ),
                           ),
@@ -1248,7 +1335,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            border: Border.all(color: AppTheme.borderColor),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1261,7 +1348,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF111827),
+                                      color: AppTheme.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(width: 4),
@@ -1269,7 +1356,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                                     message:
                                         'You need to enter the first serial number ending with numeric value. For example, SN-001 with a count of 100 generates SN-001 to SN-100.',
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF1F2937),
+                                      color: AppTheme.textPrimary,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     textStyle: const TextStyle(
@@ -1284,7 +1371,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                                     child: const Icon(
                                       Icons.help_outline,
                                       size: 14,
-                                      color: Color(0xFF9CA3AF),
+                                      color: AppTheme.textMuted,
                                     ),
                                   ),
                                 ],
@@ -1314,7 +1401,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF111827),
+                                  color: AppTheme.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -1342,7 +1429,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                                   errorMessage!,
                                   style: const TextStyle(
                                     fontSize: 12,
-                                    color: Color(0xFFEF4444),
+                                    color: AppTheme.errorRed,
                                   ),
                                 ),
                               ],
@@ -1391,7 +1478,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                                       _closeSerialGeneratorPopover();
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF10B981),
+                                      backgroundColor: AppTheme.accentGreen,
                                       foregroundColor: Colors.white,
                                       elevation: 0,
                                       padding: const EdgeInsets.symmetric(
@@ -1408,9 +1495,9 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                                   OutlinedButton(
                                     onPressed: _closeSerialGeneratorPopover,
                                     style: OutlinedButton.styleFrom(
-                                      foregroundColor: const Color(0xFF374151),
+                                      foregroundColor: AppTheme.textBody,
                                       side: const BorderSide(
-                                        color: Color(0xFFD1D5DB),
+                                        color: AppTheme.borderColor,
                                       ),
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 20,
@@ -1511,6 +1598,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
         WarehouseStockRow(
           id: entry.warehouseId,
           name: entry.warehouseName,
+          outletName: entry.outletName,
           openingStock: stock,
           openingStockValue: rate,
           accounting: StockNumbers(onHand: stock, committed: 0),
@@ -1561,6 +1649,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
 class _OpeningStockWarehouseEntry {
   final String warehouseId;
   final String warehouseName;
+  final String outletName;
   final OpeningStockMode mode;
   final TextEditingController openingStockController = TextEditingController(
     text: '0',
@@ -1573,6 +1662,7 @@ class _OpeningStockWarehouseEntry {
   _OpeningStockWarehouseEntry({
     required this.warehouseId,
     required this.warehouseName,
+    this.outletName = '',
     required this.mode,
     double openingStock = 0,
     double openingStockValue = 0,
@@ -1603,6 +1693,20 @@ class _OpeningStockWarehouseEntry {
           .length;
     }
     return int.tryParse(openingStockController.text) ?? 0;
+  }
+
+  String get displayWarehouseName {
+    final resolvedWarehouseName = warehouseName.trim();
+    if (resolvedWarehouseName.isNotEmpty) {
+      return resolvedWarehouseName;
+    }
+
+    final resolvedOutletName = outletName.trim();
+    if (resolvedOutletName.isNotEmpty) {
+      return resolvedOutletName;
+    }
+
+    return 'Unnamed Outlet';
   }
 
   void dispose() {
@@ -1743,15 +1847,15 @@ class _SerialInputFieldState extends State<_SerialInputField> {
         contentPadding: EdgeInsets.zero,
         isDense: true,
         hintText: widget.hintText,
-        hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+        hintStyle: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
         enabledBorder: _isDuplicate
             ? const UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFFEF4444), width: 2),
+                borderSide: BorderSide(color: AppTheme.errorRed, width: 2),
               )
             : InputBorder.none,
         focusedBorder: _isDuplicate
             ? const UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFFEF4444), width: 2),
+                borderSide: BorderSide(color: AppTheme.errorRed, width: 2),
               )
             : InputBorder.none,
       ),

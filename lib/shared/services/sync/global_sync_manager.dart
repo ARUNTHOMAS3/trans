@@ -4,6 +4,7 @@ import 'package:zerpai_erp/shared/services/sync/sync_service.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 /// A wrapper widget that listens to SyncService and shows global alerts
 class GlobalSyncManager extends ConsumerStatefulWidget {
@@ -91,7 +92,7 @@ class _GlobalSyncManagerState extends ConsumerState<GlobalSyncManager> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: AppTheme.infoBg,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -106,7 +107,7 @@ class _GlobalSyncManagerState extends ConsumerState<GlobalSyncManager> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF111827),
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                 ],
@@ -117,7 +118,7 @@ class _GlobalSyncManagerState extends ConsumerState<GlobalSyncManager> {
                 'Would you like to sync them with the server now?',
                 style: const TextStyle(
                   fontSize: 14,
-                  color: Color(0xFF4B5563),
+                  color: AppTheme.textSubtle,
                   height: 1.5,
                 ),
               ),
@@ -128,7 +129,7 @@ class _GlobalSyncManagerState extends ConsumerState<GlobalSyncManager> {
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF6B7280),
+                      foregroundColor: AppTheme.textSecondary,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 12,

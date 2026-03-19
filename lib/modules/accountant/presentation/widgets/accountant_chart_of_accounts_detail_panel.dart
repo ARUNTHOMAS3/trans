@@ -178,7 +178,7 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                     child: VerticalDivider(
                       width: 1,
                       thickness: 1,
-                      color: Color(0xFFE2E8F0),
+                      color: AppTheme.borderLight,
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -194,7 +194,7 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                     constraints: const BoxConstraints(minWidth: 190),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      side: const BorderSide(color: AppTheme.borderLight),
                     ),
                     onSelected: (value) async {
                       if (value == 'inactive') {
@@ -339,7 +339,7 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: AppTheme.borderLight),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Icon(
@@ -356,7 +356,7 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                     child: VerticalDivider(
                       width: 1,
                       thickness: 1,
-                      color: Color(0xFFE2E8F0),
+                      color: AppTheme.borderLight,
                     ),
                   ),
                 ],

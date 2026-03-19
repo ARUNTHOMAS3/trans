@@ -8,6 +8,7 @@ import '../../../shared/widgets/zerpai_layout.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SalesOrderOverviewScreen extends ConsumerWidget {
   const SalesOrderOverviewScreen({super.key});
@@ -22,7 +23,7 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
       enableBodyScroll: false,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.go(AppRoutes.salesOrdersCreate),
-        backgroundColor: const Color(0xFF2563EB),
+        backgroundColor: AppTheme.primaryBlueDark,
         icon: const Icon(LucideIcons.plus, color: Colors.white),
         label: const Text(
           'New Sales Order',
@@ -38,7 +39,7 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
                     const Icon(
                       LucideIcons.receipt,
                       size: 64,
-                      color: Color(0xFFD1D5DB),
+                      color: AppTheme.borderColor,
                     ),
                     const SizedBox(height: 16),
                     const Text(
@@ -51,7 +52,7 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
                     const SizedBox(height: 8),
                     const Text(
                       'Create a sales order to start selling',
-                      style: TextStyle(color: Color(0xFF6B7280)),
+                      style: TextStyle(color: AppTheme.textSecondary),
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
@@ -74,14 +75,14 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Color(0xFFE5E7EB)),
+                      side: const BorderSide(color: AppTheme.borderColor),
                     ),
                     child: ListTile(
                       title: Text(
                         sale.saleNumber,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF2563EB),
+                          color: AppTheme.primaryBlueDark,
                         ),
                       ),
                       subtitle: Text(

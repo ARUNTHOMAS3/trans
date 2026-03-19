@@ -21,12 +21,12 @@ class ZerpaiDatePickerStyle {
   static const double shadowOpacity = 0.1;
 
   static const Color surfaceColor = Colors.white;
-  static const Color borderColor = Color(0xFFE5E7EB);
-  static const Color titleColor = Color(0xFF374151);
-  static const Color iconColor = Color(0xFF6B7280);
-  static const Color weekdayColor = Color(0xFF9CA3AF);
-  static const Color adjacentMonthTextColor = Color(0xFFD1D5DB);
-  static const Color disabledTextColor = Color(0xFFE5E7EB);
+  static const Color borderColor = AppTheme.borderColor;
+  static const Color titleColor = AppTheme.textBody;
+  static const Color iconColor = AppTheme.textSecondary;
+  static const Color weekdayColor = AppTheme.textMuted;
+  static const Color adjacentMonthTextColor = AppTheme.borderColor;
+  static const Color disabledTextColor = AppTheme.borderColor;
   static const Color selectedTextColor = Colors.white;
 
   static const TextStyle headerTextStyle = TextStyle(

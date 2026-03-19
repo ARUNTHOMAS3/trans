@@ -32,6 +32,7 @@ import 'package:zerpai_erp/shared/widgets/hsn_sac_search_modal.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/services/draft_storage_service.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 part 'sections/items_item_create_primary_info.dart';
 part 'sections/items_item_create_images.dart';
@@ -298,13 +299,13 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.history, color: Color(0xFFF59E0B), size: 18),
+          const Icon(Icons.history, color: AppTheme.warningOrange, size: 18),
           const SizedBox(width: 10),
           const Expanded(
             child: Text(
               'We found an unsaved draft. Would you like to restore it?',
               style: TextStyle(
-                color: Color(0xFF92400E),
+                color: AppTheme.warningTextDark,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
@@ -315,7 +316,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
             child: const Text(
               'Restore',
               style: TextStyle(
-                color: Color(0xFFF59E0B),
+                color: AppTheme.warningOrange,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -327,7 +328,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
             },
             child: const Text(
               'Discard',
-              style: TextStyle(color: Color(0xFF92400E)),
+              style: TextStyle(color: AppTheme.warningTextDark),
             ),
           ),
         ],
@@ -626,6 +627,28 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
     ]);
   }
 
+  String _formatStorageLabel(Map<String, dynamic>? storage) {
+    if (storage == null) return '';
+
+    final displayText =
+        storage['display_text']?.toString().trim().isNotEmpty == true
+        ? storage['display_text'].toString().trim()
+        : storage['name']?.toString().trim().isNotEmpty == true
+        ? storage['name'].toString().trim()
+        : storage['location_name']?.toString().trim().isNotEmpty == true
+        ? storage['location_name'].toString().trim()
+        : 'Unknown';
+
+    final storageType = storage['storage_type']?.toString().trim();
+    if (storageType == null ||
+        storageType.isEmpty ||
+        storageType.toLowerCase() == displayText.toLowerCase()) {
+      return displayText;
+    }
+
+    return '$displayText [$storageType]';
+  }
+
   void _applyOperationalDefaultsIfMissing() {
     final itemsState = ref.read(itemsControllerProvider);
     if (itemsState.isLoadingLookups) return;
@@ -649,6 +672,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       buyingRuleId ??= defaultBuyingRuleId;
       scheduleOfDrugId ??= defaultDrugScheduleId;
       storageId ??= defaultStorageId;
+      valuationMethod ??= 'FEFO';
     });
   }
 
@@ -721,7 +745,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
 
   InventoryTrackingMode trackingMode = InventoryTrackingMode.batches;
   String? inventoryAccountId;
-  String? valuationMethod;
+  String? valuationMethod = 'FEFO';
   String? storageId;
   String? rackId;
   List<ItemComposition> compositions = [];
@@ -801,13 +825,13 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
               Text(
                 itemsState.error!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16, color: Color(0xFF374151)),
+                style: const TextStyle(fontSize: 16, color: AppTheme.textBody),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () => _hydrateInitialItem(forceRefresh: true),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
+                  backgroundColor: AppTheme.primaryBlueDark,
                   foregroundColor: Colors.white,
                 ),
                 child: const Text('Retry'),

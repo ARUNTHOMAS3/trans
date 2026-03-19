@@ -10,6 +10,7 @@ import '../models/sales_customer_model.dart';
 import '../controllers/sales_order_controller.dart';
 import '../../../shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 part 'sections/sales_customer_overview_left_panel.dart';
 part 'sections/sales_customer_overview_actions.dart';
@@ -84,7 +85,7 @@ class _SalesCustomerOverviewScreenState
                 ),
               ),
               // Vertical Divider
-              Container(width: 1, color: const Color(0xFFE5E7EB)),
+              Container(width: 1, color: AppTheme.borderColor),
               // Right Panel - Details
               Expanded(child: _buildRightPanel(selectedCustomer)),
             ],
@@ -106,9 +107,9 @@ class _SalesCustomerOverviewScreenState
           child: TabBar(
             controller: _tabController,
             isScrollable: true,
-            labelColor: const Color(0xFF2563EB),
-            unselectedLabelColor: const Color(0xFF6B7280),
-            indicatorColor: const Color(0xFF2563EB),
+            labelColor: AppTheme.primaryBlueDark,
+            unselectedLabelColor: AppTheme.textSecondary,
+            indicatorColor: AppTheme.primaryBlueDark,
             indicatorWeight: 3,
             labelStyle: const TextStyle(
               fontSize: 14,
@@ -149,7 +150,7 @@ class _SalesCustomerOverviewScreenState
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
@@ -162,7 +163,7 @@ class _SalesCustomerOverviewScreenState
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF111827),
+                    color: AppTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -172,7 +173,7 @@ class _SalesCustomerOverviewScreenState
                       : 'No email',
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF6B7280),
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               ],
@@ -212,7 +213,7 @@ class TableCellWidget extends StatelessWidget {
         style: TextStyle(
           fontSize: 13,
           fontWeight: isHeader ? FontWeight.w600 : FontWeight.w400,
-          color: isHeader ? const Color(0xFF374151) : const Color(0xFF111827),
+          color: isHeader ? AppTheme.textBody : AppTheme.textPrimary,
         ),
       ),
     );

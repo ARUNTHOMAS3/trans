@@ -170,7 +170,7 @@ class ProfitAndLossScreen extends ConsumerWidget {
         style: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 16,
-          color: Color(0xFF374151), // Zoho Slate
+          color: AppTheme.textBody, // Zoho Slate
           fontFamily: 'Inter',
         ),
       ),
@@ -257,7 +257,7 @@ class ProfitAndLossScreen extends ConsumerWidget {
         style: TextStyle(
           fontWeight: isMainTotal ? FontWeight.bold : FontWeight.w600,
           fontSize: isMainTotal ? 16 : 14,
-          color: const Color(0xFF374151),
+          color: AppTheme.textBody,
           fontFamily: 'Inter',
         ),
       );
@@ -266,7 +266,7 @@ class ProfitAndLossScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
-        color: isMainTotal ? const Color(0xFFF9FAFB) : Colors.transparent,
+        color: isMainTotal ? AppTheme.bgLight : Colors.transparent,
         border: Border(
           top: BorderSide(
             color: AppTheme.borderColor,
@@ -286,7 +286,7 @@ class ProfitAndLossScreen extends ConsumerWidget {
             style: TextStyle(
               fontWeight: isMainTotal ? FontWeight.bold : FontWeight.w600,
               fontSize: isMainTotal ? 16 : 14,
-              color: const Color(0xFF374151),
+              color: AppTheme.textBody,
               fontFamily: 'Inter',
             ),
           ),
@@ -319,7 +319,7 @@ class _PnlTableHeaderDelegate extends SliverPersistentHeaderDelegate {
       height: _height,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: AppTheme.bgLight,
         border: const Border(
           top: BorderSide(color: AppTheme.borderColor),
           bottom: BorderSide(color: AppTheme.borderColor, width: 2),
@@ -342,7 +342,7 @@ class _PnlTableHeaderDelegate extends SliverPersistentHeaderDelegate {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 12,
-              color: Color(0xFF6B7280),
+              color: AppTheme.textSecondary,
               letterSpacing: 0.5,
             ),
           ),
@@ -351,7 +351,7 @@ class _PnlTableHeaderDelegate extends SliverPersistentHeaderDelegate {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 12,
-              color: Color(0xFF6B7280),
+              color: AppTheme.textSecondary,
               letterSpacing: 0.5,
             ),
           ),

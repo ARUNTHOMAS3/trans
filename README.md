@@ -50,9 +50,21 @@ zerpai_erp/
 - If real data is missing, show explicit empty/error states rather than inventing placeholder operational values.
 - Resolve lookup defaults from DB-backed master rows where schema-backed masters exist instead of hardcoding IDs or visible labels.
 - Reuse shared controls and centralized style sources for common ERP patterns instead of rebuilding local one-off variants.
+- Use the shared responsive foundation for Flutter web layouts: global breakpoints, shared responsive table shells, shared responsive form rows/grids, shared responsive dialog width rules, and sidebar-aware shell/content metrics.
+- New modules and major internal sub-screens must be deep-linkable through GoRouter so refresh, direct URL entry, and browser history preserve working context.
 - Keep warehouse master data, storage/location master data, accounting stock, and physical stock logically separate.
 - Prefer additive migrations and `INSERT ... ON CONFLICT DO UPDATE` style seeding over destructive resets in shared environments.
 - Keep button and control styling consistent: primary save/create/confirm actions use the approved primary/success button styling, cancel/secondary actions use neutral secondary styling, upload controls follow the shared upload pattern, and borders/dividers use the approved light border tokens.
+
+## 📐 Responsive Foundation Rule
+
+- Flutter web layouts must use the shared responsive foundation instead of screen-local overflow patches.
+- Foundation pieces:
+  - global breakpoints in `lib/shared/responsive/breakpoints.dart`
+  - shared responsive table shell for dense/wide tables
+  - shared responsive form row/grid primitives for labels and fields
+  - shared responsive dialog width rules
+  - sidebar-aware shell/content metrics from the core layout layer
 
 ## 🛠️ Development Setup
 

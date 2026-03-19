@@ -115,6 +115,8 @@ When user's prompt is NOT in English:
 - **Zerpai Shared Date Picker Rule**: Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the default reusable date picker wherever the anchored/shared picker pattern is feasible. Do not introduce raw `showDatePicker(...)` by default for normal ERP date flows.
 - **Zerpai Global Settings Rules**: Prefer real DB-backed data and DB-backed master defaults, keep empty/error states explicit, centralize shared control styling, and keep warehouse/storage/accounting/physical concerns separate.
 - **Zerpai Button/Border/Upload Rules**: Keep primary save/create buttons, neutral cancel actions, upload controls, and border/divider styling aligned to centralized theme tokens instead of screen-local color choices.
+- **Zerpai Responsive Foundation Rule**: For Flutter web layouts, use the shared responsive foundation: global breakpoints, shared responsive table shells, shared responsive form rows/grids, shared responsive dialog width rules, and sidebar-aware shell/content metrics instead of one-off overflow patches.
+- **Zerpai Deep Linking Rule**: New modules and major internal sub-screens must expose deep-linkable GoRouter routes so refresh, direct URL access, and browser history preserve the current working context.
 
 ### 📁 File Dependency Awareness
 

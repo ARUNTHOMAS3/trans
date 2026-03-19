@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'items_composite_filters.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class CompositeItemsFilterDropdown extends StatefulWidget {
   final CompositeItemsFilter currentFilter;
@@ -84,7 +85,7 @@ class _CompositeItemsFilterDropdownState
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(color: AppTheme.borderColor),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -101,7 +102,7 @@ class _CompositeItemsFilterDropdownState
                             prefixIcon: const Icon(
                               Icons.search,
                               size: 18,
-                              color: Color(0xFF9CA3AF),
+                              color: AppTheme.textMuted,
                             ),
                             hintText: 'Search filters',
                             isDense: true,
@@ -112,25 +113,25 @@ class _CompositeItemsFilterDropdownState
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: const BorderSide(
-                                color: Color(0xFFE5E7EB),
+                                color: AppTheme.borderColor,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: const BorderSide(
-                                color: Color(0xFF3B82F6),
+                                color: AppTheme.infoBlue,
                               ),
                             ),
                           ),
                           style: const TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF111827),
+                            color: AppTheme.textPrimary,
                           ),
                         ),
                       ),
                     ),
 
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const Divider(height: 1, color: AppTheme.borderColor),
 
                     // Scrollable sections
                     Flexible(
@@ -170,7 +171,7 @@ class _CompositeItemsFilterDropdownState
                                     ),
                                 const Divider(
                                   height: 1,
-                                  color: Color(0xFFF3F4F6),
+                                  color: AppTheme.bgDisabled,
                                 ),
                               ],
                               _SectionHeader(
@@ -252,7 +253,7 @@ class _CompositeItemsFilterDropdownState
             color: const Color(0xFFF0F4FF),
             borderRadius: BorderRadius.circular(4),
             border: _isOpen
-                ? Border.all(color: const Color(0xFF3B82F6), width: 1)
+                ? Border.all(color: AppTheme.infoBlue, width: 1)
                 : Border.all(color: Colors.transparent, width: 1),
           ),
           child: Row(
@@ -263,14 +264,14 @@ class _CompositeItemsFilterDropdownState
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF111827),
+                  color: AppTheme.textPrimary,
                 ),
               ),
               const SizedBox(width: 4),
               Icon(
                 _isOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                 size: 20,
-                color: const Color(0xFF3B82F6),
+                color: AppTheme.infoBlue,
               ),
             ],
           ),
@@ -290,13 +291,13 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: const Color(0xFFF9FAFB),
+      color: AppTheme.bgLight,
       child: Row(
         children: [
           const Icon(
             Icons.keyboard_arrow_down,
             size: 16,
-            color: Color(0xFF6B7280),
+            color: AppTheme.textSecondary,
           ),
           const SizedBox(width: 4),
           Text(
@@ -305,14 +306,14 @@ class _SectionHeader extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.5,
-              color: Color(0xFF374151),
+              color: AppTheme.textBody,
             ),
           ),
           const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFF16A34A),
+              color: AppTheme.successGreen,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
@@ -348,8 +349,8 @@ class _FilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color textColor = isActive
-        ? const Color(0xFF2563EB)
-        : const Color(0xFF374151);
+        ? AppTheme.primaryBlueDark
+        : AppTheme.textBody;
 
     return InkWell(
       onTap: onSelect,
@@ -379,8 +380,8 @@ class _FilterRow extends StatelessWidget {
                   isFavorite ? Icons.star : Icons.star_border,
                   size: 20,
                   color: isFavorite
-                      ? const Color(0xFFF59E0B)
-                      : const Color(0xFFD1D5DB),
+                      ? AppTheme.warningOrange
+                      : AppTheme.borderColor,
                 ),
               ),
             ),

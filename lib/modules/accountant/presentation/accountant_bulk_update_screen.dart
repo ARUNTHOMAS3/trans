@@ -181,7 +181,7 @@ class _AccountantBulkUpdateScreenState
                               margin: const EdgeInsets.symmetric(vertical: 2),
                               width: 18,
                               height: 2,
-                              color: const Color(0xFFE5E7EB),
+                              color: AppTheme.borderColor,
                             ),
                           ),
                         ),
@@ -199,7 +199,7 @@ class _AccountantBulkUpdateScreenState
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1F2937),
+                color: AppTheme.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -208,7 +208,7 @@ class _AccountantBulkUpdateScreenState
             // --- Sub-heading ---
             const Text(
               'Filter transactions (Invoices, Credit Notes, Purchase Orders, Expenses, Bills, Vendor Credits) and bulk-update its accounts with a new account',
-              style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+              style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -236,7 +236,7 @@ class _AccountantBulkUpdateScreenState
                       'Bulk-updating accounts in transactions will cause significant changes to the financial data of your business. We recommend that you do this with the assistance of an accountant.',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF92400E),
+                        color: AppTheme.warningTextDark,
                         height: 1.5,
                       ),
                     ),
@@ -581,7 +581,7 @@ class _FilterTransactionsDialogState
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1F2937),
+                        color: AppTheme.textPrimary,
                       ),
                     ),
                   ),
@@ -590,7 +590,7 @@ class _FilterTransactionsDialogState
                     icon: const Icon(
                       Icons.close,
                       size: 20,
-                      color: Color(0xFF6B7280),
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                 ],
@@ -606,7 +606,7 @@ class _FilterTransactionsDialogState
                 children: [
                   const Text(
                     'Select an account and enter your ranges to filter your transaction',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSubtle),
                   ),
                   const SizedBox(height: 24),
 
@@ -697,7 +697,7 @@ class _FilterTransactionsDialogState
                           padding: EdgeInsets.symmetric(horizontal: 8),
                           child: Text(
                             '-',
-                            style: TextStyle(color: Color(0xFF9CA3AF)),
+                            style: TextStyle(color: AppTheme.textMuted),
                           ),
                         ),
                         Expanded(
@@ -736,7 +736,7 @@ class _FilterTransactionsDialogState
                           padding: EdgeInsets.symmetric(horizontal: 12),
                           child: Text(
                             '-',
-                            style: TextStyle(color: Color(0xFF9CA3AF)),
+                            style: TextStyle(color: AppTheme.textMuted),
                           ),
                         ),
                         Expanded(

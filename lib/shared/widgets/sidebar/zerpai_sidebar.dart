@@ -17,7 +17,7 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
 
   final Map<String, List<_Child>> _menu = {
     'Items': [
-      _Child('Items', '/items-report', '/items-create'),
+      _Child('Items', '/items/report', '/items/create'),
       _Child('Composite Items', '/composite-items', '/composite-items-create'),
       _Child('Item Groups', '/item-groups', '/item-groups-create'),
       _Child('Price Lists', '/price-lists', '/price-lists-create'),
@@ -408,7 +408,7 @@ class _FloatingChildRow extends StatefulWidget {
 class _FloatingChildRowState extends State<_FloatingChildRow> {
   bool _hovered = false;
 
-  static const Color _activeBlue = Color(0xFF2563EB); // blue (you can tweak)
+  static const Color _activeBlue = AppTheme.primaryBlueDark; // blue (you can tweak)
   static const Color _hoverBg = Color(0xFF2B3040);
 
   @override

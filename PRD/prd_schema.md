@@ -1,7 +1,7 @@
 # 🗄️ PRD Schema Reference (Current Snapshot)
 
 **Source:** Supabase SQL Editor output (context-only, not executable)  
-**Generated:** 2026-03-17
+**Generated:** 2026-03-19
 **Status:** Informational snapshot
 
 ---
@@ -42,6 +42,7 @@
 - `brands`
 - `buying_rules`
 - `categories`
+- `composite_item_outlet_inventory_settings`
 - `composite_item_parts`
 - `composite_items`
 - `contents`
@@ -59,6 +60,7 @@
 - `price_list_volume_ranges`
 - `price_lists`
 - `product_contents`
+- `product_outlet_inventory_settings`
 - `products`
 - `racks`
 - `reorder_terms`
@@ -445,6 +447,22 @@ CREATE TABLE public.categories (
   CONSTRAINT categories_pkey PRIMARY KEY (id),
   CONSTRAINT categories_parent_id_categories_id_fk FOREIGN KEY (parent_id) REFERENCES public.categories(id)
 );
+CREATE TABLE public.composite_item_outlet_inventory_settings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  outlet_id uuid,
+  composite_item_id uuid NOT NULL,
+  reorder_point integer NOT NULL DEFAULT 0 CHECK (reorder_point >= 0),
+  reorder_term_id uuid,
+  is_active boolean NOT NULL DEFAULT true,
+  created_by_id uuid,
+  updated_by_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT composite_item_outlet_inventory_settings_pkey PRIMARY KEY (id),
+  CONSTRAINT composite_item_outlet_inventory_settings_composite_item_fkey FOREIGN KEY (composite_item_id) REFERENCES public.composite_items(id),
+  CONSTRAINT composite_item_outlet_inventory_settings_reorder_term_fkey FOREIGN KEY (reorder_term_id) REFERENCES public.reorder_terms(id)
+);
 CREATE TABLE public.composite_item_parts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   composite_item_id uuid NOT NULL,
@@ -756,6 +774,22 @@ CREATE TABLE public.product_contents (
   CONSTRAINT product_contents_content_id_fkey FOREIGN KEY (content_id) REFERENCES public.contents(id),
   CONSTRAINT product_contents_schedule_id_fkey FOREIGN KEY (shedule_id) REFERENCES public.schedules(id)
 );
+CREATE TABLE public.product_outlet_inventory_settings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  outlet_id uuid,
+  product_id uuid NOT NULL,
+  reorder_point integer NOT NULL DEFAULT 0 CHECK (reorder_point >= 0),
+  reorder_term_id uuid,
+  is_active boolean NOT NULL DEFAULT true,
+  created_by_id uuid,
+  updated_by_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT product_outlet_inventory_settings_pkey PRIMARY KEY (id),
+  CONSTRAINT product_outlet_inventory_settings_product_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT product_outlet_inventory_settings_reorder_term_fkey FOREIGN KEY (reorder_term_id) REFERENCES public.reorder_terms(id)
+);
 CREATE TABLE public.products (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   type USER-DEFINED NOT NULL,
@@ -803,7 +837,7 @@ CREATE TABLE public.products (
   track_bin_location boolean DEFAULT false,
   track_batches boolean DEFAULT false,
   inventory_account_id uuid,
-  inventory_valuation_method USER-DEFINED,
+  inventory_valuation_method USER-DEFINED CHECK (inventory_valuation_method IS NULL OR (inventory_valuation_method = ANY (ARRAY['FIFO'::inventory_valuation_method, 'LIFO'::inventory_valuation_method, 'FEFO'::inventory_valuation_method, 'Weighted Average'::inventory_valuation_method, 'Specific Identification'::inventory_valuation_method]))),
   storage_id uuid,
   rack_id uuid,
   reorder_point integer DEFAULT 0,
@@ -828,20 +862,20 @@ CREATE TABLE public.products (
   side_effects jsonb,
   faq_text jsonb,
   CONSTRAINT products_pkey PRIMARY KEY (id),
-  CONSTRAINT products_preferred_vendor_id_vendors_id_fk FOREIGN KEY (preferred_vendor_id) REFERENCES public.vendors(id),
-  CONSTRAINT products_buying_rule_id_fkey FOREIGN KEY (buying_rule_id) REFERENCES public.buying_rules(id),
+  CONSTRAINT products_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id),
+  CONSTRAINT products_intra_state_tax_id_fkey FOREIGN KEY (intra_state_tax_id) REFERENCES public.tax_groups(id),
+  CONSTRAINT products_storage_id_fkey FOREIGN KEY (storage_id) REFERENCES public.storage_locations(id),
+  CONSTRAINT products_inter_state_tax_id_fkey FOREIGN KEY (inter_state_tax_id) REFERENCES public.associate_taxes(id),
+  CONSTRAINT products_manufacturer_id_fkey FOREIGN KEY (manufacturer_id) REFERENCES public.manufacturers(id),
   CONSTRAINT products_unit_id_units_id_fk FOREIGN KEY (unit_id) REFERENCES public.units(id),
-  CONSTRAINT products_category_id_categories_id_fk FOREIGN KEY (category_id) REFERENCES public.categories(id),
-  CONSTRAINT products_inter_state_tax_id_tax_rates_id_fk FOREIGN KEY (inter_state_tax_id) REFERENCES public.associate_taxes(id),
+  CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id),
+  CONSTRAINT products_preferred_vendor_id_vendors_id_fk FOREIGN KEY (preferred_vendor_id) REFERENCES public.vendors(id),
   CONSTRAINT products_sales_account_id_accounts_id_fk FOREIGN KEY (sales_account_id) REFERENCES public.accounts(id),
   CONSTRAINT products_purchase_account_id_accounts_id_fk FOREIGN KEY (purchase_account_id) REFERENCES public.accounts(id),
-  CONSTRAINT products_manufacturer_id_manufacturers_id_fk FOREIGN KEY (manufacturer_id) REFERENCES public.manufacturers(id),
-  CONSTRAINT products_brand_id_brands_id_fk FOREIGN KEY (brand_id) REFERENCES public.brands(id),
   CONSTRAINT products_inventory_account_id_accounts_id_fk FOREIGN KEY (inventory_account_id) REFERENCES public.accounts(id),
-  CONSTRAINT products_storage_id_storage_locations_id_fk FOREIGN KEY (storage_id) REFERENCES public.storage_locations(id),
   CONSTRAINT products_rack_id_racks_id_fk FOREIGN KEY (rack_id) REFERENCES public.racks(id),
-  CONSTRAINT products_reorder_term_id_reorder_terms_id_fk FOREIGN KEY (reorder_term_id) REFERENCES public.reorder_terms(id),
-  CONSTRAINT products_intra_state_tax_id_tax_groups_id_fk FOREIGN KEY (intra_state_tax_id) REFERENCES public.tax_groups(id)
+  CONSTRAINT products_buying_rule_id_buying_rules_id_fk FOREIGN KEY (buying_rule_id) REFERENCES public.buying_rules(id),
+  CONSTRAINT products_schedule_of_drug_id_schedules_id_fk FOREIGN KEY (schedule_of_drug_id) REFERENCES public.schedules(id)
 );
 CREATE TABLE public.racks (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -856,11 +890,14 @@ CREATE TABLE public.racks (
 );
 CREATE TABLE public.reorder_terms (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  term_name character varying NOT NULL UNIQUE,
+  term_name character varying NOT NULL,
   description text,
   is_active boolean DEFAULT true,
   created_at timestamp without time zone DEFAULT now(),
   quantity integer NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+  outlet_id uuid,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT reorder_terms_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.sales_eway_bills (

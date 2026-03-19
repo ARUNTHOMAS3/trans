@@ -11,6 +11,7 @@ import '../models/sales_eway_bill_model.dart';
 import '../models/sales_payment_link_model.dart';
 import '../models/sales_customer_model.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 part 'sections/sales_generic_list_search_dialog.dart';
 part 'sections/sales_generic_list_import_export_dialog.dart';
@@ -128,7 +129,7 @@ class _SalesGenericListScreenState
               margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
-                side: const BorderSide(color: Color(0xFFE5E7EB)),
+                side: const BorderSide(color: AppTheme.borderColor),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -211,9 +212,9 @@ class _SalesGenericListScreenState
                   Container(
                     height: 44,
                     decoration: const BoxDecoration(
-                      color: Color(0xFFF9FAFB),
+                      color: AppTheme.bgLight,
                       border: Border(
-                        bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                        bottom: BorderSide(color: AppTheme.borderColor),
                       ),
                     ),
                     child: Row(
@@ -234,7 +235,7 @@ class _SalesGenericListScreenState
                                 icon: const Icon(
                                   LucideIcons.sliders,
                                   size: 16,
-                                  color: Color(0xFF2563EB),
+                                  color: AppTheme.primaryBlueDark,
                                 ),
                                 padding: EdgeInsets.zero,
                               );
@@ -291,12 +292,12 @@ class _SalesGenericListScreenState
                               height: 52,
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? const Color(0xFFF3F4F6)
+                                    ? AppTheme.bgDisabled
                                     : _hoveredRowId == id
-                                    ? const Color(0xFFF9FAFB)
+                                    ? AppTheme.bgLight
                                     : Colors.white,
                                 border: const Border(
-                                  bottom: BorderSide(color: Color(0xFFF3F4F6)),
+                                  bottom: BorderSide(color: AppTheme.bgDisabled),
                                 ),
                               ),
                               child: Row(

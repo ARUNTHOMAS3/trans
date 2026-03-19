@@ -12,6 +12,7 @@ import '../controllers/sales_order_controller.dart';
 import '../models/sales_customer_model.dart';
 import '../models/sales_payment_model.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SalesPaymentCreateScreen extends ConsumerStatefulWidget {
   const SalesPaymentCreateScreen({super.key});
@@ -81,7 +82,7 @@ class _SalesPaymentCreateScreenState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -215,7 +216,7 @@ class _SalesPaymentCreateScreenState
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFD1D5DB)),
+          border: Border.all(color: AppTheme.borderColor),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
@@ -228,7 +229,7 @@ class _SalesPaymentCreateScreenState
             const Icon(
               LucideIcons.calendar,
               size: 16,
-              color: Color(0xFF6B7280),
+              color: AppTheme.textSecondary,
             ),
           ],
         ),
@@ -241,7 +242,7 @@ class _SalesPaymentCreateScreenState
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,

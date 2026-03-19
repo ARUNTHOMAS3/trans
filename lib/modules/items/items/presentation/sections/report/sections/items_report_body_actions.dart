@@ -257,13 +257,13 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
                         decoration: InputDecoration(
                           hintText: 'Search items...',
                           hintStyle: const TextStyle(
-                            color: Color(0xFF9CA3AF),
+                            color: AppTheme.textMuted,
                             fontSize: 13,
                           ),
                           prefixIcon: const Icon(
                             Icons.search,
                             size: 18,
-                            color: Color(0xFF9CA3AF),
+                            color: AppTheme.textMuted,
                           ),
                           suffixIcon: _searchQuery.isNotEmpty
                               ? IconButton(
@@ -280,7 +280,7 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
                                 )
                               : null,
                           filled: true,
-                          fillColor: const Color(0xFFF9FAFB),
+                          fillColor: AppTheme.bgLight,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
@@ -288,19 +288,19 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(6),
                             borderSide: const BorderSide(
-                              color: Color(0xFFD1D5DB),
+                              color: AppTheme.borderColor,
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(6),
                             borderSide: const BorderSide(
-                              color: Color(0xFFD1D5DB),
+                              color: AppTheme.borderColor,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(6),
                             borderSide: const BorderSide(
-                              color: Color(0xFF2563EB),
+                              color: AppTheme.primaryBlueDark,
                             ),
                           ),
                         ),
@@ -311,8 +311,8 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
                       icon: Icon(
                         Icons.view_list_outlined,
                         color: _viewMode == _ItemsViewMode.list
-                            ? const Color(0xFF2563EB)
-                            : const Color(0xFF4B5563),
+                            ? AppTheme.primaryBlueDark
+                            : AppTheme.textSubtle,
                       ),
                       tooltip: 'List view',
                       onPressed: () {
@@ -325,8 +325,8 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
                       icon: Icon(
                         Icons.grid_view_outlined,
                         color: _viewMode == _ItemsViewMode.grid
-                            ? const Color(0xFF2563EB)
-                            : const Color(0xFF4B5563),
+                            ? AppTheme.primaryBlueDark
+                            : AppTheme.textSubtle,
                       ),
                       tooltip: 'Grid view',
                       onPressed: () {
@@ -341,7 +341,7 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
                       message: 'New Item (/)',
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF22C55E),
+                          backgroundColor: AppTheme.successGreen,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 18,
                             vertical: 10,
@@ -373,11 +373,11 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
                         color: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(6),
-                          side: const BorderSide(color: Color(0xFFD1D5DB)),
+                          side: const BorderSide(color: AppTheme.borderColor),
                         ),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(6),
-                          hoverColor: const Color(0xFFF3F4F6),
+                          hoverColor: AppTheme.bgDisabled,
                           onTap: _toggleMoreMenu,
                           child: const SizedBox(
                             height: 36,
@@ -385,7 +385,7 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
                             child: Icon(
                               Icons.more_vert,
                               size: 20,
-                              color: Color(0xFF4B5563),
+                              color: AppTheme.textSubtle,
                             ),
                           ),
                         ),
@@ -418,8 +418,8 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        color: AppTheme.bgLight,
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(6),
       ),
       child: SingleChildScrollView(
@@ -431,7 +431,7 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
             const SizedBox(width: 12),

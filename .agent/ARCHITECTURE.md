@@ -33,6 +33,8 @@
 - Keep empty states and error states explicit instead of masking failures with fabricated business values.
 - Resolve master defaults from DB-backed rows where schema-backed master tables exist.
 - Centralize reusable control styling and behavior instead of duplicating ERP patterns per screen.
+- Use the shared responsive Flutter foundation for web layouts: global breakpoints, shared responsive table shells, shared responsive form rows/grids, shared responsive dialog width rules, and sidebar-aware shell/content metrics.
+- New modules and major sub-screens must be deep-linkable through GoRouter so refresh, direct URLs, and browser navigation preserve context.
 - Keep warehouse masters, storage/location masters, accounting stock, and physical stock as separate concepts.
 - Keep save/create buttons, cancel/secondary actions, upload affordances, and border/divider treatments on centralized theme rules rather than screen-local color choices.
 

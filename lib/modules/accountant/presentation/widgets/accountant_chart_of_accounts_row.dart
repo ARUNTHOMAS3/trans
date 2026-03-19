@@ -210,7 +210,7 @@ class _AccountRowState extends ConsumerState<AccountRow> {
                                 overflow: overflow,
                                 style: const TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF64748B), // Slate 500
+                                  color: AppTheme.textSecondary, // Slate 500
                                 ),
                               ),
                             ],
@@ -375,7 +375,7 @@ class _AccountRowState extends ConsumerState<AccountRow> {
                                   child: Icon(
                                     LucideIcons.lock,
                                     size: 14,
-                                    color: Color(0xFF94A3B8), // Slate 400
+                                    color: AppTheme.textDisabled, // Slate 400
                                   ),
                                 )
                               : InkWell(
@@ -389,14 +389,14 @@ class _AccountRowState extends ConsumerState<AccountRow> {
                                       borderRadius: BorderRadius.circular(4),
                                       border: Border.all(
                                         color: isSelectedInBulk
-                                            ? const Color(0xFF3B82F6)
+                                            ? AppTheme.infoBlue
                                             : const Color(
                                                 0xFFCBD5E1,
                                               ), // Slate 300 for better visibility
                                         width: 1.5,
                                       ),
                                       color: isSelectedInBulk
-                                          ? const Color(0xFF3B82F6)
+                                          ? AppTheme.infoBlue
                                           : Colors.transparent,
                                     ),
                                     child: isSelectedInBulk
@@ -728,7 +728,7 @@ class _ActionMenuState extends State<_ActionMenu> {
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
-            side: const BorderSide(color: Color(0xFFE2E8F0)),
+            side: const BorderSide(color: AppTheme.borderLight),
           ),
         ),
         padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 4)),
@@ -772,16 +772,16 @@ class _ActionMenuState extends State<_ActionMenu> {
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             color: widget.isMenuOpen
-                ? const Color(0xFFEFF6FF)
-                : const Color(0xFFF1F5F9),
+                ? AppTheme.infoBg
+                : AppTheme.bgLight,
             shape: BoxShape.circle,
           ),
           child: Icon(
             LucideIcons.settings,
             size: 14,
             color: widget.isMenuOpen
-                ? const Color(0xFF3B82F6)
-                : const Color(0xFF64748B),
+                ? AppTheme.infoBlue
+                : AppTheme.textSecondary,
           ),
         ),
       ),
@@ -815,7 +815,7 @@ class _MenuItemState extends State<_MenuItem> {
         ? Colors.white
         : widget.isDestructive
         ? AppTheme.errorRed
-        : const Color(0xFF374151);
+        : AppTheme.textBody;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -829,7 +829,7 @@ class _MenuItemState extends State<_MenuItem> {
             color: _hovered
                 ? (widget.isDestructive
                       ? AppTheme.errorRed
-                      : const Color(0xFF3B82F6))
+                      : AppTheme.infoBlue)
                 : Colors.transparent,
           ),
           child: Row(
@@ -902,7 +902,7 @@ class _TreeGuidePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFE5E7EB)
+      ..color = AppTheme.borderColor
       ..strokeWidth = 1;
 
     for (int i = 0; i < level - 1; i++) {

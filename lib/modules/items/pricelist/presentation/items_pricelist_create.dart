@@ -6,6 +6,7 @@ import '../../../../shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import '../models/pricelist_model.dart';
 import '../providers/pricelist_provider.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 /// Price List Creation Screen - Inventory → Items → Price Lists → New
 ///
@@ -174,11 +175,11 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                   child: Container(
                     height: 52,
                     decoration: const BoxDecoration(
-                      color: Color(0xFFF9FAFB),
+                      color: AppTheme.bgLight,
                       border: Border(
-                        top: BorderSide(color: Color(0xFFE5E7EB)),
-                        left: BorderSide(color: Color(0xFFE5E7EB)),
-                        right: BorderSide(color: Color(0xFFE5E7EB)),
+                        top: BorderSide(color: AppTheme.borderColor),
+                        left: BorderSide(color: AppTheme.borderColor),
+                        right: BorderSide(color: AppTheme.borderColor),
                       ),
                       borderRadius: BorderRadius.only(
                         topLeft: Radius.circular(4),
@@ -209,7 +210,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                                   }
                                 });
                               },
-                              activeColor: const Color(0xFF2563EB),
+                              activeColor: AppTheme.primaryBlueDark,
                             ),
                           ),
                         ),
@@ -251,14 +252,14 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                         return Container(
                           decoration: BoxDecoration(
                             border: Border(
-                              left: const BorderSide(color: Color(0xFFE5E7EB)),
-                              right: const BorderSide(color: Color(0xFFE5E7EB)),
+                              left: const BorderSide(color: AppTheme.borderColor),
+                              right: const BorderSide(color: AppTheme.borderColor),
                               bottom: const BorderSide(
-                                color: Color(0xFFE5E7EB),
+                                color: AppTheme.borderColor,
                               ),
                               top: index == 0
                                   ? BorderSide.none
-                                  : const BorderSide(color: Color(0xFFE5E7EB)),
+                                  : const BorderSide(color: AppTheme.borderColor),
                             ),
                             borderRadius: isLast
                                 ? const BorderRadius.only(
@@ -347,14 +348,14 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              border: Border.all(color: AppTheme.borderColor),
             ),
             child: TextFormField(
               controller: _descriptionController,
               maxLines: 4,
               decoration: const InputDecoration(
                 hintText: 'Enter the description',
-                hintStyle: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+                hintStyle: TextStyle(fontSize: 13, color: AppTheme.textMuted),
                 contentPadding: EdgeInsets.all(12),
                 border: InputBorder.none,
               ),
@@ -444,7 +445,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                   child: const Text(
                     'View Examples',
                     style: TextStyle(
-                      color: Color(0xFF2563EB),
+                      color: AppTheme.primaryBlueDark,
                       fontSize: 13,
                       decoration: TextDecoration.underline,
                     ),
@@ -469,17 +470,17 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
               Checkbox(
                 value: _isDiscountEnabled,
                 onChanged: (val) => setState(() => _isDiscountEnabled = val!),
-                activeColor: const Color(0xFF2563EB),
+                activeColor: AppTheme.primaryBlueDark,
               ),
               const Text(
                 'I want to include discount percentage for the items',
-                style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                style: TextStyle(fontSize: 13, color: AppTheme.textBody),
               ),
               const SizedBox(width: 8),
               const Icon(
                 Icons.info_outline,
                 size: 16,
-                color: Color(0xFF2563EB),
+                color: AppTheme.primaryBlueDark,
               ),
             ],
           ),
@@ -496,7 +497,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF111827),
+                    color: AppTheme.textPrimary,
                   ),
                 ),
                 if (_selectionError != null) ...[
@@ -507,7 +508,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2),
+                      color: AppTheme.errorBg,
                       border: Border.all(color: const Color(0xFFFCA5A5)),
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -517,13 +518,13 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                         const Icon(
                           Icons.error_outline,
                           size: 16,
-                          color: Color(0xFFB91C1C),
+                          color: AppTheme.errorRedDark,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           _selectionError!,
                           style: const TextStyle(
-                            color: Color(0xFFB91C1C),
+                            color: AppTheme.errorRedDark,
                             fontSize: 13,
                           ),
                         ),
@@ -533,7 +534,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                           child: const Icon(
                             Icons.close,
                             size: 14,
-                            color: Color(0xFFB91C1C),
+                            color: AppTheme.errorRedDark,
                           ),
                         ),
                       ],
@@ -549,7 +550,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                   ),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF2563EB),
+                    foregroundColor: AppTheme.primaryBlueDark,
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -561,12 +562,12 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
               children: [
                 const Text(
                   'Import Price List for Items',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textBody),
                 ),
                 Switch(
                   value: false,
                   onChanged: (v) {},
-                  activeThumbColor: const Color(0xFF2563EB),
+                  activeThumbColor: AppTheme.primaryBlueDark,
                 ),
               ],
             ),
@@ -579,7 +580,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
   Widget _buildEmptyItemsState() {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(4),
       ),
       padding: const EdgeInsets.all(48),
@@ -599,7 +600,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
             const SizedBox(height: 8),
             const Text(
               'Please create some items first to add them to this price list',
-              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
           ],
         ),
@@ -614,7 +615,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
       style: const TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF6B7280),
+        color: AppTheme.textSecondary,
       ),
     ),
   );
@@ -630,7 +631,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
               ),
             ),
             IconButton(
@@ -638,7 +639,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
               onPressed: () => setState(() => _isSearchVisible = true),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              color: const Color(0xFF6B7280),
+              color: AppTheme.textSecondary,
             ),
           ] else ...[
             Expanded(
@@ -726,13 +727,13 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF111827),
+                            color: AppTheme.textPrimary,
                           ),
                         ),
                         IconButton(
                           icon: const Icon(Icons.close, size: 20),
                           onPressed: () => Navigator.pop(context),
-                          color: const Color(0xFF6B7280),
+                          color: AppTheme.textSecondary,
                         ),
                       ],
                     ),
@@ -750,7 +751,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
-                                  color: Color(0xFF374151),
+                                  color: AppTheme.textBody,
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -794,7 +795,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                             'Start Quantity',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF6B7280),
+                              color: AppTheme.textSecondary,
                             ),
                           ),
                         ),
@@ -805,7 +806,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                             'End Quantity',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF6B7280),
+                              color: AppTheme.textSecondary,
                             ),
                           ),
                         ),
@@ -816,7 +817,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                             'Update By',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF6B7280),
+                              color: AppTheme.textSecondary,
                             ),
                           ),
                         ),
@@ -865,7 +866,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                                       child: Container(
                                         decoration: BoxDecoration(
                                           border: Border.all(
-                                            color: const Color(0xFFD1D5DB),
+                                            color: AppTheme.borderColor,
                                           ),
                                           borderRadius: BorderRadius.circular(
                                             4,
@@ -903,7 +904,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                                             Container(
                                               width: 1,
                                               height: 34,
-                                              color: const Color(0xFFD1D5DB),
+                                              color: AppTheme.borderColor,
                                             ),
                                             SizedBox(
                                               width: 45,
@@ -916,7 +917,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                                                   ),
                                                   style: const TextStyle(
                                                     fontSize: 13,
-                                                    color: Color(0xFF374151),
+                                                    color: AppTheme.textBody,
                                                   ),
                                                   items: const [
                                                     DropdownMenuItem(
@@ -946,7 +947,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                                         icon: const Icon(
                                           Icons.delete_outline,
                                           size: 18,
-                                          color: Color(0xFFB91C1C),
+                                          color: AppTheme.errorRedDark,
                                         ),
                                         onPressed: () {
                                           if (bulkRanges.length > 1) {
@@ -988,7 +989,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                         ),
                       ),
                       style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF2563EB),
+                        foregroundColor: AppTheme.primaryBlueDark,
                       ),
                     ),
 
@@ -1067,7 +1068,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                             Navigator.pop(context);
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF10B981),
+                            backgroundColor: AppTheme.accentGreen,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 24,
@@ -1083,12 +1084,12 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                         OutlinedButton(
                           onPressed: () => Navigator.pop(context),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF374151),
+                            foregroundColor: AppTheme.textBody,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 24,
                               vertical: 12,
                             ),
-                            side: const BorderSide(color: Color(0xFFD1D5DB)),
+                            side: const BorderSide(color: AppTheme.borderColor),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(4),
                             ),
@@ -1132,7 +1133,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                     }
                   });
                 },
-                activeColor: const Color(0xFF2563EB),
+                activeColor: AppTheme.primaryBlueDark,
               ),
             ),
           ),
@@ -1148,7 +1149,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF2563EB),
+                      color: AppTheme.primaryBlueDark,
                     ),
                   ),
                   if (item.sku != null && item.sku!.isNotEmpty)
@@ -1156,7 +1157,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                       'SKU: ${item.sku}',
                       style: const TextStyle(
                         fontSize: 11,
-                        color: Color(0xFF6B7280),
+                        color: AppTheme.textSecondary,
                       ),
                     ),
                 ],
@@ -1169,7 +1170,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 '₹${salesPrice.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
               ),
             ),
           ),
@@ -1254,7 +1255,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
           );
         },
         decoration: _inputDecoration(prefixText: '₹').copyWith(
-          fillColor: isAllItems ? const Color(0xFFF3F4F6) : Colors.white,
+          fillColor: isAllItems ? AppTheme.bgDisabled : Colors.white,
           filled: isAllItems,
         ),
         style: const TextStyle(fontSize: 13),
@@ -1321,7 +1322,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
         },
         decoration: _inputDecoration().copyWith(
           suffixText: '%',
-          fillColor: isAllItems ? const Color(0xFFF3F4F6) : Colors.white,
+          fillColor: isAllItems ? AppTheme.bgDisabled : Colors.white,
           filled: isAllItems,
         ),
         style: const TextStyle(fontSize: 13),
@@ -1435,7 +1436,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
             icon: const Icon(Icons.add_circle_outline, size: 16),
             label: const Text(
               'Add New Range',
-              style: TextStyle(fontSize: 12, color: Color(0xFF2563EB)),
+              style: TextStyle(fontSize: 12, color: AppTheme.primaryBlueDark),
             ),
           ),
         ),
@@ -1561,10 +1562,10 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
           ],
         ),
         content: Table(
-          border: TableBorder.all(color: const Color(0xFFE5E7EB)),
+          border: TableBorder.all(color: AppTheme.borderColor),
           children: const [
             TableRow(
-              decoration: BoxDecoration(color: Color(0xFFF9FAFB)),
+              decoration: BoxDecoration(color: AppTheme.bgLight),
               children: [
                 Padding(
                   padding: EdgeInsets.all(8),
@@ -1660,16 +1661,16 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
           child: RichText(
             text: TextSpan(
               text: label,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF374151)),
+              style: const TextStyle(fontSize: 14, color: AppTheme.textBody),
               children: [
                 if (required)
                   const TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Color(0xFFDC2626)),
+                    style: TextStyle(color: AppTheme.errorRed),
                   ),
                 TextSpan(
                   text: '',
-                  style: const TextStyle(color: Color(0xFF374151)),
+                  style: const TextStyle(color: AppTheme.textBody),
                 ),
               ],
             ),
@@ -1698,8 +1699,8 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
               shape: BoxShape.circle,
               border: Border.all(
                 color: isSelected
-                    ? const Color(0xFF2563EB)
-                    : const Color(0xFF9CA3AF),
+                    ? AppTheme.primaryBlueDark
+                    : AppTheme.textMuted,
                 width: isSelected ? 5 : 1,
               ),
             ),
@@ -1707,7 +1708,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
           const SizedBox(width: 8),
           Text(
             label ?? v,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF111827)),
+            style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary),
           ),
         ],
       ),
@@ -1727,12 +1728,12 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFF0F7FF) : Colors.white,
+            color: isSelected ? AppTheme.selectionActiveBg : Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected
-                  ? const Color(0xFF2563EB)
-                  : const Color(0xFFE5E7EB),
+                  ? AppTheme.primaryBlueDark
+                  : AppTheme.borderColor,
               width: isSelected ? 1.5 : 1,
             ),
           ),
@@ -1745,8 +1746,8 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                     isSelected ? Icons.check_circle : Icons.radio_button_off,
                     size: 16,
                     color: isSelected
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFF9CA3AF),
+                        ? AppTheme.primaryBlueDark
+                        : AppTheme.textMuted,
                   ),
                   const SizedBox(width: 8),
                   Flexible(
@@ -1756,8 +1757,8 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: isSelected
-                            ? const Color(0xFF1E40AF)
-                            : const Color(0xFF374151),
+                            ? AppTheme.infoTextDark
+                            : AppTheme.textBody,
                       ),
                     ),
                   ),
@@ -1769,8 +1770,8 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                 style: TextStyle(
                   fontSize: 11,
                   color: isSelected
-                      ? const Color(0xFF1E40AF).withValues(alpha: 0.8)
-                      : const Color(0xFF6B7280),
+                      ? AppTheme.infoTextDark.withValues(alpha: 0.8)
+                      : AppTheme.textSecondary,
                   height: 1.3,
                 ),
                 maxLines: 2,
@@ -1801,22 +1802,22 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
       InputDecoration(
         hintText: hintText,
         prefixText: prefixText,
-        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 10,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+          borderSide: const BorderSide(color: AppTheme.borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+          borderSide: const BorderSide(color: AppTheme.borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1),
+          borderSide: const BorderSide(color: AppTheme.primaryBlueDark, width: 1),
         ),
         filled: true,
         fillColor: Colors.white,
@@ -1827,14 +1828,14 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
     padding: const EdgeInsets.all(24),
     decoration: const BoxDecoration(
       color: Colors.white,
-      border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
+      border: Border(top: BorderSide(color: AppTheme.bgDisabled)),
     ),
     child: Row(
       children: [
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submitForm,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: AppTheme.successGreen,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             elevation: 0,
@@ -1863,8 +1864,8 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
         OutlinedButton(
           onPressed: () => Navigator.pop(context),
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF374151),
-            side: const BorderSide(color: Color(0xFFE5E7EB)),
+            foregroundColor: AppTheme.textBody,
+            side: const BorderSide(color: AppTheme.borderColor),
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(4),
@@ -1916,7 +1917,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppTheme.errorRed,
           ),
         );
       }

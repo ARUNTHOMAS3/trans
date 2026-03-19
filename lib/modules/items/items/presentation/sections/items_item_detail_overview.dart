@@ -331,7 +331,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
       style: const TextStyle(
         fontSize: 15,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF111827),
+        color: AppTheme.textPrimary,
       ),
     );
   }
@@ -358,7 +358,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                   child: Text(
                     label,
                     style: const TextStyle(
-                      color: Color(0xFF6B7280),
+                      color: AppTheme.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
                     ),
@@ -452,7 +452,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
           : value,
       style: const TextStyle(
         fontSize: 13,
-        color: Color(0xFF111827),
+        color: AppTheme.textPrimary,
         fontWeight: FontWeight.w500,
       ),
     );
@@ -490,7 +490,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
       entries.join(' + '),
       style: const TextStyle(
         fontSize: 13,
-        color: Color(0xFF111827),
+        color: AppTheme.textPrimary,
         fontWeight: FontWeight.w500,
       ),
     );
@@ -502,7 +502,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
       style: const TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF111827),
+        color: AppTheme.textPrimary,
       ),
     );
   }
@@ -519,14 +519,14 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
         const Icon(
           Icons.inventory_2_outlined,
           size: 18,
-          color: Color(0xFF2563EB),
+          color: AppTheme.primaryBlueDark,
         ),
         const SizedBox(width: 8),
         const Text(
           'Opening Stock ',
           style: TextStyle(
             fontSize: 13,
-            color: Color(0xFF4B5563),
+            color: AppTheme.textSubtle,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -535,7 +535,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
           ' : ${_formatQty(item.openingStock ?? 0)}',
           style: const TextStyle(
             fontSize: 13,
-            color: Color(0xFF111827),
+            color: AppTheme.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -556,7 +556,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
             const SizedBox(width: 6),
@@ -587,7 +587,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111827),
+                color: AppTheme.textPrimary,
               ),
             ),
             const SizedBox(width: 6),
@@ -611,8 +611,8 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: stock.variance > 0
-                  ? const Color(0xFF059669)
-                  : const Color(0xFFDC2626),
+                  ? AppTheme.successDark
+                  : AppTheme.errorRed,
             ),
           ),
         ],
@@ -701,7 +701,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFF3F4F6)),
+        border: Border.all(color: AppTheme.bgDisabled),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -716,20 +716,23 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF111827),
+                  color: AppTheme.textPrimary,
                 ),
               ),
               const SizedBox(width: 4),
               Text(
                 unit,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondary,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
         ],
       ),
@@ -749,11 +752,11 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                 key: _reorderPointKey,
                 style: const TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF4B5563),
+                  color: AppTheme.textSubtle,
                   fontWeight: FontWeight.w500,
                   decoration: TextDecoration.underline,
                   decorationStyle: TextDecorationStyle.dashed,
-                  decorationColor: Color(0xFFD1D5DB),
+                  decorationColor: AppTheme.borderColor,
                 ),
               ),
               const SizedBox(height: 12),
@@ -764,13 +767,17 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (item.reorderPoint == 0) ...[
-                      const Icon(Icons.add, size: 14, color: Color(0xFF2563EB)),
+                      const Icon(
+                        Icons.add,
+                        size: 14,
+                        color: AppTheme.primaryBlueDark,
+                      ),
                       const SizedBox(width: 4),
                       const Text(
                         'Add',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF2563EB),
+                          color: AppTheme.primaryBlueDark,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -779,7 +786,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                         item.reorderPoint.toString(),
                         style: const TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF111827),
+                          color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -787,7 +794,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                       const Icon(
                         Icons.edit_outlined,
                         size: 14,
-                        color: Color(0xFF2563EB),
+                        color: AppTheme.primaryBlueDark,
                       ),
                     ],
                   ],
@@ -802,15 +809,15 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Reorder Terms',
+                'Reorder Rule',
                 key: _reorderTermsKey,
                 style: const TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF4B5563),
+                  color: AppTheme.textSubtle,
                   fontWeight: FontWeight.w500,
                   decoration: TextDecoration.underline,
                   decorationStyle: TextDecorationStyle.dashed,
-                  decorationColor: Color(0xFFD1D5DB),
+                  decorationColor: AppTheme.borderColor,
                 ),
               ),
               const SizedBox(height: 12),
@@ -821,13 +828,17 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (reorderTermName == 'N/A') ...[
-                      const Icon(Icons.add, size: 14, color: Color(0xFF2563EB)),
+                      const Icon(
+                        Icons.add,
+                        size: 14,
+                        color: AppTheme.primaryBlueDark,
+                      ),
                       const SizedBox(width: 4),
                       const Text(
                         'Add',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF2563EB),
+                          color: AppTheme.primaryBlueDark,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -836,7 +847,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                         reorderTermName,
                         style: const TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF111827),
+                          color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -844,7 +855,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                       const Icon(
                         Icons.edit_outlined,
                         size: 14,
-                        color: Color(0xFF2563EB),
+                        color: AppTheme.primaryBlueDark,
                       ),
                     ],
                   ],
@@ -865,7 +876,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -878,7 +889,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                   'Sales Order Summary (In INR)',
                   style: TextStyle(
                     fontSize: 15,
-                    color: Color(0xFF4B5563),
+                    color: AppTheme.textSubtle,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -893,7 +904,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                         _selectedPeriod,
                         style: const TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF111827),
+                          color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -908,7 +919,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+          const Divider(height: 1, color: AppTheme.borderColor),
           SizedBox(
             height: 350,
             child: Row(
@@ -953,7 +964,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                                         6,
                                         (index) => Container(
                                           height: 1,
-                                          color: const Color(0xFFF3F4F6),
+                                          color: AppTheme.bgDisabled,
                                         ),
                                       ),
                                     ),
@@ -973,7 +984,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                                             'No data found.',
                                             style: TextStyle(
                                               fontSize: 14,
-                                              color: Color(0xFF9CA3AF),
+                                              color: AppTheme.textMuted,
                                             ),
                                           ),
                                         ],
@@ -1002,14 +1013,14 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                                             day,
                                             style: const TextStyle(
                                               fontSize: 11,
-                                              color: Color(0xFF6B7280),
+                                              color: AppTheme.textSecondary,
                                             ),
                                           ),
                                           const Text(
                                             'Jan',
                                             style: TextStyle(
                                               fontSize: 10,
-                                              color: Color(0xFF9CA3AF),
+                                              color: AppTheme.textMuted,
                                             ),
                                           ),
                                         ],
@@ -1025,7 +1036,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                     ),
                   ),
                 ),
-                const VerticalDivider(width: 1, color: Color(0xFFE5E7EB)),
+                const VerticalDivider(width: 1, color: AppTheme.borderColor),
                 Expanded(
                   flex: 1,
                   child: Padding(
@@ -1037,7 +1048,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                           'Total Sales',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Color(0xFF4B5563),
+                            color: AppTheme.textSubtle,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -1071,7 +1082,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                                     'DIRECT SALES',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: Color(0xFF111827),
+                                      color: AppTheme.textPrimary,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -1082,7 +1093,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                                 'n/a',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Color(0xFF111827),
+                                  color: AppTheme.textPrimary,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -1106,7 +1117,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
       label,
       style: const TextStyle(
         fontSize: 11,
-        color: Color(0xFF6B7280),
+        color: AppTheme.textSecondary,
         fontWeight: FontWeight.w400,
       ),
     );
@@ -1144,7 +1155,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(color: AppTheme.borderColor),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1193,10 +1204,10 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF3B82F6) : Colors.transparent,
+          color: isSelected ? AppTheme.infoBlue : Colors.transparent,
           border: isSelected
               ? const Border(
-                  left: BorderSide(color: Color(0xFF3B82F6), width: 3),
+                  left: BorderSide(color: AppTheme.infoBlue, width: 3),
                 )
               : null,
         ),
@@ -1206,7 +1217,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
               period,
               style: TextStyle(
                 fontSize: 13,
-                color: isSelected ? Colors.white : const Color(0xFF374151),
+                color: isSelected ? Colors.white : AppTheme.textBody,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
@@ -1227,11 +1238,11 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
               label,
               style: const TextStyle(
                 fontSize: 13,
-                color: Color(0xFF4B5563),
+                color: AppTheme.textSubtle,
                 fontWeight: FontWeight.w400,
                 decoration: TextDecoration.underline,
                 decorationStyle: TextDecorationStyle.dotted,
-                decorationColor: Color(0xFFD1D5DB),
+                decorationColor: AppTheme.borderColor,
               ),
             ),
           ),
@@ -1239,7 +1250,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
             ' : ${_formatQty(value)}',
             style: const TextStyle(
               fontSize: 13,
-              color: Color(0xFF2563EB),
+              color: AppTheme.primaryBlueDark,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1260,9 +1271,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
         width: 260,
         height: 220,
         child: DottedBorder(
-          color: _isImageDragging
-              ? const Color(0xFF3B7CFF)
-              : const Color(0xFFD1D5DB),
+          color: _isImageDragging ? AppTheme.primaryBlue : AppTheme.borderColor,
           strokeWidth: _isImageDragging ? 2 : 1,
           dashPattern: _isImageDragging ? const [1, 0] : const [4, 4],
           borderType: BorderType.RRect,
@@ -1270,7 +1279,9 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Container(
-              color: _isImageDragging ? const Color(0xFFF0F7FF) : Colors.white,
+              color: _isImageDragging
+                  ? AppTheme.selectionActiveBg
+                  : Colors.white,
               child: _itemImages.isEmpty
                   ? InkWell(onTap: _pickItemImages, child: _emptyImageState())
                   : Padding(
@@ -1336,21 +1347,17 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.image_outlined,
-              size: 42,
-              color: const Color(0xFF6B7280),
-            ),
+            Icon(Icons.image_outlined, size: 42, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text(
               "Drag image(s) here or",
-              style: TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSubtle),
             ),
             const Text(
               "Browse images",
               style: TextStyle(
                 fontSize: 13,
-                color: Color(0xFF2563EB),
+                color: AppTheme.primaryBlueDark,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1403,9 +1410,9 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
 
   Widget _errorImagePlaceholder() {
     return Container(
-      color: const Color(0xFFF3F4F6),
+      color: AppTheme.bgDisabled,
       child: const Center(
-        child: Icon(Icons.broken_image_outlined, color: Color(0xFF9CA3AF)),
+        child: Icon(Icons.broken_image_outlined, color: AppTheme.textMuted),
       ),
     );
   }
@@ -1419,7 +1426,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
             "Primary",
             style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF16A34A),
+              color: AppTheme.successGreen,
               fontWeight: FontWeight.w600,
             ),
           )
@@ -1513,7 +1520,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
                         border: Border.all(
                           color: isActive
                               ? const Color(0xFF0F6CBD)
-                              : const Color(0xFFD1D5DB),
+                              : AppTheme.borderColor,
                           width: isActive ? 2 : 1,
                         ),
                         borderRadius: BorderRadius.circular(4),
@@ -1571,7 +1578,7 @@ extension _ItemDetailOverview on _ItemDetailScreenState {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFD1D5DB)),
+                border: Border.all(color: AppTheme.borderColor),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Icon(Icons.add, size: 16),

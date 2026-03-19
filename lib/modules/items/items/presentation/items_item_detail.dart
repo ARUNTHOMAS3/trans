@@ -28,6 +28,9 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:zerpai_erp/shared/responsive/responsive_table_shell.dart';
+import 'package:zerpai_erp/core/layout/zerpai_shell_metrics.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 part 'sections/items_item_detail_overview.dart';
 part 'sections/items_item_detail_stock.dart';
@@ -393,7 +396,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
             Text(
               state.error!,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, color: Color(0xFF374151)),
+              style: const TextStyle(fontSize: 16, color: AppTheme.textBody),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
@@ -405,7 +408,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
+                backgroundColor: AppTheme.primaryBlueDark,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Retry'),
@@ -511,7 +514,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
             width: double.infinity,
             decoration: const BoxDecoration(
               color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -532,7 +535,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                         border: Border(
                           bottom: BorderSide(
                             color: isSelected
-                                ? const Color(0xFF2563EB)
+                                ? AppTheme.primaryBlueDark
                                 : Colors.transparent,
                             width: 2,
                           ),
@@ -547,8 +550,8 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                 ? FontWeight.w600
                                 : FontWeight.w500,
                             color: isSelected
-                                ? const Color(0xFF2563EB)
-                                : const Color(0xFF6B7280),
+                                ? AppTheme.primaryBlueDark
+                                : AppTheme.textSecondary,
                           ),
                         ),
                       ),
@@ -823,7 +826,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                         height: 12,
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          border: Border.all(color: AppTheme.borderColor),
                         ),
                       ),
                     ),
@@ -832,7 +835,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                     width: 240,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      border: Border.all(color: AppTheme.borderColor),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -850,7 +853,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF111827),
+                                  color: AppTheme.textPrimary,
                                 ),
                               ),
                               const Spacer(),
@@ -872,7 +875,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                 'Set Reorder point*',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Color(0xFFEF4444),
+                                  color: AppTheme.errorRed,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -886,7 +889,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                   textAlignVertical: TextAlignVertical.center,
                                   style: const TextStyle(
                                     fontSize: 13,
-                                    color: Color(0xFF111827),
+                                    color: AppTheme.textPrimary,
                                   ),
                                   decoration: InputDecoration(
                                     contentPadding: const EdgeInsets.symmetric(
@@ -895,19 +898,19 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(4),
                                       borderSide: const BorderSide(
-                                        color: Color(0xFF2563EB),
+                                        color: AppTheme.primaryBlueDark,
                                       ),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(4),
                                       borderSide: const BorderSide(
-                                        color: Color(0xFFD1D5DB),
+                                        color: AppTheme.borderColor,
                                       ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(4),
                                       borderSide: const BorderSide(
-                                        color: Color(0xFF2563EB),
+                                        color: AppTheme.primaryBlueDark,
                                         width: 1.5,
                                       ),
                                     ),
@@ -926,7 +929,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                   _reorderPointEntry = null;
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF10B981),
+                                  backgroundColor: AppTheme.accentGreen,
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   minimumSize: const Size(80, 36),
@@ -1012,9 +1015,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                               height: 12,
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                border: Border.all(
-                                  color: const Color(0xFFE5E7EB),
-                                ),
+                                border: Border.all(color: AppTheme.borderColor),
                               ),
                             ),
                           ),
@@ -1023,7 +1024,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                           width: 240,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            border: Border.all(color: AppTheme.borderColor),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1037,11 +1038,11 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                 child: Row(
                                   children: [
                                     const Text(
-                                      'Reorder Terms',
+                                      'Reorder Rule',
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
-                                        color: Color(0xFF111827),
+                                        color: AppTheme.textPrimary,
                                       ),
                                     ),
                                     const Spacer(),
@@ -1060,10 +1061,10 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      'Set Reorder Terms',
+                                      'Set Reorder Rule',
                                       style: TextStyle(
                                         fontSize: 13,
-                                        color: Color(0xFF6B7280),
+                                        color: AppTheme.textSecondary,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
@@ -1094,7 +1095,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                             ),
                                             decoration: BoxDecoration(
                                               border: Border.all(
-                                                color: const Color(0xFFD1D5DB),
+                                                color: AppTheme.borderColor,
                                               ),
                                               borderRadius:
                                                   BorderRadius.circular(4),
@@ -1124,14 +1125,15 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                                               'Select Terms'),
                                                     style: const TextStyle(
                                                       fontSize: 13,
-                                                      color: Color(0xFF111827),
+                                                      color:
+                                                          AppTheme.textPrimary,
                                                     ),
                                                   ),
                                                 ),
                                                 const SizedBox(width: 4),
                                                 const Icon(
                                                   Icons.arrow_drop_down,
-                                                  color: Color(0xFF6B7280),
+                                                  color: AppTheme.textSecondary,
                                                   size: 20,
                                                 ),
                                               ],
@@ -1257,7 +1259,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                       width: size.width,
                       constraints: const BoxConstraints(maxHeight: 300),
                       decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        border: Border.all(color: AppTheme.borderColor),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
@@ -1268,9 +1270,9 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                             child: Container(
                               height: 36,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF9FAFB),
+                                color: AppTheme.bgLight,
                                 border: Border.all(
-                                  color: const Color(0xFF2563EB),
+                                  color: AppTheme.primaryBlueDark,
                                   width: 1,
                                 ),
                                 borderRadius: BorderRadius.circular(4),
@@ -1281,12 +1283,12 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                   hintText: 'Search',
                                   hintStyle: TextStyle(
                                     fontSize: 13,
-                                    color: Color(0xFF9CA3AF),
+                                    color: AppTheme.textMuted,
                                   ),
                                   prefixIcon: Icon(
                                     Icons.search,
                                     size: 16,
-                                    color: Color(0xFF9CA3AF),
+                                    color: AppTheme.textMuted,
                                   ),
                                   border: InputBorder.none,
                                   isDense: true,
@@ -1325,7 +1327,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                     ),
                                     decoration: BoxDecoration(
                                       color: isSelected
-                                          ? const Color(0xFF2563EB)
+                                          ? AppTheme.primaryBlueDark
                                           : Colors.transparent,
                                     ),
                                     child: Text(
@@ -1334,7 +1336,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                         fontSize: 13,
                                         color: isSelected
                                             ? Colors.white
-                                            : const Color(0xFF374151),
+                                            : AppTheme.textBody,
                                         fontWeight: isSelected
                                             ? FontWeight.w500
                                             : FontWeight.normal,
@@ -1352,7 +1354,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                 'No matches found',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Color(0xFF6B7280),
+                                  color: AppTheme.textSecondary,
                                 ),
                               ),
                             ),
@@ -1531,7 +1533,9 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+                  border: Border(
+                    bottom: BorderSide(color: AppTheme.borderColor),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -1543,7 +1547,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF6B7280),
+                            color: AppTheme.textSecondary,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -1553,7 +1557,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF111827),
+                            color: AppTheme.textPrimary,
                           ),
                         ),
                       ],
@@ -1581,8 +1585,8 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                           'Status',
                           _statusLabel(tx.status),
                           valueColor: tx.status == 'confirmed'
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFF6B7280),
+                              ? AppTheme.accentGreen
+                              : AppTheme.textSecondary,
                         ),
                       ]),
                       const SizedBox(height: 32),
@@ -1613,7 +1617,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+                  border: Border(top: BorderSide(color: AppTheme.borderColor)),
                 ),
                 child: Row(
                   children: [
@@ -1622,7 +1626,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                         onPressed: () {},
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          side: const BorderSide(color: Color(0xFFD1D5DB)),
+                          side: const BorderSide(color: AppTheme.borderColor),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(4),
                           ),
@@ -1630,7 +1634,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                         child: const Text(
                           'Download PDF',
                           style: TextStyle(
-                            color: Color(0xFF374151),
+                            color: AppTheme.textBody,
                             fontSize: 13,
                           ),
                         ),
@@ -1641,7 +1645,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                       child: ElevatedButton(
                         onPressed: () {},
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB),
+                          backgroundColor: AppTheme.primaryBlueDark,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1674,7 +1678,7 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
           style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF9CA3AF),
+            color: AppTheme.textMuted,
             letterSpacing: 1,
           ),
         ),
@@ -1697,14 +1701,14 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
           ),
           Text(
             value,
             style: TextStyle(
               fontSize: 13,
               fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-              color: valueColor ?? const Color(0xFF111827),
+              color: valueColor ?? AppTheme.textPrimary,
             ),
           ),
         ],

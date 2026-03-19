@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ManagePaymentTermsDialog extends StatefulWidget {
   final List<dynamic> items;
@@ -280,7 +281,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
             if (_errorMessage != null) _buildPremiumErrorAlert(),
             _buildTable(),
             _buildAddNewLink(),
-            const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+            const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
             _buildFooter(),
           ],
         ),
@@ -293,9 +294,9 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
+        color: AppTheme.errorBg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFEE2E2)),
+        border: Border.all(color: AppTheme.errorBgBorder),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -310,7 +311,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: const Color(0xFFEF4444),
+              color: AppTheme.errorRed,
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Icon(
@@ -324,7 +325,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
             child: Text(
               _errorMessage!,
               style: const TextStyle(
-                color: Color(0xFF991B1B),
+                color: AppTheme.errorTextDark,
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
                 height: 1.4,
@@ -334,7 +335,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
           const SizedBox(width: 8),
           GestureDetector(
             onTap: _clearError,
-            child: const Icon(Icons.close, color: Color(0xFFEF4444), size: 16),
+            child: const Icon(Icons.close, color: AppTheme.errorRed, size: 16),
           ),
         ],
       ),
@@ -346,7 +347,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
@@ -355,13 +356,13 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           const Spacer(),
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close, size: 18, color: Color(0xFFE11D48)),
+            icon: const Icon(Icons.close, size: 18, color: AppTheme.errorRed),
             splashRadius: 20,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -397,12 +398,12 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: const BoxDecoration(
-              color: Color(0xFFF9FAFB),
+              color: AppTheme.bgLight,
               border: Border(
-                top: BorderSide(color: Color(0xFFE5E7EB)),
-                left: BorderSide(color: Color(0xFFE5E7EB)),
-                right: BorderSide(color: Color(0xFFE5E7EB)),
-                bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                top: BorderSide(color: AppTheme.borderColor),
+                left: BorderSide(color: AppTheme.borderColor),
+                right: BorderSide(color: AppTheme.borderColor),
+                bottom: BorderSide(color: AppTheme.borderColor),
               ),
             ),
             child: Row(
@@ -416,14 +417,14 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF6B7280),
+                        color: AppTheme.textSecondary,
                         letterSpacing: 0.5,
                       ),
                     ),
                   ),
                 ),
                 // Vertical Line
-                Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
+                Container(width: 1, height: 20, color: AppTheme.borderColor),
                 const Expanded(
                   flex: 2,
                   child: Padding(
@@ -433,7 +434,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF6B7280),
+                        color: AppTheme.textSecondary,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -466,9 +467,9 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
               decoration: const BoxDecoration(
                 color: Colors.white,
                 border: Border(
-                  left: BorderSide(color: Color(0xFFE5E7EB)),
-                  right: BorderSide(color: Color(0xFFE5E7EB)),
-                  bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                  left: BorderSide(color: AppTheme.borderColor),
+                  right: BorderSide(color: AppTheme.borderColor),
+                  bottom: BorderSide(color: AppTheme.borderColor),
                 ),
               ),
               child: Row(
@@ -481,7 +482,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
                   Container(
                     width: 1,
                     height: 40,
-                    color: const Color(0xFFE5E7EB),
+                    color: AppTheme.borderColor,
                   ),
                   Expanded(
                     flex: 2,
@@ -509,7 +510,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981), // Green-500
+                        color: AppTheme.accentGreen, // Green-500
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text(
@@ -536,7 +537,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
                         'Mark as Default',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF2563EB),
+                          color: AppTheme.primaryBlueDark,
                         ),
                       ),
                     ),
@@ -547,13 +548,13 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
                       icon: const Icon(
                         Icons.delete_outline,
                         size: 14,
-                        color: Color(0xFFDC2626),
+                        color: AppTheme.errorRed,
                       ),
                       label: const Text(
                         'Delete',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFFDC2626),
+                          color: AppTheme.errorRed,
                         ),
                       ),
                       style: TextButton.styleFrom(
@@ -602,21 +603,21 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
                 ),
                 hintText: field == 'term_name' ? 'Net' : '0',
                 hintStyle: const TextStyle(
-                  color: Color(0xFF9CA3AF),
+                  color: AppTheme.textMuted,
                   fontSize: 13,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                  borderSide: const BorderSide(color: AppTheme.borderColor),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                  borderSide: const BorderSide(color: AppTheme.borderColor),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
                   borderSide: const BorderSide(
-                    color: Color(0xFF3B82F6),
+                    color: AppTheme.infoBlue,
                     width: 1.5,
                   ),
                 ),
@@ -636,7 +637,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Text(
                 controller.text,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
               ),
             ),
     );
@@ -651,13 +652,13 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: const [
-            Icon(Icons.add_circle, size: 16, color: Color(0xFF2563EB)),
+            Icon(Icons.add_circle, size: 16, color: AppTheme.primaryBlueDark),
             SizedBox(width: 8),
             Text(
               'Add New',
               style: TextStyle(
                 fontSize: 13,
-                color: Color(0xFF2563EB),
+                color: AppTheme.primaryBlueDark,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -676,7 +677,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
           ElevatedButton(
             onPressed: _isSaving ? null : _saveChanges,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981), // Green-500
+              backgroundColor: AppTheme.accentGreen, // Green-500
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -703,11 +704,11 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
             onPressed: () => Navigator.pop(context),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              side: const BorderSide(color: Color(0xFFD1D5DB)),
+              side: const BorderSide(color: AppTheme.borderColor),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
-              foregroundColor: const Color(0xFF374151),
+              foregroundColor: AppTheme.textBody,
             ),
             child: const Text('Cancel'),
           ),

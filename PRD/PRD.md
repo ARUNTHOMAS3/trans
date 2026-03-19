@@ -550,6 +550,8 @@ These rules prevent overflow, unbounded constraints, and broken layouts. **All d
 3. **Safe Text Rule:** Any text from API/DB must define `maxLines` and `overflow` (e.g., `TextOverflow.ellipsis`) so long strings never break layout.
 4. **Responsive Rule (Web Critical):** Avoid fixed pixel widths for major layout regions. Use `Flex`/`Expanded` ratios or `LayoutBuilder` constraints. Fixed widths are allowed only for icons, small controls, or min/max bounds.
 5. **Constraint Inspection Rule:** If a layout breaks, check parent constraints first. Preferred hierarchy: `Scaffold -> Column -> Expanded -> Row -> Expanded -> Scrollable` for complex dashboards.
+6. **Shared Responsive Foundation Rule:** Web-facing Flutter screens must use the shared responsive foundation rather than ad hoc overflow fixes: global breakpoints, shared responsive table shells for dense tables, shared responsive form rows/grids, shared responsive dialog width rules, and sidebar-aware shell/content metrics.
+7. **Deep Linking Rule:** New modules and major internal sub-screens must expose deep-linkable GoRouter routes from the beginning so refresh, direct URL entry, and browser navigation preserve working context instead of dropping users back to a parent page.
 
 ### 14.5 Table System (CRITICAL SECTION)
 

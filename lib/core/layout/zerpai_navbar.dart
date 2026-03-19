@@ -532,7 +532,7 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF9CA3AF),
+                    color: AppTheme.textMuted,
                   ),
                 ),
               ),

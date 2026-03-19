@@ -1,8 +1,8 @@
 // PATH: lib/modules/auth/repositories/auth_repository.dart
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import '../models/user_model.dart';
 
@@ -11,13 +11,16 @@ class AuthRepository {
 
   static const _tokenKey = 'auth_token';
   static const _userKey = 'user_data';
+  static const _boxName = 'config';
 
   AuthRepository({required ApiClient apiClient}) : _apiClient = apiClient;
+
+  Box get _box => Hive.box(_boxName);
 
   /// Login user with email and password
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
-      debugPrint('Attempting login for user: $email');
+      AppLogger.debug('Attempting login', data: {'email': email}, module: 'auth');
 
       final response = await _apiClient.post(
         '/auth/login',
@@ -29,17 +32,16 @@ class AuthRepository {
         final token = data['access_token'] as String;
         final userData = data['user'] as Map<String, dynamic>;
 
-        // Save token and user data securely
         await _saveToken(token);
         await _saveUserData(userData);
 
-        debugPrint('Login successful for user: $email');
+        AppLogger.debug('Login successful', data: {'email': email}, module: 'auth');
         return {'token': token, 'user': User.fromJson(userData)};
       } else {
         throw Exception(response.message ?? 'Login failed');
       }
     } catch (e) {
-      debugPrint('Login failed: $e');
+      AppLogger.error('Login failed', error: e, module: 'auth');
       rethrow;
     }
   }
@@ -47,19 +49,17 @@ class AuthRepository {
   /// Logout current user
   Future<void> logout() async {
     try {
-      debugPrint('Logging out user');
+      AppLogger.debug('Logging out user', module: 'auth');
 
-      final token = await getToken();
+      final token = getToken();
       if (token != null) {
         await _apiClient.post('/auth/logout', data: {});
       }
 
-      // Clear stored data
       await _clearStoredData();
-      debugPrint('Logout successful');
+      AppLogger.debug('Logout successful', module: 'auth');
     } catch (e) {
-      debugPrint('Logout error: $e');
-      // Still clear local data even if API call fails
+      AppLogger.error('Logout error', error: e, module: 'auth');
       await _clearStoredData();
       rethrow;
     }
@@ -68,7 +68,7 @@ class AuthRepository {
   /// Refresh authentication token
   Future<String?> refreshToken() async {
     try {
-      final currentToken = await getToken();
+      final currentToken = getToken();
       if (currentToken == null) return null;
 
       final response = await _apiClient.post(
@@ -83,7 +83,7 @@ class AuthRepository {
         return newToken;
       }
     } catch (e) {
-      debugPrint('Token refresh failed: $e');
+      AppLogger.error('Token refresh failed', error: e, module: 'auth');
     }
     return null;
   }
@@ -96,7 +96,7 @@ class AuthRepository {
     required String role,
   }) async {
     try {
-      debugPrint('Registering new user: $email');
+      AppLogger.debug('Registering new user', data: {'email': email}, module: 'auth');
 
       final response = await _apiClient.post(
         '/auth/register',
@@ -110,13 +110,13 @@ class AuthRepository {
 
       if (response.success) {
         final userData = response.data as Map<String, dynamic>;
-        debugPrint('User registered successfully: $email');
+        AppLogger.debug('User registered successfully', data: {'email': email}, module: 'auth');
         return User.fromJson(userData);
       } else {
         throw Exception(response.message ?? 'Registration failed');
       }
     } catch (e) {
-      debugPrint('Registration failed: $e');
+      AppLogger.error('Registration failed', error: e, module: 'auth');
       rethrow;
     }
   }
@@ -127,7 +127,7 @@ class AuthRepository {
     required String newPassword,
   }) async {
     try {
-      debugPrint('Changing user password');
+      AppLogger.debug('Changing user password', module: 'auth');
 
       final response = await _apiClient.post(
         '/auth/change-password',
@@ -138,9 +138,9 @@ class AuthRepository {
         throw Exception(response.message ?? 'Password change failed');
       }
 
-      debugPrint('Password changed successfully');
+      AppLogger.debug('Password changed successfully', module: 'auth');
     } catch (e) {
-      debugPrint('Password change failed: $e');
+      AppLogger.error('Password change failed', error: e, module: 'auth');
       rethrow;
     }
   }
@@ -153,37 +153,32 @@ class AuthRepository {
       if (response.success) {
         final userData = response.data as Map<String, dynamic>;
         final user = User.fromJson(userData);
-        await _saveUserData(userData); // Update stored user data
+        await _saveUserData(userData);
         return user;
       }
     } catch (e) {
-      debugPrint('Failed to get current user: $e');
+      AppLogger.error('Failed to get current user', error: e, module: 'auth');
     }
     return null;
   }
 
   /// Check if user is authenticated
-  Future<bool> isAuthenticated() async {
-    final token = await getToken();
-    return token != null;
-  }
+  bool isAuthenticated() => getToken() != null;
 
-  /// Get stored authentication token
-  Future<String?> getToken() async {
+  /// Get stored authentication token (synchronous — Hive is in-memory)
+  String? getToken() {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_tokenKey);
+      return _box.get(_tokenKey) as String?;
     } catch (e) {
-      debugPrint('Failed to read token: $e');
+      AppLogger.error('Failed to read token', error: e, module: 'auth');
       return null;
     }
   }
 
   /// Get stored user data
-  Future<User?> getUser() async {
+  User? getUser() {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userDataString = prefs.getString(_userKey);
+      final userDataString = _box.get(_userKey) as String?;
       if (userDataString != null) {
         final userData = Map<String, dynamic>.from(
           jsonDecode(userDataString) as Map,
@@ -191,7 +186,7 @@ class AuthRepository {
         return User.fromJson(userData);
       }
     } catch (e) {
-      debugPrint('Failed to read user data: $e');
+      AppLogger.error('Failed to read user data', error: e, module: 'auth');
     }
     return null;
   }
@@ -199,31 +194,28 @@ class AuthRepository {
   // Private methods
   Future<void> _saveToken(String token) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_tokenKey, token);
+      await _box.put(_tokenKey, token);
     } catch (e) {
-      debugPrint('Failed to save token: $e');
+      AppLogger.error('Failed to save token', error: e, module: 'auth');
       rethrow;
     }
   }
 
   Future<void> _saveUserData(Map<String, dynamic> userData) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_userKey, jsonEncode(userData));
+      await _box.put(_userKey, jsonEncode(userData));
     } catch (e) {
-      debugPrint('Failed to save user data: $e');
+      AppLogger.error('Failed to save user data', error: e, module: 'auth');
       rethrow;
     }
   }
 
   Future<void> _clearStoredData() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_tokenKey);
-      await prefs.remove(_userKey);
+      await _box.delete(_tokenKey);
+      await _box.delete(_userKey);
     } catch (e) {
-      debugPrint('Failed to clear stored data: $e');
+      AppLogger.error('Failed to clear stored data', error: e, module: 'auth');
     }
   }
 }

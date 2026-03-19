@@ -10,6 +10,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 import '../controllers/sales_order_controller.dart';
 import '../models/sales_payment_link_model.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SalesPaymentLinkCreateScreen extends ConsumerStatefulWidget {
   const SalesPaymentLinkCreateScreen({super.key});
@@ -44,7 +45,7 @@ class _SalesPaymentLinkCreateScreenState
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: Color(0xFFE5E7EB)),
+          side: const BorderSide(color: AppTheme.borderColor),
         ),
         child: Padding(
           padding: const EdgeInsets.all(32),

@@ -28,7 +28,7 @@ extension _AddressSection on _SalesCustomerCreateScreenState {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF2563EB),
+                    color: AppTheme.primaryBlueDark,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -167,7 +167,7 @@ extension _AddressSection on _SalesCustomerCreateScreenState {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF2563EB),
+                        color: AppTheme.primaryBlueDark,
                         letterSpacing: 0.5,
                       ),
                     ),

@@ -4,6 +4,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SalesSection extends StatelessWidget {
   final TextEditingController sellingPriceCtrl;
@@ -71,8 +72,8 @@ class SalesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color labelDim = sellable
-        ? const Color(0xFF374151)
-        : const Color(0xFF9CA3AF);
+        ? AppTheme.textBody
+        : AppTheme.textMuted;
 
     return Align(
       alignment: Alignment.topLeft,
@@ -108,9 +109,9 @@ class SalesSection extends StatelessWidget {
                             alignment: Alignment.centerLeft,
                             decoration: BoxDecoration(
                               color: isHovered
-                                  ? const Color(0xFF2563EB)
+                                  ? AppTheme.primaryBlueDark
                                   : isSelected
-                                  ? const Color(0xFFEFF6FF)
+                                  ? AppTheme.infoBg
                                   : Colors.transparent,
                             ),
                             child: Row(
@@ -123,8 +124,8 @@ class SalesSection extends StatelessWidget {
                                       color: isHovered
                                           ? Colors.white
                                           : isSelected
-                                          ? const Color(0xFF2563EB)
-                                          : const Color(0xFF111827),
+                                          ? AppTheme.primaryBlueDark
+                                          : AppTheme.textPrimary,
                                     ),
                                   ),
                                 ),
@@ -134,7 +135,7 @@ class SalesSection extends StatelessWidget {
                                     size: 16,
                                     color: isHovered
                                         ? Colors.white
-                                        : const Color(0xFF2563EB),
+                                        : AppTheme.primaryBlueDark,
                                   ),
                               ],
                             ),
@@ -255,9 +256,9 @@ class SalesSection extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       decoration: BoxDecoration(
                         color: isHovered
-                            ? const Color(0xFF2563EB)
+                            ? AppTheme.primaryBlueDark
                             : isSelected
-                            ? const Color(0xFFEFF6FF)
+                            ? AppTheme.infoBg
                             : Colors.transparent,
                       ),
                       child: Row(
@@ -270,8 +271,8 @@ class SalesSection extends StatelessWidget {
                                 color: isHovered
                                     ? Colors.white
                                     : isSelected
-                                    ? const Color(0xFF2563EB)
-                                    : const Color(0xFF111827),
+                                    ? AppTheme.primaryBlueDark
+                                    : AppTheme.textPrimary,
                               ),
                             ),
                           ),
@@ -281,7 +282,7 @@ class SalesSection extends StatelessWidget {
                               size: 16,
                               color: isHovered
                                   ? Colors.white
-                                  : const Color(0xFF2563EB),
+                                  : AppTheme.primaryBlueDark,
                             ),
                         ],
                       ),

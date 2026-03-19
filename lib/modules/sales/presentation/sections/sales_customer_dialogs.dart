@@ -70,7 +70,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF111827),
+                                color: AppTheme.textPrimary,
                               ),
                             ),
                           ),
@@ -79,14 +79,14 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                             icon: const Icon(
                               Icons.close,
                               size: 18,
-                              color: Color(0xFFE11D48),
+                              color: AppTheme.errorRed,
                             ),
                             splashRadius: 20,
                           ),
                         ],
                       ),
                     ),
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const Divider(height: 1, color: AppTheme.borderColor),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
                       child: Column(
@@ -97,7 +97,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFFEF4444),
+                              color: AppTheme.errorRed,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -123,7 +123,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                                   onPressed: isLoading ? null : handleFetch,
                                   style: ElevatedButton.styleFrom(
                                     elevation: 0,
-                                    backgroundColor: const Color(0xFF2563EB),
+                                    backgroundColor: AppTheme.primaryBlueDark,
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 18,
                                       vertical: 8,
@@ -149,7 +149,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                               errorMessage!,
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFFDC2626),
+                                color: AppTheme.errorRed,
                               ),
                             ),
                           ],
@@ -159,7 +159,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                     if (lookupResult != null)
                       Container(
                         width: double.infinity,
-                        color: const Color(0xFFF9FAFB),
+                        color: AppTheme.bgLight,
                         padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,7 +169,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF374151),
+                                color: AppTheme.textBody,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -213,7 +213,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF6B7280),
+                                  color: AppTheme.textSecondary,
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -242,7 +242,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                                         decoration: BoxDecoration(
                                           color: Colors.white,
                                           border: Border.all(
-                                            color: const Color(0xFFE5E7EB),
+                                            color: AppTheme.borderColor,
                                           ),
                                           borderRadius: BorderRadius.circular(
                                             6,
@@ -303,7 +303,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                                   },
                             style: ElevatedButton.styleFrom(
                               elevation: 0,
-                              backgroundColor: const Color(0xFF22C55E),
+                              backgroundColor: AppTheme.successGreen,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 18,
                                 vertical: 10,
@@ -350,7 +350,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildCustomerNumberDialogHeader(dialogContext),
-                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                const Divider(height: 1, color: AppTheme.borderColor),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                   child: Column(
@@ -363,7 +363,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                         'incremented by 1.',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF6B7280),
+                          color: AppTheme.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -400,7 +400,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFF7ED),
+                          color: AppTheme.warningBg,
                           border: Border.all(color: const Color(0xFFFED7AA)),
                           borderRadius: BorderRadius.circular(6),
                         ),
@@ -411,7 +411,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                           'field after closing this popup.',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF92400E),
+                            color: AppTheme.warningTextDark,
                           ),
                         ),
                       ),
@@ -425,7 +425,7 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                             },
                             style: ElevatedButton.styleFrom(
                               elevation: 0,
-                              backgroundColor: const Color(0xFF22C55E),
+                              backgroundColor: AppTheme.successGreen,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 18,
                                 vertical: 10,

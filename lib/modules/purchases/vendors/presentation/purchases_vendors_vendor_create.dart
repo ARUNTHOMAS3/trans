@@ -19,6 +19,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:zerpai_erp/core/routing/app_router.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 part 'sections/purchases_vendors_builders.dart';
 part 'sections/purchases_vendors_primary_info_section.dart';
@@ -879,18 +880,18 @@ class _PurchasesVendorsVendorCreateScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: AppTheme.infoBg,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFFDBEAFE)),
+        border: Border.all(color: AppTheme.infoBgBorder),
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline, size: 16, color: Color(0xFF2563EB)),
+          const Icon(Icons.info_outline, size: 16, color: AppTheme.primaryBlueDark),
           const SizedBox(width: 8),
           const Expanded(
             child: Text(
               'Prefill Vendor details from the GST portal using the Vendor\'s GSTIN.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8)),
+              style: TextStyle(fontSize: 12, color: AppTheme.primaryBlueDark),
             ),
           ),
           InkWell(
@@ -899,7 +900,7 @@ class _PurchasesVendorsVendorCreateScreenState
               'Prefill >',
               style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFF2563EB),
+                color: AppTheme.primaryBlueDark,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -915,14 +916,14 @@ class _PurchasesVendorsVendorCreateScreenState
       children: [
         Container(
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
           ),
           child: TabBar(
             controller: _tabController,
             isScrollable: true,
-            labelColor: const Color(0xFF2563EB),
-            unselectedLabelColor: const Color(0xFF6B7280),
-            indicatorColor: const Color(0xFF2563EB),
+            labelColor: AppTheme.primaryBlueDark,
+            unselectedLabelColor: AppTheme.textSecondary,
+            indicatorColor: AppTheme.primaryBlueDark,
             indicatorWeight: 2,
             indicatorSize: TabBarIndicatorSize.label,
             labelPadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -975,7 +976,7 @@ class _PurchasesVendorsVendorCreateScreenState
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
@@ -983,7 +984,7 @@ class _PurchasesVendorsVendorCreateScreenState
             onPressed: isLoading ? null : _handleSave,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              backgroundColor: const Color(0xFF2563EB),
+              backgroundColor: AppTheme.primaryBlueDark,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),

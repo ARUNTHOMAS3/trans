@@ -1,387 +1,19 @@
-// // FILE: lib/shared/widgets/inputs/manage_simple_list_dialog.dart
-// import 'package:flutter/material.dart';
-
-// class ManageSimpleListDialog extends StatefulWidget {
-//   final String title;
-//   final String singularLabel;
-//   final String headerLabel;
-//   final List<dynamic> items; // Can be List<String> or List<Map<String, dynamic>>
-//   final String? selectedId;
-//   final String labelKey;
-//   final ValueChanged<dynamic> onSelect;
-//   final Future<List<Map<String, dynamic>>> Function(List<Map<String, dynamic>>)? onSave;
-//   final ValueChanged<List<String>>? onListChanged; // Deprecated but kept for compat
-
-//   const ManageSimpleListDialog({
-//     super.key,
-//     required this.title,
-//     required this.singularLabel,
-//     required this.headerLabel,
-//     required this.items,
-//     required this.onSelect,
-//     this.onSave,
-//     this.onListChanged,
-//     String? selectedId,
-//     String? selectedValue, // Compat
-//     this.labelKey = 'name',
-//   }) : selectedId = selectedId ?? selectedValue;
-
-//   @override
-//   State<ManageSimpleListDialog> createState() => _ManageSimpleListDialogState();
-// }
-
-// class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
-//   late List<Map<String, dynamic>> _rows;
-
-//   final TextEditingController _ctrl = TextEditingController();
-//   int? _editingIndex;
-//   int? _hoverIndex;
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _rows = widget.items.map((item) {
-//       if (item is String) {
-//         return {'id': item, widget.labelKey: item, '_isString': true};
-//       }
-//       final map = Map<String, dynamic>.from(item as Map);
-//       // Ensure labelKey is populated so dropdowns show text instead of IDs
-//       if (!map.containsKey(widget.labelKey) || (map[widget.labelKey] == null || map[widget.labelKey].toString().isEmpty)) {
-//         map[widget.labelKey] = map['name'] ?? map['unit_name'] ?? map['rack_code'] ?? map['location_name'] ?? map['shedule_name'] ?? map['buying_rule'];
-//       }
-//       return map;
-//     }).toList();
-//   }
-
-//   void _startEdit(int index) {
-//     setState(() {
-//       _editingIndex = index;
-//       _ctrl.text = _rows[index][widget.labelKey]?.toString() ?? '';
-//     });
-//   }
-
-//   void _cancel() {
-//     setState(() {
-//       _editingIndex = null;
-//       _ctrl.clear();
-//     });
-//   }
-
-//   Future<void> _triggerSync() async {
-//     if (widget.onSave != null) {
-//       try {
-//         await widget.onSave!(_rows);
-//       } catch (e) {
-//         print('❌ Live Sync Error: $e');
-//         // We catch here to prevent the UI from breaking,
-//         // but the controller already sets state.error
-//       }
-//     }
-//   }
-
-//   Future<void> _saveItem({bool selectAfter = false}) async {
-//     final text = _ctrl.text.trim();
-//     if (text.isEmpty) return;
-
-//     final newItem = {widget.labelKey: text};
-
-//     // Optimistic Update
-//     setState(() {
-//       if (_editingIndex == null) {
-//         _rows.add(newItem);
-//       } else {
-//         _rows[_editingIndex!][widget.labelKey] = text;
-//       }
-//     });
-
-//     final targetIndex = _editingIndex ?? _rows.length - 1;
-//     _editingIndex = null;
-//     _ctrl.clear();
-//     _notifyChanges();
-
-//     if (widget.onSave != null) {
-//       try {
-//         final updatedRows = await widget.onSave!(_rows);
-
-//         if (context.mounted) {
-//            ScaffoldMessenger.of(context).showSnackBar(
-//             SnackBar(
-//               content: Text("${widget.singularLabel} saved successfully"),
-//               backgroundColor: Colors.green,
-//               duration: const Duration(seconds: 2),
-//             ),
-//           );
-//         }
-
-//         if (updatedRows.isNotEmpty) {
-//           // Update local rows with the ones from server (containing new IDs)
-//           setState(() {
-//             _rows = updatedRows;
-//           });
-
-//           if (selectAfter) {
-//             // Find the item with matching name/label to get its ID
-//             final matching = updatedRows.firstWhere(
-//               (r) => r[widget.labelKey] == text,
-//               orElse: () => updatedRows[targetIndex],
-//             );
-//             _selectAndPop(matching);
-//           }
-//         } else if (selectAfter) {
-//            _selectAndPop(newItem);
-//         }
-//       } catch (e) {
-//         if (selectAfter) _selectAndPop(newItem);
-//       }
-//     } else if (selectAfter) {
-//       _selectAndPop(newItem);
-//     }
-//   }
-
-//   void _delete(int index) async {
-//     final removed = _rows[index];
-//     setState(() {
-//       _rows.removeAt(index);
-//       if (_editingIndex == index) {
-//         _cancel();
-//       }
-//     });
-
-//     _notifyChanges();
-//     await _triggerSync();
-//   }
-
-//   void _notifyChanges() {
-//     if (widget.onListChanged != null) {
-//       widget.onListChanged!(
-//         _rows.map((r) => r[widget.labelKey].toString()).toList(),
-//       );
-//     }
-//   }
-
-//   void _selectAndPop(Map<String, dynamic> item) {
-//     if (!mounted) return;
-//     if (item['_isString'] == true) {
-//       widget.onSelect(item[widget.labelKey]);
-//     } else {
-//       widget.onSelect(item);
-//     }
-//     if (context.mounted) {
-//       Navigator.pop(context, item);
-//     }
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Dialog(
-//       alignment: Alignment.topCenter,
-//       insetPadding: const EdgeInsets.fromLTRB(0, 60, 0, 24),
-//       child: ConstrainedBox(
-//         constraints: const BoxConstraints(maxWidth: 620),
-//         child: Column(
-//           mainAxisSize: MainAxisSize.min,
-//           children: [
-//             _buildHeader(),
-//             const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
-//             Padding(
-//               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   _buildInlineForm(),
-//                   const SizedBox(height: 12),
-//                   _buildListHeader(),
-//                 ],
-//               ),
-//             ),
-//             SizedBox(height: _listHeight(), child: _buildList()),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _buildHeader() {
-//     return Padding(
-//       padding: const EdgeInsets.fromLTRB(24, 16, 12, 12),
-//       child: Row(
-//         children: [
-//           Text(
-//             widget.title,
-//             style: const TextStyle(
-//               fontSize: 16,
-//               fontWeight: FontWeight.w600,
-//               color: Color(0xFF111827),
-//             ),
-//           ),
-//           const Spacer(),
-//           IconButton(
-//             onPressed: () => Navigator.pop(context),
-//             icon: const Icon(Icons.close, size: 18, color: Color(0xFFE11D48)),
-//             splashRadius: 20,
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _buildInlineForm() {
-//     return Container(
-//       width: double.infinity,
-//       padding: const EdgeInsets.all(16),
-//       decoration: BoxDecoration(
-//         color: const Color(0xFFF8FAFC),
-//         borderRadius: BorderRadius.circular(6),
-//         border: Border.all(color: const Color(0xFFE5E7EB)),
-//       ),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Text(
-//             "${widget.singularLabel} Name*",
-//             style: const TextStyle(
-//               fontSize: 12,
-//               fontWeight: FontWeight.w600,
-//               color: Color(0xFFE11D48),
-//             ),
-//           ),
-//           const SizedBox(height: 8),
-//           SizedBox(
-//             width: double.infinity,
-//             height: 40,
-//             child: TextField(
-//               controller: _ctrl,
-//               decoration: const InputDecoration(
-//                 isDense: true,
-//                 border: OutlineInputBorder(),
-//                 filled: true,
-//                 fillColor: Colors.white,
-//               ),
-//             ),
-//           ),
-//           const SizedBox(height: 12),
-//           Row(
-//             children: [
-//               ElevatedButton(
-//                 onPressed: () => _saveItem(selectAfter: true),
-//                 style: ElevatedButton.styleFrom(
-//                   elevation: 0,
-//                   backgroundColor: const Color(0xFF22C55E),
-//                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-//                 ),
-//                 child: const Text("Save and Select"),
-//               ),
-//               const SizedBox(width: 10),
-//               TextButton(
-//                 onPressed: _cancel,
-//                 child: const Text("Cancel", style: TextStyle(color: Color(0xFF6B7280))),
-//               ),
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _buildListHeader() {
-//     return Container(
-//       width: double.infinity,
-//       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-//       color: const Color(0xFFF3F4F6),
-//       child: Text(
-//         widget.headerLabel.toUpperCase(),
-//         style: const TextStyle(
-//           fontSize: 11,
-//           fontWeight: FontWeight.w700,
-//           letterSpacing: 0.4,
-//           color: Color(0xFF6B7280),
-//         ),
-//       ),
-//     );
-//   }
-
-//   double _listHeight() {
-//     const double rowHeight = 44.0;
-//     const double maxHeight = 400.0;
-//     final double height = _rows.length * rowHeight;
-//     return height.clamp(44.0, maxHeight);
-//   }
-
-//   Widget _buildList() {
-//     return ListView.builder(
-//       itemCount: _rows.length,
-//       itemBuilder: (context, index) {
-//         final item = _rows[index];
-//         final label = item[widget.labelKey]?.toString() ?? '';
-//         final isSelected = item['id'] != null && item['id'] == widget.selectedId;
-//         final hovered = _hoverIndex == index;
-
-//         return MouseRegion(
-//           onEnter: (_) => setState(() => _hoverIndex = index),
-//           onExit: (_) => setState(() => _hoverIndex = null),
-//           child: InkWell(
-//             onTap: () => _selectAndPop(item),
-//             child: Container(
-//               height: 44,
-//               padding: const EdgeInsets.symmetric(horizontal: 24),
-//               decoration: BoxDecoration(
-//                 color: hovered ? const Color(0xFFF9FAFB) : Colors.white,
-//                 border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
-//               ),
-//               child: Row(
-//                 children: [
-//                   Expanded(
-//                     child: Text(
-//                       label,
-//                       style: TextStyle(
-//                         fontSize: 13.5,
-//                         color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF111827),
-//                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-//                       ),
-//                     ),
-//                   ),
-//                   if (isSelected)
-//                     const Icon(Icons.check, size: 16, color: Color(0xFF2563EB)),
-//                   if (hovered) ...[
-//                     IconButton(
-//                       icon: const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF2563EB)),
-//                       onPressed: () => _startEdit(index),
-//                       constraints: const BoxConstraints(),
-//                       padding: const EdgeInsets.all(8),
-//                     ),
-//                     IconButton(
-//                       icon: const Icon(Icons.delete_outline, size: 16, color: Color(0xFFDC2626)),
-//                       onPressed: () => _delete(index),
-//                       constraints: const BoxConstraints(),
-//                       padding: const EdgeInsets.all(8),
-//                     ),
-//                   ],
-//                 ],
-//               ),
-//             ),
-//           ),
-//         );
-//       },
-//     );
-//   }
-// }
-// FILE: lib/shared/widgets/inputs/manage_simple_list_dialog.dart
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/core/logging/app_logger.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
 
 class ManageSimpleListDialog extends StatefulWidget {
   final String title;
   final String singularLabel;
   final String headerLabel;
-  final List<dynamic>
-  items; // Can be List<String> or List<Map<String, dynamic>>
+  final List<dynamic> items; // Can be List<String> or List<Map<String, dynamic>>
   final String? selectedId;
   final String labelKey;
   final ValueChanged<dynamic> onSelect;
   final Future<List<Map<String, dynamic>>> Function(List<Map<String, dynamic>>)?
   onSave;
-  final ValueChanged<List<String>>?
-  onListChanged; // Deprecated but kept for compat
+  final ValueChanged<List<String>>? onListChanged; // Deprecated but kept for compat
   final Future<String?> Function(Map<String, dynamic> item)? onDeleteCheck;
 
   const ManageSimpleListDialog({
@@ -419,7 +51,6 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
         return {'id': item, widget.labelKey: item, '_isString': true};
       }
       final map = Map<String, dynamic>.from(item as Map);
-      // Ensure labelKey is populated so dropdowns show text instead of IDs
       if (!map.containsKey(widget.labelKey) ||
           (map[widget.labelKey] == null ||
               map[widget.labelKey].toString().isEmpty)) {
@@ -450,7 +81,6 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
   @override
   void initState() {
     super.initState();
-    // Add listener to filter list as user types (only when not editing)
     _ctrl.addListener(() {
       if (_editingIndex == null) {
         setState(() {
@@ -461,7 +91,6 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
 
     _rows = _processItems(widget.items);
 
-    // ✅ If selectedId provided, start editing that item automatically
     if (widget.selectedId != null) {
       final index = _rows.indexWhere((r) => r['id'] == widget.selectedId);
       if (index != -1) {
@@ -474,7 +103,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
   void _startEdit(int index) {
     setState(() {
       _editingIndex = index;
-      _filterText = ''; // Clear filter when editing
+      _filterText = '';
       _ctrl.text = _rows[index][widget.labelKey]?.toString() ?? '';
     });
   }
@@ -482,7 +111,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
   void _cancel() {
     setState(() {
       _editingIndex = null;
-      _filterText = ''; // Clear filter when canceling
+      _filterText = '';
       _ctrl.clear();
     });
   }
@@ -521,18 +150,16 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
             _deletedRows.clear();
           });
 
-          // Find the saved item in the updated rows
           Map<String, dynamic>? savedItem;
           if (itemToSelect != null) {
             final labelToFind = itemToSelect[widget.labelKey];
             savedItem = _rows.firstWhere(
               (row) => row[widget.labelKey] == labelToFind,
-              orElse: () => _rows.last, // Fallback to last item
+              orElse: () => _rows.last,
             );
           }
 
           if (mounted && context.mounted) {
-            // Return both the saved item and updated rows
             Navigator.pop(context, {
               'savedItem': savedItem,
               'updatedRows': _rows,
@@ -540,7 +167,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
           }
         }
       } catch (e) {
-        debugPrint('❌ Save Error: $e');
+        AppLogger.error('Save error in ManageSimpleListDialog', error: e, module: 'items');
         setState(() {
           _errorMessage = ZerpaiBuilders.parseErrorMessage(
             e,
@@ -557,11 +184,9 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
     final text = _ctrl.text.trim();
     if (text.isEmpty) return;
 
-    // Duplicate check
     final isDuplicate = _rows.any((row) {
       final index = _rows.indexOf(row);
-      if (_editingIndex == index) return false; // Skip itself if editing
-
+      if (_editingIndex == index) return false;
       final label = row[widget.labelKey]?.toString().toLowerCase().trim() ?? '';
       return label == text.toLowerCase();
     });
@@ -578,17 +203,15 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
 
     setState(() {
       if (_editingIndex == null) {
-        // Adding new item
         final newItem = {widget.labelKey: text, 'id': null};
         _rows.add(newItem);
         itemToSelect = newItem;
       } else {
-        // Editing existing item
         _rows[_editingIndex!][widget.labelKey] = text;
         itemToSelect = _rows[_editingIndex!];
       }
       _editingIndex = null;
-      _filterText = ''; // Clear filter to show the new item
+      _filterText = '';
       _ctrl.clear();
       _errorMessage = null;
     });
@@ -603,11 +226,9 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
   Future<void> _delete(int index) async {
     final target = _rows[index];
 
-    // Check if item can be deleted
     if (widget.onDeleteCheck != null && target['id'] != null) {
       final blockReason = await widget.onDeleteCheck!(target);
       if (blockReason != null && blockReason.isNotEmpty) {
-        // Show error message
         setState(() {
           _errorMessage = blockReason;
         });
@@ -628,7 +249,6 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
 
     _notifyChanges();
 
-    // Show success message
     if (mounted) {
       ZerpaiBuilders.showSuccessToast(
         context,
@@ -669,7 +289,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
           children: [
             _buildHeader(),
             if (_errorMessage != null) _buildPremiumErrorAlert(),
-            const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+            const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
               child: Column(
@@ -698,13 +318,13 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           const Spacer(),
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close, size: 18, color: Color(0xFFE11D48)),
+            icon: const Icon(Icons.close, size: 18, color: AppTheme.errorRed),
             splashRadius: 20,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -728,9 +348,9 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: AppTheme.bgLight,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -740,7 +360,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFFE11D48),
+              color: AppTheme.errorRed,
             ),
           ),
           const SizedBox(height: 8),
@@ -758,17 +378,17 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
                   horizontal: 12,
                   vertical: 10,
                 ),
-                border: const OutlineInputBorder(
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.zero,
-                  borderSide: BorderSide(color: Color(0xFFD1D5DB)),
+                  borderSide: BorderSide(color: AppTheme.borderColor),
                 ),
-                enabledBorder: const OutlineInputBorder(
+                enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.zero,
-                  borderSide: BorderSide(color: Color(0xFFD1D5DB)),
+                  borderSide: BorderSide(color: AppTheme.borderColor),
                 ),
                 focusedBorder: const OutlineInputBorder(
                   borderRadius: BorderRadius.zero,
-                  borderSide: BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                  borderSide: BorderSide(color: AppTheme.primaryBlueDark, width: 1.5),
                 ),
               ),
             ),
@@ -780,7 +400,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
                 onPressed: () => _saveItem(selectAfter: true),
                 style: ElevatedButton.styleFrom(
                   elevation: 0,
-                  backgroundColor: const Color(0xFF22C55E),
+                  backgroundColor: AppTheme.successGreen,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 10,
@@ -800,7 +420,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
                 child: Text(
                   "Cancel",
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: const Color(0xFF6B7280),
+                    color: AppTheme.textSecondary,
                     fontSize: 13,
                   ),
                 ),
@@ -816,14 +436,14 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      color: const Color(0xFFF3F4F6),
+      color: AppTheme.bgDisabled,
       child: Text(
         widget.headerLabel.toUpperCase(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.4,
-          color: const Color(0xFF6B7280),
+          color: AppTheme.textSecondary,
         ),
       ),
     );
@@ -833,7 +453,6 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
     const double rowHeight = 44.0;
     const double maxHeight = 400.0;
 
-    // Calculate based on filtered rows
     final filteredCount = _filterText.isEmpty
         ? _rows.length
         : _rows.where((item) {
@@ -846,7 +465,6 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
   }
 
   Widget _buildList() {
-    // Filter rows based on search text
     final filteredRows = _filterText.isEmpty
         ? _rows
         : _rows.where((item) {
@@ -863,7 +481,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
               ? 'No items found'
               : 'No items match "$_filterText"',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: const Color(0xFF9CA3AF),
+            color: AppTheme.textMuted,
             fontSize: 13,
           ),
         ),
@@ -874,7 +492,6 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
       itemCount: filteredRows.length,
       itemBuilder: (context, filteredIndex) {
         final item = filteredRows[filteredIndex];
-        // Find the original index in _rows for edit/delete operations
         final originalIndex = _rows.indexOf(item);
         final label = item[widget.labelKey]?.toString() ?? '';
         final hovered = _hoverIndex == originalIndex;
@@ -888,9 +505,9 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
               height: 44,
               padding: const EdgeInsets.symmetric(horizontal: 24),
               decoration: BoxDecoration(
-                color: hovered ? const Color(0xFFF9FAFB) : Colors.white,
+                color: hovered ? AppTheme.bgLight : Colors.white,
                 border: const Border(
-                  bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                  bottom: BorderSide(color: AppTheme.borderColor),
                 ),
               ),
               child: Row(
@@ -900,7 +517,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
                       label,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontSize: 13.5,
-                        color: const Color(0xFF111827),
+                        color: AppTheme.textPrimary,
                         fontWeight: FontWeight.normal,
                       ),
                     ),
@@ -910,7 +527,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
                       icon: const Icon(
                         Icons.edit_outlined,
                         size: 16,
-                        color: Color(0xFF2563EB),
+                        color: AppTheme.primaryBlueDark,
                       ),
                       onPressed: () => _startEdit(originalIndex),
                       constraints: const BoxConstraints(),
@@ -920,7 +537,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
                       icon: const Icon(
                         Icons.delete_outline,
                         size: 16,
-                        color: Color(0xFFDC2626),
+                        color: AppTheme.errorRed,
                       ),
                       onPressed: () => _delete(originalIndex),
                       constraints: const BoxConstraints(),

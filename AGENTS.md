@@ -17,6 +17,8 @@
 - If real data is unavailable, show an explicit empty state or error state instead of silently fabricating placeholder business values.
 - Resolve lookup defaults from DB-backed master rows where schema-backed master tables exist; do not hardcode business IDs or label strings as the primary source of truth.
 - Reuse shared ERP controls and centralized style sources instead of introducing screen-local variants for the same control pattern.
+- Use the shared responsive foundation for Flutter web layouts: global breakpoints, shared responsive table shells, shared responsive form rows/grids, shared responsive dialog width rules, and sidebar-aware shell/content metrics instead of per-screen overflow patches.
+- New modules and major internal sub-screens must expose deep-linkable GoRouter routes so refresh, direct URL access, and browser navigation preserve the current working context instead of dropping users back to a parent page.
 - Keep warehouse masters, storage/location masters, accounting stock, and physical stock as separate concepts in both data and UI.
 - Prefer additive migrations and scoped upserts over destructive resets when updating shared database environments.
 - Primary save/confirm actions must use the project success/primary button styling, secondary cancel actions must use the standard neutral secondary style, upload/select-image affordances must use the shared upload treatment, and borders/dividers must use the approved light border tokens instead of screen-local color guesses.

@@ -254,12 +254,12 @@ class _SalesInvoiceCreateScreenState
                     decoration: BoxDecoration(
                       color: _taxType == GstTaxType.intraState
                           ? const Color(0xFFECFDF5)
-                          : const Color(0xFFEFF6FF),
+                          : AppTheme.infoBg,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: _taxType == GstTaxType.intraState
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFF3B82F6),
+                            ? AppTheme.accentGreen
+                            : AppTheme.infoBlue,
                       ),
                     ),
                     child: Row(
@@ -271,8 +271,8 @@ class _SalesInvoiceCreateScreenState
                               : Icons.swap_horiz,
                           size: 14,
                           color: _taxType == GstTaxType.intraState
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFF3B82F6),
+                              ? AppTheme.accentGreen
+                              : AppTheme.infoBlue,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -282,7 +282,7 @@ class _SalesInvoiceCreateScreenState
                             fontWeight: FontWeight.w600,
                             color: _taxType == GstTaxType.intraState
                                 ? const Color(0xFF065F46)
-                                : const Color(0xFF1D4ED8),
+                                : AppTheme.primaryBlueDark,
                           ),
                         ),
                       ],

@@ -37,3 +37,5 @@
 - `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` is the standard reusable date picker for anchored business date inputs; do not add new raw `showDatePicker(...)` usage by default.
 - Real DB-backed runtime data takes precedence over dummy/demo/mock values, master defaults should resolve from DB-backed rows, empty/error states must remain explicit, and warehouse/storage/accounting/physical concepts must stay separated across schema and UI.
 - Save/create/confirm buttons, cancel/secondary actions, upload controls, and border/divider styling must remain centralized and consistent with the approved project theme rather than screen-local color choices.
+- Responsive web behavior must come from the shared Flutter foundation: global breakpoints, shared responsive table shells, shared responsive form rows/grids, shared responsive dialog width rules, and sidebar-aware shell/content metrics instead of isolated screen-level overflow patches.
+- New modules and major internal sub-screens must expose deep-linkable GoRouter routes so refresh, direct URL access, and browser navigation preserve the current working context.

@@ -30,16 +30,16 @@ class ZerpaiToast {
       textColor = const Color(0xFFC53030);
       icon = LucideIcons.alertCircle;
     } else if (isInfo) {
-      bgColor = const Color(0xFFEFF6FF);
-      borderColor = const Color(0xFFDBEAFE);
+      bgColor = AppTheme.infoBg;
+      borderColor = AppTheme.infoBgBorder;
       iconBgColor = AppTheme.primaryBlue;
-      textColor = const Color(0xFF1E40AF);
+      textColor = AppTheme.infoTextDark;
       icon = LucideIcons.info;
     } else {
       bgColor = const Color(0xFFF0FDF4);
-      borderColor = const Color(0xFFDCFCE7);
+      borderColor = AppTheme.successBg;
       iconBgColor = const Color(0xFF5ED3B3);
-      textColor = const Color(0xFF4B5563);
+      textColor = AppTheme.textSubtle;
       icon = LucideIcons.check;
     }
 

@@ -169,6 +169,8 @@ These are intentionally still under construction and should be tracked as planne
 - [ ] **Dashboard implementation should remain deferred**: Do not implement the RBAC home dashboard until the role matrix, payload contract, and widget scope are agreed and logged.
 
 - [ ] **Item Composition API**: Integrate item composition logic with backend API (`lib/modules/items/items/models/item_composition_model.dart:22`).
+- [ ] **Outlet-aware reorder alerts/reporting**: Add reorder-needed dashboard cards, report filters, and purchase suggestion outputs driven by outlet-specific reorder point + reorder rule settings.
+- [ ] **Outlet-aware reorder rollout completion**: Treat the reorder schema/design rollout as incomplete until the DB migrations (`1006`, `1007`, `1008`) are applied in the active environment and the deferred alerts/reporting layer is implemented.
 - [ ] **Filter Favourites Persistence**: Add ability to save and persist favourite filters in report views (`lib/modules/items/items/presentation/sections/report/items_filter_dropdown.dart:31`).
 - [ ] **Dynamic Filter Labels**: Extend and localize labels for report filters (`lib/modules/items/items/presentation/sections/report/items_filters.dart:45`).
 - [ ] **State Synchronization**: Enhance `GlobalSyncManager` to handle multi-tab synchronization or offline-first conflicts.
@@ -187,3 +189,8 @@ These are intentionally still under construction and should be tracked as planne
 - [ ] `lib/shared/widgets/inputs/manage_reorder_terms_dialog.dart:721` Replace deprecated `withOpacity` with `.withValues()`.
 - [x] `lib/shared/widgets/inputs/zerpai_radio_group.dart` Replace deprecated `groupValue` and `onChanged` with `RadioGroup`. *(fixed — migrated to RadioScope + Flutter RadioGroup)*
 - [ ] `lib/shared/widgets/reports/zerpai_report_shell.dart:286` Show correct label instead of generic 'This Month'.
+
+## 📐 Responsive Foundation Follow-Up
+
+- [ ] **Shared responsive primitives rollout**: Migrate more existing screens, tables, forms, and dialogs onto the new shared responsive foundation primitives instead of keeping screen-local overflow fixes.
+- [ ] **Responsive widget tests**: Add widget tests around breakpoint behavior, responsive layout switching, and sidebar-aware shell metrics so the responsive foundation is regression-tested.

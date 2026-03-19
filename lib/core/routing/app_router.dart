@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -65,6 +66,9 @@ import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purcha
 import 'package:zerpai_erp/shared/widgets/placeholder_screen.dart';
 import 'package:zerpai_erp/core/layout/zerpai_shell.dart';
 import 'package:zerpai_erp/core/pages/error_page.dart';
+import 'package:zerpai_erp/core/pages/maintenance_page.dart';
+import 'package:zerpai_erp/core/pages/not_found_page.dart';
+import 'package:zerpai_erp/core/pages/unauthorized_page.dart';
 import 'app_routes.dart';
 export 'app_routes.dart';
 
@@ -75,9 +79,49 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(
 final GoRouter appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: AppRoutes.home,
+  debugLogDiagnostics: kDebugMode,
   errorBuilder: (context, state) =>
       ZerpaiShell(child: ErrorPage(errorMessage: state.error?.toString())),
   routes: [
+    // Full-screen error routes (outside shell — no sidebar)
+    GoRoute(
+      path: '/not-found',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return NotFoundPage(requestedRoute: extra?['requestedRoute'] as String?);
+      },
+    ),
+    GoRoute(
+      path: '/unauthorized',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return UnauthorizedPage(
+          requiredPermission: extra?['requiredPermission'] as String?,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/maintenance',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return MaintenancePage(
+          message: extra?['message'] as String?,
+          estimatedCompletion: extra?['estimatedCompletion'] as DateTime?,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/error',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return ErrorPage(
+          errorMessage: extra?['errorMessage'] as String?,
+          errorCode: extra?['errorCode'] as String?,
+          error: extra?['error'],
+          stackTrace: extra?['stackTrace'] as StackTrace?,
+        );
+      },
+    ),
     ShellRoute(
       builder: (context, state, child) => ZerpaiShell(child: child),
       routes: [
@@ -133,29 +177,6 @@ final GoRouter appRouter = GoRouter(
             }
             return ItemCreateScreen(
               itemId: id,
-              initialTab: state.uri.queryParameters['tab'],
-            );
-          },
-        ),
-        GoRoute(
-          path: '/items-create',
-          name: '/items-create',
-          builder: (context, state) {
-            final extra = state.extra;
-            if (extra is Item) {
-              return ItemCreateScreen(
-                item: extra,
-                initialTab: state.uri.queryParameters['tab'],
-              );
-            }
-            if (extra is Map && extra['cloneItem'] is Item) {
-              return ItemCreateScreen(
-                item: extra['cloneItem'] as Item,
-                isClone: true,
-                initialTab: state.uri.queryParameters['tab'],
-              );
-            }
-            return ItemCreateScreen(
               initialTab: state.uri.queryParameters['tab'],
             );
           },

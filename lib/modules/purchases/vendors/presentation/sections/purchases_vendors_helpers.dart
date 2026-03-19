@@ -10,7 +10,7 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 4),
               Text(
@@ -18,7 +18,7 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827),
+                  color: AppTheme.textPrimary,
                 ),
               ),
             ],
@@ -242,7 +242,7 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('You can upload a maximum of 10 files'),
-                backgroundColor: Color(0xFFDC2626),
+                backgroundColor: AppTheme.errorRed,
               ),
             );
           }

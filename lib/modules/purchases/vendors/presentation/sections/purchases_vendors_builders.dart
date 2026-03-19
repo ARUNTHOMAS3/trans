@@ -28,13 +28,13 @@ extension _PurchasesVendorsBuilders
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: (hasError || isRequired || label.contains('*'))
-                          ? const Color(0xFFDC2626)
-                          : const Color(0xFF374151),
+                          ? AppTheme.errorRed
+                          : AppTheme.textBody,
                     ),
                   ),
                 ),
                 if (label.contains('*') || isRequired)
-                  const Text(' *', style: TextStyle(color: Color(0xFFDC2626))),
+                  const Text(' *', style: TextStyle(color: AppTheme.errorRed)),
                 if (showInfo) ...[
                   const SizedBox(width: 4),
                   Tooltip(
@@ -43,7 +43,7 @@ extension _PurchasesVendorsBuilders
                     child: const Icon(
                       Icons.info_outline,
                       size: 14,
-                      color: Color(0xFF9CA3AF),
+                      color: AppTheme.textMuted,
                     ),
                   ),
                 ],
@@ -74,22 +74,22 @@ extension _PurchasesVendorsBuilders
     String? sublabel,
   }) {
     Color bg = Colors.transparent;
-    Color text = const Color(0xFF111827);
-    Color subtext = const Color(0xFF6B7280);
-    Color check = const Color(0xFF2563EB);
+    Color text = AppTheme.textPrimary;
+    Color subtext = AppTheme.textSecondary;
+    Color check = AppTheme.primaryBlueDark;
 
     if (isHovered) {
       // Hover now gets the prominent "Blue" style
-      bg = const Color(0xFF3B82F6);
+      bg = AppTheme.infoBlue;
       text = Colors.white;
       subtext = Colors.white70;
       check = Colors.white;
     } else if (isSelected) {
       // Selection now gets the "Lite Blue" style
-      bg = const Color(0xFFEFF6FF);
-      text = const Color(0xFF1D4ED8);
-      subtext = const Color(0xFF1D4ED8);
-      check = const Color(0xFF2563EB);
+      bg = AppTheme.infoBg;
+      text = AppTheme.primaryBlueDark;
+      subtext = AppTheme.primaryBlueDark;
+      check = AppTheme.primaryBlueDark;
     }
 
     return Container(
@@ -203,15 +203,15 @@ extension _PurchasesVendorsBuilders
     }
 
     Color bg = Colors.transparent;
-    Color textColor = const Color(0xFF1F2937); // Gray 800
-    Color nameColor = const Color(0xFF6B7280); // Gray 500
+    Color textColor = AppTheme.textPrimary; // Gray 800
+    Color nameColor = AppTheme.textSecondary; // Gray 500
 
     if (isSelected) {
-      bg = const Color(0xFF3B82F6); // Blue 500
+      bg = AppTheme.infoBlue; // Blue 500
       textColor = Colors.white;
       nameColor = Colors.white.withValues(alpha: 0.9);
     } else if (isHovered) {
-      bg = const Color(0xFFF3F4F6); // Gray 100
+      bg = AppTheme.bgDisabled; // Gray 100
     }
 
     return Container(

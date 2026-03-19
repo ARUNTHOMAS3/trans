@@ -467,7 +467,7 @@ class _ManualJournalsListPanelState
                   ),
                 ),
                 child: Container(
-                  color: isSelected ? const Color(0xFFF1F5F9) : Colors.white,
+                  color: isSelected ? AppTheme.bgLight : Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 14,
@@ -533,7 +533,7 @@ class _ManualJournalsListPanelState
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF111827),
+                              color: AppTheme.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -1134,7 +1134,7 @@ class _ManualJournalsListPanelState
                     const Icon(
                       LucideIcons.alertTriangle,
                       size: 28,
-                      color: Color(0xFFF59E0B),
+                      color: AppTheme.warningOrange,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1142,7 +1142,7 @@ class _ManualJournalsListPanelState
                         text: TextSpan(
                           style: const TextStyle(
                             fontSize: 14,
-                            color: Color(0xFF111827),
+                            color: AppTheme.textPrimary,
                           ),
                           children: [
                             const TextSpan(
@@ -1166,7 +1166,7 @@ class _ManualJournalsListPanelState
                   'This will delete ${selectedIds.length} selected journal(s).',
                   style: const TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF4B5563),
+                    color: AppTheme.textSubtle,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1190,8 +1190,8 @@ class _ManualJournalsListPanelState
                     OutlinedButton(
                       onPressed: () => dialogContext.pop(false),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF374151),
-                        side: const BorderSide(color: Color(0xFFD1D5DB)),
+                        foregroundColor: AppTheme.textBody,
+                        side: const BorderSide(color: AppTheme.borderColor),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 10,

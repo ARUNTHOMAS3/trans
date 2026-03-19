@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -21,6 +22,9 @@ import 'package:zerpai_erp/modules/accountant/models/accountant_chart_of_account
 import 'package:zerpai_erp/modules/items/items/models/items_stock_models.dart';
 
 void main() async {
+  // Use path URLs on web (removes the # from URLs for deep linking)
+  usePathUrlStrategy();
+
   debugPrint('Build Version: 1.0.1 - Fix Alpha Crash');
   WidgetsFlutterBinding.ensureInitialized();
 

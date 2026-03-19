@@ -17,6 +17,8 @@ import { R2StorageService } from "../accountant/r2-storage.service";
 
 @Injectable()
 export class ProductsService {
+  private readonly defaultOrgId = "00000000-0000-0000-0000-000000000000";
+
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly r2StorageService: R2StorageService,
@@ -58,6 +60,313 @@ export class ProductsService {
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     return uuidRegex.test(value.trim());
+  }
+
+  private resolveScope(orgId?: string | null, outletId?: string | null) {
+    return {
+      orgId: this.cleanUuid(orgId) ?? this.defaultOrgId,
+      outletId: this.cleanUuid(outletId),
+    };
+  }
+
+  private async getScopedReorderTerms(
+    orgId?: string | null,
+    outletId?: string | null,
+  ) {
+    const supabase = this.supabaseService.getClient();
+    const scope = this.resolveScope(orgId, outletId);
+
+    if (!scope.outletId) {
+      const { data, error } = await supabase
+        .from("reorder_terms")
+        .select(
+          "id, org_id, outlet_id, term_name, quantity, description, is_active",
+        )
+        .eq("org_id", scope.orgId)
+        .is("outlet_id", null)
+        .eq("is_active", true)
+        .order("term_name", { ascending: true });
+
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    }
+
+    const [specificResult, fallbackResult] = await Promise.all([
+      supabase
+        .from("reorder_terms")
+        .select(
+          "id, org_id, outlet_id, term_name, quantity, description, is_active",
+        )
+        .eq("org_id", scope.orgId)
+        .eq("outlet_id", scope.outletId)
+        .eq("is_active", true)
+        .order("term_name", { ascending: true }),
+      supabase
+        .from("reorder_terms")
+        .select(
+          "id, org_id, outlet_id, term_name, quantity, description, is_active",
+        )
+        .eq("org_id", scope.orgId)
+        .is("outlet_id", null)
+        .eq("is_active", true)
+        .order("term_name", { ascending: true }),
+    ]);
+
+    if (specificResult.error) throw new Error(specificResult.error.message);
+    if (fallbackResult.error) throw new Error(fallbackResult.error.message);
+
+    const seen = new Set<string>();
+    const merged = <any>[];
+    for (const row of [
+      ...(specificResult.data ?? []),
+      ...(fallbackResult.data ?? []),
+    ]) {
+      const key = (row.term_name ?? "").toString().trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(row);
+    }
+    return merged;
+  }
+
+  private async getProductOutletInventorySetting(
+    productId: string,
+    orgId?: string | null,
+    outletId?: string | null,
+  ) {
+    const supabase = this.supabaseService.getClient();
+    const scope = this.resolveScope(orgId, outletId);
+
+    if (scope.outletId) {
+      const { data, error } = await supabase
+        .from("product_outlet_inventory_settings")
+        .select(
+          "id, org_id, outlet_id, product_id, reorder_point, reorder_term_id, is_active",
+        )
+        .eq("product_id", productId)
+        .eq("org_id", scope.orgId)
+        .eq("outlet_id", scope.outletId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
+      if (data) return data;
+    }
+
+    const { data, error } = await supabase
+      .from("product_outlet_inventory_settings")
+      .select(
+        "id, org_id, outlet_id, product_id, reorder_point, reorder_term_id, is_active",
+      )
+      .eq("product_id", productId)
+      .eq("org_id", scope.orgId)
+      .is("outlet_id", null)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return data ?? null;
+  }
+
+  private async syncProductOutletInventorySetting(
+    productId: string,
+    reorderPoint: number,
+    reorderTermId: string | null,
+    userId: string | null,
+    orgId?: string | null,
+    outletId?: string | null,
+  ) {
+    const supabase = this.supabaseService.getClient();
+    const scope = this.resolveScope(orgId, outletId);
+    const normalizedReorderPoint = Math.max(0, Number(reorderPoint) || 0);
+    const normalizedReorderTermId = this.cleanUuid(reorderTermId);
+    const hasMeaningfulSetting =
+      normalizedReorderPoint > 0 || normalizedReorderTermId != null;
+
+    let existingQuery = supabase
+      .from("product_outlet_inventory_settings")
+      .select("id")
+      .eq("product_id", productId)
+      .eq("org_id", scope.orgId);
+
+    existingQuery = scope.outletId
+      ? existingQuery.eq("outlet_id", scope.outletId)
+      : existingQuery.is("outlet_id", null);
+
+    const { data: existingSetting, error: existingError } =
+      await existingQuery.maybeSingle();
+
+    if (existingError) {
+      throw new Error(existingError.message);
+    }
+
+    if (!hasMeaningfulSetting) {
+      if (!existingSetting?.id) return null;
+
+      const { error: clearError } = await supabase
+        .from("product_outlet_inventory_settings")
+        .update({
+          reorder_point: 0,
+          reorder_term_id: null,
+          is_active: false,
+          updated_by_id: userId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingSetting.id);
+
+      if (clearError) throw new Error(clearError.message);
+      return null;
+    }
+
+    const payload = {
+      org_id: scope.orgId,
+      outlet_id: scope.outletId,
+      product_id: productId,
+      reorder_point: normalizedReorderPoint,
+      reorder_term_id: normalizedReorderTermId,
+      is_active: true,
+      updated_by_id: userId,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existingSetting?.id) {
+      const { error: updateError } = await supabase
+        .from("product_outlet_inventory_settings")
+        .update(payload)
+        .eq("id", existingSetting.id);
+
+      if (updateError) throw new Error(updateError.message);
+      return existingSetting.id;
+    }
+
+    const { error: insertError } = await supabase
+      .from("product_outlet_inventory_settings")
+      .insert({
+        ...payload,
+        created_by_id: userId,
+      });
+
+    if (insertError) throw new Error(insertError.message);
+    return null;
+  }
+
+  private async getCompositeItemOutletInventorySetting(
+    compositeItemId: string,
+    orgId?: string | null,
+    outletId?: string | null,
+  ) {
+    const supabase = this.supabaseService.getClient();
+    const scope = this.resolveScope(orgId, outletId);
+
+    if (scope.outletId) {
+      const { data, error } = await supabase
+        .from("composite_item_outlet_inventory_settings")
+        .select(
+          "id, org_id, outlet_id, composite_item_id, reorder_point, reorder_term_id, is_active",
+        )
+        .eq("composite_item_id", compositeItemId)
+        .eq("org_id", scope.orgId)
+        .eq("outlet_id", scope.outletId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
+      if (data) return data;
+    }
+
+    const { data, error } = await supabase
+      .from("composite_item_outlet_inventory_settings")
+      .select(
+        "id, org_id, outlet_id, composite_item_id, reorder_point, reorder_term_id, is_active",
+      )
+      .eq("composite_item_id", compositeItemId)
+      .eq("org_id", scope.orgId)
+      .is("outlet_id", null)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return data ?? null;
+  }
+
+  private async syncCompositeItemOutletInventorySetting(
+    compositeItemId: string,
+    reorderPoint: number,
+    reorderTermId: string | null,
+    userId: string | null,
+    orgId?: string | null,
+    outletId?: string | null,
+  ) {
+    const supabase = this.supabaseService.getClient();
+    const scope = this.resolveScope(orgId, outletId);
+    const normalizedReorderPoint = Math.max(0, Number(reorderPoint) || 0);
+    const normalizedReorderTermId = this.cleanUuid(reorderTermId);
+    const hasMeaningfulSetting =
+      normalizedReorderPoint > 0 || normalizedReorderTermId != null;
+
+    let existingQuery = supabase
+      .from("composite_item_outlet_inventory_settings")
+      .select("id")
+      .eq("composite_item_id", compositeItemId)
+      .eq("org_id", scope.orgId);
+
+    existingQuery = scope.outletId
+      ? existingQuery.eq("outlet_id", scope.outletId)
+      : existingQuery.is("outlet_id", null);
+
+    const { data: existingSetting, error: existingError } =
+      await existingQuery.maybeSingle();
+
+    if (existingError) throw new Error(existingError.message);
+
+    if (!hasMeaningfulSetting) {
+      if (!existingSetting?.id) return null;
+
+      const { error: clearError } = await supabase
+        .from("composite_item_outlet_inventory_settings")
+        .update({
+          reorder_point: 0,
+          reorder_term_id: null,
+          is_active: false,
+          updated_by_id: userId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingSetting.id);
+
+      if (clearError) throw new Error(clearError.message);
+      return null;
+    }
+
+    const payload = {
+      org_id: scope.orgId,
+      outlet_id: scope.outletId,
+      composite_item_id: compositeItemId,
+      reorder_point: normalizedReorderPoint,
+      reorder_term_id: normalizedReorderTermId,
+      is_active: true,
+      updated_by_id: userId,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existingSetting?.id) {
+      const { error: updateError } = await supabase
+        .from("composite_item_outlet_inventory_settings")
+        .update(payload)
+        .eq("id", existingSetting.id);
+
+      if (updateError) throw new Error(updateError.message);
+      return existingSetting.id;
+    }
+
+    const { error: insertError } = await supabase
+      .from("composite_item_outlet_inventory_settings")
+      .insert({
+        ...payload,
+        created_by_id: userId,
+      });
+
+    if (insertError) throw new Error(insertError.message);
+    return null;
   }
 
   private summarizeHistoryEntry(
@@ -147,6 +456,26 @@ export class ProductsService {
                 ? "Outlet inventory row deleted"
                 : "Outlet inventory updated",
         };
+      case "product_outlet_inventory_settings":
+        return {
+          section: "Inventory",
+          summary:
+            actionLabel === "INSERT"
+              ? "Outlet reorder settings created"
+              : actionLabel === "DELETE"
+                ? "Outlet reorder settings deleted"
+                : "Outlet reorder settings updated",
+        };
+      case "composite_item_outlet_inventory_settings":
+        return {
+          section: "Inventory",
+          summary:
+            actionLabel === "INSERT"
+              ? "Composite outlet reorder settings created"
+              : actionLabel === "DELETE"
+                ? "Composite outlet reorder settings deleted"
+                : "Composite outlet reorder settings updated",
+        };
       default:
         return {
           section: "History",
@@ -182,10 +511,16 @@ export class ProductsService {
     };
   }
 
-  async create(createProductDto: CreateProductDto, userId: string) {
+  async create(
+    createProductDto: CreateProductDto,
+    userId: string | null,
+    scope?: { orgId?: string | null; outletId?: string | null },
+  ) {
     const supabase = this.supabaseService.getClient();
 
     const { compositions, ...productData } = createProductDto as any;
+    const reorderPoint = Number(productData.reorder_point) || 0;
+    const reorderTermId = this.cleanUuid(productData.reorder_term_id);
 
     const insertPayload: Record<string, any> = {
       ...this.sanitizeProductPayload(productData),
@@ -195,6 +530,8 @@ export class ProductsService {
 
     delete (insertPayload as any).buying_rule;
     delete (insertPayload as any).schedule_of_drug;
+    delete (insertPayload as any).reorder_point;
+    delete (insertPayload as any).reorder_term_id;
 
     // Strip null/undefined to let DB defaults work
     Object.keys(insertPayload).forEach(
@@ -263,14 +600,29 @@ export class ProductsService {
       }
     }
 
+    await this.syncProductOutletInventorySetting(
+      product.id,
+      reorderPoint,
+      reorderTermId,
+      userId,
+      scope?.orgId,
+      scope?.outletId,
+    );
+
     return product;
   }
 
-  async createComposite(payload: any, userId: string = null) {
+  async createComposite(
+    payload: any,
+    userId: string = null,
+    scope?: { orgId?: string | null; outletId?: string | null },
+  ) {
     const supabase = this.supabaseService.getClient();
 
     // 1. Prepare main composite item data
     const { parts, ...mainData } = payload;
+    const reorderPoint = Number(mainData.reorder_point) || 0;
+    const reorderTermId = this.cleanUuid(mainData.reorder_term_id);
 
     // Clean and validate data before insert
     const insertPayload: Record<string, any> = {
@@ -288,11 +640,13 @@ export class ProductsService {
       preferred_vendor_id: this.cleanUuid(mainData.preferred_vendor_id),
       manufacturer_id: this.cleanUuid(mainData.manufacturer_id),
       brand_id: this.cleanUuid(mainData.brand_id),
-      reorder_term_id: this.cleanUuid(mainData.reorder_term_id),
       // Audit fields
       created_by_id: userId,
       updated_by_id: userId,
     };
+
+    delete insertPayload.reorder_point;
+    delete insertPayload.reorder_term_id;
 
     // Remove empty strings and undefined to let DB defaults work or avoid type errors
     Object.keys(insertPayload).forEach((key) => {
@@ -352,10 +706,22 @@ export class ProductsService {
       }
     }
 
-    return composite;
+    await this.syncCompositeItemOutletInventorySetting(
+      composite.id,
+      reorderPoint,
+      reorderTermId,
+      userId,
+      scope?.orgId,
+      scope?.outletId,
+    );
+
+    return this.mapCompositeItem(composite, scope);
   }
 
-  async findOne(id: string) {
+  async findOne(
+    id: string,
+    scope?: { orgId?: string | null; outletId?: string | null },
+  ) {
     const supabase = this.supabaseService.getClient();
 
     const { data, error } = await supabase
@@ -371,7 +737,7 @@ export class ProductsService {
       );
     }
 
-    return this.mapProduct(data);
+    return this.mapProduct(data, scope);
   }
 
   async countProducts() {
@@ -591,7 +957,10 @@ export class ProductsService {
     return data;
   }
 
-  async getCompositeItems() {
+  async getCompositeItems(scope?: {
+    orgId?: string | null;
+    outletId?: string | null;
+  }) {
     const supabase = this.supabaseService.getClient();
 
     try {
@@ -616,19 +985,29 @@ export class ProductsService {
       console.log(
         `✅ Successfully fetched ${data?.length || 0} composite items`,
       );
-      return data;
+      return Promise.all(
+        (data || []).map((item) => this.mapCompositeItem(item, scope)),
+      );
     } catch (error) {
       console.error("❌ Error in getCompositeItems:", error);
       throw error;
     }
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto, userId: string) {
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    userId: string | null,
+    scope?: { orgId?: string | null; outletId?: string | null },
+  ) {
     const supabase = this.supabaseService.getClient();
 
     // Separate compositions from main product data
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { compositions, ...productData } = updateProductDto as any;
+
+    const reorderPoint = Number(productData.reorder_point) || 0;
+    const reorderTermId = this.cleanUuid(productData.reorder_term_id);
 
     const payload: Record<string, any> = {
       ...this.sanitizeProductPayload(productData),
@@ -637,6 +1016,8 @@ export class ProductsService {
 
     delete (payload as any).buying_rule;
     delete (payload as any).schedule_of_drug;
+    delete (payload as any).reorder_point;
+    delete (payload as any).reorder_term_id;
 
     // Strip undefined values to avoid updating columns that weren't intended
     Object.keys(payload).forEach(
@@ -715,7 +1096,16 @@ export class ProductsService {
       }
     }
 
-    return data;
+    await this.syncProductOutletInventorySetting(
+      id,
+      reorderPoint,
+      reorderTermId,
+      userId,
+      scope?.orgId,
+      scope?.outletId,
+    );
+
+    return this.findOne(id, scope);
   }
 
   async bulkUpdate(
@@ -1021,6 +1411,24 @@ export class ProductsService {
           column: "reorder_term_id",
           description: "products",
           filterActive: false,
+        });
+        checks.push({
+          table: "composite_items",
+          column: "reorder_term_id",
+          description: "composite items",
+          filterActive: false,
+        });
+        checks.push({
+          table: "product_outlet_inventory_settings",
+          column: "reorder_term_id",
+          description: "outlet inventory settings",
+          filterActive: true,
+        });
+        checks.push({
+          table: "composite_item_outlet_inventory_settings",
+          column: "reorder_term_id",
+          description: "composite outlet inventory settings",
+          filterActive: true,
         });
         break;
       case "accounts":
@@ -1427,24 +1835,23 @@ export class ProductsService {
     );
   }
 
-  async getReorderTerms() {
-    const supabase = this.supabaseService.getClient();
-    const { data, error } = await supabase
-      .from("reorder_terms")
-      .select("id, term_name, quantity, description, is_active")
-      .eq("is_active", true)
-      .order("term_name", { ascending: true });
-
-    if (error) throw new Error(error.message);
-    return data;
+  async getReorderTerms(scope?: {
+    orgId?: string | null;
+    outletId?: string | null;
+  }) {
+    return this.getScopedReorderTerms(scope?.orgId, scope?.outletId);
   }
 
-  async createReorderTerm(termData: {
-    term_name: string;
-    quantity: number;
-    description?: string;
-  }) {
+  async createReorderTerm(
+    termData: {
+      term_name: string;
+      quantity: number;
+      description?: string;
+    },
+    scope?: { orgId?: string | null; outletId?: string | null },
+  ) {
     const supabase = this.supabaseService.getClient();
+    const resolvedScope = this.resolveScope(scope?.orgId, scope?.outletId);
 
     // Validation
     if (!termData.term_name || termData.term_name.trim() === "") {
@@ -1457,6 +1864,8 @@ export class ProductsService {
     const { data, error } = await supabase
       .from("reorder_terms")
       .insert({
+        org_id: resolvedScope.orgId,
+        outlet_id: resolvedScope.outletId,
         term_name: termData.term_name.trim(),
         quantity: termData.quantity,
         description: termData.description || null,
@@ -1483,8 +1892,10 @@ export class ProductsService {
       quantity?: number;
       description?: string;
     },
+    scope?: { orgId?: string | null; outletId?: string | null },
   ) {
     const supabase = this.supabaseService.getClient();
+    const resolvedScope = this.resolveScope(scope?.orgId, scope?.outletId);
 
     // Validation
     if (termData.term_name !== undefined && termData.term_name.trim() === "") {
@@ -1505,12 +1916,18 @@ export class ProductsService {
       updateData.description = termData.description;
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("reorder_terms")
       .update(updateData)
       .eq("id", id)
-      .select()
-      .single();
+      .eq("org_id", resolvedScope.orgId);
+
+    query =
+      resolvedScope.outletId != null
+        ? query.eq("outlet_id", resolvedScope.outletId)
+        : query.is("outlet_id", null);
+
+    const { data, error } = await query.select().single();
 
     if (error) {
       if (error.code === "23505") {
@@ -1522,8 +1939,12 @@ export class ProductsService {
     return data;
   }
 
-  async deleteReorderTerm(id: string) {
+  async deleteReorderTerm(
+    id: string,
+    scope?: { orgId?: string | null; outletId?: string | null },
+  ) {
     const supabase = this.supabaseService.getClient();
+    const resolvedScope = this.resolveScope(scope?.orgId, scope?.outletId);
 
     // Check if the reorder term is being used by any products
     const usageCheck = await this.checkLookupUsage("reorder-terms", id);
@@ -1534,10 +1955,18 @@ export class ProductsService {
     }
 
     // Soft delete
-    const { error } = await supabase
+    let query = supabase
       .from("reorder_terms")
-      .update({ is_active: false })
-      .eq("id", id);
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("org_id", resolvedScope.orgId);
+
+    query =
+      resolvedScope.outletId != null
+        ? query.eq("outlet_id", resolvedScope.outletId)
+        : query.is("outlet_id", null);
+
+    const { error } = await query;
 
     if (error) {
       throw new Error(`Failed to delete reorder term: ${error.message}`);
@@ -1546,24 +1975,114 @@ export class ProductsService {
     return { message: "Reorder term deleted successfully" };
   }
 
-  async syncReorderTerms(items: any[]) {
-    return this.syncTableMetadata(
-      "reorder_terms",
-      items,
-      (item) => ({
-        term_name: item.term_name?.trim?.() || item.term_name,
+  async syncReorderTerms(
+    items: any[],
+    scope?: { orgId?: string | null; outletId?: string | null },
+  ) {
+    const supabase = this.supabaseService.getClient();
+    const resolvedScope = this.resolveScope(scope?.orgId, scope?.outletId);
+    let currentQuery = supabase
+      .from("reorder_terms")
+      .select("id, term_name, is_active")
+      .eq("org_id", resolvedScope.orgId);
+
+    currentQuery =
+      resolvedScope.outletId != null
+        ? currentQuery.eq("outlet_id", resolvedScope.outletId)
+        : currentQuery.is("outlet_id", null);
+
+    const { data: currentRecords, error: fetchError } = await currentQuery;
+
+    if (fetchError) throw fetchError;
+
+    const existingRecords = (currentRecords || []) as any[];
+    const activeIds = existingRecords
+      .filter((r) => r.is_active === true)
+      .map((r) => r.id);
+
+    const toUpsert = items.map((item) => {
+      const normalizedName = item.term_name?.trim?.() || item.term_name;
+      const byId =
+        item.id && this.isUUID(item.id)
+          ? existingRecords.find((r) => r.id === item.id)
+          : null;
+      const byName = !byId
+        ? existingRecords.find(
+            (r) =>
+              (r.term_name ?? "").toString().trim().toLowerCase() ===
+              (normalizedName ?? "").toString().trim().toLowerCase(),
+          )
+        : null;
+
+      return {
+        id:
+          byId?.id ??
+          byName?.id ??
+          (this.isUUID(item.id) ? item.id : randomUUID()),
+        org_id: resolvedScope.orgId,
+        outlet_id: resolvedScope.outletId,
+        term_name: normalizedName,
         quantity: item.quantity,
         description: item.description || null,
-      }),
-      "term_name",
-    );
+        is_active: item.is_active ?? true,
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+    const incomingIds = toUpsert.map((item) => item.id);
+    const idsToDisable = activeIds.filter((id) => !incomingIds.includes(id));
+
+    if (idsToDisable.length > 0) {
+      const trulyDisableableIds: string[] = [];
+      const inUseItems: Array<{ id: string; usedIn: any }> = [];
+
+      for (const id of idsToDisable) {
+        const usageResult = await this.checkLookupUsage("reorder-terms", id);
+        if (!usageResult.inUse) {
+          trulyDisableableIds.push(id);
+        } else {
+          inUseItems.push({ id, usedIn: usageResult.usedIn } as any);
+        }
+      }
+
+      if (inUseItems.length > 0) {
+        const itemNames = inUseItems.map((i) => {
+          const rec = existingRecords.find((r) => r.id === i.id);
+          return rec?.term_name ?? i.id;
+        });
+        throw new ConflictException(
+          `Cannot delete "${itemNames.join(", ")}" because it is associated with active outlet inventory settings`,
+        );
+      }
+
+      if (trulyDisableableIds.length > 0) {
+        const { error: disableError } = await supabase
+          .from("reorder_terms")
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .in("id", trulyDisableableIds);
+
+        if (disableError) throw disableError;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("reorder_terms")
+      .upsert(toUpsert, { onConflict: "id" })
+      .select(
+        "id, org_id, outlet_id, term_name, quantity, description, is_active",
+      );
+
+    if (error) throw error;
+    return data ?? [];
   }
 
   async getAccounts() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
       .from("accounts")
-      .select("id, user_account_name, system_account_name, account_type, is_active")
+      .select(
+        "id, user_account_name, system_account_name, account_type, is_active",
+      )
       .eq("is_active", true)
       .order("system_account_name", { ascending: true });
 
@@ -1664,7 +2183,10 @@ export class ProductsService {
     return data;
   }
 
-  async getLookupBootstrap() {
+  async getLookupBootstrap(scope?: {
+    orgId?: string | null;
+    outletId?: string | null;
+  }) {
     const [
       units,
       categories,
@@ -1694,7 +2216,7 @@ export class ProductsService {
       this.getStorageLocations(),
       this.getWarehouses(),
       this.getRacks(),
-      this.getReorderTerms(),
+      this.getReorderTerms(scope),
       this.getAccounts(),
       this.getContents(),
       this.getStrengths(),
@@ -1739,7 +2261,7 @@ export class ProductsService {
     }
 
     const supabase = this.supabaseService.getClient();
-    const [warehousesResult, stocksResult] = await Promise.all([
+    const [warehousesResult, stocksResult, outletsResult] = await Promise.all([
       supabase
         .from("warehouses")
         .select("id, org_id, outlet_id, name, is_active")
@@ -1751,6 +2273,7 @@ export class ProductsService {
           "warehouse_id, opening_stock, opening_stock_value, accounting_stock, physical_stock, committed_stock",
         )
         .eq("product_id", productId),
+      supabase.from("outlets").select("id, outlet_name"),
     ]);
 
     if (warehousesResult.error) {
@@ -1759,9 +2282,20 @@ export class ProductsService {
     if (stocksResult.error) {
       throw new Error(stocksResult.error.message);
     }
-
     const stockRows = new Map(
       (stocksResult.data ?? []).map((row: any) => [row.warehouse_id, row]),
+    );
+    if (outletsResult.error) {
+      console.warn(
+        "⚠️ [Warehouse Stocks] Optional outlets lookup unavailable, using warehouse names only:",
+        outletsResult.error.message,
+      );
+    }
+    const outletNames = new Map(
+      ((outletsResult.error ? [] : outletsResult.data) ?? []).map((row: any) => [
+        row.id,
+        row.outlet_name,
+      ]),
     );
 
     return (warehousesResult.data ?? []).map((warehouse: any) => {
@@ -1787,6 +2321,9 @@ export class ProductsService {
         id: warehouse.id,
         warehouse_id: warehouse.id,
         name: warehouse.name,
+        outlet_name: warehouse.outlet_id
+          ? outletNames.get(warehouse.outlet_id) ?? ""
+          : "",
         opening_stock: openingStock,
         opening_stock_value: this.normalizeNonNegativeNumber(
           row?.opening_stock_value,
@@ -1923,7 +2460,10 @@ export class ProductsService {
     }
 
     const warehouseMap = new Map(
-      (warehouseMasters ?? []).map((warehouse: any) => [warehouse.id, warehouse]),
+      (warehouseMasters ?? []).map((warehouse: any) => [
+        warehouse.id,
+        warehouse,
+      ]),
     );
 
     const upserts = rows
@@ -1960,8 +2500,7 @@ export class ProductsService {
         return {
           product_id: productId,
           warehouse_id: warehouseId,
-          org_id:
-            warehouse.org_id ?? "00000000-0000-0000-0000-000000000000",
+          org_id: warehouse.org_id ?? "00000000-0000-0000-0000-000000000000",
           outlet_id: warehouse.outlet_id ?? null,
           opening_stock: openingStock,
           opening_stock_value: openingStockValue,
@@ -2348,7 +2887,10 @@ export class ProductsService {
     return data;
   }
 
-  private async mapProduct(product: any) {
+  private async mapProduct(
+    product: any,
+    scope?: { orgId?: string | null; outletId?: string | null },
+  ) {
     if (!product) return null;
 
     // Sign Primary Image if it exists
@@ -2385,7 +2927,56 @@ export class ProductsService {
       );
     }
 
+    if (scope != null) {
+      try {
+        const outletSetting = await this.getProductOutletInventorySetting(
+          product.id,
+          scope.orgId,
+          scope.outletId,
+        );
+        if (outletSetting) {
+          product.reorder_point = Number(outletSetting.reorder_point ?? 0);
+          product.reorder_term_id = outletSetting.reorder_term_id ?? null;
+        }
+      } catch (e) {
+        console.error(
+          `Failed to overlay outlet reorder settings for ${product.id}`,
+          e,
+        );
+      }
+    }
+
     return product;
+  }
+
+  private async mapCompositeItem(
+    compositeItem: any,
+    scope?: { orgId?: string | null; outletId?: string | null },
+  ) {
+    if (!compositeItem) return null;
+
+    if (scope != null) {
+      try {
+        const outletSetting = await this.getCompositeItemOutletInventorySetting(
+          compositeItem.id,
+          scope.orgId,
+          scope.outletId,
+        );
+        if (outletSetting) {
+          compositeItem.reorder_point = Number(
+            outletSetting.reorder_point ?? 0,
+          );
+          compositeItem.reorder_term_id = outletSetting.reorder_term_id ?? null;
+        }
+      } catch (e) {
+        console.error(
+          `Failed to overlay composite outlet reorder settings for ${compositeItem.id}`,
+          e,
+        );
+      }
+    }
+
+    return compositeItem;
   }
 
   async getQuickStats(productId: string) {

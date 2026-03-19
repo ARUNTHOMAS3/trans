@@ -104,7 +104,7 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 4),
               Text(
@@ -112,7 +112,7 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827),
+                  color: AppTheme.textPrimary,
                 ),
               ),
             ],

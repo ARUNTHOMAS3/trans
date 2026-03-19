@@ -231,9 +231,9 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                         alignment: Alignment.centerLeft,
                         decoration: BoxDecoration(
                           color: isHovered
-                              ? const Color(0xFF2563EB)
+                              ? AppTheme.primaryBlueDark
                               : isSelected
-                              ? const Color(0xFFEFF6FF)
+                              ? AppTheme.infoBg
                               : Colors.transparent,
                         ),
                         child: Row(
@@ -246,8 +246,8 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                                   color: isHovered
                                       ? Colors.white
                                       : isSelected
-                                      ? const Color(0xFF2563EB)
-                                      : const Color(0xFF111827),
+                                      ? AppTheme.primaryBlueDark
+                                      : AppTheme.textPrimary,
                                   fontWeight: isSelected
                                       ? FontWeight.w500
                                       : FontWeight.normal,
@@ -260,7 +260,7 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                                 size: 16,
                                 color: isHovered
                                     ? Colors.white
-                                    : const Color(0xFF2563EB),
+                                    : AppTheme.primaryBlueDark,
                               ),
                           ],
                         ),
@@ -442,9 +442,9 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                         alignment: Alignment.centerLeft,
                         decoration: BoxDecoration(
                           color: isHovered
-                              ? const Color(0xFF2563EB)
+                              ? AppTheme.primaryBlueDark
                               : isSelected
-                              ? const Color(0xFFEFF6FF)
+                              ? AppTheme.infoBg
                               : Colors.transparent,
                         ),
                         child: Row(
@@ -457,8 +457,8 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                                   color: isHovered
                                       ? Colors.white
                                       : isSelected
-                                      ? const Color(0xFF2563EB)
-                                      : const Color(0xFF111827),
+                                      ? AppTheme.primaryBlueDark
+                                      : AppTheme.textPrimary,
                                   fontWeight: isSelected
                                       ? FontWeight.w500
                                       : FontWeight.normal,
@@ -471,7 +471,7 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                                 size: 16,
                                 color: isHovered
                                     ? Colors.white
-                                    : const Color(0xFF2563EB),
+                                    : AppTheme.primaryBlueDark,
                               ),
                           ],
                         ),
@@ -543,10 +543,10 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFEFF6FF) : Colors.transparent,
+          color: selected ? AppTheme.infoBg : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: selected ? const Color(0xFF2563EB) : const Color(0xFFD1D5DB),
+            color: selected ? AppTheme.primaryBlueDark : AppTheme.borderColor,
             width: selected ? 2 : 1,
           ),
         ),
@@ -560,8 +560,8 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: selected
-                      ? const Color(0xFF2563EB)
-                      : const Color(0xFF9CA3AF),
+                      ? AppTheme.primaryBlueDark
+                      : AppTheme.textMuted,
                   width: 2,
                 ),
                 color: Colors.white,
@@ -573,7 +573,7 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                         height: 8,
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Color(0xFF2563EB),
+                          color: AppTheme.primaryBlueDark,
                         ),
                       ),
                     )
@@ -586,8 +586,8 @@ extension _ItemCreatePrimaryInfo on _ItemCreateScreenState {
                 fontSize: 13,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 color: selected
-                    ? const Color(0xFF2563EB)
-                    : const Color(0xFF111827),
+                    ? AppTheme.primaryBlueDark
+                    : AppTheme.textPrimary,
               ),
             ),
           ],

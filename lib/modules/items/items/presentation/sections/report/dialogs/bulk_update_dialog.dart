@@ -6,6 +6,7 @@ import 'package:zerpai_erp/modules/items/items/models/unit_model.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/category_dropdown.dart'
     show CategoryDropdown, CategoryNode;
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 Future<void> showBulkUpdateDialog(
   BuildContext context, {
@@ -163,7 +164,7 @@ Future<void> showBulkUpdateDialog(
                         hasValue = rackId?.isNotEmpty == true;
                       } else if (selectedField == 'Reorder Point') {
                         hasValue = reorderPointValue.trim().isNotEmpty;
-                      } else if (selectedField == 'Reorder Terms') {
+                      } else if (selectedField == 'Reorder Rule') {
                         hasValue = reorderTermId?.isNotEmpty == true;
                       }
 
@@ -201,9 +202,9 @@ Future<void> showBulkUpdateDialog(
                               alignment: Alignment.centerLeft,
                               decoration: BoxDecoration(
                                 color: isHovered
-                                    ? const Color(0xFF2563EB)
+                                    ? AppTheme.primaryBlueDark
                                     : isSelected
-                                    ? const Color(0xFFEFF6FF)
+                                    ? AppTheme.infoBg
                                     : Colors.transparent,
                               ),
                               child: Row(
@@ -216,8 +217,8 @@ Future<void> showBulkUpdateDialog(
                                         color: isHovered
                                             ? Colors.white
                                             : isSelected
-                                            ? const Color(0xFF2563EB)
-                                            : const Color(0xFF111827),
+                                            ? AppTheme.primaryBlueDark
+                                            : AppTheme.textPrimary,
                                       ),
                                     ),
                                   ),
@@ -227,7 +228,7 @@ Future<void> showBulkUpdateDialog(
                                       size: 16,
                                       color: isHovered
                                           ? Colors.white
-                                          : const Color(0xFF2563EB),
+                                          : AppTheme.primaryBlueDark,
                                     ),
                                 ],
                               ),
@@ -294,7 +295,7 @@ Future<void> showBulkUpdateDialog(
                               'reorder_point':
                                   int.tryParse(reorderPointValue.trim()) ?? 0,
                             };
-                          case 'Reorder Terms':
+                          case 'Reorder Rule':
                             return {'reorder_term_id': reorderTermId};
                           case 'Returnable':
                             return {'is_returnable': returnable};
@@ -341,7 +342,7 @@ Future<void> showBulkUpdateDialog(
                                   ),
                                   border: Border(
                                     bottom: BorderSide(
-                                      color: Color(0xFFE5E7EB),
+                                      color: AppTheme.borderColor,
                                     ),
                                   ),
                                 ),
@@ -353,7 +354,7 @@ Future<void> showBulkUpdateDialog(
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
-                                          color: Color(0xFF111827),
+                                          color: AppTheme.textPrimary,
                                         ),
                                       ),
                                     ),
@@ -366,7 +367,7 @@ Future<void> showBulkUpdateDialog(
                                         height: 32,
                                         decoration: BoxDecoration(
                                           border: Border.all(
-                                            color: const Color(0xFF2563EB),
+                                            color: AppTheme.primaryBlueDark,
                                           ),
                                           borderRadius: BorderRadius.circular(
                                             6,
@@ -375,7 +376,7 @@ Future<void> showBulkUpdateDialog(
                                         child: const Icon(
                                           Icons.close,
                                           size: 18,
-                                          color: Color(0xFF2563EB),
+                                          color: AppTheme.primaryBlueDark,
                                         ),
                                       ),
                                     ),
@@ -400,7 +401,7 @@ Future<void> showBulkUpdateDialog(
                                         'Choose a field from the dropdown and update with new information.',
                                         style: TextStyle(
                                           fontSize: 13,
-                                          color: Color(0xFF4B5563),
+                                          color: AppTheme.textSubtle,
                                         ),
                                       ),
                                       const SizedBox(height: 18),
@@ -409,7 +410,7 @@ Future<void> showBulkUpdateDialog(
                                         'Select a field*',
                                         style: TextStyle(
                                           fontSize: 13,
-                                          color: Color(0xFFE11D48),
+                                          color: AppTheme.errorRed,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -438,7 +439,7 @@ Future<void> showBulkUpdateDialog(
                                           'Storage',
                                           'Rack',
                                           'Reorder Point',
-                                          'Reorder Terms',
+                                          'Reorder Rule',
                                           'Returnable',
                                           'Ecommerce',
                                           'Lock',
@@ -456,7 +457,7 @@ Future<void> showBulkUpdateDialog(
                                           text: 'Note: ',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFF111827),
+                                            color: AppTheme.textPrimary,
                                             fontWeight: FontWeight.w600,
                                           ),
                                           children: [
@@ -466,7 +467,7 @@ Future<void> showBulkUpdateDialog(
                                               style: TextStyle(
                                                 height: 1.5,
                                                 fontWeight: FontWeight.w400,
-                                                color: Color(0xFF4B5563),
+                                                color: AppTheme.textSubtle,
                                               ),
                                             ),
                                           ],
@@ -479,7 +480,7 @@ Future<void> showBulkUpdateDialog(
                                           'Select category*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFB91C1C),
+                                            color: AppTheme.errorRedDark,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -500,7 +501,7 @@ Future<void> showBulkUpdateDialog(
                                           'HSN or SAC*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -512,7 +513,7 @@ Future<void> showBulkUpdateDialog(
                                             hintText: 'Enter HSN or SAC',
                                             hintStyle: const TextStyle(
                                               fontSize: 13,
-                                              color: Color(0xFF9CA3AF),
+                                              color: AppTheme.textMuted,
                                             ),
                                             contentPadding:
                                                 const EdgeInsets.symmetric(
@@ -527,7 +528,7 @@ Future<void> showBulkUpdateDialog(
                                               borderRadius:
                                                   BorderRadius.circular(4),
                                               borderSide: const BorderSide(
-                                                color: Color(0xFF2563EB),
+                                                color: AppTheme.primaryBlueDark,
                                               ),
                                             ),
                                           ),
@@ -538,7 +539,7 @@ Future<void> showBulkUpdateDialog(
                                           'Intra State Tax Rate*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -559,7 +560,7 @@ Future<void> showBulkUpdateDialog(
                                           'Inter State Tax Rate*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -581,7 +582,7 @@ Future<void> showBulkUpdateDialog(
                                           'Unit*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -604,7 +605,7 @@ Future<void> showBulkUpdateDialog(
                                           'Sales Account*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -631,7 +632,7 @@ Future<void> showBulkUpdateDialog(
                                           'Selling Price*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -645,7 +646,7 @@ Future<void> showBulkUpdateDialog(
                                             hintText: 'Enter Selling Price',
                                             hintStyle: const TextStyle(
                                               fontSize: 13,
-                                              color: Color(0xFF9CA3AF),
+                                              color: AppTheme.textMuted,
                                             ),
                                             contentPadding:
                                                 const EdgeInsets.symmetric(
@@ -660,7 +661,7 @@ Future<void> showBulkUpdateDialog(
                                               borderRadius:
                                                   BorderRadius.circular(4),
                                               borderSide: const BorderSide(
-                                                color: Color(0xFF2563EB),
+                                                color: AppTheme.primaryBlueDark,
                                               ),
                                             ),
                                           ),
@@ -672,7 +673,7 @@ Future<void> showBulkUpdateDialog(
                                           'Buying Rules*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -699,7 +700,7 @@ Future<void> showBulkUpdateDialog(
                                           'Sales Description*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -712,7 +713,7 @@ Future<void> showBulkUpdateDialog(
                                             hintText: 'Enter Sales Description',
                                             hintStyle: const TextStyle(
                                               fontSize: 13,
-                                              color: Color(0xFF9CA3AF),
+                                              color: AppTheme.textMuted,
                                             ),
                                             contentPadding:
                                                 const EdgeInsets.symmetric(
@@ -727,7 +728,7 @@ Future<void> showBulkUpdateDialog(
                                               borderRadius:
                                                   BorderRadius.circular(4),
                                               borderSide: const BorderSide(
-                                                color: Color(0xFF2563EB),
+                                                color: AppTheme.primaryBlueDark,
                                               ),
                                             ),
                                           ),
@@ -739,7 +740,7 @@ Future<void> showBulkUpdateDialog(
                                           'Schedule Of Drug*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -766,7 +767,7 @@ Future<void> showBulkUpdateDialog(
                                           'Manufacturer/Patent*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -792,7 +793,7 @@ Future<void> showBulkUpdateDialog(
                                           'Brand*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -818,7 +819,7 @@ Future<void> showBulkUpdateDialog(
                                           'Purchase Account*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -845,7 +846,7 @@ Future<void> showBulkUpdateDialog(
                                           'Preffered Vendor*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -871,7 +872,7 @@ Future<void> showBulkUpdateDialog(
                                           'Purchase Description*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -886,7 +887,7 @@ Future<void> showBulkUpdateDialog(
                                                 'Enter Purchase Description',
                                             hintStyle: const TextStyle(
                                               fontSize: 13,
-                                              color: Color(0xFF9CA3AF),
+                                              color: AppTheme.textMuted,
                                             ),
                                             contentPadding:
                                                 const EdgeInsets.symmetric(
@@ -901,7 +902,7 @@ Future<void> showBulkUpdateDialog(
                                               borderRadius:
                                                   BorderRadius.circular(4),
                                               borderSide: const BorderSide(
-                                                color: Color(0xFF2563EB),
+                                                color: AppTheme.primaryBlueDark,
                                               ),
                                             ),
                                           ),
@@ -913,7 +914,7 @@ Future<void> showBulkUpdateDialog(
                                           'Inventory Account*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -940,7 +941,7 @@ Future<void> showBulkUpdateDialog(
                                           'Inventory Valuation Method*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -967,7 +968,7 @@ Future<void> showBulkUpdateDialog(
                                           'Storage*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -992,7 +993,7 @@ Future<void> showBulkUpdateDialog(
                                           'Rack*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -1018,7 +1019,7 @@ Future<void> showBulkUpdateDialog(
                                           'Reorder Point*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFE11D48),
+                                            color: AppTheme.errorRed,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -1032,7 +1033,7 @@ Future<void> showBulkUpdateDialog(
                                             hintText: 'Enter Reorder Point',
                                             hintStyle: const TextStyle(
                                               fontSize: 13,
-                                              color: Color(0xFF9CA3AF),
+                                              color: AppTheme.textMuted,
                                             ),
                                             contentPadding:
                                                 const EdgeInsets.symmetric(
@@ -1047,26 +1048,26 @@ Future<void> showBulkUpdateDialog(
                                               borderRadius:
                                                   BorderRadius.circular(4),
                                               borderSide: const BorderSide(
-                                                color: Color(0xFF2563EB),
+                                                color: AppTheme.primaryBlueDark,
                                               ),
                                             ),
                                           ),
                                         ),
                                       ] else if (selectedField ==
-                                          'Reorder Terms') ...[
+                                          'Reorder Rule') ...[
                                         const SizedBox(height: 18),
                                         const Text(
-                                          'Reorder Terms*',
+                                          'Reorder Rule*',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Color(0xFFB91C1C),
+                                            color: AppTheme.errorRedDark,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                         const SizedBox(height: 8),
                                         buildFormattedDropdown(
                                           value: reorderTermId,
-                                          hint: 'Select Reorder Terms',
+                                          hint: 'Select reorder rule',
                                           items: reorderTermIds,
                                           allowClear: false,
                                           labelFor: (id) =>
@@ -1099,7 +1100,7 @@ Future<void> showBulkUpdateDialog(
                                               'Returnable',
                                               style: TextStyle(
                                                 fontSize: 13,
-                                                color: Color(0xFF374151),
+                                                color: AppTheme.textBody,
                                               ),
                                             ),
                                           ],
@@ -1124,7 +1125,7 @@ Future<void> showBulkUpdateDialog(
                                               'Ecommerce',
                                               style: TextStyle(
                                                 fontSize: 13,
-                                                color: Color(0xFF374151),
+                                                color: AppTheme.textBody,
                                               ),
                                             ),
                                           ],
@@ -1148,7 +1149,7 @@ Future<void> showBulkUpdateDialog(
                                               'Lock',
                                               style: TextStyle(
                                                 fontSize: 13,
-                                                color: Color(0xFF374151),
+                                                color: AppTheme.textBody,
                                               ),
                                             ),
                                           ],
@@ -1161,7 +1162,7 @@ Future<void> showBulkUpdateDialog(
 
                               const Divider(
                                 height: 1,
-                                color: Color(0xFFE5E7EB),
+                                color: AppTheme.borderColor,
                               ),
 
                               // ---------------- ACTION BUTTONS ----------------
@@ -1210,7 +1211,7 @@ Future<void> showBulkUpdateDialog(
                                             }
                                           : null,
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Color(0xFF22C55E),
+                                        backgroundColor: AppTheme.successGreen,
                                         foregroundColor: Colors.white,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 20,
@@ -1237,9 +1238,9 @@ Future<void> showBulkUpdateDialog(
                                       onPressed: () => Navigator.pop(ctx),
                                       style: OutlinedButton.styleFrom(
                                         side: BorderSide(
-                                          color: Color(0xFFD1D5DB),
+                                          color: AppTheme.borderColor,
                                         ),
-                                        foregroundColor: Color(0xFF374151),
+                                        foregroundColor: AppTheme.textBody,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 18,
                                           vertical: 12,

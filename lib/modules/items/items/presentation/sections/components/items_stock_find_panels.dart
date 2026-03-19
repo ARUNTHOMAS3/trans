@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/modules/items/items/models/items_stock_models.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SerialFindPanel extends StatefulWidget {
   final List<SerialData> serials;
@@ -73,8 +74,8 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: selectedSerial == null
-                                        ? const Color(0xFF6B7280)
-                                        : const Color(0xFF111827),
+                                        ? AppTheme.textSecondary
+                                        : AppTheme.textPrimary,
                                   ),
                                 ),
                               ),
@@ -83,7 +84,7 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                                     ? Icons.keyboard_arrow_up
                                     : Icons.keyboard_arrow_down,
                                 size: 18,
-                                color: const Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                               ),
                             ],
                           ),
@@ -95,7 +96,7 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            border: Border.all(color: AppTheme.borderColor),
                             boxShadow: const [
                               BoxShadow(
                                 color: Color(0x14000000),
@@ -112,7 +113,7 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                                   height: 36,
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                      color: const Color(0xFFD1D5DB),
+                                      color: AppTheme.borderColor,
                                     ),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
@@ -125,12 +126,12 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                                       hintText: 'Search',
                                       hintStyle: TextStyle(
                                         fontSize: 13,
-                                        color: Color(0xFF9CA3AF),
+                                        color: AppTheme.textMuted,
                                       ),
                                       prefixIcon: Icon(
                                         Icons.search,
                                         size: 18,
-                                        color: Color(0xFF9CA3AF),
+                                        color: AppTheme.textMuted,
                                       ),
                                       border: InputBorder.none,
                                       contentPadding: EdgeInsets.symmetric(
@@ -149,7 +150,7 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                                     'No matches',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Color(0xFF9CA3AF),
+                                      color: AppTheme.textMuted,
                                     ),
                                   ),
                                 )
@@ -178,9 +179,9 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                                           vertical: 10,
                                         ),
                                         color: showBlue
-                                            ? const Color(0xFF3B82F6)
+                                            ? AppTheme.infoBlue
                                             : (showGray
-                                                  ? const Color(0xFFE5E7EB)
+                                                  ? AppTheme.borderColor
                                                   : Colors.white),
                                         child: Text(
                                           serial.serialNumber,
@@ -188,7 +189,7 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                                             fontSize: 13,
                                             color: showBlue
                                                 ? Colors.white
-                                                : const Color(0xFF111827),
+                                                : AppTheme.textPrimary,
                                             fontWeight: showBlue
                                                 ? FontWeight.w600
                                                 : FontWeight.w500,
@@ -210,7 +211,7 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                   icon: const Icon(
                     Icons.close,
                     size: 18,
-                    color: Color(0xFF6B7280),
+                    color: AppTheme.textSecondary,
                   ),
                   onPressed: () => Navigator.of(context).pop(),
                   padding: EdgeInsets.zero,
@@ -219,13 +220,13 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
               ],
             ),
             const SizedBox(height: 12),
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            const Divider(height: 1, color: AppTheme.borderColor),
             if (selectedSerial == null)
               const Expanded(
                 child: Center(
                   child: Text(
                     'No serial number selected',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                 ),
               )
@@ -243,14 +244,14 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                           vertical: 10,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color: AppTheme.infoBg,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           'Serial Number - ${selectedSerial!.serialNumber}',
                           style: const TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF1D4ED8),
+                            color: AppTheme.primaryBlueDark,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -265,7 +266,7 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                               selectedSerial!.warehouseName,
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                               ),
                             ),
                           ),
@@ -275,7 +276,7 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                                 'IN',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF22C55E),
+                                  color: AppTheme.successGreen,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -305,7 +306,7 @@ class _SerialFindPanelState extends State<SerialFindPanel> {
                               'Opening Balance',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF111827),
+                                color: AppTheme.textPrimary,
                               ),
                             ),
                           ),
@@ -393,8 +394,8 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: selectedBatch == null
-                                        ? const Color(0xFF6B7280)
-                                        : const Color(0xFF111827),
+                                        ? AppTheme.textSecondary
+                                        : AppTheme.textPrimary,
                                   ),
                                 ),
                               ),
@@ -403,7 +404,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                     ? Icons.keyboard_arrow_up
                                     : Icons.keyboard_arrow_down,
                                 size: 18,
-                                color: const Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                               ),
                             ],
                           ),
@@ -415,7 +416,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            border: Border.all(color: AppTheme.borderColor),
                             boxShadow: const [
                               BoxShadow(
                                 color: Color(0x14000000),
@@ -432,7 +433,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                   height: 36,
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                      color: const Color(0xFFD1D5DB),
+                                      color: AppTheme.borderColor,
                                     ),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
@@ -445,12 +446,12 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                       hintText: 'Search',
                                       hintStyle: TextStyle(
                                         fontSize: 13,
-                                        color: Color(0xFF9CA3AF),
+                                        color: AppTheme.textMuted,
                                       ),
                                       prefixIcon: Icon(
                                         Icons.search,
                                         size: 18,
-                                        color: Color(0xFF9CA3AF),
+                                        color: AppTheme.textMuted,
                                       ),
                                       border: InputBorder.none,
                                       contentPadding: EdgeInsets.symmetric(
@@ -469,7 +470,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                     'No matches',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Color(0xFF9CA3AF),
+                                      color: AppTheme.textMuted,
                                     ),
                                   ),
                                 )
@@ -499,9 +500,9 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                           vertical: 10,
                                         ),
                                         color: showBlue
-                                            ? const Color(0xFF3B82F6)
+                                            ? AppTheme.infoBlue
                                             : (showGray
-                                                  ? const Color(0xFFE5E7EB)
+                                                  ? AppTheme.borderColor
                                                   : Colors.white),
                                         child: Text(
                                           batch.batchReference,
@@ -509,7 +510,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                             fontSize: 13,
                                             color: showBlue
                                                 ? Colors.white
-                                                : const Color(0xFF111827),
+                                                : AppTheme.textPrimary,
                                             fontWeight: showBlue
                                                 ? FontWeight.w600
                                                 : FontWeight.w500,
@@ -531,7 +532,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                   icon: const Icon(
                     Icons.close,
                     size: 18,
-                    color: Color(0xFF6B7280),
+                    color: AppTheme.textSecondary,
                   ),
                   onPressed: () => Navigator.of(context).pop(),
                   padding: EdgeInsets.zero,
@@ -540,13 +541,13 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
               ],
             ),
             const SizedBox(height: 12),
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            const Divider(height: 1, color: AppTheme.borderColor),
             if (selectedBatch == null)
               const Expanded(
                 child: Center(
                   child: Text(
                     'No batches selected',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                 ),
               )
@@ -562,7 +563,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF111827),
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -571,7 +572,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                         '${selectedBatch!.manufacturerBatch.isEmpty ? 'N/A' : selectedBatch!.manufacturerBatch}',
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF6B7280),
+                          color: AppTheme.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -582,7 +583,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                             '${selectedBatch!.manufacturedDate.isEmpty ? 'N/A' : selectedBatch!.manufacturedDate}',
                             style: const TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF6B7280),
+                              color: AppTheme.textSecondary,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -591,7 +592,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                             '${selectedBatch!.expiryDate.isEmpty ? 'N/A' : selectedBatch!.expiryDate}',
                             style: const TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF6B7280),
+                              color: AppTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -601,7 +602,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: const BoxDecoration(
                           border: Border(
-                            top: BorderSide(color: Color(0xFFE5E7EB)),
+                            top: BorderSide(color: AppTheme.borderColor),
                           ),
                         ),
                         child: Row(
@@ -614,7 +615,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                     'Quantity In',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Color(0xFF6B7280),
+                                      color: AppTheme.textSecondary,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -622,7 +623,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                     '${selectedBatch!.quantityIn.toDouble().toStringAsFixed(2)} pcs',
                                     style: const TextStyle(
                                       fontSize: 13,
-                                      color: Color(0xFF111827),
+                                      color: AppTheme.textPrimary,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -637,7 +638,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                     'Quantity Available',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Color(0xFF6B7280),
+                                      color: AppTheme.textSecondary,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -645,7 +646,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                     '${selectedBatch!.quantityAvailable.toDouble().toStringAsFixed(2)} pcs',
                                     style: const TextStyle(
                                       fontSize: 13,
-                                      color: Color(0xFF111827),
+                                      color: AppTheme.textPrimary,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -670,8 +671,8 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: showInTransactions
-                                          ? const Color(0xFF2563EB)
-                                          : const Color(0xFF6B7280),
+                                          ? AppTheme.primaryBlueDark
+                                          : AppTheme.textSecondary,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -679,7 +680,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                   Container(
                                     height: 2,
                                     color: showInTransactions
-                                        ? const Color(0xFF2563EB)
+                                        ? AppTheme.primaryBlueDark
                                         : Colors.transparent,
                                   ),
                                 ],
@@ -698,8 +699,8 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: !showInTransactions
-                                          ? const Color(0xFF2563EB)
-                                          : const Color(0xFF6B7280),
+                                          ? AppTheme.primaryBlueDark
+                                          : AppTheme.textSecondary,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -707,7 +708,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                   Container(
                                     height: 2,
                                     color: !showInTransactions
-                                        ? const Color(0xFF2563EB)
+                                        ? AppTheme.primaryBlueDark
                                         : Colors.transparent,
                                   ),
                                 ],
@@ -721,7 +722,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            border: Border.all(color: AppTheme.borderColor),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Column(
@@ -731,7 +732,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                 'Bill : 000099',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Color(0xFF2563EB),
+                                  color: AppTheme.primaryBlueDark,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -740,7 +741,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                 'Vendor: TEST VENDOR',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Color(0xFF6B7280),
+                                  color: AppTheme.textSecondary,
                                 ),
                               ),
                               SizedBox(height: 6),
@@ -748,7 +749,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                                 'Quantity: 5.00    Date: 24-02-2025',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Color(0xFF111827),
+                                  color: AppTheme.textPrimary,
                                 ),
                               ),
                             ],
@@ -760,7 +761,7 @@ class _BatchFindPanelState extends State<BatchFindPanel> {
                             'No outward transactions found.',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF6B7280),
+                              color: AppTheme.textSecondary,
                             ),
                           ),
                         ),

@@ -10,6 +10,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import '../controllers/sales_order_controller.dart';
 import '../models/sales_eway_bill_model.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SalesEWayBillCreateScreen extends ConsumerStatefulWidget {
   const SalesEWayBillCreateScreen({super.key});
@@ -102,7 +103,7 @@ class _SalesEWayBillCreateScreenState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -114,7 +115,7 @@ class _SalesEWayBillCreateScreenState
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
-                color: Color(0xFF374151),
+                color: AppTheme.textBody,
               ),
             ),
             const SizedBox(height: 24),
@@ -166,7 +167,7 @@ class _SalesEWayBillCreateScreenState
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFD1D5DB)),
+          border: Border.all(color: AppTheme.borderColor),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(

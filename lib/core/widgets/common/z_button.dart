@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ZButton extends StatelessWidget {
   final String label;
@@ -59,14 +60,14 @@ class ZButton extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        side: const BorderSide(color: Color(0xFFD1D5DB)),
+        side: const BorderSide(color: AppTheme.borderColor),
       ),
       child: Text(
         label,
         style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
-          color: Color(0xFF374151),
+          color: AppTheme.textBody,
         ),
       ),
     );

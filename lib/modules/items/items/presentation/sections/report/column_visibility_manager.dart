@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:zerpai_erp/core/logging/app_logger.dart';
 
 /// Manages which columns are visible in the Items Report table
 /// Persists user preferences in localStorage
@@ -42,7 +42,7 @@ class ColumnVisibilityManager extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('Error loading column visibility: $e');
+      AppLogger.warning('Error loading column visibility', error: e, module: 'items');
       // Fall back to defaults
       _visibleColumns = Set.from(_defaultVisibleColumns);
     }
@@ -55,7 +55,7 @@ class ColumnVisibilityManager extends ChangeNotifier {
       final encoded = jsonEncode(_visibleColumns.toList());
       await prefs.setString(_storageKey, encoded);
     } catch (e) {
-      debugPrint('Error saving column visibility: $e');
+      AppLogger.warning('Error saving column visibility', error: e, module: 'items');
     }
   }
 

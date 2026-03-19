@@ -184,7 +184,7 @@ class AccountTransactionsReportPage extends ConsumerWidget {
         border: Border(
           bottom: BorderSide(color: AppTheme.borderColor, width: 2),
         ),
-        color: Color(0xFFF9FAFB),
+        color: AppTheme.bgLight,
       ),
       child: const Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -275,7 +275,7 @@ class _Th extends StatelessWidget {
       style: const TextStyle(
         fontWeight: FontWeight.bold,
         fontSize: 12,
-        color: Color(0xFF6B7280),
+        color: AppTheme.textSecondary,
         fontFamily: 'Inter',
       ),
     );

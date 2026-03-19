@@ -60,7 +60,7 @@
 //       decoration: BoxDecoration(
 //         color: Colors.white,
 //         borderRadius: BorderRadius.circular(6),
-//         border: Border.all(color: const Color(0xFFE5E7EB)),
+//         border: Border.all(color: AppTheme.borderColor),
 //       ),
 //       padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
 //       child: Column(
@@ -99,9 +99,9 @@
 //                               alignment: Alignment.centerLeft,
 //                               decoration: BoxDecoration(
 //                                 color: isHovered
-//                                     ? const Color(0xFF2563EB)
+//                                     ? AppTheme.primaryBlueDark
 //                                     : isSelected
-//                                     ? const Color(0xFFEFF6FF)
+//                                     ? AppTheme.infoBg
 //                                     : Colors.transparent,
 //                               ),
 //                               child: Row(
@@ -114,8 +114,8 @@
 //                                         color: isHovered
 //                                             ? Colors.white
 //                                             : isSelected
-//                                             ? const Color(0xFF2563EB)
-//                                             : const Color(0xFF111827),
+//                                             ? AppTheme.primaryBlueDark
+//                                             : AppTheme.textPrimary,
 //                                       ),
 //                                     ),
 //                                   ),
@@ -125,7 +125,7 @@
 //                                       size: 16,
 //                                       color: isHovered
 //                                           ? Colors.white
-//                                           : const Color(0xFF2563EB),
+//                                           : AppTheme.primaryBlueDark,
 //                                     ),
 //                                 ],
 //                               ),
@@ -175,9 +175,9 @@
 //                               alignment: Alignment.centerLeft,
 //                               decoration: BoxDecoration(
 //                                 color: isHovered
-//                                     ? const Color(0xFF2563EB)
+//                                     ? AppTheme.primaryBlueDark
 //                                     : isSelected
-//                                     ? const Color(0xFFEFF6FF)
+//                                     ? AppTheme.infoBg
 //                                     : Colors.transparent,
 //                               ),
 //                               child: Row(
@@ -190,8 +190,8 @@
 //                                         color: isHovered
 //                                             ? Colors.white
 //                                             : isSelected
-//                                             ? const Color(0xFF2563EB)
-//                                             : const Color(0xFF111827),
+//                                             ? AppTheme.primaryBlueDark
+//                                             : AppTheme.textPrimary,
 //                                       ),
 //                                     ),
 //                                   ),
@@ -201,7 +201,7 @@
 //                                       size: 16,
 //                                       color: isHovered
 //                                           ? Colors.white
-//                                           : const Color(0xFF2563EB),
+//                                           : AppTheme.primaryBlueDark,
 //                                     ),
 //                                 ],
 //                               ),
@@ -237,9 +237,9 @@
 //                         alignment: Alignment.centerLeft,
 //                         decoration: BoxDecoration(
 //                           color: isHovered
-//                               ? const Color(0xFF2563EB)
+//                               ? AppTheme.primaryBlueDark
 //                               : isSelected
-//                               ? const Color(0xFFEFF6FF)
+//                               ? AppTheme.infoBg
 //                               : Colors.transparent,
 //                         ),
 //                         child: Row(
@@ -252,8 +252,8 @@
 //                                   color: isHovered
 //                                       ? Colors.white
 //                                       : isSelected
-//                                       ? const Color(0xFF2563EB)
-//                                       : const Color(0xFF111827),
+//                                       ? AppTheme.primaryBlueDark
+//                                       : AppTheme.textPrimary,
 //                                 ),
 //                               ),
 //                             ),
@@ -263,7 +263,7 @@
 //                                 size: 16,
 //                                 color: isHovered
 //                                     ? Colors.white
-//                                     : const Color(0xFF2563EB),
+//                                     : AppTheme.primaryBlueDark,
 //                               ),
 //                           ],
 //                         ),
@@ -292,9 +292,9 @@
 //                         alignment: Alignment.centerLeft,
 //                         decoration: BoxDecoration(
 //                           color: isHovered
-//                               ? const Color(0xFF2563EB)
+//                               ? AppTheme.primaryBlueDark
 //                               : isSelected
-//                               ? const Color(0xFFEFF6FF)
+//                               ? AppTheme.infoBg
 //                               : Colors.transparent,
 //                         ),
 //                         child: Row(
@@ -307,8 +307,8 @@
 //                                   color: isHovered
 //                                       ? Colors.white
 //                                       : isSelected
-//                                       ? const Color(0xFF2563EB)
-//                                       : const Color(0xFF111827),
+//                                       ? AppTheme.primaryBlueDark
+//                                       : AppTheme.textPrimary,
 //                                 ),
 //                               ),
 //                             ),
@@ -318,7 +318,7 @@
 //                                 size: 16,
 //                                 color: isHovered
 //                                     ? Colors.white
-//                                     : const Color(0xFF2563EB),
+//                                     : AppTheme.primaryBlueDark,
 //                               ),
 //                           ],
 //                         ),
@@ -417,7 +417,7 @@
 //         const SizedBox(height: 4),
 //         Text(
 //           label,
-//           style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+//           style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
 //         ),
 //       ],
 //     );
@@ -426,6 +426,7 @@
 // FILE: lib/modules/items/presentation/sections/formulation_extra_details.dart
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class FormulationExtraDetails extends StatelessWidget {
   final TextEditingController dimXCtrl;
@@ -508,7 +509,7 @@ class FormulationExtraDetails extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
       child: Column(
@@ -547,9 +548,9 @@ class FormulationExtraDetails extends StatelessWidget {
                               alignment: Alignment.centerLeft,
                               decoration: BoxDecoration(
                                 color: isHovered
-                                    ? const Color(0xFF2563EB)
+                                    ? AppTheme.primaryBlueDark
                                     : isSelected
-                                    ? const Color(0xFFEFF6FF)
+                                    ? AppTheme.infoBg
                                     : Colors.transparent,
                               ),
                               child: Row(
@@ -562,8 +563,8 @@ class FormulationExtraDetails extends StatelessWidget {
                                         color: isHovered
                                             ? Colors.white
                                             : isSelected
-                                            ? const Color(0xFF2563EB)
-                                            : const Color(0xFF111827),
+                                            ? AppTheme.primaryBlueDark
+                                            : AppTheme.textPrimary,
                                       ),
                                     ),
                                   ),
@@ -573,7 +574,7 @@ class FormulationExtraDetails extends StatelessWidget {
                                       size: 16,
                                       color: isHovered
                                           ? Colors.white
-                                          : const Color(0xFF2563EB),
+                                          : AppTheme.primaryBlueDark,
                                     ),
                                 ],
                               ),
@@ -623,9 +624,9 @@ class FormulationExtraDetails extends StatelessWidget {
                               alignment: Alignment.centerLeft,
                               decoration: BoxDecoration(
                                 color: isHovered
-                                    ? const Color(0xFF2563EB)
+                                    ? AppTheme.primaryBlueDark
                                     : isSelected
-                                    ? const Color(0xFFEFF6FF)
+                                    ? AppTheme.infoBg
                                     : Colors.transparent,
                               ),
                               child: Row(
@@ -638,8 +639,8 @@ class FormulationExtraDetails extends StatelessWidget {
                                         color: isHovered
                                             ? Colors.white
                                             : isSelected
-                                            ? const Color(0xFF2563EB)
-                                            : const Color(0xFF111827),
+                                            ? AppTheme.primaryBlueDark
+                                            : AppTheme.textPrimary,
                                       ),
                                     ),
                                   ),
@@ -649,7 +650,7 @@ class FormulationExtraDetails extends StatelessWidget {
                                       size: 16,
                                       color: isHovered
                                           ? Colors.white
-                                          : const Color(0xFF2563EB),
+                                          : AppTheme.primaryBlueDark,
                                     ),
                                 ],
                               ),
@@ -685,9 +686,9 @@ class FormulationExtraDetails extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         decoration: BoxDecoration(
                           color: isHovered
-                              ? const Color(0xFF2563EB)
+                              ? AppTheme.primaryBlueDark
                               : isSelected
-                              ? const Color(0xFFEFF6FF)
+                              ? AppTheme.infoBg
                               : Colors.transparent,
                         ),
                         child: Row(
@@ -700,8 +701,8 @@ class FormulationExtraDetails extends StatelessWidget {
                                   color: isHovered
                                       ? Colors.white
                                       : isSelected
-                                      ? const Color(0xFF2563EB)
-                                      : const Color(0xFF111827),
+                                      ? AppTheme.primaryBlueDark
+                                      : AppTheme.textPrimary,
                                 ),
                               ),
                             ),
@@ -711,7 +712,7 @@ class FormulationExtraDetails extends StatelessWidget {
                                 size: 16,
                                 color: isHovered
                                     ? Colors.white
-                                    : const Color(0xFF2563EB),
+                                    : AppTheme.primaryBlueDark,
                               ),
                           ],
                         ),
@@ -740,9 +741,9 @@ class FormulationExtraDetails extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         decoration: BoxDecoration(
                           color: isHovered
-                              ? const Color(0xFF2563EB)
+                              ? AppTheme.primaryBlueDark
                               : isSelected
-                              ? const Color(0xFFEFF6FF)
+                              ? AppTheme.infoBg
                               : Colors.transparent,
                         ),
                         child: Row(
@@ -755,8 +756,8 @@ class FormulationExtraDetails extends StatelessWidget {
                                   color: isHovered
                                       ? Colors.white
                                       : isSelected
-                                      ? const Color(0xFF2563EB)
-                                      : const Color(0xFF111827),
+                                      ? AppTheme.primaryBlueDark
+                                      : AppTheme.textPrimary,
                                 ),
                               ),
                             ),
@@ -766,7 +767,7 @@ class FormulationExtraDetails extends StatelessWidget {
                                 size: 16,
                                 color: isHovered
                                     ? Colors.white
-                                    : const Color(0xFF2563EB),
+                                    : AppTheme.primaryBlueDark,
                               ),
                           ],
                         ),
@@ -865,7 +866,7 @@ class FormulationExtraDetails extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+          style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
         ),
       ],
     );

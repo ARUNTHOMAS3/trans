@@ -24,6 +24,7 @@ import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import 'package:zerpai_erp/core/widgets/common/skeleton.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 part 'sections/sales_customer_address_section.dart';
 part 'sections/sales_customer_primary_info_section.dart';
@@ -398,15 +399,15 @@ class _SalesCustomerCreateScreenState
             Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
-                border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+                border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
               ),
               child: TabBar(
                 padding: EdgeInsets.zero,
                 controller: _tabController,
                 isScrollable: true,
                 labelColor: Colors.black,
-                unselectedLabelColor: const Color(0xFF6B7280),
-                indicatorColor: const Color(0xFF2563EB),
+                unselectedLabelColor: AppTheme.textSecondary,
+                indicatorColor: AppTheme.primaryBlueDark,
                 indicatorWeight: 2,
                 indicatorSize: TabBarIndicatorSize.label,
                 labelPadding: const EdgeInsets.symmetric(

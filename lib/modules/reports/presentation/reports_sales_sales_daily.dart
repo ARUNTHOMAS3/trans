@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ReportDailySalesScreen extends ConsumerWidget {
   const ReportDailySalesScreen({super.key});
@@ -80,7 +81,7 @@ class ReportDailySalesScreen extends ConsumerWidget {
                               'DATE',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                                 fontSize: 12,
                               ),
                             ),
@@ -91,7 +92,7 @@ class ReportDailySalesScreen extends ConsumerWidget {
                               'INVOICE COUNT',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                                 fontSize: 12,
                               ),
                             ),
@@ -103,7 +104,7 @@ class ReportDailySalesScreen extends ConsumerWidget {
                               textAlign: TextAlign.right,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF6B7280),
+                                color: AppTheme.textSecondary,
                                 fontSize: 12,
                               ),
                             ),

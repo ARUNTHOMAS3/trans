@@ -11,7 +11,7 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF6B7280),
+            color: AppTheme.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
@@ -43,7 +43,10 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                   Text(
                     "You cannot enable/disable inventory tracking once you've created transactions.",
                     softWrap: true,
-                    style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -76,7 +79,10 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                   Text(
                     'Enable this option to record the exact bin, rack, or shelf where the item is stored.',
                     softWrap: true,
-                    style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -123,7 +129,7 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           const SizedBox(height: 16),
@@ -210,9 +216,9 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                             alignment: Alignment.centerLeft,
                             decoration: BoxDecoration(
                               color: isHovered
-                                  ? const Color(0xFF2563EB)
+                                  ? AppTheme.primaryBlueDark
                                   : isSelected
-                                  ? const Color(0xFFEFF6FF)
+                                  ? AppTheme.infoBg
                                   : Colors.transparent,
                             ),
                             child: Row(
@@ -225,8 +231,8 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                                       color: isHovered
                                           ? Colors.white
                                           : isSelected
-                                          ? const Color(0xFF2563EB)
-                                          : const Color(0xFF111827),
+                                          ? AppTheme.primaryBlueDark
+                                          : AppTheme.textPrimary,
                                     ),
                                   ),
                                 ),
@@ -236,7 +242,7 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                                     size: 16,
                                     color: isHovered
                                         ? Colors.white
-                                        : const Color(0xFF2563EB),
+                                        : AppTheme.primaryBlueDark,
                                   ),
                               ],
                             ),
@@ -269,15 +275,16 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                           final s = itemsState.storageLocations
                               .where((s) => s['id'] == id)
                               .firstOrNull;
-                          if (s != null) return s['name'] ?? id;
+                          if (s != null) return _formatStorageLabel(s);
                           return itemsState.lookupCache[id] ?? id;
                         },
                         itemBuilder: (id, isSelected, isHovered) {
                           final s = itemsState.storageLocations
                               .where((s) => s['id'] == id)
                               .firstOrNull;
-                          final label =
-                              s?['name'] ?? itemsState.lookupCache[id] ?? id;
+                          final label = s != null
+                              ? _formatStorageLabel(s)
+                              : itemsState.lookupCache[id] ?? id;
 
                           return Container(
                             height: 36,
@@ -285,9 +292,9 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                             alignment: Alignment.centerLeft,
                             decoration: BoxDecoration(
                               color: isHovered
-                                  ? const Color(0xFF2563EB)
+                                  ? AppTheme.primaryBlueDark
                                   : isSelected
-                                  ? const Color(0xFFEFF6FF)
+                                  ? AppTheme.infoBg
                                   : Colors.transparent,
                             ),
                             child: Row(
@@ -300,8 +307,8 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                                       color: isHovered
                                           ? Colors.white
                                           : isSelected
-                                          ? const Color(0xFF2563EB)
-                                          : const Color(0xFF111827),
+                                          ? AppTheme.primaryBlueDark
+                                          : AppTheme.textPrimary,
                                     ),
                                   ),
                                 ),
@@ -311,7 +318,7 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                                     size: 16,
                                     color: isHovered
                                         ? Colors.white
-                                        : const Color(0xFF2563EB),
+                                        : AppTheme.primaryBlueDark,
                                   ),
                               ],
                             ),
@@ -334,7 +341,7 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                     _zerpaiField(
                       label: "Reorder Point",
                       tooltip:
-                          "Minimum stock quantity at which a reorder should be triggered.",
+                          "For the current outlet, trigger reorder planning when available stock reaches or falls below this quantity.",
                       child: _zerpaiTextField(
                         controller: reorderPointCtrl,
                         keyboardType: TextInputType.number,
@@ -380,9 +387,9 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                             alignment: Alignment.centerLeft,
                             decoration: BoxDecoration(
                               color: isHovered
-                                  ? const Color(0xFF2563EB)
+                                  ? AppTheme.primaryBlueDark
                                   : isSelected
-                                  ? const Color(0xFFEFF6FF)
+                                  ? AppTheme.infoBg
                                   : Colors.transparent,
                             ),
                             child: Row(
@@ -400,8 +407,8 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                                           color: isHovered
                                               ? Colors.white
                                               : isSelected
-                                              ? const Color(0xFF2563EB)
-                                              : const Color(0xFF111827),
+                                              ? AppTheme.primaryBlueDark
+                                              : AppTheme.textPrimary,
                                         ),
                                       ),
                                       if (id == 'FEFO')
@@ -423,7 +430,7 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                                     size: 16,
                                     color: isHovered
                                         ? Colors.white
-                                        : const Color(0xFF2563EB),
+                                        : AppTheme.primaryBlueDark,
                                   ),
                               ],
                             ),
@@ -448,9 +455,9 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                     ),
                     const SizedBox(height: 20),
                     _zerpaiField(
-                      label: "Reorder Terms",
+                      label: "Reorder Rule",
                       tooltip:
-                          "Defines the rule for calculating suggested reorder quantities. Example: 'Standard' (Reorder Point + 50) suggests ordering 50 units extra with reorder point needed quantity.",
+                          "Outlet-specific reorder rule. Suggested order quantity is calculated as Reorder Point + Additional Units from the selected rule.",
                       child: _zerpaiDropdown<String>(
                         value: reorderTermsId,
                         items: itemsState.reorderTerms
@@ -476,7 +483,7 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                               itemsState.lookupCache[id] ??
                               'Unknown';
                           final qty = rt?['quantity'] ?? '0';
-                          return '$name (Reorder Point + $qty)';
+                          return '$name (+$qty additional units)';
                         },
                         itemBuilder: (id, isSelected, isHovered) {
                           final rt = itemsState.reorderTerms
@@ -488,7 +495,7 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                               itemsState.lookupCache[id] ??
                               '';
                           final qty = rt?['quantity'] ?? '0';
-                          final label = '$name (Reorder Point + $qty)';
+                          final label = '$name (+$qty additional units)';
 
                           return Container(
                             height: 36,
@@ -496,9 +503,9 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                             alignment: Alignment.centerLeft,
                             decoration: BoxDecoration(
                               color: isHovered
-                                  ? const Color(0xFF2563EB)
+                                  ? AppTheme.primaryBlueDark
                                   : isSelected
-                                  ? const Color(0xFFEFF6FF)
+                                  ? AppTheme.infoBg
                                   : Colors.transparent,
                             ),
                             child: Row(
@@ -511,8 +518,8 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                                       color: isHovered
                                           ? Colors.white
                                           : isSelected
-                                          ? const Color(0xFF2563EB)
-                                          : const Color(0xFF111827),
+                                          ? AppTheme.primaryBlueDark
+                                          : AppTheme.textPrimary,
                                     ),
                                   ),
                                 ),
@@ -522,14 +529,14 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
                                     size: 16,
                                     color: isHovered
                                         ? Colors.white
-                                        : const Color(0xFF2563EB),
+                                        : AppTheme.primaryBlueDark,
                                   ),
                               ],
                             ),
                           );
                         },
                         showSettings: true,
-                        settingsLabel: 'Manage Reorder Terms',
+                        settingsLabel: 'Manage Reorder Rules',
                         onSettingsTap: () {
                           showDialog(
                             context: context,
@@ -569,7 +576,7 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFF3F4F6) : Colors.transparent,
+        color: isSelected ? AppTheme.bgDisabled : Colors.transparent,
       ),
       child: RadioListTile<InventoryTrackingMode>(
         title: Text(
@@ -577,13 +584,13 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
           style: TextStyle(
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-            color: const Color(0xFF111827),
+            color: AppTheme.textPrimary,
           ),
         ),
         dense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
         value: value,
-        activeColor: const Color(0xFF2563EB),
+        activeColor: AppTheme.primaryBlueDark,
         controlAffinity: ListTileControlAffinity.leading,
       ),
     );
@@ -593,18 +600,18 @@ extension _ItemCreateInventory on _ItemCreateScreenState {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: AppTheme.infoBg,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: const [
-          Icon(Icons.info_outline, size: 16, color: Color(0xFF2563EB)),
+          Icon(Icons.info_outline, size: 16, color: AppTheme.primaryBlueDark),
           SizedBox(width: 12),
           Expanded(
             child: Text(
               "NOTE: You can add opening stock on the Item Details page by clicking the gear icon under the Warehouses.",
-              style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
+              style: TextStyle(fontSize: 12, color: AppTheme.infoTextDark),
             ),
           ),
         ],

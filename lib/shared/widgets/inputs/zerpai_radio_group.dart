@@ -14,7 +14,7 @@
 //     required this.current,
 //     required this.onChanged,
 //     this.labelBuilder,
-//     this.activeColor = const Color(0xFF2563EB),
+//     this.activeColor = AppTheme.primaryBlueDark,
 //     this.orientation = Axis.horizontal,
 //   });
 
@@ -38,7 +38,7 @@
 //               label,
 //               style: const TextStyle(
 //                 fontSize: 14,
-//                 color: Color(0xFF1F2937), // text-gray-800
+//                 color: AppTheme.textPrimary, // text-gray-800
 //               ),
 //             ),
 //           ],
@@ -71,6 +71,7 @@
 // }
 import 'package:flutter/material.dart';
 import 'radio_group.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ZerpaiRadioGroup<T> extends StatelessWidget {
   final List<T> options;
@@ -86,7 +87,7 @@ class ZerpaiRadioGroup<T> extends StatelessWidget {
     required this.current,
     required this.onChanged,
     this.labelBuilder,
-    this.activeColor = const Color(0xFF2563EB),
+    this.activeColor = AppTheme.primaryBlueDark,
     this.orientation = Axis.horizontal,
   });
 

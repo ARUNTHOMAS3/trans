@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class FormulationSection extends StatelessWidget {
   const FormulationSection({
@@ -81,7 +82,7 @@ class FormulationSection extends StatelessWidget {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF111827),
+            color: AppTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 24),
@@ -176,8 +177,8 @@ class FormulationSection extends StatelessWidget {
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                             color: required
-                                ? const Color(0xFFDC2626)
-                                : const Color(0xFF4B5563),
+                                ? AppTheme.errorRed
+                                : AppTheme.textSubtle,
                           ),
                         ),
                       ),
@@ -185,7 +186,7 @@ class FormulationSection extends StatelessWidget {
                         const Text(
                           ' *',
                           style: TextStyle(
-                            color: Color(0xFFDC2626),
+                            color: AppTheme.errorRed,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -196,7 +197,7 @@ class FormulationSection extends StatelessWidget {
                           child: const Icon(
                             Icons.info_outline,
                             size: 14,
-                            color: Color(0xFF9CA3AF),
+                            color: AppTheme.textMuted,
                           ),
                         ),
                       ],
@@ -207,7 +208,7 @@ class FormulationSection extends StatelessWidget {
                       subLabel,
                       style: const TextStyle(
                         fontSize: 11,
-                        color: Color(0xFF6B7280),
+                        color: AppTheme.textSecondary,
                         height: 1.2,
                       ),
                     ),
@@ -252,9 +253,9 @@ class FormulationSection extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 decoration: BoxDecoration(
                   color: isHovered
-                      ? const Color(0xFF2563EB)
+                      ? AppTheme.primaryBlueDark
                       : isSelected
-                      ? const Color(0xFFEFF6FF)
+                      ? AppTheme.infoBg
                       : Colors.transparent,
                 ),
                 child: Row(
@@ -267,8 +268,8 @@ class FormulationSection extends StatelessWidget {
                           color: isHovered
                               ? Colors.white
                               : isSelected
-                              ? const Color(0xFF2563EB)
-                              : const Color(0xFF111827),
+                              ? AppTheme.primaryBlueDark
+                              : AppTheme.textPrimary,
                         ),
                       ),
                     ),
@@ -278,7 +279,7 @@ class FormulationSection extends StatelessWidget {
                         size: 16,
                         color: isHovered
                             ? Colors.white
-                            : const Color(0xFF2563EB),
+                            : AppTheme.primaryBlueDark,
                       ),
                   ],
                 ),
@@ -327,9 +328,9 @@ class FormulationSection extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 decoration: BoxDecoration(
                   color: isHovered
-                      ? const Color(0xFF2563EB)
+                      ? AppTheme.primaryBlueDark
                       : isSelected
-                      ? const Color(0xFFEFF6FF)
+                      ? AppTheme.infoBg
                       : Colors.transparent,
                 ),
                 child: Row(
@@ -342,8 +343,8 @@ class FormulationSection extends StatelessWidget {
                           color: isHovered
                               ? Colors.white
                               : isSelected
-                              ? const Color(0xFF2563EB)
-                              : const Color(0xFF111827),
+                              ? AppTheme.primaryBlueDark
+                              : AppTheme.textPrimary,
                         ),
                       ),
                     ),
@@ -353,7 +354,7 @@ class FormulationSection extends StatelessWidget {
                         size: 16,
                         color: isHovered
                             ? Colors.white
-                            : const Color(0xFF2563EB),
+                            : AppTheme.primaryBlueDark,
                       ),
                   ],
                 ),
@@ -398,9 +399,9 @@ class FormulationSection extends StatelessWidget {
         alignment: Alignment.centerLeft,
         decoration: BoxDecoration(
           color: isHovered
-              ? const Color(0xFF2563EB)
+              ? AppTheme.primaryBlueDark
               : isSelected
-              ? const Color(0xFFEFF6FF)
+              ? AppTheme.infoBg
               : Colors.transparent,
         ),
         child: Row(
@@ -413,8 +414,8 @@ class FormulationSection extends StatelessWidget {
                   color: isHovered
                       ? Colors.white
                       : isSelected
-                      ? const Color(0xFF2563EB)
-                      : const Color(0xFF111827),
+                      ? AppTheme.primaryBlueDark
+                      : AppTheme.textPrimary,
                 ),
               ),
             ),
@@ -422,7 +423,7 @@ class FormulationSection extends StatelessWidget {
               Icon(
                 Icons.check,
                 size: 16,
-                color: isHovered ? Colors.white : const Color(0xFF2563EB),
+                color: isHovered ? Colors.white : AppTheme.primaryBlueDark,
               ),
           ],
         ),
@@ -461,9 +462,9 @@ class FormulationSection extends StatelessWidget {
         alignment: Alignment.centerLeft,
         decoration: BoxDecoration(
           color: isHovered
-              ? const Color(0xFF2563EB)
+              ? AppTheme.primaryBlueDark
               : isSelected
-              ? const Color(0xFFEFF6FF)
+              ? AppTheme.infoBg
               : Colors.transparent,
         ),
         child: Row(
@@ -476,8 +477,8 @@ class FormulationSection extends StatelessWidget {
                   color: isHovered
                       ? Colors.white
                       : isSelected
-                      ? const Color(0xFF2563EB)
-                      : const Color(0xFF111827),
+                      ? AppTheme.primaryBlueDark
+                      : AppTheme.textPrimary,
                 ),
               ),
             ),
@@ -485,7 +486,7 @@ class FormulationSection extends StatelessWidget {
               Icon(
                 Icons.check,
                 size: 16,
-                color: isHovered ? Colors.white : const Color(0xFF2563EB),
+                color: isHovered ? Colors.white : AppTheme.primaryBlueDark,
               ),
           ],
         ),

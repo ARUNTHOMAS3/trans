@@ -13,7 +13,7 @@ extension _CustomFieldsSection on _SalesCustomerCreateScreenState {
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: AppTheme.borderLight),
             ),
             child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -23,13 +23,13 @@ extension _CustomFieldsSection on _SalesCustomerCreateScreenState {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF111827),
+                    color: AppTheme.textPrimary,
                   ),
                 ),
                 SizedBox(height: 6),
                 Text(
                   'Custom customer fields will appear here after they are configured from the backend settings.',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                 ),
               ],
             ),

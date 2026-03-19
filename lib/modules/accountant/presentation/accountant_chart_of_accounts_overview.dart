@@ -1001,7 +1001,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                                     Icon(
                                       LucideIcons.columns,
                                       size: 16,
-                                      color: Color(0xFF3B82F6),
+                                      color: AppTheme.infoBlue,
                                     ),
                                     SizedBox(width: 10),
                                     Expanded(
@@ -1028,7 +1028,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                                     const Icon(
                                       LucideIcons.wrapText,
                                       size: 16,
-                                      color: Color(0xFF3B82F6),
+                                      color: AppTheme.infoBlue,
                                     ),
                                     const SizedBox(width: 10),
                                     const Expanded(
@@ -1045,7 +1045,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                                       const Icon(
                                         LucideIcons.check,
                                         size: 16,
-                                        color: Color(0xFF3B82F6),
+                                        color: AppTheme.infoBlue,
                                       ),
                                   ],
                                 ),
@@ -1139,7 +1139,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                 const Text(
                   'Search Criteria',
                   style: TextStyle(
-                    color: Color(0xFF16A34A),
+                    color: AppTheme.successGreen,
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
                     fontWeight: FontWeight.w600,
@@ -1183,7 +1183,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                   ),
                   child: const Text(
                     'Change Criteria',
-                    style: TextStyle(color: Color(0xFF2563EB), fontSize: 12),
+                    style: TextStyle(color: AppTheme.primaryBlueDark, fontSize: 12),
                   ),
                 ),
               ],
@@ -1828,7 +1828,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: highlight ? const Color(0xFF3B82F6) : Colors.transparent,
+                color: highlight ? AppTheme.infoBlue : Colors.transparent,
                 borderRadius: highlight ? BorderRadius.circular(4) : null,
               ),
               child: Row(
@@ -1836,7 +1836,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                   Icon(
                     icon,
                     size: 18,
-                    color: highlight ? Colors.white : const Color(0xFF64748B),
+                    color: highlight ? Colors.white : AppTheme.textSecondary,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1847,7 +1847,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                         fontWeight: FontWeight.w500,
                         color: highlight
                             ? Colors.white
-                            : const Color(0xFF374151),
+                            : AppTheme.textBody,
                       ),
                     ),
                   ),
@@ -1855,7 +1855,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                     Icon(
                       trailing,
                       size: 16,
-                      color: highlight ? Colors.white : const Color(0xFF64748B),
+                      color: highlight ? Colors.white : AppTheme.textSecondary,
                     ),
                 ],
               ),
@@ -1889,7 +1889,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: highlight ? const Color(0xFF3B82F6) : Colors.transparent,
+                color: highlight ? AppTheme.infoBlue : Colors.transparent,
                 borderRadius: highlight ? BorderRadius.circular(4) : null,
               ),
               child: Row(
@@ -1904,7 +1904,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                             : FontWeight.w400,
                         color: highlight
                             ? Colors.white
-                            : const Color(0xFF374151),
+                            : AppTheme.textBody,
                       ),
                     ),
                   ),
@@ -1953,7 +1953,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFF3B82F6)),
+            borderSide: const BorderSide(color: AppTheme.infoBlue),
           ),
           isDense: true,
           fillColor: Colors.white,
@@ -1981,7 +1981,7 @@ class _BulkButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         minimumSize: const Size(0, 32),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        backgroundColor: const Color(0xFFF9FAFB),
+        backgroundColor: AppTheme.bgLight,
         textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       ),
       child: Text(label),
