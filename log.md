@@ -5517,6 +5517,8 @@ The batch and serial opening-stock footer logic was using the entered detailed q
 **`lib/shared/widgets/dialogs/unsaved_changes_dialog.dart`**
 - Repositioned the shared unsaved-changes dialog from the default centered alert placement to a top-center aligned presentation
 - Added safe top spacing and a max-width constraint while keeping the existing dialog content and action behavior unchanged
+- Reduced the top offset further so the dialog sits closer to the header/toast zone instead of upper-middle
+- Replaced `AlertDialog` with a top-aligned `Dialog` so Material's default centering no longer overrides the shared placement
 
 ### Result
 - All screens using the shared leave-confirmation dialog now open it near the top center of the viewport instead of the middle
