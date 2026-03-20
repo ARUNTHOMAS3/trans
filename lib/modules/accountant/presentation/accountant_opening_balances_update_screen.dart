@@ -428,7 +428,7 @@ class _OpeningBalancesUpdateScreenState
 
     if (mounted) {
       setState(() => _isSaving = false);
-      ZerpaiToast.success(context, 'Opening balances updated successfully');
+      ZerpaiToast.saved(context, 'Opening balances');
       context.go(AppRoutes.accountantOpeningBalances);
     }
   }

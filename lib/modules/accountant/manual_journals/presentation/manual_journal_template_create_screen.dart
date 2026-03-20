@@ -386,7 +386,7 @@ class _JournalTemplateCreateScreenState
 
       if (!mounted) return;
 
-      ZerpaiToast.success(context, 'Journal template created successfully');
+      ZerpaiToast.saved(context, 'Journal template');
       context.go(AppRoutes.accountantJournalTemplates);
     } catch (e) {
       if (!mounted) return;

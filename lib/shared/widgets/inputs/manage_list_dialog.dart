@@ -396,9 +396,9 @@ class _ManageListDialogState extends State<ManageListDialog> {
                               setState(() {
                                 _rows = _processItems(updatedRows);
                               });
-                              ZerpaiBuilders.showSuccessToast(
+                              ZerpaiBuilders.showDeletedToast(
                                 context,
-                                '${widget.singularLabel} has been deleted successfully',
+                                widget.singularLabel,
                               );
                             }
                           } catch (e) {

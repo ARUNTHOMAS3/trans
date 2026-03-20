@@ -158,10 +158,7 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
         final updatedRows = await widget.onSave!(cleanedRows);
 
         if (mounted) {
-          ZerpaiBuilders.showSuccessToast(
-            context,
-            "Reorder terms have been saved successfully",
-          );
+          ZerpaiBuilders.showSavedToast(context, 'Reorder terms');
         }
 
         if (updatedRows.isNotEmpty) {

@@ -5522,3 +5522,47 @@ The batch and serial opening-stock footer logic was using the entered detailed q
 
 ### Result
 - All screens using the shared leave-confirmation dialog now open it near the top center of the viewport instead of the middle
+
+## Sprint: Shared Global Confirmation Dialog
+**Date:** 2026-03-20
+
+### Changes
+
+**`lib/shared/widgets/dialogs/zerpai_confirmation_dialog.dart`**
+- Added a shared top-centered confirmation dialog component for global destructive and warning confirmations
+- Centralized white dialog surface, warning/danger accent styling, and shared button layout
+
+**`lib/shared/widgets/dialogs/unsaved_changes_dialog.dart`**
+- Switched the leave-confirmation flow to reuse the shared confirmation dialog instead of maintaining a separate dialog implementation
+
+**`lib/modules/accountant/presentation/accountant_chart_of_accounts_overview.dart`**
+**`lib/modules/accountant/presentation/widgets/accountant_chart_of_accounts_detail_panel.dart`**
+**`lib/modules/accountant/presentation/widgets/accountant_chart_of_accounts_row.dart`**
+**`lib/modules/accountant/manual_journals/presentation/manual_journals_overview_screen.dart`**
+**`lib/modules/accountant/manual_journals/presentation/manual_journal_templates_list_screen.dart`**
+**`lib/modules/accountant/manual_journals/presentation/widgets/manual_journals_list_panel.dart`**
+**`lib/modules/accountant/recurring_journals/presentation/widgets/recurring_journals_detail_panel.dart`**
+**`lib/modules/accountant/recurring_journals/presentation/widgets/recurring_journals_list_panel.dart`**
+- Replaced accountant-specific delete dialogs with the shared global confirmation dialog
+- Kept contextual delete copy per screen while standardizing placement and visual treatment
+
+### Result
+- Delete confirmations and unsaved-change confirmations now use the same global shared dialog shell
+- Accountant delete dialogs are now top-centered, visually consistent, and globally reusable
+
+## Sprint: Shared Saved And Deleted Toast Semantics
+**Date:** 2026-03-20
+
+### Changes
+
+**`lib/shared/utils/zerpai_toast.dart`**
+- Added global semantic toast helpers for saved and deleted success states
+- Kept the existing shared top-centered toast surface while centralizing saved/deleted wording
+
+**`lib/modules/accountant/presentation/accountant_chart_of_accounts_overview.dart`**
+**`lib/modules/accountant/manual_journals/presentation/widgets/manual_journals_list_panel.dart`**
+**`lib/modules/accountant/recurring_journals/presentation/widgets/recurring_journals_list_panel.dart`**
+- Switched delete success messages to the shared global deleted-toast helper instead of hardcoded module-local success strings
+
+### Result
+- Saved and deleted success messages can now be invoked through the global toast utility instead of being rephrased ad hoc per screen

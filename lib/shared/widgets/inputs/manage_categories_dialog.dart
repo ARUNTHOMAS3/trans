@@ -124,12 +124,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
           _resetForm();
         });
 
-        ZerpaiBuilders.showSuccessToast(
-          context,
-          isAdding
-              ? 'Category added successfully'
-              : 'Category updated successfully',
-        );
+        ZerpaiBuilders.showSavedToast(context, 'Category');
       }
     } catch (e) {
       if (mounted) {
@@ -167,10 +162,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
           _isSaving = false;
           _errorMessage = null;
         });
-        ZerpaiBuilders.showSuccessToast(
-          context,
-          'Category deleted successfully',
-        );
+        ZerpaiBuilders.showDeletedToast(context, 'Category');
       }
     } catch (e) {
       if (mounted) {

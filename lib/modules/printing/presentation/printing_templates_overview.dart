@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import '../models/print_template.dart';
 import '../repositories/print_template_repository.dart';
 import '../widgets/template_editor.dart';
@@ -97,15 +98,7 @@ class _PrintTemplatesPageState extends ConsumerState<PrintTemplatesPage> {
                 _applyFilters();
               });
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      template == null
-                          ? 'Template created successfully'
-                          : 'Template updated successfully',
-                    ),
-                  ),
-                );
+                ZerpaiToast.saved(context, 'Template');
               }
             },
           ),
@@ -156,9 +149,7 @@ class _PrintTemplatesPageState extends ConsumerState<PrintTemplatesPage> {
         _applyFilters();
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Template deleted successfully')));
+      ZerpaiToast.deleted(context, 'Template');
     }
   }
 

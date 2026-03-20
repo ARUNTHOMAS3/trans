@@ -138,10 +138,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
         final updatedRows = await widget.onSave!(_rows);
 
         if (mounted) {
-          ZerpaiBuilders.showSuccessToast(
-            context,
-            "${widget.singularLabel} has been saved successfully",
-          );
+          ZerpaiBuilders.showSavedToast(context, widget.singularLabel);
         }
 
         if (updatedRows.isNotEmpty) {
@@ -250,10 +247,7 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
     _notifyChanges();
 
     if (mounted) {
-      ZerpaiBuilders.showSuccessToast(
-        context,
-        '${widget.singularLabel} has been deleted successfully',
-      );
+      ZerpaiBuilders.showDeletedToast(context, widget.singularLabel);
     }
   }
 

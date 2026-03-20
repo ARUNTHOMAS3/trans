@@ -14,6 +14,7 @@ import '../../../../shared/widgets/inputs/dropdown_input.dart';
 import '../../../../shared/widgets/inputs/zerpai_builders.dart';
 import '../../../../shared/widgets/skeleton.dart';
 import '../../../../shared/utils/zerpai_toast.dart';
+import '../../../../shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 
 class ChartOfAccountsPage extends ConsumerStatefulWidget {
   final String? initialAccountId;
@@ -533,44 +534,21 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
     final notifier = ref.read(chartOfAccountsProvider.notifier);
     final selectedIds = ref.read(chartOfAccountsProvider).selectedIds;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        title: const Text('Delete Selected Accounts'),
-        content: Text(
+    final confirmed = await showZerpaiConfirmationDialog(
+      context,
+      title: 'Delete Selected Accounts',
+      message:
           'Are you sure you want to delete ${selectedIds.length} accounts?',
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => context.pop(false),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryBlue,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => context.pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.errorRed,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      variant: ZerpaiConfirmationVariant.danger,
     );
 
     if (confirmed == true) {
       try {
         await notifier.deleteAccounts(selectedIds.toList());
         if (mounted) {
-          ZerpaiToast.success(
-            context,
-            'Selected accounts deleted successfully',
-          );
+          ZerpaiToast.deleted(context, 'Selected accounts');
           notifier.toggleSelectAll();
         }
       } catch (e) {
@@ -1183,7 +1161,10 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                   ),
                   child: const Text(
                     'Change Criteria',
-                    style: TextStyle(color: AppTheme.primaryBlueDark, fontSize: 12),
+                    style: TextStyle(
+                      color: AppTheme.primaryBlueDark,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
@@ -1845,9 +1826,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: highlight
-                            ? Colors.white
-                            : AppTheme.textBody,
+                        color: highlight ? Colors.white : AppTheme.textBody,
                       ),
                     ),
                   ),
@@ -1902,9 +1881,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                         fontWeight: highlight
                             ? FontWeight.w600
                             : FontWeight.w400,
-                        color: highlight
-                            ? Colors.white
-                            : AppTheme.textBody,
+                        color: highlight ? Colors.white : AppTheme.textBody,
                       ),
                     ),
                   ),

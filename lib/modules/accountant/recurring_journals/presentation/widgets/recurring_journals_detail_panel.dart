@@ -9,6 +9,7 @@ import '../../providers/recurring_journal_provider.dart';
 import '../../models/recurring_journal_model.dart';
 
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 
 class RecurringJournalDetailPanel extends ConsumerWidget {
   final RecurringJournal? journal;
@@ -210,27 +211,14 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
               child: PopupMenuButton<String>(
                 onSelected: (value) async {
                   if (value == 'delete') {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Delete recurring journal?'),
-                        content: Text(
+                    final confirm = await showZerpaiConfirmationDialog(
+                      context,
+                      title: 'Delete Recurring Journal',
+                      message:
                           'Are you sure you want to delete "${j.profileName}"?',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(false),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppTheme.errorRed,
-                            ),
-                            child: const Text('Delete'),
-                          ),
-                        ],
-                      ),
+                      confirmLabel: 'Delete',
+                      cancelLabel: 'Cancel',
+                      variant: ZerpaiConfirmationVariant.danger,
                     );
 
                     if (confirm == true) {
@@ -240,10 +228,7 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
                             .deleteJournal(j.id);
                         if (!context.mounted) return;
                         onClose();
-                        ZerpaiToast.success(
-                          context,
-                          'Recurring journal deleted.',
-                        );
+                        ZerpaiToast.deleted(context, 'Recurring journal');
                       } catch (e) {
                         if (!context.mounted) return;
                         ZerpaiToast.error(

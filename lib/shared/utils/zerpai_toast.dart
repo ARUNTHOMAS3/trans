@@ -74,6 +74,14 @@ class ZerpaiToast {
     show(context, message, isError: false);
   }
 
+  static void saved(BuildContext context, String subject) {
+    success(context, '$subject saved successfully');
+  }
+
+  static void deleted(BuildContext context, String subject) {
+    success(context, '$subject deleted successfully');
+  }
+
   static void info(BuildContext context, String message) {
     show(context, message, isInfo: true);
   }

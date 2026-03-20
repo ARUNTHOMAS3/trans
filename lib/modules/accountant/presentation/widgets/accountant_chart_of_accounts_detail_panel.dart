@@ -10,6 +10,7 @@ import '../../models/accountant_chart_of_accounts_account_model.dart';
 import '../../providers/accountant_chart_of_accounts_provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../shared/utils/zerpai_toast.dart';
+import '../../../../shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import '../../models/account_transaction_model.dart';
 import 'package:fl_chart/fl_chart.dart';
 
@@ -217,29 +218,14 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                           }
                         }
                       } else if (value == 'delete') {
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            backgroundColor: Colors.white,
-                            surfaceTintColor: Colors.white,
-                            title: const Text('Delete Account'),
-                            content: Text(
+                        final confirmed = await showZerpaiConfirmationDialog(
+                          context,
+                          title: 'Delete Account',
+                          message:
                               'Are you sure you want to delete "${widget.account.name}"? This action cannot be undone.',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Cancel'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppTheme.errorRed,
-                                ),
-                                child: const Text('Delete'),
-                              ),
-                            ],
-                          ),
+                          confirmLabel: 'Delete',
+                          cancelLabel: 'Cancel',
+                          variant: ZerpaiConfirmationVariant.danger,
                         );
 
                         if (confirmed == true) {
@@ -248,10 +234,7 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                                 .read(chartOfAccountsProvider.notifier)
                                 .deleteAccount(widget.account.id);
                             if (context.mounted) {
-                              ZerpaiToast.success(
-                                context,
-                                'Account deleted successfully',
-                              );
+                              ZerpaiToast.deleted(context, 'Account');
                             }
                           } catch (e) {
                             if (context.mounted) {
@@ -580,10 +563,10 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
     double currentBal = state.closingBalance;
     final List<FlSpot> spots = [];
     final txs = state.recentTransactions.take(12).toList();
-    
+
     // Last spot is the current balance
     spots.add(FlSpot(txs.length.toDouble(), currentBal));
-    
+
     for (int i = 0; i < txs.length; i++) {
       final tx = txs[i];
       final amount = tx.debit - tx.credit;
@@ -594,7 +577,10 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
     final sortedSpots = spots..sort((a, b) => a.x.compareTo(b.x));
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.space16,
+        vertical: 8,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -697,13 +683,15 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
               final tx = txs[index];
               final debit = showBcy ? tx.bcyDebit : tx.debit;
               final credit = showBcy ? tx.bcyCredit : tx.credit;
-              
+
               // Determine which currency symbol to show
               String symbol = '₹';
               if (!showBcy && tx.currencyCode != null) {
-                // In a real app, we'd map currencyCode to symbols, 
+                // In a real app, we'd map currencyCode to symbols,
                 // for now we'll use the code itself if not BCY
-                symbol = tx.currencyCode! == 'INR' ? '₹' : '${tx.currencyCode} ';
+                symbol = tx.currencyCode! == 'INR'
+                    ? '₹'
+                    : '${tx.currencyCode} ';
               }
 
               return Padding(
@@ -736,7 +724,11 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                     Expanded(
                       flex: 2,
                       child: Text(
-                        debit > 0 ? (showBcy ? nf.format(debit) : '$symbol${debit.toStringAsFixed(2)}') : '',
+                        debit > 0
+                            ? (showBcy
+                                  ? nf.format(debit)
+                                  : '$symbol${debit.toStringAsFixed(2)}')
+                            : '',
                         textAlign: TextAlign.right,
                         style: const TextStyle(fontSize: 12),
                       ),
@@ -744,7 +736,11 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                     Expanded(
                       flex: 2,
                       child: Text(
-                        credit > 0 ? (showBcy ? nf.format(credit) : '$symbol${credit.toStringAsFixed(2)}') : '',
+                        credit > 0
+                            ? (showBcy
+                                  ? nf.format(credit)
+                                  : '$symbol${credit.toStringAsFixed(2)}')
+                            : '',
                         textAlign: TextAlign.right,
                         style: const TextStyle(fontSize: 12),
                       ),

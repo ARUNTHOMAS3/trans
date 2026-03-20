@@ -10,6 +10,7 @@ import 'widgets/manual_journals_list_panel.dart';
 import 'widgets/manual_journals_detail_panel.dart';
 import 'package:zerpai_erp/core/utils/error_handler.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 
 class ManualJournalOverviewScreen extends ConsumerStatefulWidget {
   final String? initialJournalId;
@@ -99,28 +100,13 @@ class _ManualJournalOverviewScreenState
   }
 
   Future<void> _handleDelete(String id) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Journal'),
-        content: const Text(
-          'This action cannot be undone. Delete this draft journal?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.errorRed,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await showZerpaiConfirmationDialog(
+      context,
+      title: 'Delete Journal',
+      message: 'This action cannot be undone. Delete this draft journal?',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      variant: ZerpaiConfirmationVariant.danger,
     );
 
     if (confirmed != true) return;
@@ -128,7 +114,7 @@ class _ManualJournalOverviewScreenState
     try {
       await ref.read(manualJournalProvider.notifier).deleteJournal(id);
       if (mounted) {
-        ZerpaiToast.success(context, 'Journal deleted successfully');
+        ZerpaiToast.deleted(context, 'Journal');
       }
     } catch (e) {
       if (mounted) {

@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'recurring_journal_import_export_dialogs.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 
 enum RecurringJournalSortField {
   profileName,
@@ -742,101 +743,13 @@ class _RecurringJournalsListPanelState
     final selectedIds = _selectedIdsFrom(allJournals);
     if (selectedIds.isEmpty) return;
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => Dialog(
-        alignment: Alignment.topCenter,
-        insetPadding: EdgeInsets.zero,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: SizedBox(
-          width: 420,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      LucideIcons.alertTriangle,
-                      size: 28,
-                      color: AppTheme.warningOrange,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.textPrimary,
-                          ),
-                          children: [
-                            const TextSpan(
-                              text: 'Are you sure about deleting ',
-                            ),
-                            TextSpan(
-                              text:
-                                  '${selectedIds.length} recurring journal(s)',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const TextSpan(text: '?'),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'This will delete ${selectedIds.length} selected journal(s).',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSubtle,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => dialogContext.pop(true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.successGreen,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                      ),
-                      child: const Text('OK'),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton(
-                      onPressed: () => dialogContext.pop(false),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.textBody,
-                        side: const BorderSide(color: AppTheme.borderColor),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                      ),
-                      child: const Text('Cancel'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    final confirm = await showZerpaiConfirmationDialog(
+      context,
+      title:
+          'Are you sure about deleting ${selectedIds.length} recurring journal(s)?',
+      message: 'This will delete ${selectedIds.length} selected journal(s).',
+      confirmLabel: 'OK',
+      cancelLabel: 'Cancel',
     );
 
     if (confirm != true) return;
@@ -848,9 +761,9 @@ class _RecurringJournalsListPanelState
       }
       if (!mounted) return;
       setState(() => _checkedJournalIds.clear());
-      ZerpaiToast.success(
+      ZerpaiToast.deleted(
         context,
-        'Deleted ${selectedIds.length} recurring journal(s).',
+        '${selectedIds.length} recurring journal(s)',
       );
     } catch (e) {
       if (!mounted) return;

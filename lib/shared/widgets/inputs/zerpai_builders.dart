@@ -173,4 +173,14 @@ class ZerpaiBuilders {
     if (!context.mounted) return;
     ZerpaiToast.success(context, message);
   }
+
+  static void showSavedToast(BuildContext context, String subject) {
+    if (!context.mounted) return;
+    ZerpaiToast.saved(context, subject);
+  }
+
+  static void showDeletedToast(BuildContext context, String subject) {
+    if (!context.mounted) return;
+    ZerpaiToast.deleted(context, subject);
+  }
 }

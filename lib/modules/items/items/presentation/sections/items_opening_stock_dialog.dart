@@ -1705,7 +1705,7 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
 
       if (mounted) {
         _performCloseOpeningStockScreen(result: true);
-        ZerpaiToast.success(context, 'Opening stock updated successfully');
+        ZerpaiToast.saved(context, 'Opening stock');
       }
     } catch (e) {
       if (mounted) {

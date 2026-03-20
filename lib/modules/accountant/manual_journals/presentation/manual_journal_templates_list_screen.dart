@@ -7,6 +7,7 @@ import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/providers/manual_journal_template_provider.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/widgets/manual_journal_template_card.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/models/manual_journal_model.dart';
 
@@ -169,27 +170,14 @@ class _PaginatedTemplatesListState extends State<_PaginatedTemplatesList> {
                         color: AppTheme.errorRed,
                       ),
                       onPressed: () async {
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Delete Template'),
-                            content: const Text(
+                        final confirmed = await showZerpaiConfirmationDialog(
+                          context,
+                          title: 'Delete Template',
+                          message:
                               'Are you sure you want to delete this template?',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Cancel'),
-                              ),
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.errorRed,
-                                ),
-                                child: const Text('Delete'),
-                              ),
-                            ],
-                          ),
+                          confirmLabel: 'Delete',
+                          cancelLabel: 'Cancel',
+                          variant: ZerpaiConfirmationVariant.danger,
                         );
                         if (confirmed == true) {
                           await widget.ref

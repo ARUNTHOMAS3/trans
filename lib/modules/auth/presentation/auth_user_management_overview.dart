@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import '../models/user_model.dart';
 import '../repositories/user_management_repository.dart';
 import '../widgets/user_list_tile.dart';
@@ -60,9 +61,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
             _users.add(user);
           });
           Navigator.pop(context);
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('User created successfully')));
+          ZerpaiToast.saved(context, 'User');
         },
       ),
     );
@@ -76,14 +75,12 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
         onUserSaved: (updatedUser) {
           setState(() {
             final index = _users.indexWhere((u) => u.id == updatedUser.id);
-            if (index != -1) {
+          if (index != -1) {
               _users[index] = updatedUser;
             }
           });
           Navigator.pop(context);
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('User updated successfully')));
+          ZerpaiToast.saved(context, 'User');
         },
       ),
     );
@@ -113,9 +110,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
         _users.removeWhere((u) => u.id == user.id);
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('User deleted successfully')));
+      ZerpaiToast.deleted(context, 'User');
     }
   }
 

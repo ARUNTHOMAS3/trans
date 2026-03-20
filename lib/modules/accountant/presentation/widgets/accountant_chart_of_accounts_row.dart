@@ -8,6 +8,7 @@ import 'package:zerpai_erp/modules/accountant/providers/accountant_chart_of_acco
 import 'package:dio/dio.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 
 class AccountRow extends ConsumerStatefulWidget {
   final AccountNode node;
@@ -416,7 +417,9 @@ class _AccountRowState extends ConsumerState<AccountRow> {
                         SizedBox(
                           width: widget.compact ? 36 : 48,
                           child: Center(
-                            child: (widget.node.isDeletable && (_isHovered || _isMenuOpen))
+                            child:
+                                (widget.node.isDeletable &&
+                                    (_isHovered || _isMenuOpen))
                                 ? _ActionMenu(
                                     node: widget.node,
                                     onMenuOpen: () =>
@@ -455,160 +458,14 @@ class _AccountRowState extends ConsumerState<AccountRow> {
                                             break;
                                           case 'delete':
                                             final confirmed =
-                                                await showDialog<bool>(
-                                                  context: context,
-                                                  builder: (ctx) => Dialog(
-                                                    alignment:
-                                                        Alignment.topCenter,
-                                                    insetPadding:
-                                                        EdgeInsets.zero,
-                                                    backgroundColor:
-                                                        Colors.white,
-                                                    surfaceTintColor:
-                                                        Colors.white,
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                12,
-                                                              ),
-                                                        ),
-                                                    child: SizedBox(
-                                                      width: 420,
-                                                      child: Padding(
-                                                        padding:
-                                                            const EdgeInsets.fromLTRB(
-                                                              24,
-                                                              20,
-                                                              24,
-                                                              16,
-                                                            ),
-                                                        child: Column(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          Row(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment
-                                                                    .center,
-                                                            children: [
-                                                              const Icon(
-                                                                LucideIcons
-                                                                    .alertTriangle,
-                                                                size: 28,
-                                                                color: Color(
-                                                                  0xFFF59E0B,
-                                                                ),
-                                                              ),
-                                                              const SizedBox(
-                                                                width: 12,
-                                                              ),
-                                                              Expanded(
-                                                                child: RichText(
-                                                                  text: TextSpan(
-                                                                    style: const TextStyle(
-                                                                      fontSize:
-                                                                          14,
-                                                                      color: Color(
-                                                                        0xFF111827,
-                                                                      ),
-                                                                    ),
-                                                                    children: [
-                                                                      const TextSpan(
-                                                                        text:
-                                                                            'Are you sure about deleting ',
-                                                                      ),
-                                                                      TextSpan(
-                                                                        text:
-                                                                            '"${widget.node.name}"',
-                                                                        style: const TextStyle(
-                                                                          fontWeight:
-                                                                              FontWeight.bold,
-                                                                        ),
-                                                                      ),
-                                                                      const TextSpan(
-                                                                        text:
-                                                                            '?',
-                                                                      ),
-                                                                    ],
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                          const SizedBox(
-                                                            height: 16,
-                                                          ),
-                                                          Row(
-                                                            mainAxisAlignment:
-                                                                MainAxisAlignment
-                                                                    .end,
-                                                            children: [
-                                                              ElevatedButton(
-                                                                onPressed: () =>
-                                                                    ctx.pop(
-                                                                      true,
-                                                                    ),
-                                                                style: ElevatedButton.styleFrom(
-                                                                  backgroundColor:
-                                                                      AppTheme
-                                                                          .successGreen,
-                                                                  foregroundColor:
-                                                                      Colors
-                                                                          .white,
-                                                                  elevation: 0,
-                                                                  padding: const EdgeInsets.symmetric(
-                                                                    horizontal:
-                                                                        20,
-                                                                    vertical:
-                                                                        10,
-                                                                  ),
-                                                                ),
-                                                                child:
-                                                                    const Text(
-                                                                      'OK',
-                                                                    ),
-                                                              ),
-                                                              const SizedBox(
-                                                                width: 8,
-                                                              ),
-                                                              OutlinedButton(
-                                                                onPressed: () =>
-                                                                    ctx.pop(
-                                                                      false,
-                                                                    ),
-                                                                style: OutlinedButton.styleFrom(
-                                                                  foregroundColor:
-                                                                      const Color(
-                                                                        0xFF374151,
-                                                                      ),
-                                                                  side: const BorderSide(
-                                                                    color: Color(
-                                                                      0xFFD1D5DB,
-                                                                    ),
-                                                                  ),
-                                                                  padding: const EdgeInsets.symmetric(
-                                                                    horizontal:
-                                                                        20,
-                                                                    vertical:
-                                                                        10,
-                                                                  ),
-                                                                ),
-                                                                child:
-                                                                    const Text(
-                                                                      'Cancel',
-                                                                    ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  ),
+                                                await showZerpaiConfirmationDialog(
+                                                  context,
+                                                  title:
+                                                      'Are you sure about deleting "${widget.node.name}"?',
+                                                  message:
+                                                      'This action cannot be undone.',
+                                                  confirmLabel: 'OK',
+                                                  cancelLabel: 'Cancel',
                                                 );
                                             if (confirmed == true) {
                                               await ref
@@ -616,7 +473,9 @@ class _AccountRowState extends ConsumerState<AccountRow> {
                                                     chartOfAccountsProvider
                                                         .notifier,
                                                   )
-                                                  .deleteAccount(widget.node.id);
+                                                  .deleteAccount(
+                                                    widget.node.id,
+                                                  );
                                             }
                                             break;
                                         }
@@ -771,9 +630,7 @@ class _ActionMenuState extends State<_ActionMenu> {
         child: Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: widget.isMenuOpen
-                ? AppTheme.infoBg
-                : AppTheme.bgLight,
+            color: widget.isMenuOpen ? AppTheme.infoBg : AppTheme.bgLight,
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -827,9 +684,7 @@ class _MenuItemState extends State<_MenuItem> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           decoration: BoxDecoration(
             color: _hovered
-                ? (widget.isDestructive
-                      ? AppTheme.errorRed
-                      : AppTheme.infoBlue)
+                ? (widget.isDestructive ? AppTheme.errorRed : AppTheme.infoBlue)
                 : Colors.transparent,
           ),
           child: Row(

@@ -178,10 +178,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
         final updatedRows = await widget.onSave!(cleanedRows);
 
         if (mounted) {
-          ZerpaiBuilders.showSuccessToast(
-            context,
-            "Payment terms have been saved successfully",
-          );
+          ZerpaiBuilders.showSavedToast(context, 'Payment terms');
         }
 
         if (updatedRows.isNotEmpty) {

@@ -2779,7 +2779,7 @@ class _ManualJournalCreateScreenState
           .read(manualJournalTemplateProvider.notifier)
           .createTemplate(template);
       if (mounted) {
-        ZerpaiToast.success(context, 'Template "$name" saved successfully.');
+        ZerpaiToast.saved(context, 'Template "$name"');
       }
     } catch (e) {
       if (mounted) {

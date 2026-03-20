@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import '../repositories/auth_repository.dart';
 import '../models/organization_model.dart';
 
@@ -119,9 +120,7 @@ class _OrganizationManagementPageState
         _organizations.removeWhere((o) => o.id == org.id);
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Organization deleted successfully')),
-      );
+      ZerpaiToast.deleted(context, 'Organization');
     }
   }
 
