@@ -384,9 +384,7 @@ export class ProductsService {
       oldValues?.batchReference;
     const warehouseLabel =
       newValues?.warehouse_name ||
-      oldValues?.warehouse_name ||
-      newValues?.warehouse_id ||
-      oldValues?.warehouse_id;
+      oldValues?.warehouse_name;
 
     switch (tableName) {
       case "products":
@@ -2382,15 +2380,70 @@ export class ProductsService {
         [productId],
       );
 
+      const warehouseIds = Array.from(
+        new Set(
+          result.rows
+            .flatMap((row: any) => [
+              row?.new_values?.warehouse_id,
+              row?.old_values?.warehouse_id,
+            ])
+            .map((value: any) => this.cleanUuid(value))
+            .filter((value): value is string => Boolean(value)),
+        ),
+      );
+
+      const warehouseNameMap = new Map<string, string>();
+      if (warehouseIds.length > 0) {
+        const { data: warehouses, error: warehousesError } = await this.supabaseService
+          .getClient()
+          .from("warehouses")
+          .select("id, name")
+          .in("id", warehouseIds);
+
+        if (warehousesError) {
+          throw new Error(warehousesError.message);
+        }
+
+        for (const warehouse of warehouses ?? []) {
+          const id = warehouse?.id?.toString();
+          const name = warehouse?.name?.toString().trim();
+          if (id && name) {
+            warehouseNameMap.set(id, name);
+          }
+        }
+      }
+
       const items = result.rows.map((row: any) => {
-        const oldValues =
+        const oldValuesRaw =
           row.old_values && typeof row.old_values === "object"
             ? row.old_values
             : null;
-        const newValues =
+        const newValuesRaw =
           row.new_values && typeof row.new_values === "object"
             ? row.new_values
             : null;
+        const oldWarehouseId = this.cleanUuid(oldValuesRaw?.warehouse_id);
+        const newWarehouseId = this.cleanUuid(newValuesRaw?.warehouse_id);
+        const oldValues = oldValuesRaw
+          ? {
+              ...oldValuesRaw,
+              warehouse_name:
+                oldValuesRaw.warehouse_name ||
+                (oldWarehouseId
+                  ? warehouseNameMap.get(oldWarehouseId) ?? null
+                  : null),
+            }
+          : null;
+        const newValues = newValuesRaw
+          ? {
+              ...newValuesRaw,
+              warehouse_name:
+                newValuesRaw.warehouse_name ||
+                (newWarehouseId
+                  ? warehouseNameMap.get(newWarehouseId) ?? null
+                  : null),
+            }
+          : null;
         const details = this.summarizeHistoryEntry(
           row.table_name,
           row.action,

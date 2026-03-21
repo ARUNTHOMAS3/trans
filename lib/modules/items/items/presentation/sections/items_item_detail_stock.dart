@@ -466,6 +466,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
 
   Widget _buildHistoryEntryRow(ItemHistoryEntry entry, Item item) {
     final changes = _describeHistoryChanges(entry, item);
+    final summary = _sanitizeHistorySummary(entry.summary, entry.section);
 
     return Container(
       decoration: const BoxDecoration(
@@ -508,7 +509,7 @@ extension _ItemDetailStock on _ItemDetailScreenState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      entry.summary,
+                      summary,
                       style: const TextStyle(
                         fontSize: 13,
                         color: AppTheme.textPrimary,
@@ -604,7 +605,9 @@ extension _ItemDetailStock on _ItemDetailScreenState {
     }
 
     if (changes.isEmpty && entry.summary.isNotEmpty) {
-      changes.add(entry.summary);
+      changes.add(
+        _sanitizeHistorySummary(entry.summary, entry.section),
+      );
     }
 
     return changes;
@@ -956,6 +959,34 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
     );
     return uuidRegex.hasMatch(value);
+  }
+
+  String _sanitizeHistorySummary(String summary, String section) {
+    final trimmed = summary.trim();
+    if (trimmed.isEmpty) {
+      return trimmed;
+    }
+
+    const uuidPattern =
+        r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+    final uuidRegex = RegExp(uuidPattern);
+    if (!uuidRegex.hasMatch(trimmed)) {
+      return trimmed;
+    }
+
+    String replacementFor(String match) {
+      if (section == 'Warehouses') {
+        return 'Unknown warehouse';
+      }
+      return 'Unknown reference';
+    }
+
+    final sanitized = trimmed.replaceAllMapped(
+      uuidRegex,
+      (match) => replacementFor(match.group(0)!),
+    );
+
+    return sanitized.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   Widget _buildTransactionsTab(Item item) {

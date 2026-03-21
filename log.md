@@ -5572,3 +5572,5 @@ The batch and serial opening-stock footer logic was using the entered detailed q
 - Added shared `getSalespersons` and `syncSalespersons` wrappers in `LookupsApiService` for the migrated sales order flow.
 - Normalized stale sales order item code handling to the current `Item.hsnCode` field.
 - Replaced deprecated `withOpacity` usage in the touched sales files and migrated sales order preferences radio controls to `RadioGroup`.
+- Fixed item history warehouse summaries to resolve warehouse names instead of showing raw warehouse UUIDs.
+- Added a frontend history-summary sanitizer so unresolved IDs are never shown to users in the item history UI.
