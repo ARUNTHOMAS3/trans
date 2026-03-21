@@ -391,6 +391,23 @@ class LookupsApiService {
     List<Map<String, dynamic>> items,
   ) => _syncLookup('payment-terms', items);
 
+  Future<List<Map<String, dynamic>>> getSalespersons() async {
+    try {
+      final response = await _apiClient.get('/products/lookups/salespersons');
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      debugPrint('❌ Salespersons API Error: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> syncSalespersons(
+    List<Map<String, dynamic>> items,
+  ) => _syncLookup('salespersons', items);
+
   Future<List<Map<String, dynamic>>> syncContents(
     List<Map<String, dynamic>> items,
   ) => _syncLookup('contents', items);

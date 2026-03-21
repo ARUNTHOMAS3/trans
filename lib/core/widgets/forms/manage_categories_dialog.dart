@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/category_dropdown.dart'
+import 'package:zerpai_erp/core/widgets/forms/category_dropdown.dart'
     show CategoryNode;
-import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
-import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/core/widgets/forms/dropdown_input.dart';
 
 /// Dialog used when clicking "Manage Categories" from the Category dropdown.
 /// zerpai-like folder tree with hover actions and dynamic height.
@@ -114,7 +112,6 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
         }
       }
       final newList = await widget.onSave(updatedFlatList);
-
       if (mounted) {
         setState(() {
           _flatList = newList;
@@ -122,32 +119,25 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
           _isSaving = false;
           _resetForm();
         });
-
-        ZerpaiBuilders.showSavedToast(context, 'Category');
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         setState(() {
           _isSaving = false;
-          _errorMessage = _parseError(e);
+          _errorMessage = e.toString();
         });
-      }
     }
   }
 
   Future<void> _deleteCategory(CategoryNode node) async {
-    // Clear any previous error messages
-    setState(() => _errorMessage = null);
-
-    // Check for subcategories
     if (node.children.isNotEmpty) {
-      setState(() {
-        _errorMessage =
-            'You have to delete the subcategories first to delete the parent category.';
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot delete a category that has sub-categories'),
+        ),
+      );
       return;
     }
-
     setState(() => _isSaving = true);
     try {
       final List<Map<String, dynamic>> updatedFlatList = _flatList
@@ -159,28 +149,16 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
           _flatList = newList;
           _nodes = CategoryNode.fromFlatList(newList);
           _isSaving = false;
-          _errorMessage = null;
         });
-        ZerpaiBuilders.showDeletedToast(context, 'Category');
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-          _errorMessage = _parseError(e);
-        });
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
-  }
-
-  String _parseError(dynamic e) {
-    return ZerpaiBuilders.parseErrorMessage(e, 'category');
   }
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.only(
         top: 0,
@@ -189,65 +167,31 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
         bottom: 24,
       ),
       child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 650,
-          maxHeight:
-              MediaQuery.of(context).size.height *
-              0.85, // Max 85% of screen height
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // --- FIXED TOP PART ---
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeader(),
-                  const Divider(height: 1, color: AppTheme.borderColor),
-                  if (_errorMessage != null)
-                    ZerpaiBuilders.buildErrorAlert(
-                      context: context,
-                      message: _errorMessage!,
-                      onClose: () => setState(() => _errorMessage = null),
-                      margin: const EdgeInsets.fromLTRB(0, 16, 0, 0),
-                    ),
-                  if (_showForm) ...[
-                    const SizedBox(height: 24),
-                    _buildForm(),
-                    const SizedBox(height: 24),
-                  ],
-                ],
-              ),
-            ),
-
-            // --- SCROLLABLE CATEGORY LIST ---
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (!_showForm) const SizedBox(height: 24),
-                    _buildTreeHeader(),
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 12),
-                      child: _buildTreeList(),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+        constraints: const BoxConstraints(maxWidth: 650),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(),
+              const Divider(height: 32),
+              if (_showForm) ...[_buildForm(), const SizedBox(height: 32)],
+              _buildTreeHeader(),
+              const SizedBox(height: 16),
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red, fontSize: 13),
+                  ),
                 ),
-              ),
-            ),
-
-            // --- FIXED BOTTOM PART ---
-            const Divider(height: 1, color: AppTheme.borderColor),
-            Padding(padding: const EdgeInsets.all(24), child: _buildFooter()),
-          ],
+              _buildTreeList(),
+              const Divider(height: 48),
+              _buildFooter(),
+            ],
+          ),
         ),
       ),
     );
@@ -268,33 +212,31 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
           ),
           const Spacer(),
           if (!_showForm)
-            InkWell(
-              onTap: _startAdd,
-              borderRadius: BorderRadius.circular(4),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppTheme.accentGreen,
-                  borderRadius: BorderRadius.circular(4),
-                ),
+            ElevatedButton.icon(
+              onPressed: _startAdd,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text(
+                'Add New Category',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+                elevation: 0,
                 padding: const EdgeInsets.symmetric(
-                  vertical: 8,
-                  horizontal: 12,
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-                child: const Text(
-                  '+ New Category',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
             ),
           const SizedBox(width: 12),
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close, color: AppTheme.textSecondary),
-            hoverColor: AppTheme.bgLight,
+            icon: const Icon(Icons.close, color: Color(0xFF64748B)),
+            hoverColor: const Color(0xFFF1F5F9),
           ),
         ],
       ),
@@ -311,7 +253,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC), // Light grey fill from Image 3
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderLight),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,7 +262,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
             'Category Name*',
             style: TextStyle(
               fontSize: 13,
-              color: AppTheme.errorRed,
+              color: Color(0xFFEF4444),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -330,17 +272,17 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
             style: const TextStyle(fontSize: 14),
             decoration: InputDecoration(
               isDense: true,
-              border: const OutlineInputBorder(
-                borderRadius: BorderRadius.zero,
-                borderSide: BorderSide(color: AppTheme.borderMid),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
               ),
-              enabledBorder: const OutlineInputBorder(
-                borderRadius: BorderRadius.zero,
-                borderSide: BorderSide(color: AppTheme.borderMid),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
               ),
-              focusedBorder: const OutlineInputBorder(
-                borderRadius: BorderRadius.zero,
-                borderSide: BorderSide(color: AppTheme.primaryBlueDark, width: 1.5),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(color: Color(0xFF2563EB)),
               ),
               fillColor: Colors.white,
               filled: true,
@@ -355,7 +297,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
             'Parent Category',
             style: TextStyle(
               fontSize: 13,
-              color: AppTheme.textSecondary,
+              color: Color(0xFF64748B),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -364,79 +306,32 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
             value: _selectedParentId,
             items: options.map((o) => o['id'] as String).toList(),
             allowClear: true,
+            hint: 'None (Root Category)',
             onChanged: (id) => setState(() => _selectedParentId = id),
             displayStringForValue: (id) {
               final it = _flatList.firstWhere(
                 (i) => i['id'] == id,
                 orElse: () => {'name': id},
               );
-              return (it['name'] as String);
+              return (it['name'] as String).toUpperCase();
             },
             itemBuilder: (id, isSelected, isHovered) {
               final opt = options.firstWhere((o) => o['id'] == id);
               final depth = opt['depth'] as int;
-              final isRoot = depth == 0;
-
-              // Theme Colors to match category_dropdown.dart
-              const Color strongBlue = AppTheme.primaryBlueDark;
-              const Color softBlue = AppTheme.infoBg;
-
-              Color bg = Colors.transparent;
-              Color textColor = const Color(0xFF1E293B);
-              Color bulletColor = AppTheme.textDisabled;
-
-              if (isHovered) {
-                bg = strongBlue;
-                textColor = Colors.white;
-                bulletColor = Colors.white70;
-              } else if (isSelected) {
-                bg = softBlue;
-                textColor = strongBlue;
-                bulletColor = strongBlue.withValues(alpha: 0.5);
-              }
-
               return Container(
-                padding: EdgeInsets.only(
-                  left: (depth * 20.0) + (isRoot ? 12.0 : 8.0),
-                  right: 12,
-                ),
+                padding: EdgeInsets.only(left: (depth * 16.0) + 12),
                 height: 40,
                 alignment: Alignment.centerLeft,
-                color: bg,
-                child: Row(
-                  children: [
-                    if (!isRoot) ...[
-                      Text(
-                        '• ',
-                        style: TextStyle(
-                          color: bulletColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    Expanded(
-                      child: Text(
-                        isRoot
-                            ? (opt['name'] as String).toUpperCase()
-                            : (opt['name'] as String),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isRoot
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          color: textColor,
-                        ),
-                      ),
-                    ),
-                    if (isSelected)
-                      Icon(
-                        Icons.check,
-                        size: 16,
-                        color: isHovered ? Colors.white : strongBlue,
-                      ),
-                  ],
+                color: isHovered ? const Color(0xFFF1F5F9) : Colors.transparent,
+                child: Text(
+                  (opt['name'] as String).toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: depth == 0 ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFF1E293B),
+                  ),
                 ),
               );
             },
@@ -481,7 +376,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                 child: const Text(
                   'Cancel',
                   style: TextStyle(
-                    color: AppTheme.primaryBlueDark,
+                    color: Color(0xFF2563EB),
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -513,7 +408,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
       style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w700,
-        color: AppTheme.textSecondary,
+        color: Color(0xFF64748B),
         letterSpacing: 0.8,
       ),
     );
@@ -526,51 +421,6 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
           .entries
           .map((e) => _buildNode(e.value, 0, [], e.key == _nodes.length - 1))
           .toList(),
-    );
-  }
-
-  Widget _buildTreeLines(int depth, List<bool> parentHasNext, bool isLast) {
-    if (depth == 0) return const SizedBox(width: 12);
-
-    return SizedBox(
-      width: depth * 24.0,
-      child: Row(
-        children: [
-          ...List.generate(depth - 1, (i) {
-            return Container(
-              width: 24,
-              alignment: Alignment.center,
-              child: parentHasNext[i]
-                  ? Container(width: 1, color: AppTheme.borderMid)
-                  : null,
-            );
-          }),
-          SizedBox(
-            width: 24,
-            child: Stack(
-              children: [
-                // Vertical line
-                Center(
-                  child: Container(
-                    width: 1,
-                    margin: EdgeInsets.only(bottom: isLast ? 22 : 0),
-                    color: AppTheme.borderMid,
-                  ),
-                ),
-                // Horizontal line
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Container(
-                    width: 12,
-                    height: 1,
-                    color: AppTheme.borderMid,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -615,45 +465,86 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
               ),
               child: Row(
                 children: [
-                  // Tree Lines Component
-                  _buildTreeLines(depth, parentHasNext, isLast),
+                  // Tree Lines Structure
+                  SizedBox(
+                    width: (depth * 32.0) + 16,
+                    child: Stack(
+                      children: [
+                        // Vertical lines for previous levels
+                        for (int i = 0; i < depth; i++)
+                          if (parentHasNext[i])
+                            Positioned(
+                              left: (i * 32.0) + 7,
+                              top: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 1,
+                                color: const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                        // Current level T/L line
+                        if (depth > 0) ...[
+                          Positioned(
+                            left: ((depth - 1) * 32.0) + 7,
+                            top: 0,
+                            bottom: isLast ? 22 : 0,
+                            child: Container(
+                              width: 1,
+                              color: const Color(0xFFCBD5E1),
+                            ),
+                          ),
+                          Positioned(
+                            left: ((depth - 1) * 32.0) + 7,
+                            top: 22,
+                            child: Container(
+                              width: 16,
+                              height: 1,
+                              color: const Color(0xFFCBD5E1),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
 
-                  // Category Name
+                  // Folder Icon (Only for roots)
+                  if (isRoot) ...[
+                    Icon(
+                      isExpanded ? Icons.folder_open : Icons.folder,
+                      size: 18,
+                      color: const Color(0xFF3B82F6),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+
+                  // Text and Expansion Arrow
                   Expanded(
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (isRoot) ...[
-                          const Icon(
-                            Icons.folder_open_outlined,
-                            size: 18,
-                            color: AppTheme.primaryBlueDark,
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        Flexible(
-                          child: Text(
-                            isRoot ? node.name.toUpperCase() : node.name,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: isRoot
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: isHovered
-                                  ? AppTheme.primaryBlueDark
-                                  : const Color(0xFF475569),
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          isRoot ? node.name.toUpperCase() : node.name,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isRoot
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: isHovered
+                                ? const Color(0xFF2563EB)
+                                : const Color(0xFF475569),
                           ),
                         ),
-                        if (hasChildren)
+                        if (hasChildren) ...[
+                          const SizedBox(width: 4),
                           Icon(
                             isExpanded
                                 ? Icons.arrow_drop_down
                                 : Icons.arrow_right,
-                            size: 20,
-                            color: AppTheme.textSecondary,
+                            size: 22,
+                            color: const Color(
+                              0xFF334155,
+                            ), // Darker for better visibility
                           ),
+                        ],
                       ],
                     ),
                   ),
@@ -669,7 +560,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                         'Apply this Category',
                         style: TextStyle(
                           fontSize: 13,
-                          color: AppTheme.primaryBlueDark,
+                          color: Color(0xFF2563EB),
                           fontWeight: FontWeight.normal,
                         ),
                       ),
@@ -680,7 +571,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                       icon: const Icon(
                         Icons.edit_outlined,
                         size: 18,
-                        color: AppTheme.textSecondary,
+                        color: Color(0xFF64748B),
                       ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -691,7 +582,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                       icon: const Icon(
                         Icons.delete_outline,
                         size: 18,
-                        color: AppTheme.errorRed,
+                        color: Color(0xFFEF4444),
                       ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -721,7 +612,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
         ElevatedButton(
           onPressed: () => Navigator.pop(context),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.bgLight, // Grey from Image 2
+            backgroundColor: const Color(0xFFF1F5F9), // Grey from Image 2
             foregroundColor: const Color(0xFF334155),
             elevation: 0,
             minimumSize: const Size(100, 42),

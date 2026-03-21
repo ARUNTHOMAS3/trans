@@ -3,12 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:intl/intl.dart';
-import '../controllers/sales_order_controller.dart';
-import '../../../shared/widgets/zerpai_layout.dart';
-import 'package:go_router/go_router.dart';
-import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
-import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import '../controllers/sales_order_controller.dart';
 
 class SalesOrderOverviewScreen extends ConsumerWidget {
   const SalesOrderOverviewScreen({super.key});
@@ -22,8 +19,8 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
 
       enableBodyScroll: false,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go(AppRoutes.salesOrdersCreate),
-        backgroundColor: AppTheme.primaryBlueDark,
+        onPressed: () => Navigator.pushNamed(context, '/sales/orders/create'),
+        backgroundColor: const Color(0xFF2563EB),
         icon: const Icon(LucideIcons.plus, color: Colors.white),
         label: const Text(
           'New Sales Order',
@@ -39,7 +36,7 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
                     const Icon(
                       LucideIcons.receipt,
                       size: 64,
-                      color: AppTheme.borderColor,
+                      color: Color(0xFFD1D5DB),
                     ),
                     const SizedBox(height: 16),
                     const Text(
@@ -52,11 +49,12 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
                     const SizedBox(height: 8),
                     const Text(
                       'Create a sales order to start selling',
-                      style: TextStyle(color: AppTheme.textSecondary),
+                      style: TextStyle(color: Color(0xFF6B7280)),
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
-                      onPressed: () => context.go(AppRoutes.salesOrdersCreate),
+                      onPressed: () =>
+                          Navigator.pushNamed(context, '/sales/orders/create'),
                       icon: const Icon(LucideIcons.plus),
                       label: const Text('Create Sales Order'),
                     ),
@@ -75,14 +73,14 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: AppTheme.borderColor),
+                      side: const BorderSide(color: Color(0xFFE5E7EB)),
                     ),
                     child: ListTile(
                       title: Text(
                         sale.saleNumber,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.primaryBlueDark,
+                          color: Color(0xFF2563EB),
                         ),
                       ),
                       subtitle: Text(
@@ -124,12 +122,7 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
                         ],
                       ),
                       onTap: () {
-                        context.go(
-                          AppRoutes.salesOrdersDetail.replaceAll(
-                            ':id',
-                            sale.id,
-                          ),
-                        );
+                        Navigator.pushNamed(context, '/sales/order/${sale.id}');
                       },
                     ),
                   );

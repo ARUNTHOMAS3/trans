@@ -5566,3 +5566,9 @@ The batch and serial opening-stock footer logic was using the entered detailed q
 
 ### Result
 - Saved and deleted success messages can now be invoked through the global toast utility instead of being rephrased ad hoc per screen
+- Removed the stale unused `isAdding` local from `manage_categories_dialog.dart` after the shared saved-toast rollout; remaining listed diagnostics are informational `TODO` markers rather than build-blocking errors.
+2026-03-21
+- Reconnected stale pre-refactor imports in sales order create/overview to the current module paths.
+- Added shared `getSalespersons` and `syncSalespersons` wrappers in `LookupsApiService` for the migrated sales order flow.
+- Normalized stale sales order item code handling to the current `Item.hsnCode` field.
+- Replaced deprecated `withOpacity` usage in the touched sales files and migrated sales order preferences radio controls to `RadioGroup`.
