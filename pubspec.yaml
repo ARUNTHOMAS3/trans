@@ -16,6 +16,7 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # UI / Visual
+  flutter_colorpicker: ^1.1.0
   dotted_border: ^2.1.0
   lottie: ^3.3.2
   flutter_svg: ^2.0.10+1

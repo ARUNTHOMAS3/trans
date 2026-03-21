@@ -265,7 +265,9 @@ class AppTheme {
   // 4. THEME DATA
   // --------------------------------------------------------------------------
 
-  static ThemeData get lightTheme {
+  static final ThemeData lightTheme = _buildLightTheme();
+
+  static ThemeData _buildLightTheme() {
     final baseTheme = ThemeData.light(useMaterial3: true);
     final themedText = _applyFontFallbackToTextTheme(
       baseTheme.textTheme
@@ -425,6 +427,33 @@ class AppTheme {
         color: backgroundColor,
         surfaceTintColor: backgroundColor,
         elevation: 4,
+      ),
+    );
+  }
+
+  /// Returns a copy of [lightTheme] with the accent color overriding
+  /// ElevatedButton backgrounds and the color scheme primary/secondary.
+  static ThemeData themedWith(Color accent) {
+    final base = lightTheme;
+    return base.copyWith(
+      colorScheme: base.colorScheme.copyWith(
+        primary: accent,
+        secondary: accent,
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: accent,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(
+            horizontal: space24,
+            vertical: space12,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(space4),
+          ),
+          textStyle: buttonText,
+        ),
       ),
     );
   }

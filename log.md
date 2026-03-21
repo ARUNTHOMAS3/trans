@@ -1,3 +1,18 @@
+## Branding: Accent Swatches Rectangular + Code Cleanup (March 22, 2026)
+
+### Revert swatches to rectangular
+- `lib/core/pages/settings_organization_branding_page.dart`: accent swatches reverted from circular (44x44 `BoxShape.circle`) back to rectangular (80x52, `BorderRadius.circular(10)`) with label text inside; "Pick" custom swatch shows rainbow circle icon + text on white background
+
+### Code cleanup (simplify pass)
+- **`lib/core/theme/app_theme.dart`**: `lightTheme` converted from a getter (rebuilt on every call) to `static final ThemeData lightTheme` backed by private `_buildLightTheme()` — eliminates repeated full theme reconstruction on every `ZerpaiApp` rebuild
+- **Unified swatch widgets**: extracted `_buildSwatchShell()` helper replacing ~80 lines of duplicated `AnimatedContainer` + `BoxShadow` + `Stack` + check-icon logic shared between `_buildAccentSwatch` and `_buildCustomColorSwatch`
+- **Deduplicated `SweepGradient`**: extracted `static const _kRainbowGradient` replacing two identical inline definitions
+- **`_isDarkPane` getter**: replaced repeated `_selectedAppearance != 'light'` expressions across the file
+- **TextEditingController leak fixed**: `hexCtrl` in `_openCustomColorPicker` now disposed via `.then((_) => hexCtrl.dispose())` after dialog closes
+- **Apply button color fixed**: color picker dialog "Apply" button was hardcoded to `AppTheme.accentGreen`; now correctly uses `tempColor` (the color being previewed)
+
+---
+
 ## Branding: App-Wide Persistence & Flash Fix (March 22, 2026)
 
 ### App-wide branding initialization

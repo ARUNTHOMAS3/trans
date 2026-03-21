@@ -7,6 +7,8 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:zerpai_erp/core/providers/app_branding_provider.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
@@ -149,6 +151,18 @@ class _SettingsOrganizationBrandingPageState
         ),
       ];
 
+  static const SweepGradient _kRainbowGradient = SweepGradient(
+    colors: [
+      Color(0xFFFF0000),
+      Color(0xFFFFFF00),
+      Color(0xFF00FF00),
+      Color(0xFF00FFFF),
+      Color(0xFF0000FF),
+      Color(0xFFFF00FF),
+      Color(0xFFFF0000),
+    ],
+  );
+
   static const List<_AccentOption> _accentOptions = <_AccentOption>[
     _AccentOption(label: 'Green', color: Color(0xFF22A95E)),
     _AccentOption(label: 'Blue', color: Color(0xFF3B82F6)),
@@ -174,6 +188,8 @@ class _SettingsOrganizationBrandingPageState
 
   String _selectedAppearance = 'dark';
   Color _selectedAccentColor = const Color(0xFF22A95E);
+
+  bool get _isDarkPane => _selectedAppearance != 'light';
 
   @override
   void initState() {
@@ -1027,14 +1043,20 @@ class _SettingsOrganizationBrandingPageState
   }) {
     final bool isSelected = _selectedAppearance == key;
     return GestureDetector(
-      onTap: () => setState(() => _selectedAppearance = key),
+      onTap: () {
+        setState(() => _selectedAppearance = key);
+        ref.read(appBrandingProvider.notifier).apply(
+          accentColor: _selectedAccentColor,
+          isDarkPane: key != 'light',
+        );
+      },
       child: Container(
         width: 148,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? AppTheme.accentGreen
+                ? _selectedAccentColor
                 : AppTheme.borderLight,
             width: isSelected ? 2 : 1,
           ),
@@ -1051,56 +1073,74 @@ class _SettingsOrganizationBrandingPageState
                 ),
               ),
               clipBehavior: Clip.antiAlias,
-              child: Row(
+              child: Stack(
                 children: [
-                  Container(
-                    width: 36,
-                    color: sidebarColor,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        4,
-                        (i) => Container(
-                          margin: const EdgeInsets.symmetric(
-                            vertical: 3,
-                            horizontal: 6,
-                          ),
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: sidebarColor == const Color(0xFF1F2633)
-                                ? Colors.white.withValues(alpha: 0.25)
-                                : Colors.black.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(3),
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        color: sidebarColor,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            4,
+                            (i) => Container(
+                              margin: const EdgeInsets.symmetric(
+                                vertical: 3,
+                                horizontal: 6,
+                              ),
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: sidebarColor == const Color(0xFF1F2633)
+                                    ? Colors.white.withValues(alpha: 0.25)
+                                    : Colors.black.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            height: 8,
-                            width: 60,
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                height: 8,
+                                width: 60,
+                                decoration: BoxDecoration(
+                                  color:
+                                      Colors.black.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                height: 6,
+                                width: 40,
+                                decoration: BoxDecoration(
+                                  color:
+                                      Colors.black.withValues(alpha: 0.07),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 6),
-                          Container(
-                            height: 6,
-                            width: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.07),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
+                    ],
+                  ),
+                  // Moon / Sun overlay icon
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: Icon(
+                      key == 'dark' ? LucideIcons.moon : LucideIcons.sun,
+                      size: 18,
+                      color: key == 'dark'
+                          ? Colors.white.withValues(alpha: 0.5)
+                          : Colors.black.withValues(alpha: 0.2),
                     ),
                   ),
                 ],
@@ -1111,7 +1151,7 @@ class _SettingsOrganizationBrandingPageState
               height: 40,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? AppTheme.accentGreen.withValues(alpha: 0.06)
+                    ? _selectedAccentColor.withValues(alpha: 0.06)
                     : Colors.white,
                 borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(10),
@@ -1124,10 +1164,10 @@ class _SettingsOrganizationBrandingPageState
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (isSelected)
-                    const Icon(
+                    Icon(
                       LucideIcons.check,
                       size: 13,
-                      color: AppTheme.accentGreen,
+                      color: _selectedAccentColor,
                     ),
                   if (isSelected) const SizedBox(width: 5),
                   Text(
@@ -1136,7 +1176,7 @@ class _SettingsOrganizationBrandingPageState
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: isSelected
-                          ? AppTheme.accentGreen
+                          ? _selectedAccentColor
                           : AppTheme.textSecondary,
                       letterSpacing: 0.5,
                     ),
@@ -1166,59 +1206,402 @@ class _SettingsOrganizationBrandingPageState
           Wrap(
             spacing: AppTheme.space12,
             runSpacing: AppTheme.space12,
-            children: _accentOptions
-                .map((option) => _buildAccentSwatch(option))
-                .toList(),
+            children: [
+              ..._accentOptions.map((option) => _buildAccentSwatch(option)),
+              _buildCustomColorSwatch(),
+            ],
           ),
+          if (_selectedAccentColor.computeLuminance() < 0.15) ...[
+            const SizedBox(height: AppTheme.space16),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.space16,
+                vertical: AppTheme.space12,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFED7AA)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    LucideIcons.alertTriangle,
+                    size: 16,
+                    color: Color(0xFFF97316),
+                  ),
+                  const SizedBox(width: AppTheme.space8),
+                  Expanded(
+                    child: Text(
+                      'Consider selecting a lighter accent color to improve the readability of low-contrast text.',
+                      style: AppTheme.bodyText.copyWith(
+                        fontSize: 13,
+                        color: const Color(0xFF92400E),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildSwatchShell({
+    required Color bgColor,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Widget child,
+    Border? unselectedBorder,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 80,
+        height: 52,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(10),
+          border: isSelected
+              ? Border.all(color: Colors.white, width: 3)
+              : unselectedBorder,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: bgColor.withValues(alpha: 0.5),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                  BoxShadow(
+                    color: bgColor.withValues(alpha: 0.3),
+                    blurRadius: 0,
+                    spreadRadius: 2,
+                  ),
+                ]
+              : null,
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            child,
+            if (isSelected)
+              const Positioned(
+                top: 4,
+                right: 6,
+                child: Icon(LucideIcons.check, color: Colors.white, size: 14),
+              ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildAccentSwatch(_AccentOption option) {
     final bool isSelected = _selectedAccentColor == option.color;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedAccentColor = option.color),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 80,
-        height: 52,
-        decoration: BoxDecoration(
-          color: option.color,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected
-                ? Colors.white.withValues(alpha: 0)
-                : Colors.transparent,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: option.color.withValues(alpha: 0.45),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (isSelected)
-              const Icon(LucideIcons.check, color: Colors.white, size: 18),
-            const SizedBox(height: 2),
-            Text(
-              option.label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+    return _buildSwatchShell(
+      bgColor: option.color,
+      isSelected: isSelected,
+      onTap: () {
+        setState(() => _selectedAccentColor = option.color);
+        ref.read(appBrandingProvider.notifier).apply(
+          accentColor: option.color,
+          isDarkPane: _isDarkPane,
+        );
+      },
+      child: Text(
+        option.label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
+  }
+
+  Widget _buildCustomColorSwatch() {
+    final bool isCustom =
+        !_accentOptions.any((o) => o.color == _selectedAccentColor);
+    return _buildSwatchShell(
+      bgColor: isCustom ? _selectedAccentColor : Colors.white,
+      isSelected: isCustom,
+      onTap: _openCustomColorPicker,
+      unselectedBorder: Border.all(color: AppTheme.borderLight),
+      child: isCustom
+          ? const Text(
+              'Custom',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: _kRainbowGradient,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Pick',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  String _colorToHex(Color c) =>
+      c.toARGB32().toRadixString(16).substring(2).toUpperCase();
+
+  void _openCustomColorPicker() {
+    Color tempColor = _selectedAccentColor;
+    bool showSwatches = false;
+    final hexCtrl = TextEditingController(text: '#${_colorToHex(tempColor)}');
+
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.25),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          void applyHex(String val) {
+            final clean = val.replaceAll('#', '').trim();
+            if (clean.length == 6) {
+              final colorVal = int.tryParse('FF$clean', radix: 16);
+              if (colorVal != null) {
+                setDialogState(() {
+                  tempColor = Color(colorVal);
+                });
+              }
+            }
+          }
+
+          return Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            elevation: 8,
+            child: SizedBox(
+              width: 360,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (showSwatches) ...[
+                      GestureDetector(
+                        onTap: () =>
+                            setDialogState(() => showSwatches = false),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              LucideIcons.chevronLeft,
+                              size: 15,
+                              color: AppTheme.textSecondary,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Back',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      BlockPicker(
+                        pickerColor: tempColor,
+                        onColorChanged: (c) {
+                          setDialogState(() {
+                            tempColor = c;
+                            hexCtrl.text = '#${_colorToHex(c)}';
+                            showSwatches = false;
+                          });
+                        },
+                        itemBuilder: (color, isSelected, onTap) =>
+                            GestureDetector(
+                          onTap: onTap,
+                          child: Container(
+                            margin: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: isSelected
+                                  ? Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    )
+                                  : null,
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: color.withValues(alpha: 0.5),
+                                        blurRadius: 4,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                    ] else ...[
+                      ColorPicker(
+                        pickerColor: tempColor,
+                        onColorChanged: (c) {
+                          setDialogState(() {
+                            tempColor = c;
+                            hexCtrl.text = '#${_colorToHex(c)}';
+                          });
+                        },
+                        enableAlpha: false,
+                        labelTypes: const [],
+                        pickerAreaHeightPercent: 0.65,
+                        displayThumbColor: true,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: hexCtrl,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontFamily: 'monospace',
+                              ),
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                  borderSide: const BorderSide(
+                                    color: AppTheme.borderLight,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                  borderSide: const BorderSide(
+                                    color: AppTheme.borderLight,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                isDense: true,
+                              ),
+                              onSubmitted: applyHex,
+                              onChanged: applyHex,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 38,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: tempColor,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppTheme.borderLight),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: () =>
+                            setDialogState(() => showSwatches = true),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: _kRainbowGradient,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'Swatches',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            const Icon(
+                              LucideIcons.chevronRight,
+                              size: 14,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Cancel'),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: tempColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              setState(() => _selectedAccentColor = tempColor);
+                              ref
+                                  .read(appBrandingProvider.notifier)
+                                  .apply(
+                                    accentColor: tempColor,
+                                    isDarkPane: _isDarkPane,
+                                  );
+                            },
+                            child: const Text('Apply'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    ).then((_) => hexCtrl.dispose());
   }
 }
 
