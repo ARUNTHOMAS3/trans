@@ -36,15 +36,15 @@ The following table defines the complete module hierarchy as it appears in the a
 | Main Module   | Sub-Modules                                                                                                                                          |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Home**      | —                                                                                                                                                    |
-| **Items**     | Items<br>Composite Items<br>Item Groups<br>Price Lists                                                                                               |
-| **Inventory** | Assemblies<br>Inventory Adjustments<br>Picklists<br>Packages<br>Shipments<br>Transfer Orders<br>Move Orders<br>Putaways                              |
+| **Items**     | Items<br>Composite Items<br>Item Groups<br>Price Lists<br>Item Mapping                                                                              |
+| **Inventory** | Assemblies<br>Inventory Adjustments<br>Picklists<br>Packages<br>Shipments<br>Transfer Orders                                                        |
 | **Sales**     | Customers<br>Retainer Invoices<br>Sales Orders<br>Invoices<br>Delivery Challans<br>Payments Received<br>Sales Returns<br>Credit Notes<br>e-Way Bills |
-| **Purchases** | Vendors<br>Purchase Orders<br>Purchase Receives<br>Bills<br>Payments Made<br>Vendor Credits                                                          |
-| **Reports**   | —                                                                                                                                                    |
+| **Purchases** | Vendors<br>Expenses<br>Recurring Expenses<br>Purchase Orders<br>Bills<br>Recurring Bills<br>Payments Made<br>Vendor Credits                        |
+| **Accountant**| Manual Journals<br>Recurring Journals<br>Bulk Update<br>Transaction Locking<br>Opening Balances                                                     |
 | **Accounts**  | Chart of Accounts                                                                                                                                    |
+| **Reports**   | —                                                                                                                                                    |
 | **Documents** | —                                                                                                                                                    |
-
-**Planned/Future (Not in sidebar yet):** Apps → Zoho Payments
+| **Audit Logs**| —                                                                                                                                                    |
 
 ### 2.2 Module Hierarchy Tree
 
@@ -55,7 +55,8 @@ Home
 │   ├── Items
 │   ├── Composite Items
 │   ├── Item Groups
-│   └── Price Lists
+│   ├── Price Lists
+│   └── Item Mapping
 │
 ├── Inventory
 │   ├── Assemblies
@@ -63,9 +64,7 @@ Home
 │   ├── Picklists
 │   ├── Packages
 │   ├── Shipments
-│   ├── Transfer Orders
-│   ├── Move Orders
-│   └── Putaways
+│   └── Transfer Orders
 │
 ├── Sales
 │   ├── Customers
@@ -80,29 +79,51 @@ Home
 │
 ├── Purchases
 │   ├── Vendors
+│   ├── Expenses
+│   ├── Recurring Expenses
 │   ├── Purchase Orders
-│   ├── Purchase Receives
 │   ├── Bills
+│   ├── Recurring Bills
 │   ├── Payments Made
 │   └── Vendor Credits
 │
-├── Reports
+├── Accountant
+│   ├── Manual Journals
+│   ├── Recurring Journals
+│   ├── Bulk Update
+│   ├── Transaction Locking
+│   └── Opening Balances
 │
 ├── Accounts
 │   └── Chart of Accounts
 │
+├── Reports
+│
 ├── Documents
 │
-└── (Planned/Future) Apps → Zoho Payments
+└── Audit Logs
 ```
 
 ### 2.3 Folder Structure Mapping Rules
 
 **CRITICAL:** When creating modules and sub-modules, follow these rules:
 
-#### Rule 1: Main Modules
+#### Rule 1: Sidebar Modules vs Code Roots
 
-Main modules (Home, Items, Inventory, Sales, Purchases, Reports, Accounts, Documents) are created as **top-level folders** under `lib/modules/`:
+The sidebar currently exposes these top-level destinations:
+
+- Home
+- Items
+- Inventory
+- Sales
+- Purchases
+- Accountant
+- Accounts
+- Reports
+- Documents
+- Audit Logs
+
+The current **feature code roots** under `lib/modules/` are:
 
 ```
 lib/modules/
@@ -111,10 +132,14 @@ lib/modules/
 ├── inventory/
 ├── sales/
 ├── purchases/
+├── accountant/
 ├── reports/
-├── accounts/
-├── documents/
 ```
+
+Notes:
+
+- `Accounts` is a separate sidebar destination, but it is currently implemented inside the `accountant` code root.
+- `Documents` and `Audit Logs` are sidebar destinations and routes, but they do not yet have dedicated top-level module roots under `lib/modules/`.
 
 #### Rule 2: Sub-Modules
 
@@ -128,7 +153,8 @@ lib/modules/items/
 ├── items/ # "Items" sub-module
 ├── composite_items/ # "Composite Items" sub-module
 ├── item_groups/ # "Item Groups" sub-module
-└── pricelist/ # "Price Lists" sub-module
+├── pricelist/ # "Price Lists" sub-module
+└── mapping/ # "Item Mapping" sub-module when implemented under the Items module
 
 ```
 
@@ -156,10 +182,25 @@ lib/modules/sales/
 lib/modules/purchases/
 ├── vendors/
 ├── purchase_orders/
-├── purchase_receives/
+├── expenses/
+├── recurring_expenses/
 ├── bills/
+├── recurring_bills/
 ├── payments_made/
 └── vendor_credits/
+
+```
+
+**Example 4: Accountant Module**
+
+```
+
+lib/modules/accountant/
+├── manual_journals/
+├── recurring_journals/
+├── presentation/ # bulk update, transaction locking, opening balances, chart of accounts
+├── providers/
+└── repositories/
 
 ```
 
@@ -190,7 +231,7 @@ All files MUST follow the exact pattern:
 
 #### Rule 4: Standalone Modules
 
-Modules without sub-modules (Home, Reports, Documents) follow the standard module structure:
+Modules without dedicated nested sub-modules (Home, Reports) follow the standard module structure:
 
 ```
 

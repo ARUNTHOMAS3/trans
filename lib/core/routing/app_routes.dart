@@ -1,7 +1,10 @@
 class AppRoutes {
   AppRoutes._();
 
-  static const String home = '/';
+  static const String home = '/home';
+  static const String settings = '/settings';
+  static const String settingsOrgProfile = '/settings/orgprofile';
+  static const String settingsOrgBranding = '/settings/orgbranding';
 
   // Items
   static const String itemsReport = '/items/report';

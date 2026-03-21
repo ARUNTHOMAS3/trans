@@ -41,6 +41,7 @@ class SalesGenericListScreen extends ConsumerStatefulWidget {
   final String? detailRoute;
   final List<String> columns;
   final ProviderBase<AsyncValue<List<dynamic>>>? provider;
+  final String? initialSearchQuery;
 
   const SalesGenericListScreen({
     super.key,
@@ -49,6 +50,7 @@ class SalesGenericListScreen extends ConsumerStatefulWidget {
     this.detailRoute,
     required this.columns,
     this.provider,
+    this.initialSearchQuery,
   });
 
   @override
@@ -90,6 +92,7 @@ class _SalesGenericListScreenState
   final ScrollController _horizontalScrollController = ScrollController();
 
   String? _hoveredRowId;
+  late final String _searchQuery;
 
   void _state(VoidCallback fn) {
     if (mounted) setState(fn);
@@ -99,6 +102,7 @@ class _SalesGenericListScreenState
   void initState() {
     super.initState();
     _initializeColumns();
+    _searchQuery = widget.initialSearchQuery?.trim().toLowerCase() ?? '';
   }
 
   @override
@@ -113,6 +117,7 @@ class _SalesGenericListScreenState
     final asyncData = widget.provider != null
         ? ref.watch(widget.provider!)
         : null;
+    final filteredAsyncData = asyncData?.whenData(_applyGlobalSearchFilter);
 
     return ZerpaiLayout(
       pageTitle: widget.title,
@@ -136,9 +141,9 @@ class _SalesGenericListScreenState
                 children: [
                   // Table content
                   Expanded(
-                    child: asyncData == null
+                    child: filteredAsyncData == null
                         ? _buildEmptyState(context)
-                        : asyncData.when(
+                        : filteredAsyncData.when(
                             data: (data) => data.isEmpty
                                 ? _buildEmptyState(context)
                                 : _buildTable(context, data),
@@ -154,6 +159,67 @@ class _SalesGenericListScreenState
         ],
       ),
     );
+  }
+
+  List<dynamic> _applyGlobalSearchFilter(List<dynamic> data) {
+    if (_searchQuery.isEmpty) {
+      return data;
+    }
+    return data.where(_matchesGlobalSearch).toList();
+  }
+
+  bool _matchesGlobalSearch(dynamic item) {
+    final values = <String>[];
+
+    void addValue(Object? value) {
+      if (value == null) {
+        return;
+      }
+      final text = value.toString().trim();
+      if (text.isNotEmpty) {
+        values.add(text.toLowerCase());
+      }
+    }
+
+    try {
+      final map = item.toJson();
+      if (map is Map<String, dynamic>) {
+        for (final value in map.values) {
+          addValue(value);
+        }
+      }
+    } catch (_) {}
+
+    if (item is SalesCustomer) {
+      addValue(item.displayName);
+      addValue(item.companyName);
+      addValue(item.email);
+      addValue(item.phone);
+    } else if (item is SalesOrder) {
+      addValue(item.saleNumber);
+      addValue(item.reference);
+      addValue(item.status);
+      addValue(item.customer?.displayName);
+    } else if (item is SalesPayment) {
+      addValue(item.paymentNumber);
+      addValue(item.reference);
+      addValue(item.customerName);
+      addValue(item.paymentMode);
+    } else if (item is SalesEWayBill) {
+      addValue(item.billNumber);
+      addValue(item.status);
+      addValue(item.vehicleNumber);
+    } else if (item is SalesPaymentLink) {
+      addValue(item.linkNumber);
+      if (item.customer is Map<String, dynamic>) {
+        addValue(item.customer?['display_name']);
+        addValue(item.customer?['displayName']);
+        addValue(item.customer?['name']);
+      }
+      addValue(item.status);
+    }
+
+    return values.any((value) => value.contains(_searchQuery));
   }
 
   Widget _buildTable(BuildContext context, List<dynamic> data) {

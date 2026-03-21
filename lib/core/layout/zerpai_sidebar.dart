@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/providers/app_branding_provider.dart';
 import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'zerpai_sidebar_item.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-class ZerpaiSidebar extends StatefulWidget {
+class ZerpaiSidebar extends ConsumerStatefulWidget {
   static const double expandedWidth = 230;
   static const double collapsedWidth = 72;
   static final ValueNotifier<bool> collapsedNotifier = ValueNotifier<bool>(
@@ -18,10 +20,15 @@ class ZerpaiSidebar extends StatefulWidget {
   const ZerpaiSidebar({super.key, this.onNavigate});
 
   @override
-  State<ZerpaiSidebar> createState() => _ZerpaiSidebarState();
+  ConsumerState<ZerpaiSidebar> createState() => _ZerpaiSidebarState();
 }
 
-class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
+/// Strips the leading /:orgSystemId segment from a path for comparison with AppRoutes constants.
+String _stripOrgPrefix(String path) {
+  return path.replaceFirst(RegExp(r'^/\d{10,20}'), '');
+}
+
+class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
   // ---------------- MENU CONFIG ----------------
 
   final Map<String, List<_Child>> _menu = {
@@ -186,7 +193,8 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
 
   static String _activeMenu = 'Home';
   static final Set<String> _expandedParents = {'Items'};
-  static bool _isCollapsed = false;
+  static bool _isCollapsed = true;
+  static bool _wasOnSettingsRoute = false;
 
   OverlayEntry? _submenuOverlay;
 
@@ -197,14 +205,39 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    ZerpaiSidebar.collapsedNotifier.value = _isCollapsed;
+    _autoCollapseForSettings();
     _updateActiveMenuFromRoute();
+    // Defer notifier update so it doesn't fire mid-build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ZerpaiSidebar.collapsedNotifier.value = _isCollapsed;
+      }
+    });
+  }
+
+  void _autoCollapseForSettings() {
+    final String location = _stripOrgPrefix(
+      GoRouter.of(
+        context,
+      ).routerDelegate.currentConfiguration.last.matchedLocation,
+    );
+    final bool isSettings =
+        location == AppRoutes.settings ||
+        location.startsWith('${AppRoutes.settings}/');
+
+    // Auto-collapse when entering settings for the first time
+    if (isSettings && !_wasOnSettingsRoute) {
+      _isCollapsed = true;
+    }
+    _wasOnSettingsRoute = isSettings;
   }
 
   void _updateActiveMenuFromRoute() {
-    final String location = GoRouter.of(
-      context,
-    ).routerDelegate.currentConfiguration.last.matchedLocation;
+    final String location = _stripOrgPrefix(
+      GoRouter.of(
+        context,
+      ).routerDelegate.currentConfiguration.last.matchedLocation,
+    );
 
     String? currentMatchedMenu;
 
@@ -250,7 +283,16 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
 
   @override
   Widget build(BuildContext context) {
+    final branding = ref.watch(appBrandingProvider);
+
+    // Sync statics so ZerpaiSidebarItem picks up live branding values.
     ZerpaiSidebarItem.isCollapsed = _isCollapsed;
+    ZerpaiSidebarItem.accentColor = branding.accentColor;
+    ZerpaiSidebarItem.hoverBg = branding.itemHoverBg;
+    ZerpaiSidebarItem.activeParentBg = branding.activeParentBg;
+    ZerpaiSidebarItem.collapseToggleBg = branding.collapseToggleBg;
+    ZerpaiSidebarItem.itemFg = branding.itemFg;
+    ZerpaiSidebarItem.itemFgMuted = branding.itemFgMuted;
 
     return AnimatedContainer(
       width: _isCollapsed
@@ -258,7 +300,7 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
           : ZerpaiSidebar.expandedWidth,
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeInOut,
-      color: const Color(0xFF1F2637), // ✅ Fixed to match backup
+      color: branding.sidebarBg,
       padding: const EdgeInsets.only(top: 16, bottom: 12), // ✅ Fixed padding
       clipBehavior: Clip.hardEdge,
       child: Column(
@@ -477,7 +519,7 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
       child: Padding(
         padding: const EdgeInsets.only(right: 10, bottom: 8, top: 4),
         child: Material(
-          color: const Color(0xFF2B3040),
+          color: ZerpaiSidebarItem.collapseToggleBg,
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
             borderRadius: BorderRadius.circular(8),
@@ -510,15 +552,15 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
               ? MainAxisAlignment.center
               : MainAxisAlignment.start,
           children: [
-            const _BrandMark(),
+            _BrandMark(accentColor: ZerpaiSidebarItem.accentColor),
             if (!_isCollapsed) ...[
               const SizedBox(width: 10),
-              const Text(
+              Text(
                 'Zerpai',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  color: ZerpaiSidebarItem.itemFg,
                 ),
               ),
             ],
@@ -565,7 +607,8 @@ class _ZerpaiSidebarState extends State<ZerpaiSidebar> {
 }
 
 class _BrandMark extends StatelessWidget {
-  const _BrandMark();
+  final Color accentColor;
+  const _BrandMark({required this.accentColor});
 
   @override
   Widget build(BuildContext context) {
@@ -573,14 +616,15 @@ class _BrandMark extends StatelessWidget {
       width: 22,
       height: 22,
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+        color: accentColor.withValues(alpha: 0.2),
+        border: Border.all(color: accentColor),
         borderRadius: BorderRadius.circular(2),
       ),
       alignment: Alignment.center,
       child: Text(
         '₹',
         style: AppTheme.bodyText.copyWith(
-          color: Colors.white,
+          color: accentColor,
           fontSize: 14,
           fontWeight: FontWeight.w800,
           height: 1,

@@ -23,3 +23,4 @@
 - Use `PRD/prd_schema.md` as the reference snapshot for field names and table existence.
 - Do not reintroduce deprecated `items`-table thinking when the PRD now centers on `products`.
 - For new lookups or master tables, follow the PRD naming convention rather than inventing inconsistent names.
+- For settings-owned tables, the naming convention is stricter: any new table created for the global settings system must start with `settings_`.

@@ -14,7 +14,13 @@ import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dar
 
 class ManualJournalOverviewScreen extends ConsumerStatefulWidget {
   final String? initialJournalId;
-  const ManualJournalOverviewScreen({super.key, this.initialJournalId});
+  final String? initialSearchQuery;
+
+  const ManualJournalOverviewScreen({
+    super.key,
+    this.initialJournalId,
+    this.initialSearchQuery,
+  });
 
   @override
   ConsumerState<ManualJournalOverviewScreen> createState() =>
@@ -135,7 +141,10 @@ class _ManualJournalOverviewScreenState
         screenWidth >= 1000 &&
         !_forceWideTable;
 
-    final Widget listPanel = ManualJournalsListPanel(compact: showDesktopSplit);
+    final Widget listPanel = ManualJournalsListPanel(
+      compact: showDesktopSplit,
+      initialSearchQuery: widget.initialSearchQuery,
+    );
 
     return ZerpaiLayout(
       pageTitle: '',

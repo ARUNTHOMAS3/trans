@@ -10,6 +10,12 @@ No authentication setup is allowed until production. The application must run wi
 **Last Edited:** 2026-01-30 03:53
 **Last Edited Version:** 2.5
 
+## 🌐 Global Settings Policy
+
+The application must prefer real DB-backed runtime data wherever a schema-backed source already exists. When real data is unavailable, the UI must show an explicit empty or error state instead of fabricated business values. Lookup defaults should resolve from DB-backed master rows rather than hardcoded IDs or labels. Reusable control behavior and visual styling should be centralized in shared sources. Warehouse master data, storage/location master data, accounting stock, and physical stock must remain separate concepts across schema, API, and UI. Shared environments must be updated with additive migrations and scoped upserts instead of destructive resets.
+Primary save/create/confirm actions, cancel/secondary actions, upload controls, borders, and separators must also follow centralized project styling rules instead of per-screen color choices.
+Any new database table created specifically for the global settings system must start with the `settings_` prefix.
+
 ---
 
 ## 1. Overview
@@ -192,14 +198,50 @@ The primary navigation is a Zoho-style collapsible sidebar. Current order (as im
 
 1.  Home
 2.  Items
+    - Items
+    - Composite Items
+    - Item Groups
+    - Price Lists
+    - Item Mapping
 3.  Inventory
+    - Assemblies
+    - Inventory Adjustments
+    - Picklists
+    - Packages
+    - Shipments
+    - Transfer Orders
 4.  Sales
-5.  Accountant (Primary module: Chart of Accounts)
-6.  Purchases
-7.  Reports
-8.  Documents
+    - Customers
+    - Retainer Invoices
+    - Sales Orders
+    - Invoices
+    - Delivery Challans
+    - Payments Received
+    - Sales Returns
+    - Credit Notes
+    - e-Way Bills
+5.  Purchases
+    - Vendors
+    - Expenses
+    - Recurring Expenses
+    - Purchase Orders
+    - Bills
+    - Recurring Bills
+    - Payments Made
+    - Vendor Credits
+6.  Accountant
+    - Manual Journals
+    - Recurring Journals
+    - Bulk Update
+    - Transaction Locking
+    - Opening Balances
+7.  Accounts
+    - Chart of Accounts
+8.  Reports
+9.  Documents
+10. Audit Logs
 
-Additional modules (e.g., Settings) are planned but not yet part of the sidebar.
+Settings is a global routed area, but it is not part of the primary sidebar module stack.
 
 ### 8.2 Sales Workflow (STRICT)
 
@@ -345,10 +387,13 @@ If any options table / master lookup table is created in the database (dropdown 
 - `inventory_item_statuses`
 - `reports_filter_fields`
 - `reports_group_by_options`
+- `settings_organization_profiles`
+- `settings_company_id_labels`
 
 **Scope & Enforcement**
 
 - ✅ Applies to **ALL NEW TABLES** created from now onward
+- ✅ Settings-owned tables are a mandatory special case and must always use the `settings_` prefix
 - ❌ Do **NOT** rename or modify existing production tables
 - 🔒 Existing schema remains untouched until a planned production refactor phase
 
@@ -1962,7 +2007,8 @@ CONSTRAINT vendors_pkey PRIMARY KEY (id)
 
 ## 14. Development Consistency Standards
 
-To maintain code quality, readability, and a cohesive development workflow across a team, the following standards are to be adopted.
+To maintain code quality, readability, and a cohesive development workflow across a team, the followi
+ng standards are to be adopted.
 
 ### 14.1 Automated Code Formatting
 

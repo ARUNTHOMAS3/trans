@@ -22,6 +22,7 @@ Use this skill when code changes can affect data boundaries or business correctn
 - `products` is global and must not carry `org_id`.
 - Most business-owned tables such as invoices, bills, and customers must include `org_id`.
 - Outlet-level records such as inventory require `outlet_id`; some also require `org_id`.
+- Any new database table created specifically for the global settings system must use the `settings_` prefix.
 - Development remains auth-free, but schema and architecture must stay auth-ready.
 - All forms and payloads must map to the schema snapshot rather than inventing ad hoc fields.
 

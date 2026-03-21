@@ -132,11 +132,13 @@ const Object _sentinel = Object();
 
 class ManualJournalsListPanel extends ConsumerStatefulWidget {
   final bool compact;
+  final String? initialSearchQuery;
   final ValueNotifier<ManualJournalSortCommand?>? sortCommandListenable;
 
   const ManualJournalsListPanel({
     super.key,
     this.compact = false,
+    this.initialSearchQuery,
     this.sortCommandListenable,
   });
 
@@ -221,6 +223,10 @@ class _ManualJournalsListPanelState
   @override
   void initState() {
     super.initState();
+    final initialQuery = widget.initialSearchQuery?.trim();
+    if (initialQuery != null && initialQuery.isNotEmpty) {
+      _searchCtrl.text = initialQuery;
+    }
     widget.sortCommandListenable?.addListener(_handleExternalSortCommand);
   }
 
@@ -232,6 +238,12 @@ class _ManualJournalsListPanelState
         _handleExternalSortCommand,
       );
       widget.sortCommandListenable?.addListener(_handleExternalSortCommand);
+    }
+    final nextQuery = widget.initialSearchQuery?.trim() ?? '';
+    final previousQuery = oldWidget.initialSearchQuery?.trim() ?? '';
+    if (nextQuery != previousQuery && nextQuery != _searchCtrl.text) {
+      _searchCtrl.text = nextQuery;
+      _pageIndex = 0;
     }
   }
 

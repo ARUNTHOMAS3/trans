@@ -19,6 +19,7 @@ Use this skill as the first pass when a task can drift away from Zerpai-specific
    - Preserve the pure white `#FFFFFF` rule for modal, popup, dropdown, and overlay surfaces in PRD-governed UI.
    - Preserve the shared `ZerpaiDatePicker` rule for reusable date inputs instead of introducing raw `showDatePicker(...)` usages by default.
    - Preserve the global settings rules: real DB-backed data first, DB-backed defaults for master lookups, explicit empty/error states, centralized shared styling, and clear separation of warehouse/storage/accounting/physical concerns.
+   - Preserve the settings schema naming rule: any new database table created for the global settings system must start with `settings_`.
    - Preserve the deep-linking rule: new modules and major internal sub-screens must expose deep-linkable GoRouter routes so refresh, direct URLs, and browser navigation preserve working context.
    - Preserve centralized control styling for save/create buttons, cancel/secondary buttons, upload affordances, and border/divider treatments instead of allowing screen-local color drift.
    - Prefer minimal, verifiable changes over broad rewrites.

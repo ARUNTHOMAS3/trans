@@ -16,8 +16,13 @@ import 'items_report_body.dart';
 
 class ItemsReportScreen extends ConsumerStatefulWidget {
   final String? initialFilter;
+  final String? initialSearchQuery;
 
-  const ItemsReportScreen({super.key, this.initialFilter});
+  const ItemsReportScreen({
+    super.key,
+    this.initialFilter,
+    this.initialSearchQuery,
+  });
 
   @override
   ConsumerState<ItemsReportScreen> createState() => _ItemsReportScreenState();
@@ -54,9 +59,14 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
   void initState() {
     super.initState();
     _currentFilter = _parseFilter(widget.initialFilter);
-    // Trigger load items when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(itemsControllerProvider.notifier).loadItems();
+      final controller = ref.read(itemsControllerProvider.notifier);
+      final initialQuery = widget.initialSearchQuery?.trim() ?? '';
+      if (initialQuery.isNotEmpty) {
+        controller.performSearch(initialQuery);
+      } else {
+        controller.loadItems();
+      }
     });
   }
 
@@ -467,6 +477,7 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
       child: ItemsReportBody(
         isLoading: state.isLoadingList,
         filter: _currentFilter,
+        initialSearchQuery: widget.initialSearchQuery,
         items: _filteredItems, // Uses the computed property
         onFilterChanged: _setCurrentFilter,
         onItemTap: _openDetail,

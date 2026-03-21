@@ -57,6 +57,7 @@ dependencies:
   path_provider: ^2.1.5
   shared_preferences: ^2.3.3
   file_picker: ^8.0.3
+  flutter_image_compress: ^2.3.0
 
   # Web support (future Zerpai web)
   web: 1.1.0

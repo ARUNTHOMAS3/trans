@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 /// Zerpai-style Text Field:
 /// - Default height = 44 (matches dropdown)
@@ -86,8 +87,32 @@ class CustomTextField extends StatefulWidget {
 class _CustomTextFieldState extends State<CustomTextField> {
   FocusNode? _internalFocusNode;
   late FocusNode _effectiveFocusNode;
+  ZerpaiSearchShortcutScopeState? _registeredSearchScope;
 
   static const double _defaultHeight = 44;
+
+  bool get _isSearchField {
+    final hint = widget.hintText?.toLowerCase() ?? '';
+    final label = widget.label?.toLowerCase() ?? '';
+    return hint.contains('search') || label.contains('search');
+  }
+
+  void _syncSearchShortcutRegistration() {
+    final scope = ZerpaiSearchShortcutScope.maybeOf(context);
+    final shouldRegister =
+        widget.enabled && !widget.readOnly && _isSearchField && scope != null;
+
+    if (_registeredSearchScope != null &&
+        (_registeredSearchScope != scope || !shouldRegister)) {
+      _registeredSearchScope!.unregisterSearchField(_effectiveFocusNode);
+      _registeredSearchScope = null;
+    }
+
+    if (shouldRegister && _registeredSearchScope != scope) {
+      scope.registerSearchField(_effectiveFocusNode);
+      _registeredSearchScope = scope;
+    }
+  }
 
   @override
   void initState() {
@@ -105,7 +130,20 @@ class _CustomTextFieldState extends State<CustomTextField> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncSearchShortcutRegistration();
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncSearchShortcutRegistration();
+  }
+
+  @override
   void dispose() {
+    _registeredSearchScope?.unregisterSearchField(_effectiveFocusNode);
     // Only dispose internal focus node
     _internalFocusNode?.dispose();
     super.dispose();

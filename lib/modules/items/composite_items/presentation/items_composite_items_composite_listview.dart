@@ -12,7 +12,13 @@ import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class CompositeItemsListScreen extends ConsumerStatefulWidget {
   final String? initialItemId;
-  const CompositeItemsListScreen({super.key, this.initialItemId});
+  final String? initialSearchQuery;
+
+  const CompositeItemsListScreen({
+    super.key,
+    this.initialItemId,
+    this.initialSearchQuery,
+  });
 
   @override
   ConsumerState<CompositeItemsListScreen> createState() =>
@@ -23,6 +29,24 @@ class _CompositeItemsListScreenState
     extends ConsumerState<CompositeItemsListScreen> {
   CompositeItemsFilter _selectedView = CompositeItemsFilter.all;
   final Set<String> _selectedIds = {};
+
+  bool _matchesSearch(CompositeItem item, String query) {
+    if (query.isEmpty) {
+      return true;
+    }
+
+    final normalizedQuery = query.toLowerCase();
+    final candidates = <String>[
+      item.productName,
+      item.sku ?? '',
+      item.type,
+      item.hsnCode ?? '',
+    ];
+
+    return candidates.any(
+      (value) => value.toLowerCase().contains(normalizedQuery),
+    );
+  }
 
   void _toggleSelectAll(List<CompositeItem> items, bool checked) {
     setState(() {
@@ -58,20 +82,24 @@ class _CompositeItemsListScreenState
         loading: () => const SizedBox.shrink(),
         error: (err, _) => Center(child: Text('Error: $err')),
         data: (items) {
+          final searchQuery =
+              widget.initialSearchQuery?.trim().toLowerCase() ?? '';
           final filteredItems = items.where((item) {
             switch (_selectedView) {
               case CompositeItemsFilter.active:
-                return item.isActive;
+                return item.isActive && _matchesSearch(item, searchQuery);
               case CompositeItemsFilter.inactive:
-                return !item.isActive;
+                return !item.isActive && _matchesSearch(item, searchQuery);
               case CompositeItemsFilter.lowStock:
                 return false;
               case CompositeItemsFilter.assembly:
-                return item.type.toLowerCase() == 'assembly';
+                return item.type.toLowerCase() == 'assembly' &&
+                    _matchesSearch(item, searchQuery);
               case CompositeItemsFilter.kit:
-                return item.type.toLowerCase() == 'kit';
+                return item.type.toLowerCase() == 'kit' &&
+                    _matchesSearch(item, searchQuery);
               case CompositeItemsFilter.all:
-                return true;
+                return _matchesSearch(item, searchQuery);
             }
           }).toList();
 

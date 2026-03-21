@@ -56,6 +56,7 @@ class ItemsReportBody extends ConsumerStatefulWidget {
   final Future<int> Function(Set<String> ids, bool isActive)? onBulkSetActive;
   final Future<int> Function(Set<String> ids, bool isLock)? onBulkSetLock;
   final FocusNode? searchFocusNode;
+  final String? initialSearchQuery;
 
   const ItemsReportBody({
     super.key,
@@ -67,6 +68,7 @@ class ItemsReportBody extends ConsumerStatefulWidget {
     this.onBulkSetActive,
     this.onBulkSetLock,
     this.searchFocusNode,
+    this.initialSearchQuery,
   });
 
   @override
@@ -108,6 +110,16 @@ class _ItemsReportBodyState extends ConsumerState<ItemsReportBody> {
   Set<String> _selectedIds = {};
   int _resetWidthsCounter = 0;
   Timer? _debounceTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialQuery = widget.initialSearchQuery?.trim() ?? '';
+    if (initialQuery.isNotEmpty) {
+      _searchController.text = initialQuery;
+      _searchQuery = initialQuery;
+    }
+  }
 
   void _onSearchChanged(String value) {
     _debounceTimer?.cancel();

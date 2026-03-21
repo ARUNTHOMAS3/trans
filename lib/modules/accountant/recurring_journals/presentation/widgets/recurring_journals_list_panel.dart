@@ -42,11 +42,13 @@ enum _SortColumn {
 
 class RecurringJournalsListPanel extends ConsumerStatefulWidget {
   final bool compact;
+  final String? initialSearchQuery;
   final ValueNotifier<RecurringJournalSortCommand?>? sortCommandListenable;
 
   const RecurringJournalsListPanel({
     super.key,
     this.compact = false,
+    this.initialSearchQuery,
     this.sortCommandListenable,
   });
 
@@ -121,6 +123,10 @@ class _RecurringJournalsListPanelState
   @override
   void initState() {
     super.initState();
+    final initialQuery = widget.initialSearchQuery?.trim();
+    if (initialQuery != null && initialQuery.isNotEmpty) {
+      _searchCtrl.text = initialQuery;
+    }
     widget.sortCommandListenable?.addListener(_handleExternalSortCommand);
   }
 
@@ -132,6 +138,12 @@ class _RecurringJournalsListPanelState
         _handleExternalSortCommand,
       );
       widget.sortCommandListenable?.addListener(_handleExternalSortCommand);
+    }
+    final nextQuery = widget.initialSearchQuery?.trim() ?? '';
+    final previousQuery = oldWidget.initialSearchQuery?.trim() ?? '';
+    if (nextQuery != previousQuery && nextQuery != _searchCtrl.text) {
+      _searchCtrl.text = nextQuery;
+      _pageIndex = 0;
     }
   }
 

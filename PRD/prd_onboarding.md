@@ -101,11 +101,15 @@ docs.zerpai.com/
 │   ├── Initial Setup
 │   └── First Invoice
 ├── Features
-│   ├── Inventory Management
-│   ├── Point of Sale (POS)
-│   ├── Sales & Invoicing
-│   ├── Purchase Orders
-│   └── Reports
+│   ├── Items
+│   ├── Inventory
+│   ├── Sales
+│   ├── Purchases
+│   ├── Accountant
+│   ├── Accounts
+│   ├── Reports
+│   ├── Documents
+│   └── Audit Logs
 ├── How-To Guides
 │   ├── Import Products from CSV
 │   ├── Set Up GST

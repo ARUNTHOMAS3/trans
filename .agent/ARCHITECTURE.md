@@ -27,6 +27,22 @@
 - Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the standard reusable date picker for anchored business date inputs.
 - Treat new raw `showDatePicker(...)` usage as an exception that must be justified, not the default pattern.
 
+## Dropdown Rule
+
+- All form-input dropdowns must use `FormDropdown<T>` from `lib/shared/widgets/inputs/dropdown_input.dart`.
+- Never use `DropdownButtonFormField` or `DropdownButton`. `FormDropdown` provides built-in search, correct overlay styling, and consistent Zerpai visual language.
+
+## Tooltip Rule
+
+- Always use `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart`. Never use Flutter's built-in `Tooltip` widget.
+- `ZTooltip` enforces a 220 px max-width so text wraps compactly. Trigger icon is `LucideIcons.helpCircle` at 14–15 px. Copy must be ≤ 2 short sentences.
+
+## Deep-Linking Rule
+
+- Every screen, sub-screen, tab, and significant dialog state must be addressable via a named GoRouter route.
+- Routes must preserve path/query parameters so refresh, direct URL, and back-navigation restore full context.
+- Never use `Navigator.push` — always navigate through GoRouter (`context.go`, `context.push`, `context.goNamed`).
+
 ## Global Settings Rules
 
 - Prefer real DB-backed runtime data wherever a schema-backed source exists; do not normalize dummy/demo values into production paths.

@@ -18,7 +18,13 @@ import '../../../../shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 
 class ChartOfAccountsPage extends ConsumerStatefulWidget {
   final String? initialAccountId;
-  const ChartOfAccountsPage({super.key, this.initialAccountId});
+  final String? initialSearchQuery;
+
+  const ChartOfAccountsPage({
+    super.key,
+    this.initialAccountId,
+    this.initialSearchQuery,
+  });
 
   @override
   ConsumerState<ChartOfAccountsPage> createState() =>
@@ -33,20 +39,21 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(chartOfAccountsProvider.notifier)
-          .selectAccount(widget.initialAccountId);
+      final notifier = ref.read(chartOfAccountsProvider.notifier);
+      notifier.selectAccount(widget.initialAccountId);
+      notifier.setSearchQuery(widget.initialSearchQuery?.trim() ?? '');
     });
   }
 
   @override
   void didUpdateWidget(ChartOfAccountsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialAccountId != oldWidget.initialAccountId) {
+    if (widget.initialAccountId != oldWidget.initialAccountId ||
+        widget.initialSearchQuery != oldWidget.initialSearchQuery) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref
-            .read(chartOfAccountsProvider.notifier)
-            .selectAccount(widget.initialAccountId);
+        final notifier = ref.read(chartOfAccountsProvider.notifier);
+        notifier.selectAccount(widget.initialAccountId);
+        notifier.setSearchQuery(widget.initialSearchQuery?.trim() ?? '');
       });
     }
   }

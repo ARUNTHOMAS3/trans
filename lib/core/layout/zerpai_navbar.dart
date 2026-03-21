@@ -10,11 +10,23 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:zerpai_erp/shared/services/recent_history_service.dart';
 import 'package:zerpai_erp/modules/items/pricelist/models/pricelist_model.dart';
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
+import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 
 @JS()
 external void showInstallPrompt();
 
 class ZerpaiNavbar extends ConsumerStatefulWidget {
+  static final FocusNode globalSearchFocusNode = FocusNode(
+    debugLabel: 'zerpai-navbar-search',
+  );
+
+  static void focusGlobalSearch() {
+    if (globalSearchFocusNode.canRequestFocus) {
+      globalSearchFocusNode.requestFocus();
+    }
+  }
+
   const ZerpaiNavbar({super.key});
 
   @override
@@ -22,14 +34,44 @@ class ZerpaiNavbar extends ConsumerStatefulWidget {
 }
 
 class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
-  // Default placeholder
   String _searchPlaceholder = 'Search in ... ( / )';
-
-  // Currently selected search category
   String _selectedCategory = 'Items';
-
-  // PWA State
   bool _canInstall = false;
+  String _lastSearchContextKey = '';
+
+  static const List<String> _inventorySearchCategories = [
+    'Items',
+    'Composite Items',
+    'Assemblies',
+    'Price Lists',
+    'Inventory Adjustments',
+    'Transfer Orders',
+    'Picklists',
+    'Packages',
+    'Shipments',
+    'Delivery Challans',
+    'Documents',
+  ];
+
+  static const List<String> _salesSearchCategories = [
+    'Customers',
+    'Retainer Invoices',
+    'Sales Orders',
+    'Invoices',
+    'Sales Returns',
+    'Credit Notes',
+    'Delivery Challans',
+    'Documents',
+  ];
+
+  static const List<String> _purchasesSearchCategories = [
+    'Vendors',
+    'Purchase Orders',
+    'Bills',
+    'Payments Made',
+    'Vendor Credits',
+    'Documents',
+  ];
 
   final Map<String, String> _categoryRoutes = {
     'Customers': AppRoutes.salesCustomers,
@@ -118,9 +160,107 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
     });
   }
 
+  void _syncSearchContext(String currentPath) {
+    if (_lastSearchContextKey == currentPath) {
+      return;
+    }
+
+    final inferredCategory = _inferCategoryFromPath(currentPath);
+    _lastSearchContextKey = currentPath;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _selectedCategory = inferredCategory;
+        _searchPlaceholder = 'Search in $inferredCategory ( / )';
+      });
+    });
+  }
+
+  String _inferCategoryFromPath(String currentPath) {
+    final categoryMatchers = <MapEntry<String, List<String>>>[
+      const MapEntry('Customers', [AppRoutes.salesCustomers]),
+      const MapEntry('Sales Orders', [AppRoutes.salesOrders]),
+      const MapEntry('Retainer Invoices', [AppRoutes.salesRetainerInvoices]),
+      const MapEntry('Invoices', [AppRoutes.salesInvoices]),
+      const MapEntry('Sales Returns', [AppRoutes.salesReturns]),
+      const MapEntry('Credit Notes', [AppRoutes.salesCreditNotes]),
+      const MapEntry('Delivery Challans', [AppRoutes.salesDeliveryChallans]),
+      const MapEntry('Items', [
+        AppRoutes.itemsReport,
+        '/items/detail',
+        '/items/create',
+        '/items/edit',
+      ]),
+      const MapEntry('Composite Items', [AppRoutes.compositeItems]),
+      const MapEntry('Assemblies', [AppRoutes.assemblies]),
+      const MapEntry('Price Lists', [AppRoutes.priceLists]),
+      const MapEntry('Inventory Adjustments', [AppRoutes.inventoryAdjustments]),
+      const MapEntry('Transfer Orders', [AppRoutes.transferOrders]),
+      const MapEntry('Picklists', [AppRoutes.picklists]),
+      const MapEntry('Packages', [AppRoutes.packages]),
+      const MapEntry('Shipments', [AppRoutes.shipments]),
+      const MapEntry('Vendors', [AppRoutes.vendors]),
+      const MapEntry('Purchase Orders', [AppRoutes.purchaseOrders]),
+      const MapEntry('Bills', [AppRoutes.bills]),
+      const MapEntry('Payments Made', [AppRoutes.paymentsMade]),
+      const MapEntry('Vendor Credits', [AppRoutes.vendorCredits]),
+      const MapEntry('Documents', [AppRoutes.documents]),
+    ];
+
+    for (final matcher in categoryMatchers) {
+      if (matcher.value.any(
+        (prefix) => currentPath == prefix || currentPath.startsWith('$prefix/'),
+      )) {
+        return matcher.key;
+      }
+    }
+
+    if (currentPath.startsWith('/sales/')) {
+      return 'Customers';
+    }
+    if (currentPath.startsWith('/purchases/')) {
+      return 'Vendors';
+    }
+    if (currentPath.startsWith('/inventory/')) {
+      return 'Assemblies';
+    }
+    if (currentPath.startsWith('/items/')) {
+      return 'Items';
+    }
+    return 'Items';
+  }
+
+  List<String> _visibleSearchCategoriesForPath(String currentPath) {
+    if (currentPath.startsWith('/sales/')) {
+      return _salesSearchCategories;
+    }
+    if (currentPath.startsWith('/purchases/')) {
+      return _purchasesSearchCategories;
+    }
+    if (currentPath.startsWith('/inventory/') ||
+        currentPath.startsWith('/items/')) {
+      return _inventorySearchCategories;
+    }
+    return _searchCategories;
+  }
+
   @override
   Widget build(BuildContext context) {
     final recentItems = ref.watch(recentHistoryProvider);
+    final currentPath = GoRouterState.of(context).uri.path
+        .replaceFirst(RegExp(r'^/\d{10,20}'), '');
+    final isSettingsRoute =
+        currentPath == AppRoutes.settings ||
+        currentPath.startsWith('${AppRoutes.settings}/');
+    if (!isSettingsRoute) {
+      _syncSearchContext(currentPath);
+    }
+    final visibleSearchCategories = _visibleSearchCategoriesForPath(
+      currentPath,
+    );
 
     return Container(
       height: 60,
@@ -131,305 +271,300 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
       ),
       child: Row(
         children: [
-          // History Icon (Left)
-          MenuAnchor(
-            builder: (context, controller, child) {
-              return IconButton(
-                icon: const Icon(Icons.history, color: Colors.grey),
-                onPressed: () {
-                  if (controller.isOpen) {
-                    controller.close();
-                  } else {
-                    controller.open();
-                  }
-                },
-                tooltip: 'Recent Items',
-              );
-            },
-            menuChildren: [
-              if (recentItems.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text(
-                    'No recent items',
-                    style: TextStyle(fontSize: 13, color: Colors.grey),
-                  ),
-                )
-              else
-                ...recentItems.map(
-                  (item) => MenuItemButton(
-                    onPressed: () {
-                      if (item.extraData != null) {
-                        if (item.type == 'Price List') {
-                          context.push(
-                            item.route,
-                            extra: PriceList.fromJson(item.extraData),
-                          );
-                        } else {
-                          context.push(item.route, extra: item.extraData);
-                        }
-                      } else {
-                        context.push(item.route);
-                      }
-                    },
-                    leadingIcon: Icon(
-                      _getIconForType(item.type),
-                      size: 18,
-                      color: AppTheme.primaryBlue,
+          if (!isSettingsRoute) ...[
+            MenuAnchor(
+              builder: (context, controller, child) {
+                return IconButton(
+                  icon: const Icon(Icons.history, color: Colors.grey),
+                  onPressed: () {
+                    if (controller.isOpen) {
+                      controller.close();
+                    } else {
+                      controller.open();
+                    }
+                  },
+                  tooltip: 'Recent Items',
+                );
+              },
+              menuChildren: [
+                if (recentItems.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text(
+                      'No recent items',
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.title,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                  )
+                else
+                  ...recentItems.map(
+                    (item) => MenuItemButton(
+                      onPressed: () {
+                        if (item.extraData != null) {
+                          if (item.type == 'Price List') {
+                            context.push(
+                              item.route,
+                              extra: PriceList.fromJson(item.extraData),
+                            );
+                          } else {
+                            context.push(item.route, extra: item.extraData);
+                          }
+                        } else {
+                          context.push(item.route);
+                        }
+                      },
+                      leadingIcon: Icon(
+                        _getIconForType(item.type),
+                        size: 18,
+                        color: AppTheme.primaryBlue,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.title,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        Text(
-                          item.type,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.textSecondary,
+                          Text(
+                            item.type,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+              style: MenuStyle(
+                backgroundColor: WidgetStateProperty.all(Colors.white),
+                surfaceTintColor: WidgetStateProperty.all(Colors.white),
+                elevation: WidgetStateProperty.all(4),
+                side: WidgetStateProperty.all(
+                  const BorderSide(color: AppTheme.borderColor),
+                ),
+                maximumSize: WidgetStateProperty.all(const Size(400, 400)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Container(
+                height: 36,
+                constraints: const BoxConstraints(maxWidth: 280, minWidth: 120),
+                decoration: BoxDecoration(
+                  color: AppTheme.bgLight,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: AppTheme.primaryBlue.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    MenuAnchor(
+                      builder: (context, controller, child) {
+                        return InkWell(
+                          onTap: () {
+                            if (controller.isOpen) {
+                              controller.close();
+                            } else {
+                              controller.open();
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.search,
+                                  size: 20,
+                                  color: Colors.black54,
+                                ),
+                                const SizedBox(width: 2),
+                                Icon(
+                                  controller.isOpen
+                                      ? Icons.keyboard_arrow_up
+                                      : Icons.keyboard_arrow_down,
+                                  size: 16,
+                                  color: Colors.blue,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                      menuChildren: [
+                        SizedBox(
+                          height: 300,
+                          width: 220,
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ...visibleSearchCategories.map(
+                                  (category) => MenuItemButton(
+                                    style: MenuItemButton.styleFrom(
+                                      backgroundColor:
+                                          _selectedCategory == category
+                                          ? AppTheme.primaryBlue
+                                          : null,
+                                      foregroundColor:
+                                          _selectedCategory == category
+                                          ? Colors.white
+                                          : AppTheme.textPrimary,
+                                    ),
+                                    onPressed: () =>
+                                        _updatePlaceholder(category),
+                                    child: Container(
+                                      width: 180,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 2,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            category,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight:
+                                                  _selectedCategory == category
+                                                  ? FontWeight.w600
+                                                  : FontWeight.normal,
+                                            ),
+                                          ),
+                                          if (_selectedCategory == category)
+                                            const Icon(
+                                              Icons.check,
+                                              size: 14,
+                                              color: Colors.white,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const Divider(),
+                                MenuItemButton(
+                                  onPressed: () {},
+                                  leadingIcon: const Icon(
+                                    Icons.search,
+                                    size: 16,
+                                    color: AppTheme.primaryBlue,
+                                  ),
+                                  trailingIcon: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.bgLight,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'Alt + /',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Advanced Search',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                                MenuItemButton(
+                                  onPressed: () {},
+                                  leadingIcon: const Icon(
+                                    Icons.search_outlined,
+                                    size: 16,
+                                    color: AppTheme.primaryBlue,
+                                  ),
+                                  trailingIcon: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.bgLight,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'Ctrl + /',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Search across Zerpai',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
+                      style: MenuStyle(
+                        backgroundColor: WidgetStateProperty.all(Colors.white),
+                        surfaceTintColor: WidgetStateProperty.all(Colors.white),
+                        elevation: WidgetStateProperty.all(4),
+                        side: WidgetStateProperty.all(
+                          const BorderSide(color: AppTheme.borderColor),
+                        ),
+                        maximumSize: WidgetStateProperty.all(
+                          const Size(400, 400),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-            ],
-            style: MenuStyle(
-              backgroundColor: WidgetStateProperty.all(Colors.white),
-              surfaceTintColor: WidgetStateProperty.all(Colors.white),
-              elevation: WidgetStateProperty.all(4),
-              side: WidgetStateProperty.all(
-                const BorderSide(color: AppTheme.borderColor),
-              ),
-              maximumSize: WidgetStateProperty.all(const Size(400, 400)),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // Search Bar
-          Expanded(
-            child: Container(
-              height: 36,
-              constraints: const BoxConstraints(maxWidth: 280, minWidth: 120),
-              decoration: BoxDecoration(
-                color: AppTheme
-                    .bgLight, // Light greyish blue - migrated from 0xFFF1F3F9
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: AppTheme.primaryBlue.withValues(alpha: 0.3),
-                ), // Subtle blue border like in image
-              ),
-              child: Row(
-                children: [
-                  // Search Icon & Dropdown Trigger
-                  MenuAnchor(
-                    builder: (context, controller, child) {
-                      return InkWell(
-                        onTap: () {
-                          if (controller.isOpen) {
-                            controller.close();
-                          } else {
-                            controller.open();
+                    Container(
+                      width: 1,
+                      height: 20,
+                      color: Colors.grey.shade300,
+                      margin: const EdgeInsets.only(right: 8),
+                    ),
+                    Expanded(
+                      child: TextField(
+                        focusNode: ZerpaiNavbar.globalSearchFocusNode,
+                        onSubmitted: (value) {
+                          if (value.trim().isEmpty) return;
+                          final route = _categoryRoutes[_selectedCategory];
+                          if (route != null) {
+                            context.go(
+                              Uri(
+                                path: route,
+                                queryParameters: {'q': value.trim()},
+                              ).toString(),
+                            );
                           }
+                          FocusScope.of(context).unfocus();
                         },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.search,
-                                size: 20,
-                                color: Colors.black54,
-                              ),
-                              const SizedBox(width: 2),
-                              Icon(
-                                controller.isOpen
-                                    ? Icons.keyboard_arrow_up
-                                    : Icons.keyboard_arrow_down,
-                                size: 16,
-                                color: Colors.blue,
-                              ),
-                            ],
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          hintText: _searchPlaceholder,
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                          hintStyle: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black45,
                           ),
                         ),
-                      );
-                    },
-                    menuChildren: [
-                      // Scrollable list of items
-                      SizedBox(
-                        height: 300,
-                        width: 220,
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ..._searchCategories.map(
-                                (category) => MenuItemButton(
-                                  style: MenuItemButton.styleFrom(
-                                    backgroundColor:
-                                        _selectedCategory == category
-                                        ? AppTheme.primaryBlue
-                                        : null,
-                                    foregroundColor:
-                                        _selectedCategory == category
-                                        ? Colors.white
-                                        : AppTheme.textPrimary,
-                                  ),
-                                  onPressed: () => _updatePlaceholder(category),
-                                  child: Container(
-                                    width: 180,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 2,
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          category,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight:
-                                                _selectedCategory == category
-                                                ? FontWeight.w600
-                                                : FontWeight.normal,
-                                          ),
-                                        ),
-                                        if (_selectedCategory == category)
-                                          const Icon(
-                                            Icons.check,
-                                            size: 14,
-                                            color: Colors.white,
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const Divider(),
-                              MenuItemButton(
-                                onPressed: () {},
-                                leadingIcon: const Icon(
-                                  Icons.search,
-                                  size: 16,
-                                  color: AppTheme.primaryBlue,
-                                ),
-                                trailingIcon: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.bgLight,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'Alt + /',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Advanced Search',
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              MenuItemButton(
-                                onPressed: () {},
-                                leadingIcon: const Icon(
-                                  Icons.search_outlined,
-                                  size: 16,
-                                  color: AppTheme.primaryBlue,
-                                ),
-                                trailingIcon: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.bgLight,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'Ctrl + /',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Search across Zerpai',
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                    style: MenuStyle(
-                      backgroundColor: WidgetStateProperty.all(Colors.white),
-                      surfaceTintColor: WidgetStateProperty.all(Colors.white),
-                      elevation: WidgetStateProperty.all(4),
-                      side: WidgetStateProperty.all(
-                        const BorderSide(color: AppTheme.borderColor),
-                      ),
-                      maximumSize: WidgetStateProperty.all(
-                        const Size(400, 400),
+                        style: const TextStyle(fontSize: 13),
                       ),
                     ),
-                  ),
-
-                  Container(
-                    width: 1,
-                    height: 20,
-                    color: Colors.grey.shade300,
-                    margin: const EdgeInsets.only(right: 8),
-                  ),
-
-                  // Actual Text Input
-                  Expanded(
-                    child: TextField(
-                      onSubmitted: (value) {
-                        if (value.trim().isEmpty) return;
-                        final route = _categoryRoutes[_selectedCategory];
-                        if (route != null) {
-                          context.go(
-                            Uri(
-                              path: route,
-                              queryParameters: {'q': value.trim()},
-                            ).toString(),
-                          );
-                        }
-                        FocusScope.of(context).unfocus();
-                      },
-                      textInputAction: TextInputAction.search,
-                      decoration: InputDecoration(
-                        hintText: _searchPlaceholder,
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                        hintStyle: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.black45,
-                        ),
-                      ),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
 
           const Spacer(),
 
@@ -485,14 +620,21 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
               // Org Switcher - Fixed width to prevent overflow
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 160),
-                child: FormDropdown<String>(
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  value: 'ZABNIX',
-                  items: const ['ZABNIX'],
-                  displayStringForValue: (v) => 'ZABNIX PRIVATE LIMITED',
-                  onChanged: (_) {},
-                ),
+                child: Builder(builder: (context) {
+                  final orgName = ref.watch(orgSettingsProvider).whenOrNull(
+                            data: (s) => s?.name,
+                          ) ??
+                      ref.watch(authUserProvider)?.orgName ??
+                      '';
+                  return FormDropdown<String>(
+                    height: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    value: orgName,
+                    items: [orgName],
+                    displayStringForValue: (v) => v,
+                    onChanged: (_) {},
+                  );
+                }),
               ),
             ],
           ),
@@ -640,14 +782,80 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
           const SizedBox(width: 12),
 
           // Settings
-          const Icon(Icons.settings_outlined, color: Colors.black54, size: 22),
+          InkWell(
+            onTap: () => context.go(AppRoutes.settings),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSettingsRoute ? AppTheme.bgLight : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                border: isSettingsRoute
+                    ? Border.all(color: AppTheme.borderColor)
+                    : null,
+              ),
+              child: Icon(
+                Icons.settings_outlined,
+                color: isSettingsRoute ? AppTheme.textPrimary : Colors.black54,
+                size: 22,
+              ),
+            ),
+          ),
           const SizedBox(width: 12),
 
-          // Profile Avatar
-          const CircleAvatar(
-            radius: 14,
-            backgroundColor: Colors.grey,
-            child: Icon(Icons.person, color: Colors.white, size: 20),
+          // Organization Avatar
+          Builder(
+            builder: (context) {
+              final orgSettingsAsync = ref.watch(orgSettingsProvider);
+              final logoUrl = orgSettingsAsync.whenOrNull(
+                data: (settings) => settings?.logoUrl,
+              );
+              final orgName =
+                  orgSettingsAsync.whenOrNull(data: (settings) => settings?.name) ??
+                  ref.watch(authUserProvider)?.orgName ??
+                  '';
+              final fallbackLabel = orgName.trim().isNotEmpty
+                  ? orgName.trim().substring(0, 1).toUpperCase()
+                  : 'O';
+
+              return Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: logoUrl != null && logoUrl.isNotEmpty
+                    ? Image.network(
+                        logoUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Text(
+                              fallbackLabel,
+                              style: const TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : Center(
+                        child: Text(
+                          fallbackLabel,
+                          style: const TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+              );
+            },
           ),
           const SizedBox(width: 12),
 

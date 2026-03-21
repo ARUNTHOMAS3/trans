@@ -11,10 +11,27 @@
 - Use the shared `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the default reusable date picker wherever the anchored/shared picker pattern is possible.
 - Do not introduce new raw `showDatePicker(...)` usage for normal business forms, dialogs, tables, or popovers unless the shared picker cannot satisfy a specific technical requirement.
 
+## Dropdown Rule
+
+- All form-input dropdowns must use `FormDropdown<T>` from `lib/shared/widgets/inputs/dropdown_input.dart`.
+- Never use `DropdownButtonFormField` or `DropdownButton` anywhere in the codebase. `FormDropdown` provides built-in search, correct overlay styling, hover/keyboard navigation, and consistent Zerpai visual language.
+
+## Tooltip Rule
+
+- Always use `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart`. Never use Flutter's built-in `Tooltip` widget.
+- `ZTooltip` enforces a 220 px max-width so text wraps compactly. Trigger icon must be `LucideIcons.helpCircle` at size 14–15. Tooltip copy must be ≤ 2 short sentences.
+
+## Deep-Linking Rule
+
+- Every screen, sub-screen, tab, and significant modal state must be addressable via a named GoRouter route.
+- Routes must preserve all required path/query parameters so that a browser refresh, direct URL paste, or back-navigation returns the user to the same context without data loss.
+- Never use `Navigator.push` directly — always navigate through GoRouter (`context.go`, `context.push`, or `context.goNamed`).
+
 ## Global Settings Rules
 
 - Prefer real DB-backed runtime data over dummy, demo, or mock values wherever a schema-backed source already exists.
 - If real data is unavailable, show an explicit empty state or error state instead of silently fabricating placeholder business values.
+- Any new database table created specifically for the global settings area must use the `settings_` prefix.
 - Resolve lookup defaults from DB-backed master rows where schema-backed master tables exist; do not hardcode business IDs or label strings as the primary source of truth.
 - Reuse shared ERP controls and centralized style sources instead of introducing screen-local variants for the same control pattern.
 - Use the shared responsive foundation for Flutter web layouts: global breakpoints, shared responsive table shells, shared responsive form rows/grids, shared responsive dialog width rules, and sidebar-aware shell/content metrics instead of per-screen overflow patches.

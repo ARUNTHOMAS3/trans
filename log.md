@@ -1,3 +1,140 @@
+## Branding: App-Wide Persistence & Flash Fix (March 22, 2026)
+
+### App-wide branding initialization
+- `lib/core/layout/zerpai_shell.dart`: converted to `ConsumerStatefulWidget`; `initState` reads current `orgSettingsProvider` value immediately and calls `appBrandingProvider.notifier.apply()` so branding is applied on first frame; `ref.listen` handles future refreshes
+- `lib/core/providers/app_branding_provider.dart`: `AppBrandingNotifier` now accepts initial `BrandingSettings` in constructor; `apply()` also persists accent color + theme mode to Hive `config` box; `loadCachedBranding()` reads from Hive synchronously at provider init — eliminates flash of default colors on page load
+- `lib/core/models/org_settings_model.dart`: added `accentColor` and `themeMode` fields; parsed from `GET /lookups/org/:orgId` response
+
+### Branding page: fixed Save/Cancel bottom bar
+- `lib/core/pages/settings_organization_branding_page.dart`: added `_isSaving` state, `_saveBranding()` method (POST `/lookups/org/$orgId/branding`), and fixed sticky bottom bar (Divider + Save + Cancel) matching profile page layout; also loads saved accent color and theme mode from API on init
+
+### Backend & DB
+- `backend/src/modules/lookups/global-lookups.controller.ts`: `GET /lookups/org/:orgId` now merges `settings_branding` row (accent_color, theme_mode, keep_branding) into org profile response; added `GET /lookups/org/:orgId/branding` and `POST /lookups/org/:orgId/branding` endpoints
+- `supabase/migrations/1011_settings_branding.sql`: created `settings_branding` table with RLS + grants for service_role, authenticated, anon
+
+## Settings: Branding Page (March 22, 2026)
+
+### New page: `lib/core/pages/settings_organization_branding_page.dart`
+- Route: `AppRoutes.settingsOrgBranding = '/settings/orgbranding'`
+- GoRoute added to `app_router.dart` at `settings/orgbranding`
+- Wired in both `settings_page.dart` and `settings_organization_profile_page.dart`
+
+### Page sections (modelled after Zoho Books branding reference)
+1. **Organization Logo** — fetches `logo_url` from `GET /lookups/org/:orgId`; upload and remove
+2. **Appearance** — Dark Pane / Light Pane selector with mini mockup cards (local state)
+3. **Accent Color** — five color swatches: Green, Blue, Purple, Red, Orange (local state)
+- Info banner notes appearance/accent server sync is coming soon
+
+---
+
+## Toast Size Fix & Sidebar Default Collapse (March 22, 2026)
+
+### Toast widget: oversized width and height fixed
+- `Expanded` → `Flexible` in the toast Row so the toast auto-sizes to content width (no longer stretches to 420px for short messages)
+- Added `maxLines: 3` + `TextOverflow.ellipsis` so long error messages (e.g. full DioException) don't make the toast very tall
+- Removed redundant `Align(centerLeft)` wrapper around text
+
+### Sidebar: default collapsed on all pages
+- Changed `static bool _isCollapsed = false` → `true` in `ZerpaiSidebarState`
+- Removed the "restore to expanded on leave-settings" block in `_autoCollapseForSettings()` — the sidebar now stays collapsed across all route transitions by default
+
+## Navbar Org Name & GoRouter Home Fix (March 21, 2026)
+
+### GoRouter: `path: ''` crash fixed
+- GoRouter 17.1.0 disallows empty `path` — home child route changed to `path: 'home'`
+- `AppRoutes.home` changed from `'/'` → `'/home'`
+- `initialLocation` changed to `'/$_kDevOrgSystemId/home'`
+- Global redirect now maps `'/'` → `'/$_kDevOrgSystemId/home'`
+- Added redirect on `/:orgSystemId` parent to forward bare `/$orgId` → `/$orgId/home`
+
+### Org name in navbar dropdown
+- `orgSettingsProvider` previously returned `null` when `user.orgId` was empty (no-auth mode)
+- Fixed by applying same `_kDevOrgId = '00000000-0000-0000-0000-000000000002'` fallback
+- Provider now always fetches org data in dev mode; navbar org switcher shows real DB org name
+- TODO(auth) markers added for both constants in `org_settings_provider.dart`
+
+---
+
+## Settings: Org Profile — DB-Backed Dropdowns & URL Org Prefix (March 21, 2026)
+
+### Corrected DB table (organization, not settings_profile)
+- Profile columns live directly on `organization` table (added via ALTER TABLE)
+- Removed erroneous `settingsProfile` Drizzle table definition from `backend/src/db/schema.ts`
+- `backend/migrations/add_org_profile_columns.sql` is now documentation-only
+
+### Backend endpoints simplified (`global-lookups.controller.ts`)
+- `GET /lookups/org/:orgId` — selects all profile columns directly from `organization` table
+- `POST /lookups/org/:orgId/save` — single `.update()` on `organization`
+- `POST /lookups/org/:orgId/logo` — `update({ logo_url })` on `organization`
+- Added `GET /lookups/industries` — returns `name[]` from `industries` table ordered by `sort_order`
+- Added `GET /lookups/timezones?countryId=` — returns `display[]` from `timezones` table, optionally filtered by `country_id`
+- Added `GET /lookups/company-id-labels` — returns `label[]` from `company_id_labels` table ordered by `sort_order`
+
+### Flutter: static arrays replaced with API calls (`settings_organization_profile_page.dart`)
+- Removed 3 static const `List<String>`: `_industryOptions`, `_timeZoneOptions`, `_companyIdOptions`
+- Added instance variables (default empty): `_industryOptions`, `_timeZoneOptions`, `_companyIdOptions`
+- Added `Map<String, String> _countryIdByName` to map country name → UUID for timezone filtering
+- `_loadProfile()` now fetches all 5 lookups in parallel (currencies, countries, industries, timezones, company-id-labels)
+- Country `onChanged` calls `_fetchTimezones(_countryIdByName[value])` to re-fetch timezones for selected country
+- Added `_fetchTimezones([String? countryId])` method — re-fetches timezone list, clears selection if stale
+
+### Flutter: GoRouter org-prefix URL structure (`app_router.dart`)
+- Added `const String _kDevOrgSystemId = '0000000000'` (TODO(auth) for removal)
+- Global `redirect` callback auto-prepends org system_id to any path lacking a 10-digit prefix
+- All existing `context.go(AppRoutes.xxx)` calls continue to work unchanged
+- ShellRoute wrapped under `GoRoute(path: '/:orgSystemId')` parent
+- Sidebar/navbar `currentPath` comparisons strip org prefix via `.replaceFirst(RegExp(r'^/\d{10}'), '')`
+
+### Dev-mode org ID fallback (`settings_organization_profile_page.dart`)
+- Added `const String _kDevOrgId = '00000000-0000-0000-0000-000000000002'` with TODO(auth) comment
+- `_loadProfile()` and `_saveProfile()` use fallback UUID when `user?.orgId` is empty
+
+### Pending SQL (not yet migrated)
+- `industries`, `timezones`, `company_id_labels` lookup tables (seed data ready)
+- `organization.system_id VARCHAR(10)` column + sequence + BEFORE INSERT trigger
+
+---
+
+## Settings: Org Profile — DB-Backed Dropdowns & URL Org Prefix (March 21, 2026)
+
+### Corrected DB table (organization, not settings_profile)
+- Profile columns live directly on `organization` table (added via ALTER TABLE)
+- Removed erroneous `settingsProfile` Drizzle table definition from `backend/src/db/schema.ts`
+- `backend/migrations/add_org_profile_columns.sql` is now documentation-only
+
+### Backend endpoints simplified (`global-lookups.controller.ts`)
+- `GET /lookups/org/:orgId` — selects all profile columns directly from `organization` table
+- `POST /lookups/org/:orgId/save` — single `.update()` on `organization`
+- `POST /lookups/org/:orgId/logo` — `update({ logo_url })` on `organization`
+- Added `GET /lookups/industries` — returns `name[]` from `industries` table ordered by `sort_order`
+- Added `GET /lookups/timezones?countryId=` — returns `display[]` from `timezones` table, optionally filtered by `country_id`
+- Added `GET /lookups/company-id-labels` — returns `label[]` from `company_id_labels` table ordered by `sort_order`
+
+### Flutter: static arrays replaced with API calls (`settings_organization_profile_page.dart`)
+- Removed 3 static const `List<String>`: `_industryOptions`, `_timeZoneOptions`, `_companyIdOptions`
+- Added instance variables (default empty): `_industryOptions`, `_timeZoneOptions`, `_companyIdOptions`
+- Added `Map<String, String> _countryIdByName` to map country name → UUID for timezone filtering
+- `_loadProfile()` now fetches all 5 lookups in parallel (currencies, countries, industries, timezones, company-id-labels)
+- Country `onChanged` calls `_fetchTimezones(_countryIdByName[value])` to re-fetch timezones for selected country
+- Added `_fetchTimezones([String? countryId])` method — re-fetches timezone list, clears selection if stale
+
+### Flutter: GoRouter org-prefix URL structure (`app_router.dart`)
+- Added `const String _kDevOrgSystemId = '0000000000'` (TODO(auth) for removal)
+- Global `redirect` callback auto-prepends org system_id to any path lacking a 10-digit prefix
+- All existing `context.go(AppRoutes.xxx)` calls continue to work unchanged
+- ShellRoute wrapped under `GoRoute(path: '/:orgSystemId')` parent
+- Sidebar/navbar `currentPath` comparisons strip org prefix via `.replaceFirst(RegExp(r'^/\d{10}'), '')`
+
+### Dev-mode org ID fallback (`settings_organization_profile_page.dart`)
+- Added `const String _kDevOrgId = '00000000-0000-0000-0000-000000000002'` with TODO(auth) comment
+- `_loadProfile()` and `_saveProfile()` use fallback UUID when `user?.orgId` is empty
+
+### Pending SQL (not yet migrated)
+- `industries`, `timezones`, `company_id_labels` lookup tables (seed data ready)
+- `organization.system_id VARCHAR(10)` column + sequence + BEFORE INSERT trigger
+
+---
+
 ### Dev- Rahul
 
 # Project Log: Items Module Enhancements & Fixes
@@ -6,6 +143,160 @@
 **Project:** Zerpai ERP
 
 This log summarizes all major changes, features added, and bug fixes implemented in the Items module during this session. This is intended for co-developers to understand the current state of the module and the logic behind recent updates. and dont change the timestamp of the log.
+
+## Settings: Org Profile — settings_profile Table (March 21, 2026)
+
+### New `settings_profile` DB table
+- Profile settings moved out of `organization` into a dedicated `settings_profile` table
+- `org_id UUID PK` — 1:1 FK → `organization.id ON DELETE CASCADE`
+- SQL: `backend/migrations/add_org_profile_columns.sql` (CREATE TABLE IF NOT EXISTS)
+- Drizzle: `settingsProfile` table appended to `backend/src/db/schema.ts`
+
+### Backend endpoints updated (`global-lookups.controller.ts`)
+- `GET /lookups/org/:orgId` — joins `organization` + `settings_profile` via `maybeSingle()`, returns merged object
+- `POST /lookups/org/:orgId/save` — updates `organization.name` separately, upserts all profile fields into `settings_profile` (conflict on `org_id`)
+- `POST /lookups/org/:orgId/logo` — upserts `logo_url` into `settings_profile`
+
+---
+
+## Settings: Org Profile — Form Validation & Save Fix (March 21, 2026)
+
+### Form validation
+- Wrapped page body in `Form(key: _formKey)` — required for field-level validation
+- Organization Name `TextFormField` now has a `validator` → inline error if blank
+- Base Currency and Fiscal Year validated manually in `_saveProfile` with `ZerpaiToast.error`
+
+### Save button UX
+- `_isSaving` state added — button shows `CircularProgressIndicator` while saving, disabled during request
+- `finally` block resets `_isSaving` on both success and error
+
+### orgId fallback fix
+- `_saveProfile` now resolves orgId as: `user?.orgId` (if non-empty) → `_organizationId` (loaded from API during `_loadProfile`)
+- Eliminates "No organization context" toast when `authUserProvider` returns empty orgId in dev
+
+---
+
+## Settings: Org Profile — Timezone-Aware Date Samples, Time Formats & Global Org Provider (March 21, 2026)
+
+### Date format dropdown — timezone-aware samples
+- `_buildGroupedDateFormatDropdown()` now parses the GMT offset from `_selectedTimeZone` (e.g. `(GMT +5:30)`) using a regex
+- Sample date/time is computed as `DateTime.now().toUtc().add(offset)` so it always reflects the correct local time for the chosen zone
+- `DateTime.now()` is called fresh on each render (not cached at build time)
+
+### Date & time format group added
+- New `date & time` group in `_dateFormatGroups` with 6 patterns: `dd MMM yyyy, hh:mm a`, `dd MMM yyyy, HH:mm`, `dd-MM-yyyy HH:mm`, `MM-dd-yyyy hh:mm a`, `yyyy-MM-dd HH:mm`, `EEE, dd MMM yyyy HH:mm`
+
+### Org settings propagation — centralized provider
+- New `OrgSettings` model: `lib/core/models/org_settings_model.dart`
+- New `orgSettingsProvider` (`FutureProvider.autoDispose`): `lib/core/providers/org_settings_provider.dart`
+  - Fetches `GET /lookups/org/:orgId` on auth
+  - Exposes `orgCurrencyCodeProvider` (base currency code)
+  - Exposes `orgDateFormatProvider` (format with separator applied)
+- New `AppDateFormatter` utility: `lib/shared/utils/app_date_formatter.dart`
+  - `AppDateFormatter.of(ref).format(date)` — respects org date format + separator
+  - `AppDateFormatter.formatWith(date, pattern:, separator:)` — static helper
+- `defaultCurrencyProvider` updated to resolve org base currency first, falls back to INR
+- Navbar org name updated to use `orgSettingsProvider` (with `authUserProvider` fallback) instead of hardcoded `'ZABNIX PRIVATE LIMITED'`
+
+---
+
+## Settings: Bug Fixes — Logo Preview, Placeholder & Sidebar Notifier (March 21, 2026)
+
+### _DashedBorderPainter — static constants fix
+- Moved `dashWidth`, `dashSpace`, `strokeWidth` from optional constructor params to private static constants (`_dashWidth`, `_dashSpace`, `_strokeWidth`)
+- Updated all internal `paint()` references to use the prefixed names
+- Eliminates the three `unused_element_parameter` warnings
+
+### Organization Name field — placeholder fix
+- `_organizationName` default changed from `'Your Organization'` to `''`
+- Fallback in `_loadProfile` cleaned up — no more literal string fallback
+- Added `hintText: 'Your organization name'` to the `TextFormField`
+
+### Logo upload — web compression guard
+- Added `!kIsWeb` check before calling `FlutterImageCompress.compressWithList` (throws `UnimplementedError` on Flutter Web)
+
+### Sidebar collapsedNotifier — build-phase fix
+- Moved `ZerpaiSidebar.collapsedNotifier.value = _isCollapsed` into `addPostFrameCallback` inside `didChangeDependencies`
+- Prevents `setState() called during build` assertion when the shell mounts for the first time
+
+---
+
+---
+
+## Settings: Logo Upload Validation & Date Format Dropdown Refactor (March 21, 2026)
+
+### Logo upload — validation enforced (frontend + backend)
+- **1 MB hard limit**: `_pickLogo()` now checks raw bytes before compression; shows `ZerpaiToast.error` if exceeded
+- **Compression target updated**: `minWidth`/`minHeight` changed from 480 → 240 px (matching preferred 240 × 240 @ 72 DPI)
+- **Supported types**: `allowedExtensions: [jpg, jpeg, png, gif, bmp, webp]` in FilePicker; gif/bmp skip compression (unsupported by `flutter_image_compress`)
+- **Backend** already validates extension allowlist and 1 MB server-side in `POST /lookups/org/:orgId/logo`
+
+### Date format dropdown — migrated to FormDropdown
+- Replaced `DropdownButtonFormField` in `_buildGroupedDateFormatDropdown()` with `FormDropdown<String>`
+- Group headers (`short` / `medium` / `long`) rendered via `itemBuilder` as non-selectable labels
+- Each row shows pattern left + live sample date `[ 21 Mar 2026 ]` right
+- `isItemEnabled` blocks header selection; `displayStringForValue` shows trigger text compactly
+
+---
+
+## Settings: Sidebar Auto-Collapse on Settings Routes (March 21, 2026)
+
+### Sidebar collapses by default when entering settings
+- Modified `_ZerpaiSidebarState` in `lib/core/layout/zerpai_sidebar.dart`
+- Added `_autoCollapseForSettings()` called from `didChangeDependencies`
+- Tracks `_wasOnSettingsRoute` (static bool) — collapses sidebar only on first entry into `/settings` or `/settings/*`
+- Manual expand inside settings is preserved; re-entering settings from outside triggers collapse again
+- No changes to `ZerpaiShell` or `ZerpaiLayout`
+
+---
+
+## Global Rules: ZTooltip, FormDropdown & Deep-Linking (March 21, 2026)
+
+### ZTooltip — compact tooltips globally enforced
+- Replaced inline `Tooltip` in settings page with `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart`
+- `ZTooltip` updated: `maxWidth` param (default 220 px), default icon → `LucideIcons.helpCircle`
+- **Rule added to:** `CLAUDE.md`, `AGENTS.md`, `.agent/ARCHITECTURE.md`, `PRD/prd_ui.md`
+
+### FormDropdown — only allowed dropdown for form inputs
+- **Rule added to:** `CLAUDE.md`, `AGENTS.md`, `.agent/ARCHITECTURE.md`, `PRD/prd_ui.md`
+- `DropdownButtonFormField` is banned project-wide
+
+### Deep-linking
+- **Rule added to:** `CLAUDE.md`, `AGENTS.md`, `.agent/ARCHITECTURE.md`, `PRD/prd_ui.md`
+- Every screen/sub-screen/tab must have a named GoRouter route. No `Navigator.push`.
+
+---
+
+## Settings: Organization Profile — Dropdowns, Tooltips & Logo Upload (March 21, 2026)
+
+### Tooltip system
+- Replaced all inline Flutter `Tooltip` widgets in `settings_organization_profile_page.dart` with `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart`
+- `ZTooltip` now accepts a `maxWidth` param (default 220 px) so text wraps compactly instead of stretching into a single long line
+- Default icon updated from `Icons.info_outline` to `LucideIcons.helpCircle`
+- Rule added to `CLAUDE.md`: always use `ZTooltip`, never raw `Tooltip`; text must be ≤2 short sentences
+
+### Dropdown standardisation
+- Replaced all `DropdownButtonFormField` usages in the settings page with `FormDropdown<String>` (searchable overlay from `lib/shared/widgets/inputs/dropdown_input.dart`)
+- Rule added to `CLAUDE.md`: `FormDropdown<T>` is the only allowed dropdown for form inputs project-wide
+- Removed "Organization Language" and "Communication Languages" fields per design decision
+
+### Logo upload wired
+- `file_picker` → `flutter_image_compress` (added to `pubspec.yaml`) → base64 → `POST /lookups/org/:orgId/logo` → Cloudflare R2
+- Preview shown inline; Remove button clears the selection
+- Logo uploaded before profile save in `_saveProfile()`
+
+### Profile save wired to backend
+- New `POST /lookups/org/:orgId/save` endpoint saves all profile fields
+- New `GET /lookups/org/:orgId` returns all new profile columns
+- SQL migration: `backend/migrations/add_org_profile_columns.sql` — adds 11 columns (`industry`, `logo_url`, `base_currency`, `fiscal_year`, `timezone`, `date_format`, `date_separator`, `company_id_label`, `company_id_value`, `payment_stub_address`, `has_separate_payment_stub_address`) to the `organization` table
+- Drizzle schema (`backend/src/db/schema.ts`) updated to match actual DB table name `organization` and new columns
+
+### Other field updates
+- Fiscal Year dropdown: expanded to all 12 month-start options
+- Date Format dropdown: grouped (short / medium / long) with live sample dates via `intl.DateFormat`
+- Company ID options: ACN, BN, CN, CPR, CVR, DIW, KT, ORG, SEC, CRN, Company ID
+- Base Currency tooltip added
+- Payment Stub Address tooltip updated
 
 ---
 
@@ -5574,3 +5865,249 @@ The batch and serial opening-stock footer logic was using the entered detailed q
 - Replaced deprecated `withOpacity` usage in the touched sales files and migrated sales order preferences radio controls to `RadioGroup`.
 - Fixed item history warehouse summaries to resolve warehouse names instead of showing raw warehouse UUIDs.
 - Added a frontend history-summary sanitizer so unresolved IDs are never shown to users in the item history UI.
+- Added a new global `/settings` overview page and wired the navbar gear icon to it.
+- Added a deep-linkable `/settings/orgprofile` organization profile page with a shared settings top bar, left settings navigation, and real org/currency/country lookup loading where the backend already supports it.
+- Wired the settings overview `Profile` entry to the new organization profile route and kept the navbar gear active for all `/settings/...` pages.
+
+## Settings: Organization Profile Page Completion (March 21, 2026)
+
+### Problem
+The `/settings/orgprofile` page crashed on every load with "Unable to load organization profile — Exception: Unable to resolve organization context". The `_loadProfile()` method unconditionally required an authenticated user with a non-empty `orgId`, but auth is disabled in the current dev/pre-production build, so `authUserProvider` always returns `null`.
+
+Additionally, the page had a layout crash (`RenderFlex children have non-zero flex but incoming height constraints are unbounded`) because `ZerpaiLayout` defaulted to wrapping the child in a `SingleChildScrollView`, making the inner `Column + Expanded` receive unbounded height.
+
+### Changes
+
+**`lib/core/pages/settings_organization_profile_page.dart`**
+- Fixed `enableBodyScroll: false` on `ZerpaiLayout` to prevent the unbounded-height `Expanded` crash.
+- Refactored `_loadProfile()` to gracefully handle null user context:
+  - When user is authenticated with a valid `orgId`, the org-profile API call is included as before.
+  - When user is null (auth disabled), only `/lookups/currencies` and `/lookups/countries` are fetched; org fields default to empty/`'Your Organization'`.
+  - Removed the hard `throw Exception(...)` guard that blocked all unauthenticated environments.
+- Fixed null-safety errors on lines 330–331: `user.fullName` and `user.email` now use `user?.fullName ?? ''` and `user?.email ?? ''`.
+
+### Result
+- The settings organization profile page loads correctly in dev mode (auth disabled) and in production (auth enabled).
+- The layout renders without `Expanded`/unbounded-height assertion errors.
+- Currencies and countries dropdowns populate from real API data; org-specific fields are populated when auth context is available and show editable defaults otherwise.
+
+## Settings: Sidebar Default Restore & Partial Lookup Resilience (March 21, 2026)
+
+### Sidebar behavior
+- Fixed `lib/core/layout/zerpai_sidebar.dart` so the sidebar auto-collapses only inside `/settings` routes.
+- When leaving settings, the shell now restores the normal expanded default instead of leaking the collapsed state into regular pages.
+
+### Organization profile loading resilience
+- Refactored `_loadProfile()` in `lib/core/pages/settings_organization_profile_page.dart` to fetch lookups with per-request fallback instead of failing the whole page on the first network error.
+- `currencies`, `countries`, `industries`, `timezones`, and `company-id-labels` now degrade to empty option lists if an individual request fails.
+- The profile page now keeps rendering with editable defaults even when one or more lookup endpoints are temporarily unavailable.
+- Also hydrated `logo_url`, `payment_stub_address`, and `has_separate_payment_stub_address` from the org payload during load.
+
+### Result
+- Non-settings pages return to the expected expanded-sidebar default.
+- The settings organization profile page no longer collapses into a full-screen error card just because one lookup request fails.
+
+## Settings: Org Profile Save And Lookup Access Hardening (March 21, 2026)
+
+### Lookup access
+- Added `SELECT` grants in `supabase/migrations/1009_profile page.sql` for:
+  - `public.industries`
+  - `public.timezones`
+  - `public.company_id_labels`
+- This unblocks the shared settings org-profile lookup endpoints from failing with table permission errors in environments not using full service-role bypass.
+
+### Org profile save flow
+- Fixed `lib/core/pages/settings_organization_profile_page.dart` to read the current org schema key `base_currency` instead of the stale `currency` field.
+- Widened the timezone dropdown menu so long timezone labels no longer render in a cramped/truncated overlay.
+- Changed org-profile save to send a JSON-encoded payload explicitly.
+- Added a web-specific save verification fallback: if Flutter web reports a transient XHR/network error on save, the page now re-reads the org profile and treats the action as successful when the persisted values match.
+- Replaced the raw exception dump toast with a user-facing save failure message.
+
+### Backend response normalization
+- Updated `backend/src/modules/lookups/global-lookups.controller.ts` so `POST /lookups/org/:orgId/save` responds with `200 OK` instead of `201 Created`, matching update semantics and reducing ambiguity for the web client.
+
+### Result
+- Org-profile lookup tables are permission-ready once the migration is applied.
+- The settings profile page now aligns with the current organization schema and is more resilient against false-negative web save failures.
+
+## Settings: Organization State Dropdown (March 21, 2026)
+
+### Changes
+- Added a real `State` dropdown to `lib/core/pages/settings_organization_profile_page.dart`.
+- The org profile now fetches states from the shared `/lookups/states` endpoint using the selected country ID.
+- Defaulted the organization location to `India` when no country value is stored on the organization row, so the India-based org profile can resolve state options immediately.
+- Wired the save payload to persist `organization.state_id` instead of relying on a stale freeform country field.
+- Restored the selected state from the existing `organization.state_id` value during profile load.
+
+### Lookup compatibility
+- Updated `backend/src/modules/lookups/global-lookups.controller.ts` so `/lookups/states` works with both schema variants:
+  - `states.country_id`
+  - `states.state_id`
+- This keeps the settings page compatible with the live DB even if the foreign-key column name differs across environments.
+
+### Result
+- Organization profile now uses the real Indian states master instead of a missing screen-local state field.
+- The selected state is loaded from and saved back to `organization.state_id`.
+
+## Settings: Organization System ID And Shared Logo Identity (March 21, 2026)
+
+### Database
+- Added additive migration `supabase/migrations/1010_add_organization_system_id.sql`.
+- Introduced a real `organization.system_id` user-facing numeric identifier, separate from the UUID primary key.
+- Backfilled existing organization rows and added a sequence-backed default plus uniqueness for future inserts.
+
+### Backend
+- Extended `GET /lookups/org/:orgId` to return `system_id` alongside the existing org profile fields.
+- Updated backend organization schema definitions to include `system_id`.
+
+### Flutter settings profile
+- `lib/core/pages/settings_organization_profile_page.dart` now stores and displays the real `system_id` after `Organization Profile` instead of showing the UUID placeholder.
+- The profile page invalidates `orgSettingsProvider` after logo upload and save so shared shell UI refreshes immediately.
+
+### Shared navbar identity
+- `lib/core/layout/zerpai_navbar.dart` now uses the DB-backed organization logo for the top-right circular avatar.
+- When no logo exists, the avatar falls back to the organization initial instead of a generic person icon.
+- The shell route-prefix stripping logic was widened from fixed 10-digit IDs to `10..20` digit numeric IDs in preparation for real org system IDs in URLs.
+
+### Result
+- Organization identity is now DB-backed across both the settings profile and the shared navbar shell.
+- The org profile header shows a real business-facing system ID instead of the internal UUID.
+
+## Settings: Signed Organization Logo Rendering (March 21, 2026)
+
+### Backend
+- Updated `backend/src/modules/lookups/global-lookups.controller.ts` to resolve `organization.logo_url` through `R2StorageService.getPresignedUrl(...)` before returning org settings.
+- `POST /lookups/org/:orgId/logo` now returns the resolved browser-ready logo URL instead of the raw storage key.
+
+### Flutter
+- Updated `lib/core/layout/zerpai_navbar.dart` to render the org avatar with `Image.network(...)` plus an error fallback to the organization initial.
+- Updated `lib/core/pages/settings_organization_profile_page.dart` so the logo preview no longer breaks with a raw decode error surface when the image cannot be rendered; it now shows a clean fallback state instead.
+
+### Result
+- The settings profile logo preview and the top-right circular org avatar now consume a usable image URL instead of the raw R2 object key.
+- Invalid or expired image URLs no longer leave a blank avatar circle.
+
+## Shell: Route-Aware Global Search And Settings Search Separation (March 22, 2026)
+
+### Changes
+- Updated `lib/core/layout/zerpai_navbar.dart` so the top shell search no longer appears on `/settings` routes.
+- The shared shell search now infers its default category from the current route instead of always defaulting to `Items`.
+- Added route-aware search category groupings so the dropdown prioritizes the active module family:
+  - sales routes show sales-relevant entities
+  - purchases routes show purchase-relevant entities
+  - items and inventory routes show inventory-relevant entities
+- The search placeholder now follows the current module context, for example `Search in Sales Orders ( / )` or `Search in Vendors ( / )`.
+
+### Result
+- Settings pages only show the dedicated settings search control and no longer duplicate the shell-wide module search.
+- On non-settings pages, the top search is now module-aware by default and better aligned with the user’s current working context.
+
+## Docs: Sidebar Module Map Refresh (March 22, 2026)
+
+### Changes
+- Updated the canonical sidebar module documentation in:
+  - `PRD/PRD.md`
+  - `.amazonq/rules/PRD.md`
+  - `PRD/prd_folder_structure.md`
+  - `PRD/README_PRD.md`
+  - `PRD/prd_onboarding.md`
+  - `.amazonq/rules/memory-bank/structure.md`
+  - `.amazonq/rules/memory-bank/product.md`
+- Normalized the docs to the current sidebar order and current sub-modules:
+  - Home
+  - Items
+  - Inventory
+  - Sales
+  - Purchases
+  - Accountant
+  - Accounts
+  - Reports
+  - Documents
+  - Audit Logs
+- Replaced stale sub-module references like `Move Orders`, `Putaways`, and `Purchase Receives`.
+- Added explicit notes where sidebar labels differ from current code roots, especially:
+  - `Accounts` UI route vs `accountant` code root
+  - `Documents` / `Audit Logs` sidebar destinations vs dedicated module roots not yet present
+
+### Result
+- The main PRD, folder-structure guide, onboarding docs, and memory-bank summaries now describe the same module/sub-module map as the live product sidebar.
+
+## Shell Search: `?q=` Hydration Across Overview Screens (March 22, 2026)
+
+### Changes
+- Extended `lib/core/routing/app_router.dart` so route query `?q=` is forwarded into overview screens that previously ignored the shell search handoff.
+- Updated `lib/modules/items/items/presentation/sections/report/items_report_overview.dart` and `lib/modules/items/items/presentation/sections/report/items_report_body.dart` to initialize the items search box and trigger the existing item search flow from the route query.
+- Updated `lib/modules/items/pricelist/presentation/items_pricelist_pricelist_overview.dart` so price lists hydrate the incoming query into the existing price-list filter provider.
+- Updated `lib/modules/purchases/vendors/presentation/purchases_vendors_vendor_list.dart` so vendors now boot with the route query already applied to the list search.
+- Converted `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart` to a stateful consumer screen so purchase orders can persist and apply the query through `PurchaseOrderFilter.search`.
+- Updated `lib/modules/sales/presentation/sales_order_overview.dart` so sales orders now locally filter the loaded dataset from the route query.
+- Updated `lib/modules/sales/presentation/sales_generic_list.dart` so shared sales list screens apply the incoming query consistently across customers, invoices, payments, e-way bills, payment links, and related entities.
+
+### Result
+- The shell-wide route-aware search no longer stops at navigation for these overview screens; the `?q=` value now hydrates into the local table/provider state.
+- Users can launch module search from the shared navbar and land on a pre-filtered screen instead of an unfiltered overview.
+
+## Settings Shell: Remove Global Navbar On Settings Routes (March 22, 2026)
+
+### Changes
+- Updated `lib/core/layout/zerpai_shell.dart` so `/settings` and nested `/settings/...` routes keep the main sidebar but no longer render the shared top navbar.
+- Settings pages now rely only on their dedicated internal settings header and search surface.
+
+### Result
+- The settings experience now matches the intended layout: sidebar on the left, settings-specific top area only, and no duplicate shell navbar above it.
+
+## Shell Search: `?q=` Hydration Expansion Across Remaining Overview Screens (March 22, 2026)
+
+### Changes
+- Extended `lib/core/routing/app_router.dart` so route query `?q=` is consistently forwarded into the remaining routed overview screens that still dropped the shell search handoff.
+- Updated `lib/modules/reports/presentation/reports_audit_logs_screen.dart` so audit logs initialize and refresh from the incoming route search query before loading logs.
+- Updated `lib/modules/accountant/presentation/accountant_chart_of_accounts_overview.dart` so chart of accounts hydrates the incoming query into the existing provider-backed `searchQuery` state.
+- Updated `lib/modules/accountant/manual_journals/presentation/manual_journals_overview_screen.dart` and `lib/modules/accountant/manual_journals/presentation/widgets/manual_journals_list_panel.dart` so manual journals bootstrap their existing local search field from `?q=`.
+- Updated `lib/modules/accountant/recurring_journals/presentation/recurring_journal_overview_screen.dart` and `lib/modules/accountant/recurring_journals/presentation/widgets/recurring_journals_list_panel.dart` so recurring journals load with the route query already applied.
+- Updated `lib/modules/items/composite_items/presentation/items_composite_items_composite_listview.dart` so composite items now filter by the incoming query across existing fields like product name, SKU, type, and HSN code.
+
+### Result
+- The shell-wide route-aware search now hydrates across the remaining accountant, audit-log, and composite-item overview flows instead of only navigating to them.
+- Direct links and browser refresh preserve the active `?q=` context for these screens in the same way as the earlier sales, purchases, items, and price-list work.
+
+## Toast UI: Vertically Center Single-Line Messages Against Icon (March 22, 2026)
+
+### Changes
+- Updated `lib/shared/utils/zerpai_toast.dart` so the shared toast row uses centered vertical alignment instead of top alignment.
+- Wrapped the message text in a left-aligned container while keeping the icon and close affordance vertically centered.
+
+### Result
+- Single-line toast messages now sit visually centered against the icon instead of hugging the top edge.
+- Multi-line toast messages still remain left-aligned and readable, but the shared toast layout now looks balanced in both cases.
+
+## Search Shortcut: `/` Focuses Shared Search Fields, With Settings Kept Local (March 22, 2026)
+
+### Changes
+- Updated `lib/shared/widgets/zerpai_layout.dart` to introduce a shared search-focus registry inside the layout shortcut scope so page-level search bars can register themselves and respond to `/` without per-screen keyboard patches.
+- Updated `lib/shared/widgets/inputs/custom_text_field.dart` so real search fields automatically register with the shared layout shortcut scope when their hint or label is search-related.
+- Updated `lib/core/layout/zerpai_navbar.dart` and `lib/core/layout/zerpai_shell.dart` so the shell-wide navbar search becomes the fallback `/` target on non-settings routes that do not expose a page-level search field.
+- Updated `lib/core/pages/settings_page.dart` and `lib/core/pages/settings_organization_profile_page.dart` so the dedicated settings search bars have explicit focus nodes and become the `/` target on settings routes.
+- Tightened `lib/core/pages/settings_organization_profile_page.dart` search submission so settings search only resolves settings-page entries instead of jumping out to normal module overview pages.
+
+### Result
+- Pressing `/` now focuses the active search bar across the app more consistently.
+- On normal module pages, page-level search fields take priority and the shell navbar search remains the fallback.
+- On settings pages, `/` stays inside the settings search experience and no longer leaks into non-settings module navigation.
+
+## Settings Search: Grouped Typeahead Overlay For Settings-Only Content (March 22, 2026)
+
+### Changes
+- Added `lib/core/widgets/settings_search_field.dart` as a shared grouped typeahead search control for settings pages.
+- Updated `lib/core/pages/settings_page.dart` to replace the plain settings search input with the grouped overlay search and keep results scoped to settings-related entries only.
+- Updated `lib/core/pages/settings_organization_profile_page.dart` to use the same grouped settings search, including in-page profile field targets such as Organization Name, Base Currency, Fiscal Year, Time Zone, Date Format, Company ID, and Additional Fields.
+- Wired org-profile field search results to scroll the page to the relevant section instead of behaving like a plain text filter.
+
+### Result
+- Settings search now behaves like a real settings command palette: typing shows grouped settings suggestions in a white overlay below the field.
+- Selecting a result either opens the matching settings destination or jumps to the relevant field on the current settings page.
+- The settings search experience is now separate from global module search and stays scoped to settings content.
+2026-03-22
+- Canonicalized shell routes from the temporary dev org prefix to the real loaded `organization.system_id`, so URLs like `/:orgSystemId/settings/orgprofile` now switch to the same numeric org ID shown in the org profile header while preserving the rest of the path and query.
+- Fixed the settings search dropdown build-time sizing bug in `lib/core/widgets/settings_search_field.dart` by removing the unsafe render-size read during build and deriving overlay width from safe `LayoutBuilder` constraints instead.
+- Updated the governance docs, PRD files, agent rules, and skill references so any new database table created specifically for the global settings system must start with the `settings_` prefix.
+- Added the same `settings_` table-prefix rule to the repository Claude and Gemini instruction files so all agent guidance now enforces the same settings schema naming convention.

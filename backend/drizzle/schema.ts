@@ -969,6 +969,7 @@ export const accountsReportingTags = pgTable("accounts_reporting_tags", {
 
 export const organization = pgTable("organization", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
+	systemId: varchar("system_id", { length: 20 }).notNull(),
 	name: varchar({ length: 255 }).notNull(),
 	slug: varchar({ length: 100 }).notNull(),
 	isActive: boolean("is_active").default(true),

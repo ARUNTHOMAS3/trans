@@ -8,7 +8,12 @@ import 'package:flutter/services.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class PurchasesVendorsVendorListScreen extends ConsumerStatefulWidget {
-  const PurchasesVendorsVendorListScreen({super.key});
+  final String? initialSearchQuery;
+
+  const PurchasesVendorsVendorListScreen({
+    super.key,
+    this.initialSearchQuery,
+  });
 
   @override
   ConsumerState<PurchasesVendorsVendorListScreen> createState() =>
@@ -23,6 +28,12 @@ class _PurchasesVendorsVendorListScreenState
   @override
   void initState() {
     super.initState();
+    final initialQuery = widget.initialSearchQuery?.trim() ?? '';
+    if (initialQuery.isNotEmpty) {
+      _searchController.text = initialQuery;
+      Future.microtask(() => _handleSearch(initialQuery));
+      return;
+    }
     Future.microtask(() => ref.read(vendorProvider.notifier).loadVendors());
   }
 

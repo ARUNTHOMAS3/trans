@@ -9,7 +9,9 @@ import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 class AuditLogsScreen extends ConsumerStatefulWidget {
-  const AuditLogsScreen({super.key});
+  final String? initialSearchQuery;
+
+  const AuditLogsScreen({super.key, this.initialSearchQuery});
 
   @override
   ConsumerState<AuditLogsScreen> createState() => _AuditLogsScreenState();
@@ -56,7 +58,24 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   @override
   void initState() {
     super.initState();
+    final initialQuery = widget.initialSearchQuery?.trim();
+    if (initialQuery != null && initialQuery.isNotEmpty) {
+      _searchController.text = initialQuery;
+    }
     _loadLogs();
+  }
+
+  @override
+  void didUpdateWidget(covariant AuditLogsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextQuery = widget.initialSearchQuery?.trim() ?? '';
+    final previousQuery = oldWidget.initialSearchQuery?.trim() ?? '';
+    if (nextQuery != previousQuery && nextQuery != _searchController.text) {
+      _searchController.text = nextQuery;
+      _page = 1;
+      _selectedLog = null;
+      _loadLogs();
+    }
   }
 
   @override

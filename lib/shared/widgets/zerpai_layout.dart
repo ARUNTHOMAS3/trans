@@ -3,6 +3,47 @@ import 'shortcut_handler.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/unsaved_changes_guard.dart';
 
+class ZerpaiSearchShortcutScope extends StatefulWidget {
+  final Widget child;
+
+  const ZerpaiSearchShortcutScope({super.key, required this.child});
+
+  static ZerpaiSearchShortcutScopeState? maybeOf(BuildContext context) {
+    return context.findAncestorStateOfType<ZerpaiSearchShortcutScopeState>();
+  }
+
+  @override
+  State<ZerpaiSearchShortcutScope> createState() =>
+      ZerpaiSearchShortcutScopeState();
+}
+
+class ZerpaiSearchShortcutScopeState extends State<ZerpaiSearchShortcutScope> {
+  final List<FocusNode> _registeredSearchFields = <FocusNode>[];
+
+  void registerSearchField(FocusNode node) {
+    if (_registeredSearchFields.contains(node)) {
+      return;
+    }
+    _registeredSearchFields.add(node);
+  }
+
+  void unregisterSearchField(FocusNode node) {
+    _registeredSearchFields.remove(node);
+  }
+
+  void focusPrimarySearchField() {
+    for (final node in _registeredSearchFields) {
+      if (node.canRequestFocus) {
+        node.requestFocus();
+        return;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 class ZerpaiLayout extends StatelessWidget {
   final Widget child;
   final String pageTitle;
@@ -43,17 +84,25 @@ class ZerpaiLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return UnsavedChangesGuard(
-      isDirty: isDirty,
-      onDiscardChanges: onCancel,
-      child: ShortcutHandler(
-        onSave: onSave,
-        onPublish: onPublish,
-        onCancel: onCancel,
-        onSearch: onSearch,
-        isDirty: isDirty,
-        searchFocusNode: searchFocusNode,
-        child: _buildScaffold(context),
+    return ZerpaiSearchShortcutScope(
+      child: Builder(
+        builder: (scopeContext) => UnsavedChangesGuard(
+          isDirty: isDirty,
+          onDiscardChanges: onCancel,
+          child: ShortcutHandler(
+            onSave: onSave,
+            onPublish: onPublish,
+            onCancel: onCancel,
+            onSearch:
+                onSearch ??
+                () => ZerpaiSearchShortcutScope.maybeOf(
+                  scopeContext,
+                )?.focusPrimarySearchField(),
+            isDirty: isDirty,
+            searchFocusNode: searchFocusNode,
+            child: _buildScaffold(context),
+          ),
+        ),
       ),
     );
   }

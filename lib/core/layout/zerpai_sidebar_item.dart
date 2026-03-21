@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ZerpaiSidebarItem extends StatefulWidget {
   final IconData icon;
@@ -20,6 +19,17 @@ class ZerpaiSidebarItem extends StatefulWidget {
   final bool isExpanded;
 
   static bool isCollapsed = false;
+
+  /// Set by [ZerpaiSidebar] from [appBrandingProvider] before each build.
+  static Color accentColor = const Color(0xFF22A95E);
+  static Color hoverBg = const Color(0xFF3A3F4F);
+  static Color activeParentBg = const Color(0xFF2A3A55);
+  static Color collapseToggleBg = const Color(0xFF2B3040);
+
+  /// Text/icon color — white on dark pane, near-black on light pane.
+  static Color itemFg = Colors.white;
+  /// Muted variant for inactive labels and arrows.
+  static Color itemFgMuted = Colors.white70;
 
   const ZerpaiSidebarItem({
     super.key,
@@ -43,24 +53,19 @@ class ZerpaiSidebarItem extends StatefulWidget {
 class _ZerpaiSidebarItemState extends State<ZerpaiSidebarItem> {
   bool _hover = false;
 
-  static const Color _hoverBg = Color(0xFF3A3F4F);
-  static const Color _activeParentBg = Color(
-    0xFF2A3A55,
-  ); // Subtle blue for active parents
-  static const Color _green = Color(
-    0xFF10B981,
-  ); // Green for active destinations
-
   @override
   Widget build(BuildContext context) {
     final bool collapsed = ZerpaiSidebarItem.isCollapsed;
+    final Color hoverBg = ZerpaiSidebarItem.hoverBg;
+    final Color activeParentBg = ZerpaiSidebarItem.activeParentBg;
+    final Color accentColor = ZerpaiSidebarItem.accentColor;
 
     final Color bgColor = collapsed
-        ? (_hover ? _hoverBg.withValues(alpha: 0.35) : Colors.transparent)
+        ? (_hover ? hoverBg.withValues(alpha: 0.35) : Colors.transparent)
         : widget.isActive
-        ? (widget.hasChildren ? _activeParentBg : _green)
+        ? (widget.hasChildren ? activeParentBg : accentColor)
         : _hover
-        ? _hoverBg
+        ? hoverBg
         : Colors.transparent;
 
     return Padding(
@@ -101,10 +106,15 @@ class _ExpandedView extends StatelessWidget {
         widget.showAddButton &&
         (widget.isActive || isHovering);
 
+    // On active items the bg is accent-colored so text is always white.
+    // On inactive items use the theme foreground color.
+    final Color fg = widget.isActive ? Colors.white : ZerpaiSidebarItem.itemFg;
+    final Color fgMuted = widget.isActive ? Colors.white70 : ZerpaiSidebarItem.itemFgMuted;
+
     return Row(
       children: [
         if (widget.showIcon)
-          Icon(widget.icon, size: widget.iconSize, color: Colors.white),
+          Icon(widget.icon, size: widget.iconSize, color: fg),
         const SizedBox(width: 12),
 
         Expanded(
@@ -114,7 +124,7 @@ class _ExpandedView extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 13,
-              color: Colors.white,
+              color: fg,
               fontWeight: widget.isActive ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
@@ -129,7 +139,7 @@ class _ExpandedView extends StatelessWidget {
                   ? LucideIcons.chevronUp
                   : LucideIcons.chevronDown,
               size: 18,
-              color: Colors.white70,
+              color: fgMuted,
             ),
           ),
 
@@ -144,7 +154,7 @@ class _ExpandedView extends StatelessWidget {
                 width: 26,
                 height: 26,
                 decoration: BoxDecoration(
-                  color: AppTheme.accentGreen, // Green as per screenshot
+                  color: ZerpaiSidebarItem.accentColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Icon(
@@ -170,6 +180,11 @@ class _CollapsedView extends StatelessWidget {
     final bool showActiveParentHighlight =
         widget.isActive && widget.hasChildren;
 
+    final Color fg = widget.isActive ? Colors.white : ZerpaiSidebarItem.itemFg;
+    final Color labelFg = widget.isActive
+        ? Colors.white
+        : ZerpaiSidebarItem.itemFgMuted;
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -179,17 +194,17 @@ class _CollapsedView extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: showActiveIconHighlight
-                  ? AppTheme.accentGreen
+                  ? ZerpaiSidebarItem.accentColor
                   : showActiveParentHighlight
-                  ? const Color(0xFF2A3A55)
+                  ? ZerpaiSidebarItem.activeParentBg
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
               border: showActiveParentHighlight
-                  ? Border.all(color: Colors.white.withValues(alpha: 0.08))
+                  ? Border.all(color: ZerpaiSidebarItem.itemFg.withValues(alpha: 0.08))
                   : null,
             ),
             alignment: Alignment.center,
-            child: Icon(widget.icon, size: 18, color: Colors.white),
+            child: Icon(widget.icon, size: 18, color: fg),
           ),
           const SizedBox(height: 4),
           SizedBox(
@@ -203,9 +218,7 @@ class _CollapsedView extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w500,
-                color: widget.isActive
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 95 / 255), // 0.75 * 255
+                color: labelFg,
               ),
             ),
           ),

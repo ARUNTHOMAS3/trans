@@ -13,6 +13,19 @@
 - **Do not invent tables or fields** not present here without a schema update.
 - **New Table Naming (Mandatory):** All **current and future** tables created from this point forward must use the prefix format  
   `<module_name>_<table_name>` (snake_case). **Do not rename existing tables.**
+- **Settings Table Naming (Mandatory):** Any new table created specifically for the global settings system must start with `settings_`.
+- **Destructive DB Safety (Mandatory):**
+
+---
+
+## Rules (STRICT)
+
+- **Every form must map to the corresponding table(s) below** for create/edit/save flows.
+- **Schema will be updated periodically**; this file is a snapshot and must be refreshed when DB changes.
+- **Do not invent tables or fields** not present here without a schema update.
+- **New Table Naming (Mandatory):** All **current and future** tables created from this point forward must use the prefix format  
+  `<module_name>_<table_name>` (snake_case). **Do not rename existing tables.**
+- **Settings Table Naming (Mandatory):** Any new table created specifically for the global settings system must start with `settings_`.
 - **Destructive DB Safety (Mandatory):**
   - **Always run `npm run db:pull` first** before creating or altering tables, and generate changes based on the pulled schema.
   - **If a table exists in the DB but not in this snapshot, assume it was created by another developer. Do NOT delete or alter it.**
@@ -42,6 +55,7 @@
 - `brands`
 - `buying_rules`
 - `categories`
+- `company_id_labels`
 - `composite_item_outlet_inventory_settings`
 - `composite_item_parts`
 - `composite_items`
@@ -51,6 +65,7 @@
 - `customer_contact_persons`
 - `customers`
 - `hsn_sac_codes`
+- `industries`
 - `item_vendor_mappings`
 - `manufacturers`
 - `organization`
@@ -61,6 +76,8 @@
 - `price_lists`
 - `product_contents`
 - `product_outlet_inventory_settings`
+- `product_warehouse_stock_adjustments`
+- `product_warehouse_stocks`
 - `products`
 - `racks`
 - `reorder_terms`
@@ -79,6 +96,7 @@
 - `tds_groups`
 - `tds_rates`
 - `tds_sections`
+- `timezones`
 - `transaction_locks`
 - `transactional_sequences`
 - `units`
@@ -87,11 +105,6 @@
 - `vendor_contact_persons`
 - `vendors`
 - `warehouses`
-
----
-
-## Form-to-Table Enforcement (Mandatory)
-
 All creation/edit forms must:
 
 1. **Persist to the correct table(s)** above.

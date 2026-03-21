@@ -184,7 +184,7 @@ class _ZerpaiToastWidgetState extends State<_ZerpaiToastWidget>
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Container(
                           width: 34,
@@ -200,14 +200,16 @@ class _ZerpaiToastWidgetState extends State<_ZerpaiToastWidget>
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Expanded(
+                        Flexible(
                           child: Text(
                             widget.message,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: widget.textColor,
-                              fontSize: 14,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w500,
-                              height: 1.35,
+                              height: 1.4,
                             ),
                           ),
                         ),

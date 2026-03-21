@@ -35,7 +35,8 @@ This file governs how Claude should behave when working in this repository. Read
 - **Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the default reusable date picker** wherever the shared anchored picker pattern is applicable. Do not add new raw `showDatePicker(...)` usages for standard ERP flows unless there is a specific exception.
 - **Prefer real DB-backed data and DB-backed master defaults**, keep empty/error states explicit, centralize shared UI styling, and keep warehouse/storage/accounting/physical concepts separated.
 - **Keep save/create buttons, cancel/secondary actions, upload controls, and borders/dividers on centralized theme styling** instead of per-screen color picks.
-- **GoRouter only** for navigation. Never use Navigator.push directly.
+- **GoRouter only** for navigation. Never use `Navigator.push` directly.
+- **Every screen, sub-screen, tab, and significant dialog state must be deep-linkable** via a named GoRouter route with path/query params so browser refresh, direct URL, and back-navigation restore full context without data loss.
 - **Inter font** globally. No per-module font overrides.
 
 ### Backend
@@ -49,6 +50,7 @@ This file governs how Claude should behave when working in this repository. Read
 - Always run `npm run db:pull` before creating or altering any table.
 - Source of truth for schema: `PRD/prd_schema.md` and `backend/src/database/schema.ts`.
 - Table naming: `<module_name>_<table_name>` in snake_case.
+- Settings-specific table naming: any new database table created for the global settings system must start with `settings_`.
 - Never invent tables or columns not present in the schema.
 
 ---
@@ -153,11 +155,12 @@ Tenant middleware intercepts all requests. All business queries filter by `org_i
 - **Inputs**: Rectangular, 3-4px radius, thin light-gray border, ~36px height.
 - **Numeric fields**: Must block non-numeric characters (alphabets, special chars).
 - **Tables**: Server-side pagination, default 100 rows per page. Inline editing allowed.
-- **Dropdowns**: White box with chevron. Searchable variants use a lookup button.
+- **Dropdowns**: White box with chevron. All dropdowns with selectable options use `FormDropdown<T>` from `lib/shared/widgets/inputs/dropdown_input.dart` — never `DropdownButtonFormField`. `FormDropdown` includes built-in search.
 - **Buttons**: Primary green (`#22A95E`), secondary gray/outline.
 - **Status indicators**: Colored text only — no pill badges.
 - **Menus**: `MenuAnchor` for action menus, `FormDropdown` for form inputs.
 - **Layout**: Dark sidebar (`~#2C3E50`), white cards on light-gray main canvas.
+- **Tooltips**: Always use `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart` — never Flutter's built-in `Tooltip` widget. `ZTooltip` enforces a 220px max-width so text wraps compactly instead of rendering as a single long line. Trigger icon is `LucideIcons.helpCircle` at size 14-15. Tooltip text must be concise (1-2 short sentences max).
 
 ### Keyboard Shortcuts
 - `Ctrl+S` — Save / Draft

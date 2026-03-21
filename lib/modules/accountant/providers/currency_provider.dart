@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 import '../models/accountant_lookup_models.dart';
 import '../repositories/accountant_repository.dart';
 
@@ -7,8 +8,12 @@ final currenciesProvider = FutureProvider<List<Currency>>((ref) async {
   return repository.getCurrencies();
 });
 
+/// Returns the org's base currency, resolved from org settings.
+/// Falls back to INR if org settings haven't loaded yet or currency not found.
 final defaultCurrencyProvider = Provider<AsyncValue<Currency>>((ref) {
   final currencies = ref.watch(currenciesProvider);
+  final orgCurrencyCode = ref.watch(orgCurrencyCodeProvider);
+
   return currencies.whenData((list) {
     if (list.isEmpty) {
       return const Currency(
@@ -18,7 +23,10 @@ final defaultCurrencyProvider = Provider<AsyncValue<Currency>>((ref) {
         symbol: '₹',
       );
     }
-    // Try to find INR as default, otherwise first
-    return list.firstWhere((c) => c.code == 'INR', orElse: () => list.first);
+    return list.firstWhere(
+      (c) => c.code == orgCurrencyCode,
+      orElse: () =>
+          list.firstWhere((c) => c.code == 'INR', orElse: () => list.first),
+    );
   });
 });

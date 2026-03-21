@@ -42,18 +42,23 @@ Shared data models and state management:
 
 ### Modules Layer (lib/modules/)
 Feature-based modules following domain-driven design:
-- **accounts/**: Chart of accounts, journal entries, fiscal years
+- **accountant/**: Manual journals, recurring journals, chart of accounts, opening balances, and accountant settings flows
 - **auth/**: Authentication and authorization
 - **branches/**: Outlet/branch management
 - **home/**: Dashboard and home screen
-- **inventory/**: Stock management and tracking
-- **items/**: Product catalog, compositions, categories
+- **inventory/**: Assemblies, inventory adjustments, picklists, packages, shipments, and transfer orders
+- **items/**: Items, composite items, item groups, price lists, and item mapping flows
 - **mapping/**: Data mapping and synchronization
 - **printing/**: Print templates and services
-- **purchases/**: Purchase orders and vendor management
+- **purchases/**: Vendors, expenses, recurring expenses, purchase orders, bills, recurring bills, payments made, and vendor credits
 - **reports/**: Reporting and analytics
-- **sales/**: Sales processing and invoicing
+- **sales/**: Customers, retainer invoices, sales orders, invoices, delivery challans, payments received, sales returns, credit notes, and e-Way bills
 - **settings/**: Application configuration
+
+Sidebar note:
+- The UI also exposes top-level `Accounts`, `Documents`, and `Audit Logs` destinations.
+- `Accounts` is currently backed by the `accountant` code root.
+- `Documents` and `Audit Logs` are routed destinations and do not yet have dedicated `lib/modules/documents/` or `lib/modules/audit_logs/` roots.
 
 Each module typically contains:
 ```

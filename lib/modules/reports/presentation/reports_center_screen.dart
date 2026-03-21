@@ -7,7 +7,9 @@ import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 
 class ReportsCenterScreen extends StatefulWidget {
-  const ReportsCenterScreen({super.key});
+  final String? initialSearchQuery;
+
+  const ReportsCenterScreen({super.key, this.initialSearchQuery});
 
   @override
   State<ReportsCenterScreen> createState() => _ReportsCenterScreenState();
@@ -16,6 +18,31 @@ class ReportsCenterScreen extends StatefulWidget {
 class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
   String _selectedCategory = 'All Reports';
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final initialQuery = widget.initialSearchQuery?.trim();
+    if (initialQuery != null && initialQuery.isNotEmpty) {
+      _searchController.text = initialQuery;
+      _selectedCategory = 'All Reports';
+    }
+    _searchController.addListener(_handleSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController
+      ..removeListener(_handleSearchChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleSearchChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   final List<String> _sidebarCategories = [
     'Business Overview',
@@ -427,7 +454,7 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
   }
 
   Widget _buildMainContent() {
-    final reports = _reportsMap[_selectedCategory] ?? [];
+    final reports = _filteredReports();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -509,6 +536,19 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
         ),
       ],
     );
+  }
+
+  List<Map<String, String>> _filteredReports() {
+    final reports = _reportsMap[_selectedCategory] ?? [];
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      return reports;
+    }
+    return reports.where((report) {
+      return report.values.any(
+        (value) => value.toLowerCase().contains(query),
+      );
+    }).toList();
   }
 
   Widget _buildTableHeader() {

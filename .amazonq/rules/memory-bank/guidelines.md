@@ -9,6 +9,7 @@
   - Example: `ProductsService`, `createProduct()`, `UpdateProductDto`
 - **Database**: Use snake_case for all table and column names
   - Example: `product_contents`, `unit_id`, `is_active`
+  - Settings-specific rule: any new database table created for the global settings system must start with `settings_`
 
 ### File Organization
 - **Frontend**: Group by feature modules with consistent structure:

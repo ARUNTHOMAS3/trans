@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class ZTooltip extends StatefulWidget {
   final String message;
   final Widget? child;
+  /// Max width of the tooltip bubble. Defaults to 220 for compact wrapping.
+  final double maxWidth;
 
-  const ZTooltip({super.key, required this.message, this.child});
+  const ZTooltip({
+    super.key,
+    required this.message,
+    this.child,
+    this.maxWidth = 220,
+  });
 
   @override
   State<ZTooltip> createState() => _ZTooltipState();
@@ -45,8 +53,7 @@ class _ZTooltipState extends State<ZTooltip> {
         return Stack(
           children: [
             Positioned(
-              // Allow it to find its own size within constraints
-              width: 240,
+              width: widget.maxWidth,
               child: CompositedTransformFollower(
                 link: _layerLink,
                 showWhenUnlinked: false,
@@ -136,7 +143,7 @@ class _ZTooltipState extends State<ZTooltip> {
         },
         child:
             widget.child ??
-            const Icon(Icons.info_outline, size: 14, color: AppTheme.textMuted),
+            const Icon(LucideIcons.helpCircle, size: 14, color: AppTheme.textMuted),
       ),
     );
   }

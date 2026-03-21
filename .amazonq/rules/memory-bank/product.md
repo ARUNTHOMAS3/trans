@@ -12,6 +12,18 @@ ZERPAI ERP is a modern, multi-tenant Enterprise Resource Planning system designe
 
 ## Key Features
 
+## Current Sidebar Modules
+- Home
+- Items: Items, Composite Items, Item Groups, Price Lists, Item Mapping
+- Inventory: Assemblies, Inventory Adjustments, Picklists, Packages, Shipments, Transfer Orders
+- Sales: Customers, Retainer Invoices, Sales Orders, Invoices, Delivery Challans, Payments Received, Sales Returns, Credit Notes, e-Way Bills
+- Purchases: Vendors, Expenses, Recurring Expenses, Purchase Orders, Bills, Recurring Bills, Payments Made, Vendor Credits
+- Accountant: Manual Journals, Recurring Journals, Bulk Update, Transaction Locking, Opening Balances
+- Accounts: Chart of Accounts
+- Reports
+- Documents
+- Audit Logs
+
 ### Inventory Management
 - Product catalog with advanced search (trigram indexing, ranked results)
 - Composition tracking (active ingredients, strengths, dosage forms)

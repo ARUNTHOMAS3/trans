@@ -9,14 +9,39 @@ import '../../../../../shared/widgets/z_button.dart';
 import '../providers/purchases_purchase_orders_provider.dart';
 import '../models/purchases_purchase_orders_order_model.dart';
 
-class PurchaseOrderOverviewScreen extends ConsumerWidget {
-  const PurchaseOrderOverviewScreen({super.key});
+class PurchaseOrderOverviewScreen extends ConsumerStatefulWidget {
+  final String? initialSearchQuery;
+
+  const PurchaseOrderOverviewScreen({super.key, this.initialSearchQuery});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PurchaseOrderOverviewScreen> createState() =>
+      _PurchaseOrderOverviewScreenState();
+}
+
+class _PurchaseOrderOverviewScreenState
+    extends ConsumerState<PurchaseOrderOverviewScreen> {
+  late final TextEditingController _searchController;
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchQuery = widget.initialSearchQuery?.trim() ?? '';
+    _searchController = TextEditingController(text: _searchQuery);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final purchaseOrdersAsync = ref.watch(
       purchaseOrdersProvider(
-        PurchaseOrderFilter(page: 1, limit: 100),
+        PurchaseOrderFilter(page: 1, limit: 100, search: _searchQuery),
       ),
     );
 
@@ -31,7 +56,7 @@ class PurchaseOrderOverviewScreen extends ConsumerWidget {
       child: Column(
         children: [
           // Search and filters
-          _buildSearchBar(ref),
+          _buildSearchBar(),
           const SizedBox(height: AppTheme.space20),
           
           // Data table
@@ -47,7 +72,7 @@ class PurchaseOrderOverviewScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSearchBar(WidgetRef ref) {
+  Widget _buildSearchBar() {
     return Container(
       padding: const EdgeInsets.all(AppTheme.space16),
       decoration: BoxDecoration(
@@ -61,13 +86,16 @@ class PurchaseOrderOverviewScreen extends ConsumerWidget {
           const SizedBox(width: AppTheme.space12),
           Expanded(
             child: TextField(
+              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search purchase orders...',
                 border: InputBorder.none,
                 hintStyle: AppTheme.metaHelper,
               ),
               onChanged: (value) {
-                // TODO: Implement search with debouncing
+                setState(() {
+                  _searchQuery = value.trim();
+                });
               },
             ),
           ),

@@ -16,7 +16,9 @@ import '../../../../core/constants/app_colors.dart';
 
 /// Price Lists Screen - Inventory → Items → Price Lists
 class PriceListOverviewScreen extends ConsumerStatefulWidget {
-  const PriceListOverviewScreen({super.key});
+  final String? initialSearchQuery;
+
+  const PriceListOverviewScreen({super.key, this.initialSearchQuery});
 
   @override
   ConsumerState<PriceListOverviewScreen> createState() =>
@@ -28,6 +30,21 @@ class _PriceListOverviewScreenState
   final Set<String> _selectedIds = {};
   final _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    final initialQuery = widget.initialSearchQuery?.trim() ?? '';
+    if (initialQuery.isNotEmpty) {
+      _searchController.text = initialQuery;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        ref.read(priceListFilterProvider.notifier).setSearchQuery(initialQuery);
+      });
+    }
+  }
 
   @override
   void dispose() {

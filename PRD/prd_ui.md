@@ -14,6 +14,9 @@
 - **All UI decisions must follow PRD Section 14** and the rules below.
 - **All modal, popup, dropdown, menu, date-picker, popover, and overlay surfaces must default to pure white `#FFFFFF`.** Do not rely on inherited Material surface tinting or non-white theme surfaces unless an explicit design exception is approved.
 - **Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the standard reusable date picker** wherever the shared anchored picker pattern is feasible. Do not add new raw `showDatePicker(...)` usages for standard ERP screens unless an explicit exception is required.
+- **Dropdowns:** All form-input dropdowns must use `FormDropdown<T>` from `lib/shared/widgets/inputs/dropdown_input.dart`. Never use `DropdownButtonFormField` or `DropdownButton`. `FormDropdown` includes built-in search and the correct Zerpai overlay style.
+- **Tooltips:** Always use `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart`. Never use Flutter's built-in `Tooltip` widget. `ZTooltip` caps width at 220 px so text wraps compactly. Trigger icon is `LucideIcons.helpCircle`. Tooltip copy must be ≤2 short sentences.
+- **Deep-linking:** Every screen, sub-screen, tab, and significant dialog/sheet must be addressable via a named GoRouter route. Include path/query parameters so browser refresh, direct URL, and back-navigation restore the full working context. Never use `Navigator.push` — always navigate through GoRouter.
 - **Icons:** Use Lucide for ~95% of UI icons. Use FontAwesome **only** for brand icons (WhatsApp, Google, etc.).
 - **Icon Packages:** `lucide_icons` (primary), `font_awesome_flutter` (brands only).
 

@@ -13,7 +13,13 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 class RecurringJournalOverviewScreen extends ConsumerStatefulWidget {
   final String? initialJournalId;
-  const RecurringJournalOverviewScreen({super.key, this.initialJournalId});
+  final String? initialSearchQuery;
+
+  const RecurringJournalOverviewScreen({
+    super.key,
+    this.initialJournalId,
+    this.initialSearchQuery,
+  });
 
   @override
   ConsumerState<RecurringJournalOverviewScreen> createState() =>
@@ -84,6 +90,7 @@ class _RecurringJournalOverviewScreenState
 
     final Widget listPanel = RecurringJournalsListPanel(
       compact: showDesktopSplit,
+      initialSearchQuery: widget.initialSearchQuery,
     );
 
     return ZerpaiLayout(
