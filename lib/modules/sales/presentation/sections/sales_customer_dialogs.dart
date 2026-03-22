@@ -123,7 +123,6 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                                   onPressed: isLoading ? null : handleFetch,
                                   style: ElevatedButton.styleFrom(
                                     elevation: 0,
-                                    backgroundColor: AppTheme.primaryBlueDark,
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 18,
                                       vertical: 8,
@@ -303,7 +302,6 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                                   },
                             style: ElevatedButton.styleFrom(
                               elevation: 0,
-                              backgroundColor: AppTheme.successGreen,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 18,
                                 vertical: 10,
@@ -425,7 +423,6 @@ extension _SalesCustomerDialogs on _SalesCustomerCreateScreenState {
                             },
                             style: ElevatedButton.styleFrom(
                               elevation: 0,
-                              backgroundColor: AppTheme.successGreen,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 18,
                                 vertical: 10,

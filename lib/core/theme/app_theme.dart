@@ -432,9 +432,12 @@ class AppTheme {
   }
 
   /// Returns a copy of [lightTheme] with the accent color overriding
-  /// ElevatedButton backgrounds and the color scheme primary/secondary.
+  /// ElevatedButton, Checkbox, Radio, Switch, TextButton, and color scheme.
   static ThemeData themedWith(Color accent) {
     final base = lightTheme;
+    final accentState = WidgetStateProperty.resolveWith<Color?>(
+      (states) => states.contains(WidgetState.selected) ? accent : null,
+    );
     return base.copyWith(
       colorScheme: base.colorScheme.copyWith(
         primary: accent,
@@ -453,6 +456,28 @@ class AppTheme {
             borderRadius: BorderRadius.circular(space4),
           ),
           textStyle: buttonText,
+        ),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: accentState,
+        checkColor: WidgetStateProperty.all(Colors.white),
+      ),
+      radioTheme: RadioThemeData(fillColor: accentState),
+      switchTheme: SwitchThemeData(
+        thumbColor: accentState,
+        trackColor: WidgetStateProperty.resolveWith<Color?>(
+          (states) => states.contains(WidgetState.selected)
+              ? accent.withValues(alpha: 0.5)
+              : null,
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: accent),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: accent,
+          side: BorderSide(color: accent),
         ),
       ),
     );

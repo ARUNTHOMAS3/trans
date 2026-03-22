@@ -341,7 +341,6 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
                       message: 'New Item (/)',
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.successGreen,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 18,
                             vertical: 10,

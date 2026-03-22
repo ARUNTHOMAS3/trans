@@ -171,7 +171,6 @@ class _CreateBatchDialogState extends State<CreateBatchDialog> {
                       'expiryDate': expiryDateController.text,
                     }),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accentGreen,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(

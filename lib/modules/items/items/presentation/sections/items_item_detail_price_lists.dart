@@ -425,7 +425,6 @@ extension _ItemDetailPriceLists on _ItemDetailScreenState {
                                     }
                                   },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.accentGreen,
                                     foregroundColor: Colors.white,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(

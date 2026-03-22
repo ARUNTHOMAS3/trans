@@ -263,7 +263,6 @@ Future<void> showExportItemsDialog(BuildContext context) {
                             children: [
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.successGreen,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 28,
                                     vertical: 10,

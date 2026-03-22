@@ -193,8 +193,10 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
 
   static String _activeMenu = 'Home';
   static final Set<String> _expandedParents = {'Items'};
-  static bool _isCollapsed = true;
+  static bool _isCollapsed = false;
   static bool _wasOnSettingsRoute = false;
+  // Stores the user's sidebar state before entering settings so it can be restored on exit.
+  static bool? _preSettingsCollapsed;
 
   OverlayEntry? _submenuOverlay;
 
@@ -225,9 +227,14 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
         location == AppRoutes.settings ||
         location.startsWith('${AppRoutes.settings}/');
 
-    // Auto-collapse when entering settings for the first time
     if (isSettings && !_wasOnSettingsRoute) {
+      // Entering settings — save current state then collapse
+      _preSettingsCollapsed = _isCollapsed;
       _isCollapsed = true;
+    } else if (!isSettings && _wasOnSettingsRoute) {
+      // Leaving settings — restore what the user had before
+      _isCollapsed = _preSettingsCollapsed ?? false;
+      _preSettingsCollapsed = null;
     }
     _wasOnSettingsRoute = isSettings;
   }
@@ -283,6 +290,10 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
 
   @override
   Widget build(BuildContext context) {
+    // Call on every build so route changes (driven by parent shell rebuild)
+    // are always caught, not just when didChangeDependencies fires.
+    _autoCollapseForSettings();
+
     final branding = ref.watch(appBrandingProvider);
 
     // Sync statics so ZerpaiSidebarItem picks up live branding values.
@@ -392,6 +403,7 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
                       return _FloatingChildRow(
                         label: c.label,
                         isActive: isActive,
+                        accentColor: ZerpaiSidebarItem.accentColor,
                         onOpen: () {
                           _removeFloatingMenu();
                           _select(c.label, c.listRoute);
@@ -576,10 +588,6 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
   // }
 
   void _select(String menu, String route, {bool isAdd = false}) {
-    if (isAdd) {
-      context.go(route);
-      return;
-    }
     setState(() {
       _activeMenu = menu;
 
@@ -602,6 +610,7 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
       }
     });
 
+    context.go(route);
     widget.onNavigate?.call(route);
   }
 }
@@ -639,12 +648,14 @@ class _BrandMark extends StatelessWidget {
 class _FloatingChildRow extends StatefulWidget {
   final String label;
   final bool isActive;
+  final Color accentColor;
   final VoidCallback onOpen;
   final VoidCallback onAdd;
 
   const _FloatingChildRow({
     required this.label,
     required this.isActive,
+    required this.accentColor,
     required this.onOpen,
     required this.onAdd,
   });
@@ -655,7 +666,6 @@ class _FloatingChildRow extends StatefulWidget {
 
 class _FloatingChildRowState extends State<_FloatingChildRow> {
   bool _hovered = false;
-  static const Color _activeGreen = Color(0xFF22A95E); // PRD 14.12.1
   static const Color _hoverBg = Color(0xFF3E4F63);
 
   @override
@@ -671,7 +681,7 @@ class _FloatingChildRowState extends State<_FloatingChildRow> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: widget.isActive
-              ? _activeGreen
+              ? widget.accentColor
               : (_hovered ? _hoverBg : Colors.transparent),
           borderRadius: BorderRadius.circular(8),
         ),

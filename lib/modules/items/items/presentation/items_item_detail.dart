@@ -408,10 +408,6 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                       .ensureItemLoaded(effectiveId, forceRefresh: true);
                 }
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryBlueDark,
-                foregroundColor: Colors.white,
-              ),
               child: const Text('Retry'),
             ),
           ],
@@ -930,7 +926,6 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                                   _reorderPointEntry = null;
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.accentGreen,
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   minimumSize: const Size(80, 36),
@@ -1646,8 +1641,6 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
                       child: ElevatedButton(
                         onPressed: () {},
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryBlueDark,
-                          foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(

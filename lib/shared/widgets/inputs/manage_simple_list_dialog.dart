@@ -394,7 +394,6 @@ class _ManageSimpleListDialogState extends State<ManageSimpleListDialog> {
                 onPressed: () => _saveItem(selectAfter: true),
                 style: ElevatedButton.styleFrom(
                   elevation: 0,
-                  backgroundColor: AppTheme.successGreen,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 10,

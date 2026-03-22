@@ -1211,7 +1211,6 @@ Future<void> showBulkUpdateDialog(
                                             }
                                           : null,
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppTheme.successGreen,
                                         foregroundColor: Colors.white,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 20,

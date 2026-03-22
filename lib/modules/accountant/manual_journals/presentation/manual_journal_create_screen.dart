@@ -752,7 +752,6 @@ class _ManualJournalCreateScreenState
                                       }
                                     },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.successGreen,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 18,
@@ -2116,7 +2115,6 @@ class _ManualJournalCreateScreenState
             icon: const Icon(LucideIcons.plusCircle, size: 16),
             label: const Text('Add New Row'),
             style: TextButton.styleFrom(
-              foregroundColor: AppTheme.primaryBlue,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
@@ -2601,7 +2599,6 @@ class _ManualJournalCreateScreenState
                           ? null
                           : () => _save(ManualJournalStatus.posted),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.successGreen,
                         foregroundColor: Colors.white,
                       ),
                       child: Text(primaryLabel),
@@ -3046,7 +3043,6 @@ class _ManualJournalCreateScreenState
               onPressed: () =>
                   context.push(AppRoutes.accountantJournalTemplateCreation),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentGreen,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
@@ -3234,8 +3230,6 @@ class _PaginatedSidebarListState extends State<_PaginatedSidebarList> {
             icon: const Icon(LucideIcons.plus, size: 18),
             label: const Text('New Template'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.accentGreen,
-              side: const BorderSide(color: AppTheme.accentGreen),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),

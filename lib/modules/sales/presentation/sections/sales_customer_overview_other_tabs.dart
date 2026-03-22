@@ -79,8 +79,6 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                 ElevatedButton(
                   onPressed: () {},
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryBlueDark,
-                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -278,7 +276,6 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                 icon: const Icon(LucideIcons.send, size: 16),
                 label: const Text('Send Email'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.successGreen,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),

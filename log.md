@@ -1,3 +1,52 @@
+## Branding: Hardcoded Blue Button Sweep (March 22, 2026)
+
+### Blue button overrides removed (28 files, agent pass)
+Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlue`, `AppTheme.primaryBlueDark`, `Color(0xFF2563EB)`, `Color(0xFF1A73E8)`, `Color(0xFF1B8EF1)` from `ElevatedButton`, `TextButton`, `OutlinedButton`, and `FloatingActionButton` across: items create/detail/list, pricelist create/edit/overview, composite items, sales orders, sales customers, purchases vendors, accountant chart-of-accounts, transaction locking, manual/recurring journals, audit logs apply filter, sync manager, categories dialog, navbar install-app button
+- `lib/shared/widgets/z_button.dart`: removed hardcoded `Color(0xFF1B8EF1)` from `ZButton.primary` — was causing all `ZButton.primary` usages to be blue regardless of theme
+- `lib/core/widgets/common/z_button.dart`: same fix on the duplicate
+
+### Reports/audit selection state (agent in progress)
+- Replacing `AppTheme.primaryBlue/primaryBlueDark` used as selection indicators (card borders, selected text/icon colors) in `reports_audit_logs_screen.dart`, `reports_center_screen.dart`, `reports_reports_overview.dart` with `ref.watch(appBrandingProvider).accentColor`
+
+---
+
+## Branding: Full Accent Color Propagation Pass 2 (March 22, 2026)
+
+### `AppTheme.themedWith()` extended
+- Now propagates accent color to: `CheckboxTheme` (fill + white check), `RadioTheme` (fill), `SwitchTheme` (thumb + track), `TextButtonTheme` (foreground), `OutlinedButtonTheme` (foreground + border) — all button/input types now use the selected accent color with zero per-widget code
+
+### Navbar "+" quick-add button
+- `lib/core/layout/zerpai_navbar.dart`: replaced hardcoded `AppTheme.successGreen` with `ref.watch(appBrandingProvider).accentColor`
+
+### Sidebar floating submenu active row
+- `lib/core/layout/zerpai_sidebar.dart`: removed `static const _activeGreen`; `_FloatingChildRow` now accepts `accentColor` parameter passed from `ZerpaiSidebarItem.accentColor`
+
+### OutlinedButton hardcoded override
+- `lib/modules/accountant/manual_journals/presentation/manual_journal_create_screen.dart`: removed `foregroundColor` + `side` overrides — covered by `OutlinedButtonTheme`
+
+### Remaining ElevatedButton/TextButton overrides cleared
+- `lib/core/widgets/forms/manage_list_dialog.dart`, `manage_reorder_terms_dialog.dart`, `manage_simple_list_dialog.dart`: removed `backgroundColor: const Color(0xFF22C55E)`
+- `lib/modules/items/pricelist/presentation/items_pricelist_pricelist_overview.dart`: removed `foregroundColor: AppTheme.successGreen` from `TextButton.styleFrom()`
+
+---
+
+## Settings & Branding: Accent Color Global Propagation (March 22, 2026)
+
+### Settings sidebar — Taxes & Compliance separation
+- `lib/core/pages/settings_page.dart`: moved "Taxes & Compliance" block into its own `_SettingsColumn` so it renders as a separate card instead of stacked under "Users & Roles"
+
+### Settings sidebar collapse behaviour
+- `lib/core/layout/zerpai_sidebar.dart`: default `_isCollapsed` changed from `true` to `false` (all non-settings pages now start expanded); added `_preSettingsCollapsed` to save and restore user's sidebar state when entering/leaving settings — settings page auto-collapses on entry and restores previous state on exit
+
+### Accent color applied to settings sidebar active items & Save buttons
+- `lib/core/pages/settings_organization_branding_page.dart`: `_buildSidebarEntry` active highlight and Save button now use `ref.watch(appBrandingProvider).accentColor` instead of hardcoded `AppTheme.accentGreen` / `AppTheme.successGreen`
+- `lib/core/pages/settings_organization_profile_page.dart`: same fix for sidebar active item, Save button, Switch thumb, and dropdown selected item text color; added `app_branding_provider` import
+
+### Global ElevatedButton accent color
+- Removed hardcoded `backgroundColor: AppTheme.accentGreen/successGreen` overrides from all `ElevatedButton.styleFrom(...)` calls across modules — lets `AppTheme.themedWith(accentColor)` theme propagate the selected accent color to all Save/Create/Update buttons app-wide (~69 occurrences across items, inventory, sales, accountant, purchases modules)
+
+---
+
 ## Branding: Accent Swatches Rectangular + Code Cleanup (March 22, 2026)
 
 ### Revert swatches to rectangular

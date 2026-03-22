@@ -114,7 +114,6 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
             child: ElevatedButton(
               onPressed: () => context.go(widget.createRoute),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.successGreen, // Zerpai Green
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

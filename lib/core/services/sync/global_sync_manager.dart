@@ -165,8 +165,6 @@ class _GlobalSyncManagerState extends ConsumerState<GlobalSyncManager> {
                       _performSync();
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1B8EF1),
-                      foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,

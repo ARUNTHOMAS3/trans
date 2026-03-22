@@ -342,7 +342,6 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.successGreen,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(

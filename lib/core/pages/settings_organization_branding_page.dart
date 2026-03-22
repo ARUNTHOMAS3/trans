@@ -651,6 +651,7 @@ class _SettingsOrganizationBrandingPageState
 
   Widget _buildSidebarEntry(_BrandingNavEntry entry, String currentPath) {
     final bool isActive = entry.route == currentPath;
+    final Color accentColor = ref.watch(appBrandingProvider).accentColor;
 
     return InkWell(
       onTap: () => _openEntry(entry),
@@ -663,7 +664,7 @@ class _SettingsOrganizationBrandingPageState
           vertical: AppTheme.space10,
         ),
         decoration: BoxDecoration(
-          color: isActive ? AppTheme.accentGreen : Colors.transparent,
+          color: isActive ? accentColor : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -802,7 +803,7 @@ class _SettingsOrganizationBrandingPageState
               ElevatedButton(
                 onPressed: _isSaving ? null : _saveBranding,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.successGreen,
+                  backgroundColor: ref.watch(appBrandingProvider).accentColor,
                   foregroundColor: Colors.white,
                 ),
                 child: _isSaving

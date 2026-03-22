@@ -860,10 +860,6 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () => _hydrateInitialItem(forceRefresh: true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryBlueDark,
-                  foregroundColor: Colors.white,
-                ),
                 child: const Text('Retry'),
               ),
             ],

@@ -2093,7 +2093,6 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
               children: [
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentGreen,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,

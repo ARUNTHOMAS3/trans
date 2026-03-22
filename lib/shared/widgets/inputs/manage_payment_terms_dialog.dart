@@ -674,7 +674,6 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
           ElevatedButton(
             onPressed: _isSaving ? null : _saveChanges,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentGreen, // Green-500
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(

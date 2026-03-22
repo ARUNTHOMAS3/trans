@@ -731,7 +731,6 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
                       ElevatedButton(
                         onPressed: _isSaving ? null : _saveBranding,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.successGreen,
                           foregroundColor: Colors.white,
                         ),
                         child: _isSaving
@@ -1447,7 +1446,6 @@ class _CustomColorDialogState extends State<_CustomColorDialog> {
                         Navigator.of(context).pop();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.successGreen,
                         foregroundColor: Colors.white,
                       ),
                       child: const Text('Apply'),

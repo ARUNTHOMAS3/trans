@@ -96,7 +96,6 @@ class _PriceListOverviewScreenState
           icon: const Icon(Icons.add, size: 18),
           label: const Text('New Price List'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.successGreen,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             minimumSize: const Size(0, 36),
@@ -179,8 +178,6 @@ class _PriceListOverviewScreenState
               icon: const Icon(Icons.refresh, size: 20),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryBlue,
-                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 14,
@@ -280,8 +277,6 @@ class _PriceListOverviewScreenState
               icon: const Icon(Icons.add, size: 20),
               label: const Text('Create your first price list'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryBlue,
-                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 14,
@@ -711,10 +706,6 @@ class _PriceListOverviewScreenState
                   );
                 }
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryBlue,
-                foregroundColor: Colors.white,
-              ),
               child: const Text('Activate'),
             ),
           ],

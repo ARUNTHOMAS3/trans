@@ -23,7 +23,6 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
       enableBodyScroll: false,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.pushNamed(context, '/sales/orders/create'),
-        backgroundColor: const Color(0xFF2563EB),
         icon: const Icon(LucideIcons.plus, color: Colors.white),
         label: const Text(
           'New Sales Order',

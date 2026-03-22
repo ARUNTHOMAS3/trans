@@ -297,7 +297,6 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                   ElevatedButton(
                     onPressed: () => widget.onSave(_items),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accentGreen,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),

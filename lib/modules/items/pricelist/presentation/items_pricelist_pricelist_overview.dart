@@ -302,7 +302,6 @@ class _PriceListOverviewScreenState
               icon: const Icon(Icons.add, size: 18),
               label: const Text('New'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.successGreen,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppTheme.space16,
@@ -423,7 +422,6 @@ class _PriceListOverviewScreenState
             onPressed: _bulkActivate,
             icon: const Icon(Icons.check, size: 16),
             label: const Text('Activate', style: TextStyle(fontSize: 13)),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.successGreen),
           ),
           const SizedBox(width: 8),
           TextButton.icon(
@@ -537,8 +535,6 @@ class _PriceListOverviewScreenState
               icon: const Icon(Icons.refresh, size: 20),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryBlue,
-                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 14,
@@ -821,8 +817,6 @@ class _PriceListOverviewScreenState
               icon: const Icon(Icons.add, size: 20),
               label: const Text('Create your first price list'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryBlue,
-                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 14,
@@ -1272,8 +1266,6 @@ class _PriceListOverviewScreenState
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryBlue,
-                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6),
                 ),
@@ -1608,7 +1600,6 @@ class _PriceListRowState extends State<_PriceListRow> {
                                   : 'activate',
                             ),
                             style: TextButton.styleFrom(
-                              foregroundColor: AppTheme.primaryBlue,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: AppTheme.space6,
                               ),

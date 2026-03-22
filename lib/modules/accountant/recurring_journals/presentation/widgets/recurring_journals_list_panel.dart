@@ -1591,7 +1591,6 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                 ElevatedButton(
                   onPressed: () => Navigator.of(context).pop(_columns),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentGreen,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
@@ -1869,7 +1868,6 @@ class _NewCustomViewDialogState extends State<_NewCustomViewDialog> {
             Navigator.pop(context);
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.accentGreen,
             foregroundColor: Colors.white,
           ),
           child: const Text('Create View'),

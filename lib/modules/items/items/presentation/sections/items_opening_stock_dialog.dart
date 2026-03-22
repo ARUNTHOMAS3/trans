@@ -189,7 +189,6 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                 ElevatedButton(
                   onPressed: _isSaving ? null : _handleSave,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentGreen,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(
@@ -1558,7 +1557,6 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
                                       _closeSerialGeneratorPopover();
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.accentGreen,
                                       foregroundColor: Colors.white,
                                       elevation: 0,
                                       padding: const EdgeInsets.symmetric(

@@ -984,7 +984,6 @@ class _PurchasesVendorsVendorCreateScreenState
             onPressed: isLoading ? null : _handleSave,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              backgroundColor: AppTheme.primaryBlueDark,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -998,7 +997,7 @@ class _PurchasesVendorsVendorCreateScreenState
                       color: Colors.white,
                     ),
                   )
-                : const Text('Save', style: TextStyle(color: Colors.white)),
+                : const Text('Save'),
           ),
           const SizedBox(width: 12),
           Tooltip(

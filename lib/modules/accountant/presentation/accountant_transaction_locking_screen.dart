@@ -363,7 +363,6 @@ class _AccountantTransactionLockingScreenState
             ),
             label: Text(isLocked ? 'Unlock' : 'Lock'),
             style: TextButton.styleFrom(
-              foregroundColor: AppTheme.primaryBlue,
               textStyle: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -410,7 +409,6 @@ class _AccountantTransactionLockingScreenState
             ],
           ),
           style: TextButton.styleFrom(
-            foregroundColor: AppTheme.primaryBlue,
             textStyle: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,

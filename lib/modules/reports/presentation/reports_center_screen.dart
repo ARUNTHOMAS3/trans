@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/providers/app_branding_provider.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 
-class ReportsCenterScreen extends StatefulWidget {
+class ReportsCenterScreen extends ConsumerStatefulWidget {
   final String? initialSearchQuery;
 
   const ReportsCenterScreen({super.key, this.initialSearchQuery});
 
   @override
-  State<ReportsCenterScreen> createState() => _ReportsCenterScreenState();
+  ConsumerState<ReportsCenterScreen> createState() => _ReportsCenterScreenState();
 }
 
-class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
+class _ReportsCenterScreenState extends ConsumerState<ReportsCenterScreen> {
   String _selectedCategory = 'All Reports';
   final TextEditingController _searchController = TextEditingController();
 
@@ -414,14 +416,14 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
       leading: Icon(
         icon,
         size: 18,
-        color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondary,
+        color: isSelected ? ref.watch(appBrandingProvider).accentColor : AppTheme.textSecondary,
       ),
       title: Text(
         title,
         style: TextStyle(
           fontSize: 13,
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          color: isSelected ? AppTheme.primaryBlue : AppTheme.textBody,
+          color: isSelected ? ref.watch(appBrandingProvider).accentColor : AppTheme.textBody,
         ),
       ),
       onTap: () => setState(() => _selectedCategory = title),
@@ -437,14 +439,14 @@ class _ReportsCenterScreenState extends State<ReportsCenterScreen> {
       leading: Icon(
         LucideIcons.folder,
         size: 18,
-        color: isSelected ? AppTheme.primaryBlue : AppTheme.textMuted,
+        color: isSelected ? ref.watch(appBrandingProvider).accentColor : AppTheme.textMuted,
       ),
       title: Text(
         title,
         style: TextStyle(
           fontSize: 13,
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          color: isSelected ? AppTheme.primaryBlue : AppTheme.textBody,
+          color: isSelected ? ref.watch(appBrandingProvider).accentColor : AppTheme.textBody,
         ),
       ),
       onTap: () => setState(() => _selectedCategory = title),

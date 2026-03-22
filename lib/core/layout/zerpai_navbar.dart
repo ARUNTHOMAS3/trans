@@ -11,6 +11,7 @@ import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:zerpai_erp/shared/services/recent_history_service.dart';
 import 'package:zerpai_erp/modules/items/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
+import 'package:zerpai_erp/core/providers/app_branding_provider.dart';
 import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 
 @JS()
@@ -581,8 +582,6 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
                     icon: const Icon(Icons.download, size: 16),
                     label: const Text('Install App'),
                     style: TextButton.styleFrom(
-                      foregroundColor:
-                          AppTheme.primaryBlue, // Migrated from 0xFF2563EB
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 6,
@@ -648,8 +647,7 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
                 height: 32,
                 width: 32,
                 decoration: BoxDecoration(
-                  color:
-                      AppTheme.successGreen, // Green - migrated from 0xFF22C55E
+                  color: ref.watch(appBrandingProvider).accentColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: IconButton(

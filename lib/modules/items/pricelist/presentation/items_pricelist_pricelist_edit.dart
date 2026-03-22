@@ -686,7 +686,6 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                             ),
                           ),
                           style: TextButton.styleFrom(
-                            foregroundColor: AppTheme.primaryBlue,
                             padding: EdgeInsets.zero,
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1034,7 +1033,6 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                               ),
                               label: const Text('Add New Range'),
                               style: TextButton.styleFrom(
-                                foregroundColor: AppTheme.primaryBlueDark,
                                 textStyle: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
@@ -1114,7 +1112,6 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                               Navigator.pop(context);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.successGreen,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
@@ -2344,7 +2341,6 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submitForm,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.successGreen,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             elevation: 0,

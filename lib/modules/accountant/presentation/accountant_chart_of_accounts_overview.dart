@@ -324,8 +324,6 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
             icon: const Icon(LucideIcons.plus, size: 14),
             label: const Text('New', style: TextStyle(fontSize: 13)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryBlue,
-              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -1538,7 +1536,6 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.successGreen,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(

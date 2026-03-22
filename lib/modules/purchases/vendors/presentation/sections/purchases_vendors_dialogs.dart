@@ -380,7 +380,6 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                                       },
                                 style: ElevatedButton.styleFrom(
                                   elevation: 0,
-                                  backgroundColor: AppTheme.successGreen,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 18,
                                     vertical: 10,

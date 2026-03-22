@@ -512,12 +512,11 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
             onPressed: _saveCustomer,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              backgroundColor: AppTheme.primaryBlueDark,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
+            child: const Text('Save'),
           ),
           const SizedBox(width: 12),
           OutlinedButton(

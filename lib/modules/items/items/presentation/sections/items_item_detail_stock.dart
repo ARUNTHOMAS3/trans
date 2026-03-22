@@ -1564,7 +1564,6 @@ extension _ItemDetailStock on _ItemDetailScreenState {
       icon: const Icon(Icons.add, size: 16),
       label: const Text('New'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppTheme.accentGreen,
         foregroundColor: Colors.white,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -2685,8 +2684,6 @@ class _PhysicalStockAdjustmentDialogState
               ElevatedButton(
                 onPressed: _isSaving || warehouse == null ? null : _handleSave,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryBlueDark,
-                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,
                     vertical: 12,

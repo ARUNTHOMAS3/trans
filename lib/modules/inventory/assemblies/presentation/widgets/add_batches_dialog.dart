@@ -443,7 +443,6 @@ class _AddBatchesDialogState extends State<AddBatchesDialog> {
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentGreen,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             ),

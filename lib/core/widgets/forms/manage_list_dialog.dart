@@ -297,7 +297,6 @@ class _ManageListDialogState extends State<ManageListDialog> {
         ),
         style: ElevatedButton.styleFrom(
           elevation: 0,
-          backgroundColor: const Color(0xFF22C55E),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),

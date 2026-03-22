@@ -33,8 +33,6 @@ class ZButton extends StatelessWidget {
     return ElevatedButton(
       onPressed: loading ? null : onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF1B8EF1),
-        foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 28),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),

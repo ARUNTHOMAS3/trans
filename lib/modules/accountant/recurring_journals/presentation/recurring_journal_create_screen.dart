@@ -1139,7 +1139,6 @@ class _RecurringJournalCreateScreenState
       icon: const Icon(LucideIcons.plusCircle, size: 16),
       label: const Text('Add New Row'),
       style: TextButton.styleFrom(
-        foregroundColor: AppTheme.primaryBlue,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(4),
@@ -1219,7 +1218,6 @@ class _RecurringJournalCreateScreenState
           ElevatedButton(
             onPressed: _isSaving ? null : _handleSave,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentGreen,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               shape: RoundedRectangleBorder(

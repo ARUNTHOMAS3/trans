@@ -466,7 +466,6 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                   ),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.primaryBlueDark,
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -787,9 +786,6 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppTheme.primaryBlueDark,
-                      ),
                     ),
 
                     const SizedBox(height: 32),
@@ -867,7 +863,6 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
                             Navigator.pop(context);
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.accentGreen,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 24,
@@ -1777,7 +1772,6 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submitForm,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.successGreen,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             elevation: 0,

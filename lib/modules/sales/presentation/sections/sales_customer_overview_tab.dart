@@ -702,7 +702,6 @@ extension _OverviewTab on _SalesCustomerOverviewScreenState {
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.successGreen,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),

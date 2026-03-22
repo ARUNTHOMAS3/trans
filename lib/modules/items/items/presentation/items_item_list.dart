@@ -72,14 +72,13 @@ class ItemListScreen extends ConsumerWidget {
     return ElevatedButton.icon(
       onPressed: () => context.pushNamed(AppRoutes.itemsCreate),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF1A73E8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
-      icon: const Icon(Icons.add, color: Colors.white, size: 18),
+      icon: const Icon(Icons.add, size: 18),
       label: const Text(
         "New Item",
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        style: TextStyle(fontWeight: FontWeight.w600),
       ),
     );
   }

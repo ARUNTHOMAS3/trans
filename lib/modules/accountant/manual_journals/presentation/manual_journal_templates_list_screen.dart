@@ -28,7 +28,6 @@ class ManualJournalTemplatesListScreen extends ConsumerWidget {
           icon: const Icon(LucideIcons.plus, size: 18),
           label: const Text('New Template'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.accentGreen,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             shape: RoundedRectangleBorder(

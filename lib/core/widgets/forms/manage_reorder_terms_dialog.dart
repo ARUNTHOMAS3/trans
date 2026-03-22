@@ -1049,7 +1049,6 @@ class _ManageReorderTermsDialogState extends State<ManageReorderTermsDialog> {
             onPressed: _isSaving ? null : _saveChanges,
             style: ElevatedButton.styleFrom(
               elevation: 0,
-              backgroundColor: const Color(0xFF22C55E),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             ),
             child: _isSaving

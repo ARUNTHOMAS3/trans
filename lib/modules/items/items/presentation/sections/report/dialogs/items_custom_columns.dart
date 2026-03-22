@@ -187,9 +187,6 @@ class _ItemsCustomColumnsDialogState extends State<ItemsCustomColumnsDialog> {
           ),
           const SizedBox(width: 8),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.successGreen,
-            ),
             onPressed: () {
               widget.onSave(_workingSelection);
               Navigator.pop(context);

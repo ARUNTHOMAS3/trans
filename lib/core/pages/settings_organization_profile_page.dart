@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:zerpai_erp/core/providers/app_branding_provider.dart';
 import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
@@ -688,6 +689,7 @@ class _SettingsOrganizationProfilePageState
 
   Widget _buildSidebarEntry(_ProfileNavEntry entry, String currentPath) {
     final isActive = entry.route == currentPath;
+    final Color accentColor = ref.watch(appBrandingProvider).accentColor;
 
     return InkWell(
       onTap: () => _openEntry(entry),
@@ -700,7 +702,7 @@ class _SettingsOrganizationProfilePageState
           vertical: AppTheme.space10,
         ),
         decoration: BoxDecoration(
-          color: isActive ? AppTheme.accentGreen : Colors.transparent,
+          color: isActive ? accentColor : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -857,7 +859,6 @@ class _SettingsOrganizationProfilePageState
                         onPressed: _addAdditionalField,
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.zero,
-                          foregroundColor: AppTheme.primaryBlue,
                         ),
                         icon: const Icon(LucideIcons.plusCircle, size: 18),
                         label: const Text('New Field'),
@@ -882,7 +883,7 @@ class _SettingsOrganizationProfilePageState
                       ElevatedButton(
                         onPressed: _isSaving ? null : _saveProfile,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.successGreen,
+                          backgroundColor: ref.watch(appBrandingProvider).accentColor,
                           foregroundColor: Colors.white,
                         ),
                         child: _isSaving
@@ -1367,7 +1368,7 @@ class _SettingsOrganizationProfilePageState
                       const SizedBox(width: AppTheme.space12),
                       Switch.adaptive(
                         value: _hasSeparatePaymentStubAddress,
-                        activeThumbColor: AppTheme.accentGreen,
+                        activeThumbColor: ref.watch(appBrandingProvider).accentColor,
                         onChanged: (value) {
                           setState(() {
                             _hasSeparatePaymentStubAddress = value;
@@ -1849,7 +1850,7 @@ class _SettingsOrganizationProfilePageState
                   item,
                   style: AppTheme.bodyText.copyWith(
                     color: isSelected
-                        ? AppTheme.successGreen
+                        ? ref.read(appBrandingProvider).accentColor
                         : AppTheme.textPrimary,
                     fontWeight: isSelected
                         ? FontWeight.w600

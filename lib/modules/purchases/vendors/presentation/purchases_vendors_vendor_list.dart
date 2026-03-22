@@ -154,7 +154,6 @@ class _PurchasesVendorsVendorListScreenState
         style: TextStyle(color: Colors.white, fontSize: 13),
       ),
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppTheme.accentGreen,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         elevation: 0,

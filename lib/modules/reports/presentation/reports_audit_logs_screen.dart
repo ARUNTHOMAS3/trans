@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:zerpai_erp/core/providers/app_branding_provider.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/reports/repositories/reports_repository.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
@@ -334,7 +335,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
           color: isSelected ? AppTheme.infoBg : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryBlue : AppTheme.borderColor,
+            color: isSelected ? ref.watch(appBrandingProvider).accentColor : AppTheme.borderColor,
           ),
         ),
         child: Column(
@@ -343,7 +344,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             Icon(
               icon,
               size: 18,
-              color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondary,
+              color: isSelected ? ref.watch(appBrandingProvider).accentColor : AppTheme.textSecondary,
             ),
             const SizedBox(height: AppTheme.space10),
             Text(title, style: AppTheme.sectionHeader.copyWith(fontSize: 13)),
@@ -383,12 +384,12 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
               ),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? AppTheme.primaryBlue.withValues(alpha: 0.12)
+                    ? ref.watch(appBrandingProvider).accentColor.withValues(alpha: 0.12)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(10),
                 border: isSelected
                     ? Border.all(
-                        color: AppTheme.primaryBlue.withValues(alpha: 0.24),
+                        color: ref.watch(appBrandingProvider).accentColor.withValues(alpha: 0.24),
                       )
                     : null,
               ),
@@ -398,7 +399,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                     node.icon,
                     size: 18,
                     color: isSelected
-                        ? AppTheme.primaryBlue
+                        ? ref.watch(appBrandingProvider).accentColor
                         : AppTheme.textPrimary,
                   ),
                   const SizedBox(width: AppTheme.space10),
@@ -436,7 +437,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                               : LucideIcons.chevronRight,
                           size: 16,
                           color: isSelected
-                              ? AppTheme.primaryBlue
+                              ? ref.watch(appBrandingProvider).accentColor
                               : AppTheme.textSecondary,
                         ),
                       ),
@@ -527,7 +528,6 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
         ElevatedButton.icon(
           onPressed: _isLoading ? null : _loadLogs,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.accentGreen,
             foregroundColor: Colors.white,
             minimumSize: const Size(0, 40),
           ),
@@ -700,8 +700,6 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             ElevatedButton.icon(
               onPressed: _isLoading ? null : _applyFilters,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryBlue,
-                foregroundColor: Colors.white,
                 minimumSize: const Size(0, 42),
               ),
               icon: const Icon(LucideIcons.filter, size: 16),
@@ -722,7 +720,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                   side: const BorderSide(color: AppTheme.borderColor),
                   labelStyle: AppTheme.metaHelper.copyWith(
                     color: _selectedActions.contains(action)
-                        ? AppTheme.primaryBlue
+                        ? ref.watch(appBrandingProvider).accentColor
                         : AppTheme.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),

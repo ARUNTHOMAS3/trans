@@ -220,8 +220,6 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
-                foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,

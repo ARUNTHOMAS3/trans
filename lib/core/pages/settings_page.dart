@@ -59,6 +59,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 _SettingsEntry(label: 'User Preferences'),
               ],
             ),
+          ],
+        ),
+        _SettingsColumn(
+          blocks: <_SettingsBlock>[
             _SettingsBlock(
               title: 'Taxes & Compliance',
               icon: LucideIcons.receipt,

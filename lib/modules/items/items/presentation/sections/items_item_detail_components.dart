@@ -258,7 +258,6 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
             child: ElevatedButton(
               onPressed: () => context.pushNamed(AppRoutes.itemsCreate),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentGreen,
                 padding: EdgeInsets.zero,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -571,7 +570,6 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 _openOpeningStockDialog(item, warehouses);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentGreen,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(
@@ -741,7 +739,6 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                 ),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                foregroundColor: AppTheme.primaryBlueDark,
                 textStyle: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,

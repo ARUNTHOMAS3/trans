@@ -124,7 +124,6 @@ class RecurringJournalImportDialog extends StatelessWidget {
           ElevatedButton(
             onPressed: onTap,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentGreen,
               foregroundColor: Colors.white,
             ),
             child: Text(actionLabel),
@@ -249,7 +248,6 @@ class _RecurringJournalExportDialogState
           ElevatedButton(
             onPressed: onTap,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentGreen,
               foregroundColor: Colors.white,
             ),
             child: Text(actionLabel),
