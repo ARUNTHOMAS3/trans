@@ -176,6 +176,80 @@ class _OutletOption {
   const _OutletOption({required this.id, required this.name});
 }
 
+class _SeriesOption {
+  final String id;
+  final String name;
+  const _SeriesOption({required this.id, required this.name});
+}
+
+// ─── Transaction series module definitions ─────────────────────────────────
+
+class _SeriesModuleRow {
+  final TextEditingController prefixCtrl;
+  final TextEditingController startingCtrl;
+  _SeriesModuleRow({required String prefix, required String starting})
+      : prefixCtrl = TextEditingController(text: prefix),
+        startingCtrl = TextEditingController(text: starting);
+  void dispose() {
+    prefixCtrl.dispose();
+    startingCtrl.dispose();
+  }
+}
+
+const List<Map<String, String>> _kSeriesModules = [
+  {'key': 'credit_note', 'label': 'Credit Note', 'prefix': 'CN-', 'starting': '00001'},
+  {'key': 'customer_payment', 'label': 'Customer Payment', 'prefix': '', 'starting': '1'},
+  {'key': 'purchase_order', 'label': 'Purchase Order', 'prefix': 'PO-', 'starting': '00001'},
+  {'key': 'sales_order', 'label': 'Sales Order', 'prefix': 'SO-', 'starting': '00001'},
+  {'key': 'vendor_payment', 'label': 'Vendor Payment', 'prefix': '', 'starting': '1'},
+  {'key': 'retainer_invoice', 'label': 'Retainer Invoice', 'prefix': 'RET-', 'starting': '00001'},
+  {'key': 'bill_of_supply', 'label': 'Bill Of Supply', 'prefix': 'BOS-', 'starting': '000001'},
+  {'key': 'invoice', 'label': 'Invoice', 'prefix': 'INV-', 'starting': '000001'},
+  {'key': 'delivery_challan', 'label': 'Delivery Challan', 'prefix': 'DC-', 'starting': '00001'},
+  {'key': 'self_invoice', 'label': 'Self-Invoice', 'prefix': '', 'starting': '1'},
+];
+
+class _AccountOption {
+  final String id;
+  final String name;
+  final String? accountType;
+  const _AccountOption({required this.id, required this.name, this.accountType});
+}
+
+class _GstinData {
+  final String gstin;
+  final String? registrationType;
+  final String legalName;
+  final String tradeName;
+  final String? registeredOn;
+  final bool reverseCharge;
+  final bool importExport;
+  final String? customDutyAccountId;
+  final bool digitalServices;
+
+  const _GstinData({
+    required this.gstin,
+    this.registrationType,
+    this.legalName = '',
+    this.tradeName = '',
+    this.registeredOn,
+    this.reverseCharge = false,
+    this.importExport = false,
+    this.customDutyAccountId,
+    this.digitalServices = false,
+  });
+}
+
+const List<Map<String, String>> _kGstRegistrationTypes = [
+  {'id': 'registered_regular', 'label': 'Registered Business - Regular'},
+  {'id': 'composition', 'label': 'Composition Scheme'},
+  {'id': 'unregistered', 'label': 'Unregistered Business'},
+  {'id': 'consumer', 'label': 'Consumer'},
+  {'id': 'overseas', 'label': 'Overseas'},
+  {'id': 'sez', 'label': 'Special Economic Zone'},
+  {'id': 'deemed_export', 'label': 'Deemed Export'},
+];
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 class SettingsLocationsCreatePage extends ConsumerStatefulWidget {
@@ -196,11 +270,11 @@ class _SettingsLocationsCreatePageState
 
   // Form controllers
   final TextEditingController _nameCtrl = TextEditingController();
-  final TextEditingController _gstinCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _phoneCtrl = TextEditingController();
   final TextEditingController _attentionCtrl = TextEditingController();
   final TextEditingController _streetCtrl = TextEditingController();
+  final TextEditingController _street2Ctrl = TextEditingController();
   final TextEditingController _cityCtrl = TextEditingController();
   final TextEditingController _pincodeCtrl = TextEditingController();
   final TextEditingController _faxCtrl = TextEditingController();
@@ -219,6 +293,20 @@ class _SettingsLocationsCreatePageState
   List<_OutletOption> _outlets = [];
   final Set<String> _expandedBlocks = <String>{'Organization'};
 
+  // GSTIN
+  _GstinData? _gstinData;
+
+  // Transaction series
+  List<_SeriesOption> _transactionSeries = [];
+  final List<String> _selectedSeriesIds = [];
+  String? _selectedDefaultSeriesId;
+
+  // Chart-of-accounts for custom duty
+  List<_AccountOption> _accounts = [];
+
+  // Location access — list of { userId, name, email, role }
+  final List<Map<String, String>> _locationUsers = [];
+
   // Logo upload state
   PlatformFile? _logoPicked;
   String? _logoUrl; // URL after upload or loaded from existing
@@ -231,6 +319,8 @@ class _SettingsLocationsCreatePageState
     super.initState();
     _loadOrgName();
     _loadOutlets();
+    _loadTransactionSeries();
+    _loadAccounts();
     if (_isEditing) _loadExisting();
   }
 
@@ -239,11 +329,11 @@ class _SettingsLocationsCreatePageState
     _searchController.dispose();
     _searchFocusNode.dispose();
     _nameCtrl.dispose();
-    _gstinCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _attentionCtrl.dispose();
     _streetCtrl.dispose();
+    _street2Ctrl.dispose();
     _cityCtrl.dispose();
     _pincodeCtrl.dispose();
     _faxCtrl.dispose();
@@ -298,35 +388,130 @@ class _SettingsLocationsCreatePageState
     } catch (_) {}
   }
 
+  Future<void> _loadTransactionSeries() async {
+    try {
+      final user = ref.read(authUserProvider);
+      final orgId =
+          (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+      final res = await _apiClient.get(
+        '/transaction-series',
+        queryParameters: {'org_id': orgId},
+      );
+      if (!mounted) return;
+      if (res.success && res.data is List) {
+        setState(() {
+          _transactionSeries = (res.data as List)
+              .cast<Map<String, dynamic>>()
+              .map((s) => _SeriesOption(
+                    id: s['id'].toString(),
+                    name: (s['name'] ?? s['series_name'] ?? '').toString(),
+                  ))
+              .toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadAccounts() async {
+    try {
+      final user = ref.read(authUserProvider);
+      final orgId =
+          (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+      final res = await _apiClient.get(
+        '/accountant',
+        queryParameters: {'orgId': orgId},
+      );
+      if (!mounted) return;
+      if (res.success && res.data is List) {
+        // Keep only Expense-type accounts for Custom Duty Tracking Account
+        final expenseTypes = {'expense', 'other_expense', 'cost_of_goods_sold'};
+        setState(() {
+          _accounts = (res.data as List)
+              .cast<Map<String, dynamic>>()
+              .where((a) {
+                final t = (a['account_type'] ?? '')
+                    .toString()
+                    .toLowerCase()
+                    .replaceAll(' ', '_');
+                return expenseTypes.contains(t);
+              })
+              .map((a) => _AccountOption(
+                    id: a['id'].toString(),
+                    name: (a['user_account_name'] ?? a['system_account_name'] ?? '').toString(),
+                    accountType: (a['account_type'] ?? '').toString(),
+                  ))
+              .toList();
+        });
+      }
+    } catch (_) {}
+  }
+
   Future<void> _loadExisting() async {
     setState(() => _isLoading = true);
     try {
-      final res = await _apiClient.get('/outlets/${widget.outletId}');
+      final user = ref.read(authUserProvider);
+      final orgId =
+          (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+      final res = await _apiClient.get(
+        '/outlets/${widget.outletId}',
+        queryParameters: {'org_id': orgId},
+      );
       if (!mounted) return;
       if (res.success && res.data is Map<String, dynamic>) {
         final d = res.data as Map<String, dynamic>;
+        final state = (d['state'] ?? '').toString();
+        final parentId = d['parent_outlet_id']?.toString();
+        final logoUrl = d['logo_url']?.toString();
+        final locationType = (d['location_type'] ?? 'business').toString();
+
         _nameCtrl.text = (d['name'] ?? '').toString();
-        _gstinCtrl.text = (d['gstin'] ?? '').toString();
         _emailCtrl.text = (d['email'] ?? '').toString();
         _phoneCtrl.text = (d['phone'] ?? '').toString();
         _attentionCtrl.text = (d['attention'] ?? '').toString();
         _streetCtrl.text = (d['address'] ?? '').toString();
+        _street2Ctrl.text = (d['address2'] ?? '').toString();
         _cityCtrl.text = (d['city'] ?? '').toString();
         _pincodeCtrl.text = (d['pincode'] ?? '').toString();
         _faxCtrl.text = (d['fax'] ?? '').toString();
         _websiteCtrl.text = (d['website'] ?? '').toString();
-        final state = (d['state'] ?? '').toString();
-        _selectedState = _indianStates.contains(state) ? state : null;
-        final parentId = d['parent_outlet_id']?.toString();
-        if (parentId != null && parentId.isNotEmpty) {
-          _parentOutletId = parentId;
-          _isChildLocation = true;
-        }
-        final logoUrl = d['logo_url']?.toString();
-        if (logoUrl != null && logoUrl.isNotEmpty) {
-          _logoUrl = logoUrl;
-          _logoOption = 'upload';
-        }
+
+        final gstinStr = (d['gstin'] ?? '').toString();
+        final defaultSeriesId = d['default_transaction_series_id']?.toString();
+        final seriesIds = d['transaction_series_ids'];
+
+        setState(() {
+          _locationType = locationType;
+          _selectedState = _indianStates.contains(state) ? state : null;
+          if (parentId != null && parentId.isNotEmpty) {
+            _parentOutletId = parentId;
+            _isChildLocation = locationType == 'business';
+          }
+          if (logoUrl != null && logoUrl.isNotEmpty) {
+            _logoUrl = logoUrl;
+            _logoOption = 'upload';
+          }
+          if (gstinStr.isNotEmpty) {
+            _gstinData = _GstinData(
+              gstin: gstinStr,
+              registrationType: d['gstin_registration_type']?.toString(),
+              legalName: (d['gstin_legal_name'] ?? '').toString(),
+              tradeName: (d['gstin_trade_name'] ?? '').toString(),
+              registeredOn: d['gstin_registered_on']?.toString(),
+              reverseCharge: d['gstin_reverse_charge'] == true,
+              importExport: d['gstin_import_export'] == true,
+              customDutyAccountId: d['gstin_custom_duty_account_id']?.toString(),
+              digitalServices: d['gstin_digital_services'] == true,
+            );
+          }
+          if (seriesIds is List) {
+            _selectedSeriesIds
+              ..clear()
+              ..addAll(seriesIds.map((e) => e.toString()));
+          }
+          if (defaultSeriesId != null && defaultSeriesId.isNotEmpty) {
+            _selectedDefaultSeriesId = defaultSeriesId;
+          }
+        });
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -368,11 +553,22 @@ class _SettingsLocationsCreatePageState
         'org_id': orgId,
         'name': _nameCtrl.text.trim(),
         'outlet_code': _nameCtrl.text.trim().toUpperCase().replaceAll(' ', '-'),
-        'gstin': _gstinCtrl.text.trim().toUpperCase(),
+        'gstin': _gstinData?.gstin ?? '',
+        if (_gstinData != null) ...{
+          'gstin_registration_type': _gstinData!.registrationType,
+          'gstin_legal_name': _gstinData!.legalName,
+          'gstin_trade_name': _gstinData!.tradeName,
+          'gstin_registered_on': _gstinData!.registeredOn,
+          'gstin_reverse_charge': _gstinData!.reverseCharge,
+          'gstin_import_export': _gstinData!.importExport,
+          'gstin_custom_duty_account_id': _gstinData!.customDutyAccountId,
+          'gstin_digital_services': _gstinData!.digitalServices,
+        },
         'email': _emailCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
         'attention': _attentionCtrl.text.trim(),
         'address': _streetCtrl.text.trim(),
+        'address2': _street2Ctrl.text.trim(),
         'city': _cityCtrl.text.trim(),
         'state': _selectedState ?? '',
         'country': 'India',
@@ -383,6 +579,13 @@ class _SettingsLocationsCreatePageState
         'parent_outlet_id': needsParent ? _parentOutletId : null,
         'logo_url': _logoOption == 'upload' ? _logoUrl : null,
         'is_active': true,
+        if (_isBusiness) ...{
+          'transaction_series_ids': _selectedSeriesIds,
+          'default_transaction_series_id': _selectedDefaultSeriesId,
+        },
+        'location_users': _locationUsers
+            .map((u) => {'user_id': u['userId'], 'role': u['role']})
+            .toList(),
       };
 
       final res = _isEditing
@@ -746,6 +949,12 @@ class _SettingsLocationsCreatePageState
                 _buildAddressSection(),
                 const SizedBox(height: AppTheme.space20),
                 _buildBottomFields(),
+                const SizedBox(height: AppTheme.space20),
+                if (_isBusiness) ...[
+                  _buildTransactionSeriesSection(),
+                  const SizedBox(height: AppTheme.space20),
+                ],
+                _buildLocationAccessSection(),
                 const SizedBox(height: AppTheme.space32),
                 _buildActions(),
                 const SizedBox(height: AppTheme.space48),
@@ -942,24 +1151,7 @@ class _SettingsLocationsCreatePageState
         // GSTIN — Business only (required)
         if (_isBusiness) ...[
           const SizedBox(height: AppTheme.space20),
-          _buildTextField(
-            label: 'GSTIN',
-            required: true,
-            controller: _gstinCtrl,
-            hint: '27ABCDE1234F2Z5',
-            textCapitalization: TextCapitalization.characters,
-            validator: (v) {
-              final s = v?.trim().toUpperCase() ?? '';
-              if (s.isEmpty) return 'GSTIN is required';
-              final gstinRegex = RegExp(
-                r'^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$',
-              );
-              if (!gstinRegex.hasMatch(s)) {
-                return 'Enter a valid 15-character GSTIN (e.g. 27ABCDE1234F2Z5)';
-              }
-              return null;
-            },
-          ),
+          _buildGstinField(),
         ],
 
         // Primary Contact — required for Business, optional for Warehouse
@@ -1112,6 +1304,576 @@ class _SettingsLocationsCreatePageState
     );
   }
 
+  // ─── GSTIN field + dialog ──────────────────────────────────────────────────
+
+  Widget _buildGstinField() {
+    final hasGstin = _gstinData != null && _gstinData!.gstin.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabel('GSTIN', required: true),
+        const SizedBox(height: AppTheme.space6),
+        GestureDetector(
+          onTap: () => _showNewGstinDialog(context),
+          child: Container(
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.space12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    hasGstin ? _gstinData!.gstin : 'GSTIN',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: hasGstin
+                          ? AppTheme.textPrimary
+                          : AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                const Icon(
+                  LucideIcons.chevronDown,
+                  size: 14,
+                  color: AppTheme.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showNewGstinDialog(BuildContext ctx) async {
+    // Local state for dialog
+    final gstinCtrl = TextEditingController(text: _gstinData?.gstin ?? '');
+    final legalNameCtrl =
+        TextEditingController(text: _gstinData?.legalName ?? '');
+    final tradeNameCtrl =
+        TextEditingController(text: _gstinData?.tradeName ?? '');
+    final registeredOnCtrl =
+        TextEditingController(text: _gstinData?.registeredOn ?? '');
+    String? regType = _gstinData?.registrationType;
+    bool reverseCharge = _gstinData?.reverseCharge ?? false;
+    bool importExport = _gstinData?.importExport ?? false;
+    String? customDutyAccountId = _gstinData?.customDutyAccountId;
+    bool digitalServices = _gstinData?.digitalServices ?? false;
+    String? gstinError;
+    bool fetchingGstin = false;
+    String? fetchError;
+
+    Future<void> fetchTaxpayerDetails(StateSetter setS) async {
+      final gstin = gstinCtrl.text.trim().toUpperCase();
+      if (gstin.length != 15) {
+        setS(() => gstinError = 'GSTIN must be exactly 15 characters');
+        return;
+      }
+      setS(() {
+        fetchingGstin = true;
+        fetchError = null;
+        gstinError = null;
+      });
+      try {
+        final response = await _apiClient.get(
+          '/gst/taxpayer-details',
+          queryParameters: {'gstin': gstin},
+        );
+        final data = response.data as Map<String, dynamic>;
+        setS(() {
+          legalNameCtrl.text = data['legalName'] ?? '';
+          tradeNameCtrl.text = data['tradeName'] ?? '';
+          registeredOnCtrl.text = data['registeredOn'] ?? '';
+          if (data['registrationType'] != null) {
+            regType = data['registrationType'] as String;
+          }
+          gstinCtrl.text = gstin;
+          fetchingGstin = false;
+        });
+      } catch (e) {
+        setS(() {
+          fetchError = e.toString().replaceFirst('DioException [bad response]: ', '');
+          fetchingGstin = false;
+        });
+      }
+    }
+
+    final result = await showDialog<_GstinData>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (_) => StatefulBuilder(
+        builder: (dialogCtx, setS) {
+          return Dialog(
+            backgroundColor: Colors.white,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title bar
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'New GSTIN',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(dialogCtx),
+                          icon: const Icon(LucideIcons.x,
+                              size: 18, color: AppTheme.errorRed),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: AppTheme.borderLight),
+                  // Scrollable body
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // GSTIN
+                          _buildDialogRow(
+                            label: 'GSTIN',
+                            required: true,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextFormField(
+                                  controller: gstinCtrl,
+                                  textCapitalization:
+                                      TextCapitalization.characters,
+                                  decoration: _dialogInputDecoration(
+                                      'e.g. 27ABCDE1234F2Z5'),
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textPrimary),
+                                  onChanged: (_) =>
+                                      setS(() => gstinError = null),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        gstinError ?? 'Maximum 15 digits',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: gstinError != null
+                                              ? AppTheme.errorRed
+                                              : AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                    if (fetchingGstin)
+                                      const SizedBox(
+                                        width: 12,
+                                        height: 12,
+                                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                                      )
+                                    else
+                                      GestureDetector(
+                                        onTap: () => fetchTaxpayerDetails(setS),
+                                        child: const Text(
+                                          'Get Taxpayer details',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.primaryBlue,
+                                            decoration: TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                if (fetchError != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    fetchError!,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.errorRed,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.space16),
+                          // Registration Type
+                          _buildDialogRow(
+                            label: 'Registration Type',
+                            child: FormDropdown<Map<String, String>>(
+                              value: _kGstRegistrationTypes
+                                  .where((t) => t['id'] == regType)
+                                  .firstOrNull,
+                              items: _kGstRegistrationTypes,
+                              displayStringForValue: (t) => t['label'] ?? '',
+                              hint: 'Select a Registration Type',
+                              onChanged: (t) =>
+                                  setS(() => regType = t?['id']),
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.space16),
+                          // Business Legal Name
+                          _buildDialogRow(
+                            label: 'Business Legal Name',
+                            child: TextFormField(
+                              controller: legalNameCtrl,
+                              decoration:
+                                  _dialogInputDecoration('Legal name'),
+                              style: const TextStyle(
+                                  fontSize: 13, color: AppTheme.textPrimary),
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.space16),
+                          // Business Trade Name
+                          _buildDialogRow(
+                            label: 'Business Trade Name',
+                            child: TextFormField(
+                              controller: tradeNameCtrl,
+                              decoration:
+                                  _dialogInputDecoration('Trade name'),
+                              style: const TextStyle(
+                                  fontSize: 13, color: AppTheme.textPrimary),
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.space16),
+                          // GST Registered On
+                          _buildDialogRow(
+                            label: 'GST Registered On',
+                            child: TextFormField(
+                              controller: registeredOnCtrl,
+                              decoration:
+                                  _dialogInputDecoration('dd-MM-yyyy'),
+                              keyboardType: TextInputType.datetime,
+                              style: const TextStyle(
+                                  fontSize: 13, color: AppTheme.textPrimary),
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.space16),
+                          // Reverse Charge
+                          _buildDialogRow(
+                            label: 'Reverse Charge',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: Checkbox(
+                                        value: reverseCharge,
+                                        onChanged: (v) => setS(
+                                            () => reverseCharge = v ?? false),
+                                        materialTapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Enable Reverse Charge in Sales transactions',
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textBody),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                GestureDetector(
+                                  onTap: () {},
+                                  child: const Text(
+                                    'Know more',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.primaryBlue,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.space16),
+                          // Import / Export
+                          _buildDialogRow(
+                            label: 'Import / Export',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: Checkbox(
+                                        value: importExport,
+                                        onChanged: (v) => setS(
+                                            () => importExport = v ?? false),
+                                        materialTapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'My business is involved in SEZ / Overseas Trading',
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textBody),
+                                    ),
+                                  ],
+                                ),
+                                if (importExport) ...[
+                                  const SizedBox(height: 12),
+                                  RichText(
+                                    text: const TextSpan(
+                                      text: 'Custom Duty Tracking Account',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppTheme.errorRed,
+                                      ),
+                                      children: [
+                                        TextSpan(
+                                          text: ' *',
+                                          style: TextStyle(
+                                              color: AppTheme.errorRed),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  FormDropdown<_AccountOption>(
+                                    value: _accounts
+                                        .where((a) =>
+                                            a.id == customDutyAccountId)
+                                        .firstOrNull,
+                                    items: _accounts,
+                                    displayStringForValue: (a) => a.name,
+                                    hint: 'Select an account',
+                                    onChanged: (a) => setS(
+                                        () => customDutyAccountId = a?.id),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'You can create a new account with type as Expense or Other Expense.',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.space16),
+                          // Digital Services
+                          _buildDialogRow(
+                            label: 'Digital Services',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: Checkbox(
+                                        value: digitalServices,
+                                        onChanged: (v) => setS(
+                                            () => digitalServices = v ?? false),
+                                        materialTapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Track sale of digital services to overseas customers',
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textBody),
+                                    ),
+                                  ],
+                                ),
+                                if (digitalServices)
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      'If you disable this option, any digital service created by you will be considered as a service.',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondary),
+                                    ),
+                                  )
+                                else
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      'Enabling this option will let you record and track export of digital services to individuals.',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondary),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, color: AppTheme.borderLight),
+                  // Footer
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        ElevatedButton(
+                          onPressed: () {
+                            final g = gstinCtrl.text.trim().toUpperCase();
+                            final gstinRegex = RegExp(
+                              r'^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$',
+                            );
+                            if (g.isEmpty || !gstinRegex.hasMatch(g)) {
+                              setS(() => gstinError =
+                                  'Enter a valid 15-character GSTIN');
+                              return;
+                            }
+                            Navigator.pop(
+                              dialogCtx,
+                              _GstinData(
+                                gstin: g,
+                                registrationType: regType,
+                                legalName: legalNameCtrl.text.trim(),
+                                tradeName: tradeNameCtrl.text.trim(),
+                                registeredOn: registeredOnCtrl.text.trim(),
+                                reverseCharge: reverseCharge,
+                                importExport: importExport,
+                                customDutyAccountId: customDutyAccountId,
+                                digitalServices: digitalServices,
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.successGreen,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6)),
+                          ),
+                          child: const Text('Save',
+                              style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w600)),
+                        ),
+                        const SizedBox(width: 12),
+                        OutlinedButton(
+                          onPressed: () => Navigator.pop(dialogCtx),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6)),
+                            side:
+                                const BorderSide(color: AppTheme.borderColor),
+                          ),
+                          child: const Text('Cancel',
+                              style: TextStyle(
+                                  fontSize: 13, color: AppTheme.textBody)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    gstinCtrl.dispose();
+    legalNameCtrl.dispose();
+    tradeNameCtrl.dispose();
+    registeredOnCtrl.dispose();
+
+    if (result != null) setState(() => _gstinData = result);
+  }
+
+  Widget _buildDialogRow({
+    required String label,
+    required Widget child,
+    bool required = false,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 200,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: RichText(
+              text: TextSpan(
+                text: label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textBody,
+                ),
+                children: required
+                    ? const [
+                        TextSpan(
+                          text: ' *',
+                          style: TextStyle(color: AppTheme.errorRed),
+                        ),
+                      ]
+                    : null,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(child: child),
+      ],
+    );
+  }
+
+  InputDecoration _dialogInputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle:
+          const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: AppTheme.borderColor),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: AppTheme.borderColor),
+      ),
+      isDense: true,
+    );
+  }
+
   Widget _buildParentDropdown({required bool required}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1150,9 +1912,15 @@ class _SettingsLocationsCreatePageState
             ),
             const SizedBox(height: AppTheme.space12),
             _buildTextField(
-              label: 'Street',
+              label: 'Street 1',
               controller: _streetCtrl,
-              hint: 'Street address',
+              hint: 'Street 1',
+            ),
+            const SizedBox(height: AppTheme.space12),
+            _buildTextField(
+              label: 'Street 2',
+              controller: _street2Ctrl,
+              hint: 'Street 2',
             ),
             const SizedBox(height: AppTheme.space12),
             _buildTextField(label: 'City', controller: _cityCtrl, hint: 'City'),
@@ -1262,6 +2030,942 @@ class _SettingsLocationsCreatePageState
             }
             return null;
           },
+        ),
+      ],
+    );
+  }
+
+  // ─── Transaction series (Business only) ────────────────────────────────────
+
+  Widget _buildTransactionSeriesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionLabel('Transaction Number Series'),
+        const SizedBox(height: AppTheme.space12),
+        _buildCard(
+          children: [
+            // ── Transaction Number Series (multi-select) ───────────────
+            _buildLabel('Transaction Number Series', required: true),
+            const SizedBox(height: AppTheme.space6),
+            _buildSeriesMultiSelect(),
+            const SizedBox(height: AppTheme.space16),
+            // ── Default Transaction Number Series (single select) ───────
+            _buildLabel('Default Transaction Number Series', required: true),
+            const SizedBox(height: AppTheme.space6),
+            _buildDefaultSeriesSelect(),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSeriesMultiSelect() {
+    return GestureDetector(
+      onTap: () => _showTransactionSeriesPickerDialog(isDefault: false),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 36),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: AppTheme.borderColor),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _selectedSeriesIds.isEmpty
+                  ? const Text(
+                      'Add Transaction Series',
+                      style: TextStyle(
+                          fontSize: 13, color: AppTheme.textSecondary),
+                    )
+                  : Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        for (final id in _selectedSeriesIds)
+                          Builder(builder: (_) {
+                            final s = _transactionSeries
+                                .where((s) => s.id == id)
+                                .firstOrNull;
+                            if (s == null) return const SizedBox.shrink();
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.bgLight,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                    color: AppTheme.borderColor),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(s.name,
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.textPrimary)),
+                                  const SizedBox(width: 4),
+                                  GestureDetector(
+                                    onTap: () => setState(
+                                        () => _selectedSeriesIds.remove(id)),
+                                    behavior: HitTestBehavior.opaque,
+                                    child: const Icon(LucideIcons.x,
+                                        size: 12,
+                                        color: AppTheme.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                      ],
+                    ),
+            ),
+            const Icon(LucideIcons.chevronDown,
+                size: 14, color: AppTheme.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDefaultSeriesSelect() {
+    final selected = _transactionSeries
+        .where((s) => s.id == _selectedDefaultSeriesId)
+        .firstOrNull;
+
+    return GestureDetector(
+      onTap: () => _showTransactionSeriesPickerDialog(isDefault: true),
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: AppTheme.borderColor),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                selected?.name ?? 'Add Transaction Series',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: selected != null
+                      ? AppTheme.textPrimary
+                      : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            const Icon(LucideIcons.chevronDown,
+                size: 14, color: AppTheme.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Transaction series picker dialog ──────────────────────────────────────
+
+  Future<void> _showTransactionSeriesPickerDialog({
+    required bool isDefault,
+  }) async {
+    final accentColor = ref.read(appBrandingProvider).accentColor;
+    String search = '';
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black26,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setS) {
+          final filtered = _transactionSeries
+              .where((s) =>
+                  s.name.toLowerCase().contains(search.toLowerCase()))
+              .toList();
+
+          void selectSeries(_SeriesOption s) {
+            if (isDefault) {
+              setState(() => _selectedDefaultSeriesId = s.id);
+              Navigator.pop(ctx2);
+            } else {
+              setState(() {
+                if (!_selectedSeriesIds.contains(s.id)) {
+                  _selectedSeriesIds.add(s.id);
+                }
+              });
+            }
+          }
+
+          return Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8)),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400, maxHeight: 480),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Search
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: TextField(
+                      autofocus: true,
+                      onChanged: (v) => setS(() => search = v),
+                      decoration: InputDecoration(
+                        hintText: 'Search',
+                        prefixIcon: const Icon(LucideIcons.search,
+                            size: 14, color: AppTheme.textSecondary),
+                        hintStyle: const TextStyle(
+                            fontSize: 13, color: AppTheme.textSecondary),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide:
+                              const BorderSide(color: AppTheme.borderColor),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide:
+                              const BorderSide(color: AppTheme.borderColor),
+                        ),
+                        isDense: true,
+                      ),
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                  // List
+                  Flexible(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      children: [
+                        // Default Transaction Series (always first)
+                        if (_transactionSeries.isNotEmpty &&
+                            search.isEmpty) ...[
+                          _buildSeriesPickerItem(
+                            label: 'Default Transaction Series',
+                            isHighlighted: true,
+                            accentColor: accentColor,
+                            isSelected: isDefault
+                                ? _selectedDefaultSeriesId ==
+                                    _transactionSeries.first.id
+                                : _selectedSeriesIds
+                                    .contains(_transactionSeries.first.id),
+                            onTap: () =>
+                                selectSeries(_transactionSeries.first),
+                          ),
+                        ],
+                        // Other series
+                        for (final s in filtered)
+                          _buildSeriesPickerItem(
+                            label: s.name,
+                            isHighlighted: false,
+                            accentColor: accentColor,
+                            isSelected: isDefault
+                                ? _selectedDefaultSeriesId == s.id
+                                : _selectedSeriesIds.contains(s.id),
+                            onTap: () => selectSeries(s),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: AppTheme.borderLight),
+                  // Add Transaction Series
+                  InkWell(
+                    onTap: () async {
+                      Navigator.pop(ctx2);
+                      await _showCreateSeriesDialog();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          Icon(LucideIcons.plus,
+                              size: 14, color: accentColor),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Add Transaction Series',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: accentColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSeriesPickerItem({
+    required String label,
+    required bool isHighlighted,
+    required Color accentColor,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        color: isHighlighted ? accentColor : Colors.transparent,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isHighlighted ? Colors.white : AppTheme.textPrimary,
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                LucideIcons.check,
+                size: 14,
+                color: isHighlighted ? Colors.white : accentColor,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Create Transaction Series dialog ──────────────────────────────────────
+
+  Future<void> _showCreateSeriesDialog() async {
+    final nameCtrl = TextEditingController();
+    String? nameError;
+
+    // Create a row controller per module
+    final rows = _kSeriesModules
+        .map((m) => _SeriesModuleRow(
+              prefix: m['prefix']!,
+              starting: m['starting']!,
+            ))
+        .toList();
+
+    bool isSaving = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setS) {
+          String preview(int i) {
+            final p = rows[i].prefixCtrl.text;
+            final s = rows[i].startingCtrl.text;
+            return '$p$s';
+          }
+
+          return Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 20, 16),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Transaction Series Preferences',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: const Icon(LucideIcons.x,
+                              size: 18, color: AppTheme.errorRed),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: AppTheme.borderLight),
+                  // Series Name
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 160,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: RichText(
+                              text: const TextSpan(
+                                text: 'Series Name',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.errorRed,
+                                    fontWeight: FontWeight.w500),
+                                children: [
+                                  TextSpan(
+                                    text: '*',
+                                    style:
+                                        TextStyle(color: AppTheme.errorRed),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextField(
+                                controller: nameCtrl,
+                                onChanged: (_) =>
+                                    setS(() => nameError = null),
+                                decoration: _dialogInputDecoration('').copyWith(
+                                  errorText: nameError,
+                                ),
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimary),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Table
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            // Table header
+                            Container(
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(
+                                      color: AppTheme.borderLight),
+                                  bottom: BorderSide(
+                                      color: AppTheme.borderLight),
+                                ),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                          vertical: 10, horizontal: 8),
+                                      child: Text('MODULE',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppTheme.textSecondary,
+                                              letterSpacing: 0.5)),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                          vertical: 10, horizontal: 8),
+                                      child: Text('PREFIX',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppTheme.textSecondary,
+                                              letterSpacing: 0.5)),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                          vertical: 10, horizontal: 8),
+                                      child: Text('STARTING NUMBER',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppTheme.textSecondary,
+                                              letterSpacing: 0.5)),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                          vertical: 10, horizontal: 8),
+                                      child: Text('PREVIEW',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppTheme.textSecondary,
+                                              letterSpacing: 0.5)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Table rows
+                            for (int i = 0; i < _kSeriesModules.length; i++)
+                              Container(
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                        color: AppTheme.borderLight),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Module name
+                                    Expanded(
+                                      flex: 3,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 8, horizontal: 8),
+                                        child: Text(
+                                          _kSeriesModules[i]['label']!,
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.textPrimary),
+                                        ),
+                                      ),
+                                    ),
+                                    // Prefix
+                                    Expanded(
+                                      flex: 3,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 6, horizontal: 4),
+                                        child: TextField(
+                                          controller:
+                                              rows[i].prefixCtrl,
+                                          onChanged: (_) => setS(() {}),
+                                          decoration:
+                                              _dialogInputDecoration(''),
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.textPrimary),
+                                        ),
+                                      ),
+                                    ),
+                                    // Starting Number
+                                    Expanded(
+                                      flex: 3,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 6, horizontal: 4),
+                                        child: TextField(
+                                          controller:
+                                              rows[i].startingCtrl,
+                                          onChanged: (_) => setS(() {}),
+                                          keyboardType: TextInputType.number,
+                                          decoration:
+                                              _dialogInputDecoration(''),
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.textPrimary),
+                                        ),
+                                      ),
+                                    ),
+                                    // Preview (read-only)
+                                    Expanded(
+                                      flex: 3,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 8, horizontal: 8),
+                                        child: Text(
+                                          preview(i),
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.textSecondary),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, color: AppTheme.borderLight),
+                  // Footer
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        ElevatedButton(
+                          onPressed: isSaving
+                              ? null
+                              : () async {
+                                  final name = nameCtrl.text.trim();
+                                  if (name.isEmpty) {
+                                    setS(() => nameError =
+                                        'Series name is required');
+                                    return;
+                                  }
+                                  setS(() => isSaving = true);
+                                  try {
+                                    final user =
+                                        ref.read(authUserProvider);
+                                    final orgId =
+                                        (user?.orgId.isNotEmpty == true)
+                                            ? user!.orgId
+                                            : _kDevOrgId;
+
+                                    final modules = <Map<String, dynamic>>[];
+                                    for (int i = 0;
+                                        i < _kSeriesModules.length;
+                                        i++) {
+                                      modules.add({
+                                        'module_key':
+                                            _kSeriesModules[i]['key'],
+                                        'prefix': rows[i]
+                                            .prefixCtrl
+                                            .text
+                                            .trim(),
+                                        'starting_number': rows[i]
+                                            .startingCtrl
+                                            .text
+                                            .trim(),
+                                      });
+                                    }
+
+                                    final res = await _apiClient.post(
+                                      '/transaction-series',
+                                      data: {
+                                        'org_id': orgId,
+                                        'name': name,
+                                        'modules': modules,
+                                      },
+                                    );
+
+                                    if (!mounted) return;
+
+                                    if (res.success) {
+                                      final newId = (res.data
+                                              as Map<String, dynamic>?)?['id']
+                                          ?.toString();
+                                      setState(() {
+                                        _transactionSeries.add(_SeriesOption(
+                                          id: newId ?? name,
+                                          name: name,
+                                        ));
+                                        if (newId != null) {
+                                          _selectedSeriesIds.add(newId);
+                                        }
+                                      });
+                                      if (mounted)
+                                        Navigator.pop(ctx);
+                                    } else {
+                                      setS(() => isSaving = false);
+                                      if (mounted) {
+                                        ZerpaiToast.error(
+                                          context,
+                                          res.message ??
+                                              'Failed to create series',
+                                        );
+                                      }
+                                    }
+                                  } catch (e) {
+                                    setS(() => isSaving = false);
+                                    if (mounted) {
+                                      ZerpaiToast.error(
+                                          context, 'Failed to create series');
+                                    }
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.successGreen,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6)),
+                          ),
+                          child: isSaving
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(
+                                        Colors.white),
+                                  ),
+                                )
+                              : const Text('Save',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600)),
+                        ),
+                        const SizedBox(width: 12),
+                        OutlinedButton(
+                          onPressed: () {
+                            for (final r in rows) r.dispose();
+                            Navigator.pop(ctx);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6)),
+                            side: const BorderSide(
+                                color: AppTheme.borderColor),
+                          ),
+                          child: const Text('Cancel',
+                              style: TextStyle(
+                                  fontSize: 13, color: AppTheme.textBody)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    nameCtrl.dispose();
+    for (final r in rows) r.dispose();
+  }
+
+  // ─── Location access ────────────────────────────────────────────────────────
+
+  Widget _buildLocationAccessSection() {
+    final accentColor = ref.watch(appBrandingProvider).accentColor;
+    final int count = _locationUsers.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionLabel('Location Access'),
+        const SizedBox(height: AppTheme.space12),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.borderLight),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row
+              Padding(
+                padding: const EdgeInsets.all(AppTheme.space16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: count > 0 ? accentColor : AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            count > 0
+                                ? '$count user${count == 1 ? '' : 's'} selected'
+                                : 'No users selected',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: count > 0
+                                  ? accentColor
+                                  : AppTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            count > 0
+                                ? 'Selected users can create and access transactions for this location.'
+                                : 'Select the users who can create and access transactions for this location.',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Column headers
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.space16,
+                  vertical: AppTheme.space10,
+                ),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: AppTheme.borderLight),
+                    bottom: BorderSide(color: AppTheme.borderLight),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        'USERS',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textSecondary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'ROLE',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textSecondary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // User rows
+              for (final user in _locationUsers)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.space16,
+                    vertical: AppTheme.space12,
+                  ),
+                  decoration: const BoxDecoration(
+                    border:
+                        Border(bottom: BorderSide(color: AppTheme.borderLight)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 14,
+                              backgroundColor: AppTheme.bgLight,
+                              child: Text(
+                                (user['name'] ?? '?')[0].toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.space10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    user['name'] ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    user['email'] ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          user['role'] ?? '',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textBody,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => setState(() =>
+                            _locationUsers.removeWhere(
+                                (u) => u['userId'] == user['userId'])),
+                        icon: const Icon(LucideIcons.x, size: 14),
+                        color: AppTheme.textSecondary,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Add user row (placeholder)
+              Padding(
+                padding: const EdgeInsets.all(AppTheme.space12),
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      ZerpaiToast.info(context, 'User assignment coming soon'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.space16,
+                      vertical: AppTheme.space10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    side: const BorderSide(color: AppTheme.borderColor),
+                  ),
+                  icon: const Icon(LucideIcons.userPlus, size: 14),
+                  label: const Text(
+                    'Add User',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textBody),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

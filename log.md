@@ -1,3 +1,49 @@
+## Settings: Locations Create/Edit — Full Feature Pass (March 22, 2026)
+
+### Edit prefill fix
+- `lib/core/pages/settings_locations_create_page.dart`: `_loadExisting()` now passes `org_id` as a query param so the API returns data; all state variables (`_locationType`, `_selectedState`, `_parentOutletId`, `_isChildLocation`, `_logoUrl`, `_logoOption`, `_selectedSeriesId`, `_selectedDefaultSeriesId`) are now set inside `setState()` so the form actually reflects the loaded values
+
+### Street 2 field
+- Added `_street2Ctrl` TextEditingController; inserted "Street 2" input between Street 1 and City in `_buildAddressSection()`; wired through dispose, `_loadExisting()` (`address2`), and save body
+
+### Transaction Number Series section (Business locations only)
+- Added `_SeriesOption` data class
+- Added `_loadTransactionSeries()` calling `GET /transaction-series`; invoked in `initState()`
+- Added `_buildTransactionSeriesSection()`: two `FormDropdown<_SeriesOption>` — "Transaction Number Series" + "Default Transaction Number Series" — shown only when `_locationType == 'business'`
+- Save body includes `transaction_series_id` and `default_transaction_series_id`
+
+### Location Access section (all location types)
+- Added `_locationUsers` list state; added `_buildLocationAccessSection()`: user count badge, scrollable user+role table with avatar rows, "Add User" button (toast placeholder)
+- Both Transaction Series and Location Access sections inserted in `_buildBody()` after `_buildBottomFields()`
+
+### Form validation
+- GSTIN: 15-char format regex (`^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$`)
+- Email: standard email regex
+- Pin Code: exactly 6 digits
+- Phone / Fax: 7–15 digits after stripping formatting chars
+- Website: must start with `https?://`
+
+---
+
+## Settings: Locations List — Hover Menu, Delete Guard, Associate Contacts (March 22, 2026)
+
+### Hover chevron menu
+- `lib/core/pages/settings_locations_page.dart`: added `_hoveredOutletId` string field; `_buildTableRow` wrapped in `MouseRegion` with `onEnter`/`onExit`; row background tints to `AppTheme.bgLight` on hover; `PopupMenuButton` icon switches via `AnimatedSwitcher` — `LucideIcons.chevronDown` (accentColor) on hover, `LucideIcons.moreHorizontal` (gray) otherwise
+
+### Delete with transaction guard
+- `_confirmDelete`: calls `GET /outlets/:id/usage` first; if `has_transactions == true` shows `ZerpaiToast.error('This location cannot be deleted as it is associated with transactions. You can however mark the location as inactive.')` and returns early; otherwise shows confirmation dialog then `DELETE /outlets/:id?org_id=$orgId`
+
+### Green checkmark removal
+- Removed the green checkmark `Container` from the actions column of each location row
+
+### Associate Contacts dialog (Business locations)
+- Added `_ContactOption` data class
+- `_showAssociateContactsDialog()`: loads customers via `GET /customers` and vendors via `GET /vendors` in parallel; shows dialog with two `FormDropdown<_ContactOption>` pickers; saves via `PATCH /outlets/:id/contacts`
+- `_onMenuSelected`: `associate_contacts` case wired to `_showAssociateContactsDialog`
+
+---
+
+
 ## Settings Sidebar: Collapse-on-Entry Fix (March 22, 2026)
 
 ### Root cause
@@ -6228,3 +6274,25 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - Added `uploadLocationLogo(PlatformFile file)` public method — uploads to R2 with `outlet-logos/` prefix using the existing `_uploadToR2` private core
 
 ---
+
+---
+
+## Settings Locations: Validation, Hover Menu, Delete Guard (March 22, 2026)
+
+### Form validation (`settings_locations_create_page.dart`)
+- **GSTIN**: required for Business + regex `^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$` (15-char format)
+- **Primary Contact**: required for Business + email format validation; optional for Warehouse but still validated if filled
+- **Pin Code**: optional but must be exactly 6 digits if provided
+- **Phone / Fax**: optional but must be 7–15 digits (strips `+`, spaces, dashes, brackets before checking)
+- **Website URL**: optional but must start with `http://` or `https://`
+
+### Hover action menu (`settings_locations_page.dart`)
+- Added `_hoveredOutletId` state to track which row is hovered
+- Wrapped each `_buildTableRow` in `MouseRegion` with `onEnter`/`onExit` → sets `_hoveredOutletId`
+- Row background tints to `AppTheme.bgLight` on hover
+- `PopupMenuButton` icon switches from `LucideIcons.moreHorizontal` (gray, always) to `LucideIcons.chevronDown` (accent color) on hover via `AnimatedSwitcher`
+
+### Delete guard (`settings_locations_page.dart`)
+- `_confirmDelete()` now calls `GET /outlets/:id/usage?org_id=` before showing confirmation
+- If `has_transactions == true`: shows `ZerpaiToast.error` — "This location cannot be deleted as it is associated with transactions. You can however mark the location as inactive." — and aborts
+- If usage check endpoint is unavailable (404/error): silently proceeds so the delete API's own FK constraint error surfaces via `res.message`

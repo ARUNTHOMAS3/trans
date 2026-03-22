@@ -9,6 +9,7 @@ import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/core/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 const String _kDevOrgId = '00000000-0000-0000-0000-000000000002';
@@ -179,6 +180,12 @@ class _OutletRow {
     ];
     return parts.join(', ');
   }
+}
+
+class _ContactOption {
+  final String id;
+  final String name;
+  const _ContactOption({required this.id, required this.name});
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -788,16 +795,6 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                if (outlet.isActive)
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF22A95E),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(LucideIcons.check, size: 12, color: Colors.white),
-                  ),
                 PopupMenuButton<String>(
                   icon: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 150),
@@ -855,12 +852,255 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
       case 'mark_inactive':
       case 'associate_gstin':
       case 'bin_locations':
-      case 'associate_contacts':
         ZerpaiToast.info(context, 'Coming soon');
+      case 'associate_contacts':
+        _showAssociateContactsDialog(outlet);
     }
   }
 
+  Future<void> _showAssociateContactsDialog(_OutletRow outlet) async {
+    final user = ref.read(authUserProvider);
+    final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+
+    // Load customers and vendors in parallel
+    List<_ContactOption> customers = [];
+    List<_ContactOption> vendors = [];
+    String? selectedCustomerId;
+    String? selectedVendorId;
+
+    try {
+      final results = await Future.wait([
+        _apiClient.get('/customers', queryParameters: {'org_id': orgId}),
+        _apiClient.get('/vendors', queryParameters: {'org_id': orgId}),
+      ]);
+      if (!mounted) return;
+      if (results[0].success && results[0].data is List) {
+        customers = (results[0].data as List)
+            .cast<Map<String, dynamic>>()
+            .map((c) => _ContactOption(
+                  id: c['id'].toString(),
+                  name: (c['contact_name'] ?? c['name'] ?? '').toString(),
+                ))
+            .toList();
+      }
+      if (results[1].success && results[1].data is List) {
+        vendors = (results[1].data as List)
+            .cast<Map<String, dynamic>>()
+            .map((v) => _ContactOption(
+                  id: v['id'].toString(),
+                  name: (v['contact_name'] ?? v['name'] ?? '').toString(),
+                ))
+            .toList();
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: SizedBox(
+            width: 480,
+            child: Padding(
+              padding: const EdgeInsets.all(AppTheme.space28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Associate Customer and Vendor',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(LucideIcons.x, size: 18),
+                        color: AppTheme.textSecondary,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.space12),
+                  const Text(
+                    'The customer and vendor you select here will be used to create '
+                    'the respective invoice and bill for transfer orders created for '
+                    'locations having different GSTIN.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space24),
+
+                  // Customer Name
+                  const Text(
+                    'Customer Name',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textBody,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space6),
+                  FormDropdown<_ContactOption>(
+                    value: customers
+                        .where((c) => c.id == selectedCustomerId)
+                        .firstOrNull,
+                    items: customers,
+                    displayStringForValue: (c) => c.name,
+                    hint: 'Select customer',
+                    onChanged: (c) =>
+                        setDialogState(() => selectedCustomerId = c?.id),
+                  ),
+                  const SizedBox(height: AppTheme.space16),
+
+                  // Vendor Name
+                  const Text(
+                    'Vendor Name',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textBody,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space6),
+                  FormDropdown<_ContactOption>(
+                    value: vendors
+                        .where((v) => v.id == selectedVendorId)
+                        .firstOrNull,
+                    items: vendors,
+                    displayStringForValue: (v) => v.name,
+                    hint: 'Select a Vendor',
+                    onChanged: (v) =>
+                        setDialogState(() => selectedVendorId = v?.id),
+                  ),
+                  const SizedBox(height: AppTheme.space28),
+
+                  // Actions
+                  Row(
+                    children: [
+                      Consumer(
+                        builder: (_, ref, __) {
+                          final accentColor =
+                              ref.watch(appBrandingProvider).accentColor;
+                          return ElevatedButton(
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              try {
+                                final res = await _apiClient.patch(
+                                  '/outlets/${outlet.id}/contacts?org_id=$orgId',
+                                  data: {
+                                    'customer_id': selectedCustomerId,
+                                    'vendor_id': selectedVendorId,
+                                  },
+                                );
+                                if (!mounted) return;
+                                if (res.success) {
+                                  ZerpaiToast.success(
+                                      context, 'Contacts associated');
+                                } else {
+                                  ZerpaiToast.error(
+                                    context,
+                                    res.message ?? 'Failed to associate contacts',
+                                  );
+                                }
+                              } catch (_) {
+                                if (mounted) {
+                                  ZerpaiToast.error(
+                                      context, 'Failed to associate contacts');
+                                }
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accentColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppTheme.space24,
+                                vertical: AppTheme.space12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            child: const Text(
+                              'Update',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: AppTheme.space12),
+                      OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppTheme.space20,
+                            vertical: AppTheme.space12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          side: const BorderSide(color: AppTheme.borderColor),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(color: AppTheme.textBody),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirmDelete(_OutletRow outlet) async {
+    final user = ref.read(authUserProvider);
+    final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+
+    // Check if this location has linked transactions before allowing delete
+    try {
+      final checkRes = await _apiClient.get(
+        '/outlets/${outlet.id}/usage',
+        queryParameters: {'org_id': orgId},
+      );
+      if (!mounted) return;
+      if (checkRes.success && checkRes.data is Map<String, dynamic>) {
+        final hasTransactions =
+            (checkRes.data as Map<String, dynamic>)['has_transactions'] == true;
+        if (hasTransactions) {
+          ZerpaiToast.error(
+            context,
+            'This location cannot be deleted as it is associated with transactions. '
+            'You can however mark the location as inactive.',
+          );
+          return;
+        }
+      }
+    } catch (_) {
+      // Usage check endpoint not available — proceed; delete API will handle
+      // FK constraint violations and surface the error via res.message
+    }
+
+    if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -882,8 +1122,6 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
     );
     if (confirmed != true || !mounted) return;
     try {
-      final user = ref.read(authUserProvider);
-      final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
       final res = await _apiClient.delete(
         '/outlets/${outlet.id}?org_id=$orgId',
       );

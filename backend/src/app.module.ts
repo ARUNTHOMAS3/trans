@@ -14,6 +14,8 @@ import { ReportsModule } from "./modules/reports/reports.module";
 import { SequencesModule } from "./sequences/sequences.module";
 import { TransactionLockingModule } from "./modules/transaction-locking/transaction-locking.module";
 import { OutletsModule } from "./modules/outlets/outlets.module";
+import { GstModule } from "./modules/gst/gst.module";
+import { TransactionSeriesModule } from "./modules/transaction-series/transaction-series.module";
 
 @Module({
   imports: [
@@ -33,6 +35,8 @@ import { OutletsModule } from "./modules/outlets/outlets.module";
     SequencesModule,
     TransactionLockingModule,
     OutletsModule,
+    GstModule,
+    TransactionSeriesModule,
   ],
   controllers: [],
   providers: [],
