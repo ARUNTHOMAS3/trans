@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter, LengthLimitingTextInputFormatter, TextInputFormatter;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -12,6 +13,7 @@ import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/shared/services/storage_service.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/transaction_series_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 const String _kDevOrgId = '00000000-0000-0000-0000-000000000002';
@@ -1950,6 +1952,10 @@ class _SettingsLocationsCreatePageState
                     controller: _pincodeCtrl,
                     hint: '560001',
                     keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(6),
+                    ],
                     validator: (v) {
                       final s = v?.trim() ?? '';
                       if (s.isEmpty) return null;
@@ -1975,6 +1981,9 @@ class _SettingsLocationsCreatePageState
                     controller: _phoneCtrl,
                     hint: '+91 98765 43210',
                     keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[\d\s\+\-\(\)]')),
+                    ],
                     validator: (v) {
                       final s = v?.trim() ?? '';
                       if (s.isEmpty) return null;
@@ -1993,6 +2002,9 @@ class _SettingsLocationsCreatePageState
                     controller: _faxCtrl,
                     hint: 'Fax number',
                     keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[\d\s\+\-\(\)]')),
+                    ],
                     validator: (v) {
                       final s = v?.trim() ?? '';
                       if (s.isEmpty) return null;
@@ -2038,6 +2050,11 @@ class _SettingsLocationsCreatePageState
   // ─── Transaction series (Business only) ────────────────────────────────────
 
   Widget _buildTransactionSeriesSection() {
+    final accentColor = ref.read(appBrandingProvider).accentColor;
+    final seriesOptions = _transactionSeries
+        .map((s) => TransactionSeriesOption(id: s.id, name: s.name))
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2048,297 +2065,37 @@ class _SettingsLocationsCreatePageState
             // ── Transaction Number Series (multi-select) ───────────────
             _buildLabel('Transaction Number Series', required: true),
             const SizedBox(height: AppTheme.space6),
-            _buildSeriesMultiSelect(),
+            TransactionSeriesDropdown(
+              series: seriesOptions,
+              selectedIds: _selectedSeriesIds,
+              multiSelect: true,
+              accentColor: accentColor,
+              onChanged: (ids) => setState(() {
+                _selectedSeriesIds
+                  ..clear()
+                  ..addAll(ids);
+              }),
+              onAddTap: _showCreateSeriesDialog,
+            ),
             const SizedBox(height: AppTheme.space16),
             // ── Default Transaction Number Series (single select) ───────
             _buildLabel('Default Transaction Number Series', required: true),
             const SizedBox(height: AppTheme.space6),
-            _buildDefaultSeriesSelect(),
+            TransactionSeriesDropdown(
+              series: seriesOptions,
+              selectedIds: _selectedDefaultSeriesId != null
+                  ? [_selectedDefaultSeriesId!]
+                  : [],
+              multiSelect: false,
+              accentColor: accentColor,
+              onChanged: (ids) => setState(
+                  () => _selectedDefaultSeriesId =
+                      ids.isNotEmpty ? ids.first : null),
+              onAddTap: _showCreateSeriesDialog,
+            ),
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildSeriesMultiSelect() {
-    return GestureDetector(
-      onTap: () => _showTransactionSeriesPickerDialog(isDefault: false),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 36),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: AppTheme.borderColor),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: _selectedSeriesIds.isEmpty
-                  ? const Text(
-                      'Add Transaction Series',
-                      style: TextStyle(
-                          fontSize: 13, color: AppTheme.textSecondary),
-                    )
-                  : Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        for (final id in _selectedSeriesIds)
-                          Builder(builder: (_) {
-                            final s = _transactionSeries
-                                .where((s) => s.id == id)
-                                .firstOrNull;
-                            if (s == null) return const SizedBox.shrink();
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: AppTheme.bgLight,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                    color: AppTheme.borderColor),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(s.name,
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppTheme.textPrimary)),
-                                  const SizedBox(width: 4),
-                                  GestureDetector(
-                                    onTap: () => setState(
-                                        () => _selectedSeriesIds.remove(id)),
-                                    behavior: HitTestBehavior.opaque,
-                                    child: const Icon(LucideIcons.x,
-                                        size: 12,
-                                        color: AppTheme.textSecondary),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                      ],
-                    ),
-            ),
-            const Icon(LucideIcons.chevronDown,
-                size: 14, color: AppTheme.textSecondary),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDefaultSeriesSelect() {
-    final selected = _transactionSeries
-        .where((s) => s.id == _selectedDefaultSeriesId)
-        .firstOrNull;
-
-    return GestureDetector(
-      onTap: () => _showTransactionSeriesPickerDialog(isDefault: true),
-      child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: AppTheme.borderColor),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                selected?.name ?? 'Add Transaction Series',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: selected != null
-                      ? AppTheme.textPrimary
-                      : AppTheme.textSecondary,
-                ),
-              ),
-            ),
-            const Icon(LucideIcons.chevronDown,
-                size: 14, color: AppTheme.textSecondary),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── Transaction series picker dialog ──────────────────────────────────────
-
-  Future<void> _showTransactionSeriesPickerDialog({
-    required bool isDefault,
-  }) async {
-    final accentColor = ref.read(appBrandingProvider).accentColor;
-    String search = '';
-
-    await showDialog<void>(
-      context: context,
-      barrierColor: Colors.black26,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx2, setS) {
-          final filtered = _transactionSeries
-              .where((s) =>
-                  s.name.toLowerCase().contains(search.toLowerCase()))
-              .toList();
-
-          void selectSeries(_SeriesOption s) {
-            if (isDefault) {
-              setState(() => _selectedDefaultSeriesId = s.id);
-              Navigator.pop(ctx2);
-            } else {
-              setState(() {
-                if (!_selectedSeriesIds.contains(s.id)) {
-                  _selectedSeriesIds.add(s.id);
-                }
-              });
-            }
-          }
-
-          return Dialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8)),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400, maxHeight: 480),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Search
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: TextField(
-                      autofocus: true,
-                      onChanged: (v) => setS(() => search = v),
-                      decoration: InputDecoration(
-                        hintText: 'Search',
-                        prefixIcon: const Icon(LucideIcons.search,
-                            size: 14, color: AppTheme.textSecondary),
-                        hintStyle: const TextStyle(
-                            fontSize: 13, color: AppTheme.textSecondary),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide:
-                              const BorderSide(color: AppTheme.borderColor),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide:
-                              const BorderSide(color: AppTheme.borderColor),
-                        ),
-                        isDense: true,
-                      ),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                  // List
-                  Flexible(
-                    child: ListView(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      children: [
-                        // Default Transaction Series (always first)
-                        if (_transactionSeries.isNotEmpty &&
-                            search.isEmpty) ...[
-                          _buildSeriesPickerItem(
-                            label: 'Default Transaction Series',
-                            isHighlighted: true,
-                            accentColor: accentColor,
-                            isSelected: isDefault
-                                ? _selectedDefaultSeriesId ==
-                                    _transactionSeries.first.id
-                                : _selectedSeriesIds
-                                    .contains(_transactionSeries.first.id),
-                            onTap: () =>
-                                selectSeries(_transactionSeries.first),
-                          ),
-                        ],
-                        // Other series
-                        for (final s in filtered)
-                          _buildSeriesPickerItem(
-                            label: s.name,
-                            isHighlighted: false,
-                            accentColor: accentColor,
-                            isSelected: isDefault
-                                ? _selectedDefaultSeriesId == s.id
-                                : _selectedSeriesIds.contains(s.id),
-                            onTap: () => selectSeries(s),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1, color: AppTheme.borderLight),
-                  // Add Transaction Series
-                  InkWell(
-                    onTap: () async {
-                      Navigator.pop(ctx2);
-                      await _showCreateSeriesDialog();
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          Icon(LucideIcons.plus,
-                              size: 14, color: accentColor),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Add Transaction Series',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: accentColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildSeriesPickerItem({
-    required String label,
-    required bool isHighlighted,
-    required Color accentColor,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-        color: isHighlighted ? accentColor : Colors.transparent,
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isHighlighted ? Colors.white : AppTheme.textPrimary,
-                ),
-              ),
-            ),
-            if (isSelected)
-              Icon(
-                LucideIcons.check,
-                size: 14,
-                color: isHighlighted ? Colors.white : accentColor,
-              ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -2583,6 +2340,7 @@ class _SettingsLocationsCreatePageState
                                               rows[i].startingCtrl,
                                           onChanged: (_) => setS(() {}),
                                           keyboardType: TextInputType.number,
+                                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                           decoration:
                                               _dialogInputDecoration(''),
                                           style: const TextStyle(
@@ -3056,6 +2814,7 @@ class _SettingsLocationsCreatePageState
     TextInputType keyboardType = TextInputType.text,
     TextCapitalization textCapitalization = TextCapitalization.none,
     String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3067,6 +2826,7 @@ class _SettingsLocationsCreatePageState
           keyboardType: keyboardType,
           textCapitalization: textCapitalization,
           validator: validator,
+          inputFormatters: inputFormatters,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(

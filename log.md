@@ -1,3 +1,58 @@
+## Settings: Locations — Transaction Series Universal Dropdown & Input Fixes (March 22, 2026)
+
+### Flutter: TransactionSeriesDropdown — new universal widget
+- Created `lib/shared/widgets/inputs/transaction_series_dropdown.dart`
+- Reusable overlay dropdown matching Zoho's design: search field → "Default Transaction Series" (accent-colored pinned row) → user series list → "+ Add Transaction Series" footer
+- Uses same `LayerLink` + `CompositedTransformFollower` + `OverlayEntry` pattern as `FormDropdown`
+- `_calcOffset()` mirrors `FormDropdown._calculateOverlayOffset()`: uses `localToGlobal(ancestor: overlayBox)` to compute real space above/below, with right-overflow correction
+- `addPostFrameCallback` forces a layout-aware rebuild so RenderBox sizes are valid on first open
+- Supports `multiSelect: true` (chips trigger) and `multiSelect: false` (single-name trigger)
+- `TransactionSeriesOption.defaultSeries` const with `id: 'default'`
+
+### Flutter: settings_locations_create_page.dart — Transaction Series section rewritten
+- Removed `_buildSeriesMultiSelect()`, `_buildDefaultSeriesSelect()`, `_showTransactionSeriesPickerDialog()`, `_buildSeriesPickerItem()` (all replaced)
+- `_buildTransactionSeriesSection()` now uses two `TransactionSeriesDropdown` instances:
+  - `multiSelect: true` for "Transaction Number Series"
+  - `multiSelect: false` for "Default Transaction Number Series"
+- `onAddTap: _showCreateSeriesDialog` wires the footer to the existing create dialog
+
+### Flutter: Input formatters
+- Pin Code: `FilteringTextInputFormatter.digitsOnly` + `LengthLimitingTextInputFormatter(6)` — hard cap at 6 digits
+- Phone & Fax: `FilteringTextInputFormatter.allow(RegExp(r'[\d\s\+\-\(\)]'))` — blocks alphabetic input
+- Series dialog Starting Number: `FilteringTextInputFormatter.digitsOnly`
+- `_buildTextField` extended with optional `inputFormatters` parameter
+
+## Settings: Locations — Backend Modules, Input Validation & Series Picker (March 22, 2026)
+
+### Backend: GST taxpayer lookup
+- Created `backend/src/modules/gst/gst.controller.ts`: `GET /gst/taxpayer-details?gstin=` returns legalName, tradeName, registeredOn, registrationType from Sandbox API
+- Created `backend/src/modules/gst/gst.module.ts` and registered `GstModule` in `app.module.ts`
+
+### Backend: Transaction Series CRUD
+- Created `backend/src/modules/transaction-series/` with full CRUD: `GET/POST/PATCH/DELETE /transaction-series`
+- Table `settings_transaction_series` (id, org_id, name, modules jsonb, created_at, updated_at) created in Supabase
+- Registered `TransactionSeriesModule` in `app.module.ts`
+
+### Backend: Accounts endpoint fix
+- Flutter `_loadAccounts()` was calling `/accounts?org_id=` (404); fixed to `/accountant?orgId=` (existing endpoint)
+- Field name mapping fixed: `user_account_name`/`system_account_name` instead of `name`/`account_name`
+- Expense type filter normalises to lowercase+underscore to match DB values (`Expense` → `expense`, etc.)
+
+### Flutter: "Get Taxpayer details" link in GSTIN dialog
+- Added inline link next to GSTIN input that calls `GET /gst/taxpayer-details?gstin=` and autofills Legal Name, Trade Name, GST Registered On, Registration Type
+- Shows spinner while fetching; shows red error text on failure
+
+### Flutter: Input validation / formatters
+- Pin Code: `FilteringTextInputFormatter.digitsOnly` + `LengthLimitingTextInputFormatter(6)` — hard cap at 6 digits
+- Phone & Fax: `FilteringTextInputFormatter.allow(RegExp(r'[\d\s\+\-\(\)]'))` — blocks alphabets
+- Series dialog Starting Number columns: `FilteringTextInputFormatter.digitsOnly`
+- `_buildTextField` now accepts optional `inputFormatters` parameter
+
+### Flutter: Transaction Series picker — "Default Transaction Series"
+- Fixed: option was only shown when `_transactionSeries.isNotEmpty`; now always rendered as first highlighted item
+- Uses hardcoded `_SeriesOption(id: 'default', name: 'Default Transaction Series')` — no longer tied to `_transactionSeries.first`
+- Filtered by search (hidden only if search text doesn't match "default transaction series")
+
 ## Settings: Locations Create/Edit — Full Feature Pass (March 22, 2026)
 
 ### Edit prefill fix
