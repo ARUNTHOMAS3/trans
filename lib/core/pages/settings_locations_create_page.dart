@@ -252,6 +252,55 @@ const List<Map<String, String>> _kGstRegistrationTypes = [
   {'id': 'deemed_export', 'label': 'Deemed Export'},
 ];
 
+// ─── India phone formatter ────────────────────────────────────────────────────
+
+class _IndiaPhoneFormatter extends TextInputFormatter {
+  static const String _prefix = '+91 ';
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String text = newValue.text;
+
+    // Always enforce prefix
+    if (!text.startsWith(_prefix)) {
+      // Extract digits, strip country code if already included
+      String digits = text.replaceAll(RegExp(r'\D'), '');
+      if (digits.startsWith('91') && digits.length > 10) {
+        digits = digits.substring(2);
+      }
+      if (digits.length > 10) digits = digits.substring(0, 10);
+      final result = _prefix + digits;
+      return TextEditingValue(
+        text: result,
+        selection: TextSelection.collapsed(offset: result.length),
+      );
+    }
+
+    // Prefix intact — only digits allowed after it
+    String digits =
+        text.substring(_prefix.length).replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 10) digits = digits.substring(0, 10);
+    final result = _prefix + digits;
+    return TextEditingValue(
+      text: result,
+      selection: TextSelection.collapsed(offset: result.length),
+    );
+  }
+}
+
+String _normalizeIndiaPhone(String raw) {
+  if (raw.isEmpty) return '+91 ';
+  final digits = raw.replaceAll(RegExp(r'[\s\-\+\(\)]'), '');
+  final stripped = digits.startsWith('91') && digits.length > 10
+      ? digits.substring(2)
+      : digits;
+  final limited = stripped.length > 10 ? stripped.substring(0, 10) : stripped;
+  return '+91 $limited';
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 class SettingsLocationsCreatePage extends ConsumerStatefulWidget {
@@ -308,6 +357,7 @@ class _SettingsLocationsCreatePageState
 
   // Location access — list of { userId, name, email, role }
   final List<Map<String, String>> _locationUsers = [];
+  bool _provideAccessToAll = true;
 
   // Logo upload state
   PlatformFile? _logoPicked;
@@ -319,6 +369,7 @@ class _SettingsLocationsCreatePageState
   @override
   void initState() {
     super.initState();
+    _phoneCtrl.text = '+91 ';
     _loadOrgName();
     _loadOutlets();
     _loadTransactionSeries();
@@ -468,7 +519,7 @@ class _SettingsLocationsCreatePageState
 
         _nameCtrl.text = (d['name'] ?? '').toString();
         _emailCtrl.text = (d['email'] ?? '').toString();
-        _phoneCtrl.text = (d['phone'] ?? '').toString();
+        _phoneCtrl.text = _normalizeIndiaPhone((d['phone'] ?? '').toString());
         _attentionCtrl.text = (d['attention'] ?? '').toString();
         _streetCtrl.text = (d['address'] ?? '').toString();
         _street2Ctrl.text = (d['address2'] ?? '').toString();
@@ -486,7 +537,7 @@ class _SettingsLocationsCreatePageState
           _selectedState = _indianStates.contains(state) ? state : null;
           if (parentId != null && parentId.isNotEmpty) {
             _parentOutletId = parentId;
-            _isChildLocation = locationType == 'business';
+            _isChildLocation = true;
           }
           if (logoUrl != null && logoUrl.isNotEmpty) {
             _logoUrl = logoUrl;
@@ -567,7 +618,7 @@ class _SettingsLocationsCreatePageState
           'gstin_digital_services': _gstinData!.digitalServices,
         },
         'email': _emailCtrl.text.trim(),
-        'phone': _phoneCtrl.text.trim(),
+        'phone': _phoneCtrl.text.trim().replaceFirst(RegExp(r'^\+91\s*$'), ''),
         'attention': _attentionCtrl.text.trim(),
         'address': _streetCtrl.text.trim(),
         'address2': _street2Ctrl.text.trim(),
@@ -1981,15 +2032,13 @@ class _SettingsLocationsCreatePageState
                     controller: _phoneCtrl,
                     hint: '+91 98765 43210',
                     keyboardType: TextInputType.phone,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[\d\s\+\-\(\)]')),
-                    ],
+                    inputFormatters: [_IndiaPhoneFormatter()],
                     validator: (v) {
                       final s = v?.trim() ?? '';
-                      if (s.isEmpty) return null;
-                      final digits = s.replaceAll(RegExp(r'[\s\-\+\(\)]'), '');
-                      if (!RegExp(r'^\d{7,15}$').hasMatch(digits)) {
-                        return 'Enter a valid phone number';
+                      if (s == '+91' || s == '+91 ' || s.isEmpty) return null;
+                      final digits = s.replaceFirst('+91', '').replaceAll(RegExp(r'\D'), '');
+                      if (digits.length != 10) {
+                        return 'Enter a valid 10-digit phone number';
                       }
                       return null;
                     },
@@ -2523,7 +2572,30 @@ class _SettingsLocationsCreatePageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionLabel('Location Access'),
+        Row(
+          children: [
+            Expanded(child: _buildSectionLabel('Location Access')),
+            Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: Checkbox(
+                    value: _provideAccessToAll,
+                    onChanged: (v) =>
+                        setState(() => _provideAccessToAll = v ?? true),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Provide access to all users',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textBody),
+                ),
+              ],
+            ),
+          ],
+        ),
         const SizedBox(height: AppTheme.space12),
         Container(
           decoration: BoxDecoration(
@@ -2531,7 +2603,25 @@ class _SettingsLocationsCreatePageState
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppTheme.borderLight),
           ),
-          child: Column(
+          child: _provideAccessToAll
+              ? Padding(
+                  padding: const EdgeInsets.all(AppTheme.space16),
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.users,
+                          size: 16, color: AppTheme.textSecondary),
+                      const SizedBox(width: AppTheme.space8),
+                      Expanded(
+                        child: Text(
+                          'All users in your organization have access to this location.',
+                          style: const TextStyle(
+                              fontSize: 13, color: AppTheme.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header row

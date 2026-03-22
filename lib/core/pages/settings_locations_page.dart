@@ -14,6 +14,128 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 const String _kDevOrgId = '00000000-0000-0000-0000-000000000002';
 
+// ─── GSTIN helpers (shared with Associate GSTIN dialog) ──────────────────────
+
+const List<Map<String, String>> _kGstRegTypes = [
+  {'id': 'registered_regular', 'label': 'Registered Business - Regular'},
+  {'id': 'composition', 'label': 'Composition Scheme'},
+  {'id': 'unregistered', 'label': 'Unregistered Business'},
+];
+
+InputDecoration _gstDialogInput(String hint) => InputDecoration(
+      hintText: hint,
+      hintStyle:
+          const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      isDense: true,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: AppTheme.borderColor),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: AppTheme.borderColor),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: AppTheme.primaryBlue),
+      ),
+    );
+
+// ─── Tree connector painter ───────────────────────────────────────────────────
+
+class _TreeLinePainter extends CustomPainter {
+  final bool isLastChild;
+  const _TreeLinePainter({required this.isLastChild});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppTheme.borderColor
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final midX = size.width * 0.5;
+    final midY = size.height * 0.5;
+    // Vertical line (top → mid, or full if has more siblings below)
+    canvas.drawLine(Offset(midX, 0), Offset(midX, midY), paint);
+    if (!isLastChild) {
+      canvas.drawLine(Offset(midX, midY), Offset(midX, size.height), paint);
+    }
+    // Horizontal branch to the right
+    canvas.drawLine(Offset(midX, midY), Offset(size.width, midY), paint);
+  }
+
+  @override
+  bool shouldRepaint(_TreeLinePainter old) => old.isLastChild != isLastChild;
+}
+
+// ─── Radio option widget (avoids deprecated Radio.groupValue) ─────────────────
+
+class _RadioOption extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color accentColor;
+
+  const _RadioOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+            size: 18,
+            color: selected ? accentColor : AppTheme.textSecondary,
+          ),
+          const SizedBox(width: 6),
+          Text(label,
+              style: const TextStyle(fontSize: 13, color: AppTheme.textBody)),
+        ],
+      ),
+    );
+  }
+}
+
+Widget _gstDialogRow(
+    {required String label, required Widget child, bool req = false}) {
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(
+        width: 180,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 9),
+          child: RichText(
+            text: TextSpan(
+              text: label,
+              style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+              children: req
+                  ? const [
+                      TextSpan(
+                          text: ' *',
+                          style: TextStyle(color: AppTheme.errorRed))
+                    ]
+                  : null,
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(child: child),
+    ],
+  );
+}
+
 // ─── Nav data (mirrors other settings pages) ─────────────────────────────────
 
 class _NavSection {
@@ -137,6 +259,7 @@ class _OutletRow {
   final String pincode;
   final bool isActive;
   final String locationType; // 'business' | 'warehouse'
+  final String? parentOutletId;
 
   const _OutletRow({
     required this.id,
@@ -152,6 +275,7 @@ class _OutletRow {
     required this.pincode,
     required this.isActive,
     required this.locationType,
+    this.parentOutletId,
   });
 
   factory _OutletRow.fromJson(Map<String, dynamic> j) => _OutletRow(
@@ -168,6 +292,7 @@ class _OutletRow {
         pincode: (j['pincode'] ?? '').toString(),
         isActive: j['is_active'] as bool? ?? true,
         locationType: (j['location_type'] ?? 'business').toString(),
+        parentOutletId: j['parent_outlet_id']?.toString(),
       );
 
   bool get isWarehouse => locationType == 'warehouse';
@@ -654,7 +779,7 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
           else if (_outlets.isEmpty)
             _buildEmptyState()
           else
-            ..._outlets.map(_buildTableRow),
+            ..._buildTreeRows(),
         ],
       ),
     );
@@ -691,9 +816,45 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
     );
   }
 
-  Widget _buildTableRow(_OutletRow outlet) {
+  List<Widget> _buildTreeRows() {
+    final parents = _outlets
+        .where((o) => o.parentOutletId == null || o.parentOutletId!.isEmpty)
+        .toList();
+    final childMap = <String, List<_OutletRow>>{};
+    for (final o in _outlets) {
+      if (o.parentOutletId != null && o.parentOutletId!.isNotEmpty) {
+        childMap.putIfAbsent(o.parentOutletId!, () => []).add(o);
+      }
+    }
+    final rows = <Widget>[];
+    for (final parent in parents) {
+      final children = childMap[parent.id] ?? [];
+      rows.add(_buildTableRow(parent, isChild: false, hasChildren: children.isNotEmpty));
+      for (int i = 0; i < children.length; i++) {
+        rows.add(_buildTableRow(children[i],
+            isChild: true, isLastChild: i == children.length - 1));
+      }
+    }
+    return rows;
+  }
+
+  Widget _buildTableRow(_OutletRow outlet,
+      {bool isChild = false, bool isLastChild = true, bool hasChildren = false}) {
     final bool isHovered = _hoveredOutletId == outlet.id;
     final Color accentColor = ref.watch(appBrandingProvider).accentColor;
+
+    Widget statusDot = Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: outlet.isActive ? const Color(0xFF22A95E) : Colors.transparent,
+        border: Border.all(
+          color: outlet.isActive ? const Color(0xFF22A95E) : AppTheme.textSecondary,
+          width: 1.5,
+        ),
+      ),
+    );
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredOutletId = outlet.id),
@@ -709,34 +870,46 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
       ),
       child: Row(
         children: [
-          // Active status dot
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: outlet.isActive ? const Color(0xFF22A95E) : Colors.transparent,
-              border: Border.all(
-                color: outlet.isActive
-                    ? const Color(0xFF22A95E)
-                    : AppTheme.textSecondary,
-                width: 1.5,
+          // Leading: tree connector for children, status dot for parents
+          if (isChild) ...[
+            SizedBox(
+              width: 22,
+              height: 20,
+              child: CustomPaint(
+                painter: _TreeLinePainter(isLastChild: isLastChild),
               ),
             ),
-          ),
-          const SizedBox(width: AppTheme.space12),
+          ] else ...[
+            statusDot,
+            const SizedBox(width: AppTheme.space12),
+          ],
 
           // Name
           Expanded(
             flex: 3,
-            child: Text(
-              outlet.name,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textPrimary,
-              ),
-            ),
+            child: isChild
+                ? Row(children: [
+                    statusDot,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        outlet.name,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ])
+                : Text(
+                    outlet.name,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
           ),
 
           // GSTIN
@@ -850,9 +1023,10 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
         _confirmDelete(outlet);
       case 'mark_active':
       case 'mark_inactive':
-      case 'associate_gstin':
       case 'bin_locations':
         ZerpaiToast.info(context, 'Coming soon');
+      case 'associate_gstin':
+        _showAssociateGstinDialog(outlet);
       case 'associate_contacts':
         _showAssociateContactsDialog(outlet);
     }
@@ -1135,6 +1309,499 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
     } catch (_) {
       if (mounted) ZerpaiToast.error(context, 'Failed to delete location');
     }
+  }
+
+  Future<void> _showAssociateGstinDialog(_OutletRow outlet) async {
+    final user = ref.read(authUserProvider);
+    final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+
+    // Local dialog state
+    bool addNew = true; // true = Add New GSTIN, false = Associate Existing
+    // "Add New" fields
+    final gstinCtrl = TextEditingController();
+    final legalNameCtrl = TextEditingController();
+    final tradeNameCtrl = TextEditingController();
+    final regDateCtrl = TextEditingController();
+    String? regType;
+    bool reverseCharge = false;
+    bool importExport = false;
+    bool digitalServices = false;
+    String? gstinError;
+    bool fetching = false;
+    String? fetchError;
+    // "Associate Existing" field
+    String? selectedExistingGstin;
+    final existingGstins = _outlets
+        .where((o) => o.id != outlet.id && o.gstin.isNotEmpty)
+        .map((o) => o.gstin)
+        .toSet()
+        .toList();
+
+    Future<void> doSave(String gstin, StateSetter setDS) async {
+      try {
+        final res = await _apiClient.patch(
+          '/outlets/${outlet.id}?org_id=$orgId',
+          data: {
+            'gstin': gstin,
+            if (addNew) ...{
+              'gstin_registration_type': regType,
+              'gstin_legal_name': legalNameCtrl.text.trim(),
+              'gstin_trade_name': tradeNameCtrl.text.trim(),
+              'gstin_registered_on': regDateCtrl.text.trim(),
+              'gstin_reverse_charge': reverseCharge,
+              'gstin_import_export': importExport,
+              'gstin_digital_services': digitalServices,
+            },
+          },
+        );
+        if (!mounted) return;
+        if (res.success) {
+          ZerpaiToast.success(context, 'GSTIN associated');
+          _load();
+        } else {
+          ZerpaiToast.error(context, res.message ?? 'Failed to update GSTIN');
+        }
+      } catch (_) {
+        if (mounted) ZerpaiToast.error(context, 'Failed to update GSTIN');
+      }
+    }
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDS) {
+          final accentColor = ref.read(appBrandingProvider).accentColor;
+
+          return Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title bar
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Associate GSTIN to ${outlet.name}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: const Icon(LucideIcons.x,
+                              size: 18, color: AppTheme.errorRed),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: AppTheme.borderLight),
+
+                  // Scrollable body
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Association Type radios
+                          _gstDialogRow(
+                            label: 'Association Type',
+                            req: true,
+                            child: Row(
+                              children: [
+                                _RadioOption(
+                                  label: 'Add New GSTIN & Associate',
+                                  selected: addNew,
+                                  onTap: () => setDS(() => addNew = true),
+                                  accentColor: accentColor,
+                                ),
+                                const SizedBox(width: 20),
+                                _RadioOption(
+                                  label: 'Associate Existing GSTIN',
+                                  selected: !addNew,
+                                  onTap: () => setDS(() => addNew = false),
+                                  accentColor: accentColor,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.space16),
+
+                          if (!addNew) ...[
+                            // ── Associate Existing mode ──
+                            _gstDialogRow(
+                              label: 'GSTIN',
+                              req: true,
+                              child: existingGstins.isEmpty
+                                  ? const Text(
+                                      'No other GSTINs found in your organization.',
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textSecondary),
+                                    )
+                                  : FormDropdown<String>(
+                                      value: selectedExistingGstin,
+                                      items: existingGstins,
+                                      displayStringForValue: (g) => g,
+                                      hint: 'Select GSTIN',
+                                      onChanged: (g) =>
+                                          setDS(() => selectedExistingGstin = g),
+                                    ),
+                            ),
+                          ] else ...[
+                            // ── Add New GSTIN mode ──
+                            _gstDialogRow(
+                              label: 'GSTIN',
+                              req: true,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  TextField(
+                                    controller: gstinCtrl,
+                                    textCapitalization:
+                                        TextCapitalization.characters,
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppTheme.textPrimary),
+                                    decoration: _gstDialogInput(
+                                        'e.g. 27ABCDE1234F2Z5'),
+                                    onChanged: (_) =>
+                                        setDS(() => gstinError = null),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          gstinError ?? 'Maximum 15 digits',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: gstinError != null
+                                                ? AppTheme.errorRed
+                                                : AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                      if (fetching)
+                                        const SizedBox(
+                                          width: 12,
+                                          height: 12,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 1.5),
+                                        )
+                                      else
+                                        GestureDetector(
+                                          onTap: () async {
+                                            final gstin = gstinCtrl.text
+                                                .trim()
+                                                .toUpperCase();
+                                            if (gstin.length != 15) {
+                                              setDS(() => gstinError =
+                                                  'GSTIN must be exactly 15 characters');
+                                              return;
+                                            }
+                                            setDS(() {
+                                              fetching = true;
+                                              fetchError = null;
+                                            });
+                                            try {
+                                              final res =
+                                                  await _apiClient.get(
+                                                '/gst/taxpayer-details',
+                                                queryParameters: {
+                                                  'gstin': gstin
+                                                },
+                                              );
+                                              if (!ctx.mounted) return;
+                                              final d = res.data
+                                                  as Map<String, dynamic>?;
+                                              setDS(() {
+                                                legalNameCtrl.text =
+                                                    (d?['legalName'] ?? '')
+                                                        .toString();
+                                                tradeNameCtrl.text =
+                                                    (d?['tradeName'] ?? '')
+                                                        .toString();
+                                                regDateCtrl.text =
+                                                    (d?['registeredOn'] ?? '')
+                                                        .toString();
+                                                if (d?['registrationType'] !=
+                                                    null) {
+                                                  regType = d!['registrationType']
+                                                      .toString();
+                                                }
+                                                fetching = false;
+                                              });
+                                            } catch (_) {
+                                              if (ctx.mounted) {
+                                                setDS(() {
+                                                  fetchError =
+                                                      'Could not fetch taxpayer details';
+                                                  fetching = false;
+                                                });
+                                              }
+                                            }
+                                          },
+                                          child: const Text(
+                                            'Get Taxpayer details',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: AppTheme.primaryBlue,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  if (fetchError != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(fetchError!,
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppTheme.errorRed)),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: AppTheme.space16),
+
+                            _gstDialogRow(
+                              label: 'Registration Type',
+                              child: FormDropdown<Map<String, String>>(
+                                value: _kGstRegTypes
+                                    .where((t) => t['id'] == regType)
+                                    .firstOrNull,
+                                items: _kGstRegTypes,
+                                displayStringForValue: (t) => t['label'] ?? '',
+                                hint: 'Select a Registration Type',
+                                onChanged: (t) =>
+                                    setDS(() => regType = t?['id']),
+                              ),
+                            ),
+                            const SizedBox(height: AppTheme.space16),
+
+                            _gstDialogRow(
+                              label: 'Business Legal Name',
+                              child: TextField(
+                                controller: legalNameCtrl,
+                                decoration: _gstDialogInput('Legal name'),
+                                style: const TextStyle(
+                                    fontSize: 13, color: AppTheme.textPrimary),
+                              ),
+                            ),
+                            const SizedBox(height: AppTheme.space16),
+
+                            _gstDialogRow(
+                              label: 'Business Trade Name',
+                              child: TextField(
+                                controller: tradeNameCtrl,
+                                decoration: _gstDialogInput('Trade name'),
+                                style: const TextStyle(
+                                    fontSize: 13, color: AppTheme.textPrimary),
+                              ),
+                            ),
+                            const SizedBox(height: AppTheme.space16),
+
+                            _gstDialogRow(
+                              label: 'GST Registered On',
+                              child: TextField(
+                                controller: regDateCtrl,
+                                decoration: _gstDialogInput('dd-MM-yyyy'),
+                                keyboardType: TextInputType.datetime,
+                                style: const TextStyle(
+                                    fontSize: 13, color: AppTheme.textPrimary),
+                              ),
+                            ),
+                            const SizedBox(height: AppTheme.space16),
+
+                            _gstDialogRow(
+                              label: 'Reverse Charge',
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: Checkbox(
+                                        value: reverseCharge,
+                                        onChanged: (v) => setDS(
+                                            () => reverseCharge = v ?? false),
+                                        materialTapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                        'Enable Reverse Charge in Sales transactions',
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textBody)),
+                                  ]),
+                                  const SizedBox(height: 4),
+                                  const Text('Know more',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.primaryBlue,
+                                          decoration:
+                                              TextDecoration.underline)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: AppTheme.space16),
+
+                            _gstDialogRow(
+                              label: 'Import / Export',
+                              child: Row(children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: Checkbox(
+                                    value: importExport,
+                                    onChanged: (v) =>
+                                        setDS(() => importExport = v ?? false),
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                      'My business is involved in SEZ / Overseas Trading',
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textBody)),
+                                ),
+                              ]),
+                            ),
+                            const SizedBox(height: AppTheme.space16),
+
+                            _gstDialogRow(
+                              label: 'Digital Services',
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: Checkbox(
+                                        value: digitalServices,
+                                        onChanged: (v) => setDS(
+                                            () => digitalServices = v ?? false),
+                                        materialTapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Expanded(
+                                      child: Text(
+                                          'Track sale of digital services to overseas customers',
+                                          style: TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.textBody)),
+                                    ),
+                                  ]),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    digitalServices
+                                        ? 'If you disable this option, any digital service created by you will be considered as a service.'
+                                        : 'Enabling this option will let you record and track export of digital services to individuals.',
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const Divider(height: 1, color: AppTheme.borderLight),
+                  // Footer
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        ElevatedButton(
+                          onPressed: () async {
+                            String gstin;
+                            if (addNew) {
+                              gstin = gstinCtrl.text.trim().toUpperCase();
+                              final rx = RegExp(
+                                  r'^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$');
+                              if (gstin.isEmpty || !rx.hasMatch(gstin)) {
+                                setDS(() => gstinError =
+                                    'Enter a valid 15-character GSTIN');
+                                return;
+                              }
+                            } else {
+                              if (selectedExistingGstin == null) {
+                                ZerpaiToast.info(ctx, 'Select a GSTIN');
+                                return;
+                              }
+                              gstin = selectedExistingGstin!;
+                            }
+                            Navigator.pop(ctx);
+                            await doSave(gstin, setDS);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: accentColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6)),
+                          ),
+                          child: const Text('Save',
+                              style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w600)),
+                        ),
+                        const SizedBox(width: 12),
+                        OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6)),
+                            side: const BorderSide(color: AppTheme.borderColor),
+                          ),
+                          child: const Text('Cancel',
+                              style: TextStyle(color: AppTheme.textBody)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    gstinCtrl.dispose();
+    legalNameCtrl.dispose();
+    tradeNameCtrl.dispose();
+    regDateCtrl.dispose();
   }
 
   Widget _buildEmptyState() {

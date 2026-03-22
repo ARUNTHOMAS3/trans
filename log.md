@@ -1,3 +1,38 @@
+## Settings: Locations — Fix empty list after backend restructure (March 22, 2026)
+
+### Backend: outlets.service.ts — fix FK ambiguity & primary table
+
+**Problem:** Previous version queried from `settings_locations` as primary table. Existing outlets had no `settings_locations` rows → list showed "No locations yet".
+
+**Root cause of FK ambiguity:** `settings_locations` has TWO FKs pointing at `outlets`:
+- `outlet_id -> outlets.id` (the join we want)
+- `parent_outlet_id -> outlets.id` (the parent-child relationship)
+
+PostgREST cannot determine which FK to use when embedding `settings_locations` from `outlets` without a hint.
+
+**Fix:**
+- Query from `outlets` (primary) so all outlets appear even without a `settings_locations` row
+- Use FK constraint hint in select: `settings_locations!settings_locations_outlet_id_fkey(...)` to resolve ambiguity
+- Defined `SETTINGS_SELECT` constant at top of file for the join string
+- Outlets without a `settings_locations` row default to `location_type: "business"`, `parent_outlet_id: null`
+- On first edit+save of any existing outlet, `upsert` creates the missing `settings_locations` row
+
+## Settings: Locations — Backend Table Fix & Location Access Checkbox (March 22, 2026)
+
+### Backend: outlets.service.ts — restructured to use correct tables
+- `outlets` table only holds: name, outlet_code, gstin, email, phone, address, city, state, country, pincode, is_active
+- `settings_locations` table holds: location_type, parent_outlet_id, logo_url, is_primary
+- `create`: inserts into `outlets` first, then inserts into `settings_locations`
+- `update`: updates `outlets` fields, then upserts `settings_locations` (via `onConflict: "outlet_id"`)
+- `findAll` / `findOne`: selects `*, settings_locations(location_type, parent_outlet_id, logo_url, is_primary)` and flattens the result into a single flat object
+- `remove`: deletes `settings_locations` row first (FK constraint), then deletes `outlets` row
+- Root cause of child items not showing: `parent_outlet_id` was being written to `outlets` (column doesn't exist); now correctly written to `settings_locations`
+
+### Flutter: settings_locations_create_page.dart — Location Access checkbox
+- Added `_provideAccessToAll` boolean state (default: `true`)
+- Header of Location Access section now shows "Provide access to all users" checkbox on the right
+- When checked: card shows a single info row ("All users in your organization have access to this location.")
+- When unchecked: shows the existing user/role table with Add User button
 ## Settings: Locations — Transaction Series Universal Dropdown & Input Fixes (March 22, 2026)
 
 ### Flutter: TransactionSeriesDropdown — new universal widget
@@ -6351,3 +6386,28 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - `_confirmDelete()` now calls `GET /outlets/:id/usage?org_id=` before showing confirmation
 - If `has_transactions == true`: shows `ZerpaiToast.error` — "This location cannot be deleted as it is associated with transactions. You can however mark the location as inactive." — and aborts
 - If usage check endpoint is unavailable (404/error): silently proceeds so the delete API's own FK constraint error surfaces via `res.message`
+
+## Settings: Locations — Phone validation, Associate GSTIN dialog, Parent-child tree (March 22, 2026)
+
+### Flutter: settings_locations_create_page.dart — India phone field
+- Added `_IndiaPhoneFormatter` (custom `TextInputFormatter`) that always enforces `+91 ` prefix — user cannot delete it
+- Only digits allowed after prefix; max 10 digits (10-digit Indian mobile standard)
+- `_phoneCtrl` initialized with `+91 ` in `initState`
+- `_normalizeIndiaPhone()` normalises loaded DB values (strips existing prefix/country code before re-applying)
+- Validator requires exactly 10 digits after prefix; treats prefix-only as empty (no error)
+- On save: `replaceFirst(RegExp(r'^\+91\s*$'), '')` sends empty string when field has no digits
+
+### Flutter: settings_locations_page.dart — Associate GSTIN dialog (full Zoho design)
+- Replaced simple single-field dialog with full Zoho-matching dialog
+- Two association modes (radio toggle using `_RadioOption` — avoids deprecated `Radio.groupValue`):
+  - **Add New GSTIN & Associate**: GSTIN field + "Get Taxpayer details" lookup + Registration Type dropdown + Legal Name + Trade Name + GST Registered On + Reverse Charge checkbox + Import/Export checkbox + Digital Services checkbox
+  - **Associate Existing GSTIN**: dropdown populated from other outlets in the org that already have a GSTIN
+- Save PATCHes `/outlets/:id?org_id=` with full GSTIN data; refreshes table on success
+- Added top-level helpers: `_kGstRegTypes`, `_gstDialogInput()`, `_gstDialogRow()`, `_RadioOption`, `_TreeLinePainter`
+
+### Flutter: settings_locations_page.dart — Parent-child tree view
+- Added `parentOutletId` field to `_OutletRow` model (parsed from `parent_outlet_id` in JSON)
+- `_buildTreeRows()` groups children under their parent in display order
+- `_buildTableRow()` accepts `isChild`, `isLastChild`, `hasChildren` params
+- Child rows: leading area shows `_TreeLinePainter` (CustomPainter drawing vertical + horizontal branch lines) replacing the status dot; status dot appears inline before the name text
+- `_TreeLinePainter` draws: vertical line top→mid, optional vertical line mid→bottom (if not last child), horizontal branch mid→right; colour = `AppTheme.borderColor`
