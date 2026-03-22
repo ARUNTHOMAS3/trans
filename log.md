@@ -1,3 +1,13 @@
+## Settings Sidebar: Collapse-on-Entry Fix (March 22, 2026)
+
+### Root cause
+`_autoCollapseForSettings()` was only called from `didChangeDependencies`. Route changes are driven by the parent `ZerpaiShell` (which uses `GoRouterState.of(context)`), causing the sidebar's `build()` to run but NOT `didChangeDependencies` — so the collapse logic never triggered on navigation.
+
+### Fix
+- `lib/core/layout/zerpai_sidebar.dart`: also call `_autoCollapseForSettings()` at the top of `build()`, ensuring it runs on every rebuild regardless of how the rebuild was triggered
+
+---
+
 ## Branding: Hardcoded Blue Button Sweep (March 22, 2026)
 
 ### Blue button overrides removed (28 files, agent pass)
@@ -6175,3 +6185,46 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 - Fixed the settings search dropdown build-time sizing bug in `lib/core/widgets/settings_search_field.dart` by removing the unsafe render-size read during build and deriving overlay width from safe `LayoutBuilder` constraints instead.
 - Updated the governance docs, PRD files, agent rules, and skill references so any new database table created specifically for the global settings system must start with the `settings_` prefix.
 - Added the same `settings_` table-prefix rule to the repository Claude and Gemini instruction files so all agent guidance now enforces the same settings schema naming convention.
+## Locations Settings: Add/Edit Form — Business vs Warehouse Diff (March 22, 2026)
+
+### What changed
+Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inventory's Business vs Warehouse Only Location field differences.
+
+### Business Location (new fields)
+- **Logo** row: static "Same as Organization Logo" dropdown (Business only)
+- **"This is a Child Location"** checkbox: when checked, reveals a **Parent Location** dropdown populated from `/outlets` API (excluding self in edit mode)
+- **GSTIN**: now required for Business (was optional for both)
+- **Primary Contact**: required for Business, optional for Warehouse
+
+### Warehouse Only Location (new behaviour)
+- **Parent Location**: always required (no checkbox — warehouse always needs a parent)
+- Logo hidden, GSTIN hidden
+- Primary Contact remains optional
+
+### Address section (both types)
+- Separated **Attention** and **Street** into two distinct fields (previously merged as "Street / Attention")
+- Added **Fax Number** field (alongside Phone)
+- **Phone + Fax** rendered as a side-by-side row
+
+### DB / backend
+- `outlets` table created via migration `1012_settings_locations.sql`
+- `settings_locations` table created in same migration (stores `location_type`, `is_primary`, `parent_outlet_id`, `logo_url` per outlet)
+- Drizzle schema updated (`backend/src/database/schema.ts`) with `locationTypeEnum` + `settingsLocations` table
+
+### Validation
+- Parent location validated manually in `_save()` (not via `FormDropdown.validator` — `FormDropdown` uses `errorText` instead); `_parentError` state cleared on selection
+
+---
+## Locations Create/Edit Page: Sidebar + Logo Upload Wired (March 22, 2026)
+
+### What changed
+
+#### `lib/core/pages/settings_locations_create_page.dart`
+- **Full layout restructure**: create/edit page now has the same two-panel layout as all other settings sub-pages — full settings top bar (All Settings title, org name, search field, Close Settings) + 240px collapsible sidebar + scrollable form content
+- **Sidebar always visible**: `/settings/locations/create` and `/settings/locations/:id/edit` both resolve to Locations being highlighted in the sidebar (path prefix matching: any path starting with `/settings/locations` maps to the Locations nav entry)
+- **Logo upload wired**: replaced no-op `onTap: () {}` with `FilePicker.platform.pickFiles()` (jpg/jpeg/png/gif/bmp, max 1MB). On Save, `StorageService().uploadLocationLogo()` uploads to R2 under `outlet-logos/` prefix; the returned URL is included in the outlet body as `logo_url`. Upload area shows file name + check icon after picking, or "Logo uploaded — tap to change" when editing an existing location with a saved logo.
+
+#### `lib/shared/services/storage_service.dart`
+- Added `uploadLocationLogo(PlatformFile file)` public method — uploads to R2 with `outlet-logos/` prefix using the existing `_uploadToR2` private core
+
+---

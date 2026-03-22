@@ -102,7 +102,7 @@ class _SettingsOrganizationProfilePageState
               label: 'Branding',
               route: AppRoutes.settingsOrgBranding,
             ),
-            _ProfileNavEntry(label: 'Locations', badge: 'New'),
+            _ProfileNavEntry(label: 'Locations', route: AppRoutes.settingsLocations),
             _ProfileNavEntry(label: 'Approvals'),
             _ProfileNavEntry(label: 'Manage Subscription'),
           ],
@@ -717,24 +717,6 @@ class _SettingsOrganizationProfilePageState
                 ),
               ),
             ),
-            if (entry.badge != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.space6,
-                  vertical: AppTheme.space2,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.errorRed,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  entry.badge!,
-                  style: AppTheme.captionText.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -1307,7 +1289,7 @@ class _SettingsOrganizationProfilePageState
                   ),
                   const SizedBox(height: AppTheme.space10),
                   Text(
-                    'Locations are not wired into this profile screen yet. Once the dedicated locations settings page is ready, organization address management will be linked here.',
+                    'Manage your business locations and warehouses from the Locations settings page.',
                     style: AppTheme.bodyText.copyWith(
                       color: AppTheme.textSecondary,
                       height: 1.5,
@@ -1315,10 +1297,7 @@ class _SettingsOrganizationProfilePageState
                   ),
                   const SizedBox(height: AppTheme.space8),
                   TextButton(
-                    onPressed: () => ZerpaiToast.info(
-                      context,
-                      'Locations settings is not available yet',
-                    ),
+                    onPressed: () => context.go(AppRoutes.settingsLocations),
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
@@ -2290,9 +2269,7 @@ class _ProfileNavBlock {
 class _ProfileNavEntry {
   final String label;
   final String? route;
-  final String? badge;
-
-  const _ProfileNavEntry({required this.label, this.route, this.badge});
+  const _ProfileNavEntry({required this.label, this.route});
 }
 
 class _ProfileAdditionalField {

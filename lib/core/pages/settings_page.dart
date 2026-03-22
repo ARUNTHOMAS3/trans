@@ -40,7 +40,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: 'Branding',
                   route: AppRoutes.settingsOrgBranding,
                 ),
-                _SettingsEntry(label: 'Locations', badge: 'New'),
+                _SettingsEntry(label: 'Locations', route: AppRoutes.settingsLocations),
                 _SettingsEntry(label: 'Approvals'),
                 _SettingsEntry(label: 'Manage Subscription'),
               ],
@@ -607,24 +607,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 style: AppTheme.bodyText.copyWith(fontSize: 13.5),
               ),
             ),
-            if (entry.badge != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.space6,
-                  vertical: AppTheme.space2,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.errorRed,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  entry.badge!,
-                  style: AppTheme.captionText.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -798,7 +780,5 @@ class _SettingsBlock {
 class _SettingsEntry {
   final String label;
   final String? route;
-  final String? badge;
-
-  const _SettingsEntry({required this.label, this.route, this.badge});
+  const _SettingsEntry({required this.label, this.route});
 }

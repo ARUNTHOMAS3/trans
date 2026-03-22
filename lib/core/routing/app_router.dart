@@ -58,6 +58,8 @@ import 'package:zerpai_erp/modules/reports/presentation/reports_inventory_valuat
 import 'package:zerpai_erp/core/pages/settings_page.dart';
 import 'package:zerpai_erp/core/pages/settings_organization_profile_page.dart';
 import 'package:zerpai_erp/core/pages/settings_organization_branding_page.dart';
+import 'package:zerpai_erp/core/pages/settings_locations_page.dart';
+import 'package:zerpai_erp/core/pages/settings_locations_create_page.dart';
 
 // Purchasing Module
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_list.dart';
@@ -168,6 +170,20 @@ final GoRouter appRouter = GoRouter(
               path: 'settings/orgbranding',
               builder: (context, state) =>
                   const SettingsOrganizationBrandingPage(),
+            ),
+            GoRoute(
+              path: 'settings/locations',
+              builder: (context, state) => const SettingsLocationsPage(),
+            ),
+            GoRoute(
+              path: 'settings/locations/create',
+              builder: (context, state) => const SettingsLocationsCreatePage(),
+            ),
+            GoRoute(
+              path: 'settings/locations/:id/edit',
+              builder: (context, state) => SettingsLocationsCreatePage(
+                outletId: state.pathParameters['id'],
+              ),
             ),
 
             // Items

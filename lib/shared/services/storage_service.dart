@@ -44,6 +44,13 @@ class StorageService {
     return urls;
   }
 
+  Future<String?> uploadLocationLogo(PlatformFile file) async {
+    if (file.bytes == null) return null;
+    final String objectName =
+        'outlet-logos/${DateTime.now().millisecondsSinceEpoch}.${file.extension ?? 'jpg'}';
+    return _uploadToR2(objectName, file.bytes!, file.extension);
+  }
+
   Future<String?> _uploadToR2(
     String objectName,
     Uint8List fileBytes,

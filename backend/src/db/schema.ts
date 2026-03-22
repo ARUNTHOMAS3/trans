@@ -936,6 +936,30 @@ export const outlets = pgTable("outlets", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+export const locationTypeEnum = pgEnum("location_type", [
+  "business",
+  "warehouse",
+]);
+
+export const settingsLocations = pgTable("settings_locations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  outletId: uuid("outlet_id")
+    .notNull()
+    .unique()
+    .references(() => outlets.id, { onDelete: "cascade" }),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  locationType: locationTypeEnum("location_type").notNull().default("business"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  parentOutletId: uuid("parent_outlet_id").references(() => outlets.id, {
+    onDelete: "set null",
+  }),
+  logoUrl: text("logo_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const users = pgTable("users", {
   id: uuid("id").primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),

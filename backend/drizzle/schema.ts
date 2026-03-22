@@ -1,4 +1,4 @@
-import { pgTable, unique, uuid, varchar, boolean, timestamp, foreignKey, date, numeric, index, jsonb, text, integer, pgPolicy, check, uniqueIndex, primaryKey, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, foreignKey, uuid, varchar, date, numeric, boolean, timestamp, unique, index, jsonb, text, pgPolicy, integer, check, uniqueIndex, bigint, type AnyPgColumn, smallint, primaryKey, pgView, pgSequence, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const accountGroupEnum = pgEnum("account_group_enum", ['Assets', 'Liabilities', 'Equity', 'Income', 'Expenses'])
@@ -12,7 +12,7 @@ export const adjustmentMode = pgEnum("adjustment_mode", ['quantity', 'value'])
 export const challanType = pgEnum("challan_type", ['supply', 'job_work', 'other'])
 export const compositeType = pgEnum("composite_type", ['assembly', 'kit'])
 export const hsnSacType = pgEnum("hsn_sac_type", ['HSN', 'SAC'])
-export const inventoryValuationMethod = pgEnum("inventory_valuation_method", ['FIFO', 'LIFO', 'FEFO', 'Weighted Average', 'Specific Identification'])
+export const inventoryValuationMethod = pgEnum("inventory_valuation_method", ['FIFO', 'LIFO', 'Weighted Average', 'Specific Identification', 'FEFO'])
 export const productType = pgEnum("product_type", ['goods', 'service'])
 export const status = pgEnum("status", ['draft', 'active', 'inactive', 'sent', 'paid', 'void', 'open', 'delivered', 'invoiced', 'returned', 'assembled', 'not_shipped', 'shipped'])
 export const taxPreference = pgEnum("tax_preference", ['taxable', 'non-taxable', 'exempt'])
@@ -20,15 +20,7 @@ export const taxType = pgEnum("tax_type", ['IGST', 'CGST', 'SGST'])
 export const unitType = pgEnum("unit_type", ['count', 'weight', 'volume', 'length'])
 export const vendorType = pgEnum("vendor_type", ['manufacturer', 'distributor', 'wholesaler'])
 
-
-export const schedules = pgTable("schedules", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	sheduleName: varchar("shedule_name", { length: 100 }).notNull(),
-	isActive: boolean("is_active").default(true),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
-}, (table) => [
-	unique("schedules_shedule_name_key").on(table.sheduleName),
-]);
+export const organizationSystemIdSeq = pgSequence("organization_system_id_seq", {  startWith: "60000000000", increment: "1", minValue: "1", maxValue: "9223372036854775807", cache: "1", cycle: false })
 
 export const batches = pgTable("batches", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -87,6 +79,8 @@ export const manufacturers = pgTable("manufacturers", {
 	isActive: boolean("is_active").default(true),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 }, (table) => [
+	index("idx_manufacturers_active_name").using("btree", table.isActive.asc().nullsLast().op("text_ops"), table.name.asc().nullsLast().op("text_ops")),
+	index("idx_manufacturers_name_trgm").using("gin", sql`lower((name)::text)`),
 	index("manufacturers_is_active_idx").using("btree", table.isActive.asc().nullsLast().op("bool_ops")),
 	unique("manufacturers_name_unique").on(table.name),
 ]);
@@ -97,6 +91,7 @@ export const strengths = pgTable("strengths", {
 	isActive: boolean("is_active").default(true),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 }, (table) => [
+	index("idx_strengths_active_name").using("btree", table.isActive.asc().nullsLast().op("bool_ops"), table.strengthName.asc().nullsLast().op("text_ops")),
 	index("strengths_is_active_idx").using("btree", table.isActive.asc().nullsLast().op("bool_ops")),
 	unique("strengths_strength_name_key").on(table.strengthName),
 ]);
@@ -107,21 +102,33 @@ export const contents = pgTable("contents", {
 	isActive: boolean("is_active").default(true),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 }, (table) => [
+	index("idx_contents_active_name").using("btree", table.isActive.asc().nullsLast().op("text_ops"), table.contentName.asc().nullsLast().op("text_ops")),
 	unique("contents_content_name_key").on(table.contentName),
+]);
+
+export const transactionLocks = pgTable("transaction_locks", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
+	moduleName: varchar("module_name", { length: 100 }).notNull(),
+	lockDate: timestamp("lock_date", { mode: 'string' }).notNull(),
+	reason: text(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("idx_org_module_lock").on(table.orgId, table.moduleName),
 ]);
 
 export const states = pgTable("states", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	countryId: uuid("country_id").notNull(),
+	stateId: uuid("state_id").notNull(),
 	name: varchar({ length: 100 }).notNull(),
 	code: varchar({ length: 10 }),
 	isActive: boolean("is_active").default(true),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 }, (table) => [
 	foreignKey({
-			columns: [table.countryId],
+			columns: [table.stateId],
 			foreignColumns: [countries.id],
-			name: "states_country_id_countries_id_fk"
+			name: "states_state_id_fkey"
 		}).onDelete("cascade"),
 ]);
 
@@ -140,29 +147,6 @@ export const salesPaymentLinks = pgTable("sales_payment_links", {
 		}),
 ]);
 
-export const racks = pgTable("racks", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	rackCode: varchar("rack_code", { length: 50 }).notNull(),
-	rackName: varchar("rack_name", { length: 255 }),
-	storageId: uuid("storage_id"),
-	capacity: integer(),
-	isActive: boolean("is_active").default(true),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
-}, (table) => [
-	unique("racks_rack_code_unique").on(table.rackCode),
-]);
-
-export const associateTaxes = pgTable("associate_taxes", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	taxName: varchar("tax_name", { length: 100 }).notNull(),
-	taxRate: numeric("tax_rate", { precision: 5, scale:  2 }).notNull(),
-	taxType: taxType("tax_type"),
-	isActive: boolean("is_active").default(true),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
-}, (table) => [
-	unique("tax_rates_tax_name_unique").on(table.taxName),
-]);
-
 export const paymentTerms = pgTable("payment_terms", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	termName: varchar("term_name", { length: 255 }).notNull(),
@@ -175,112 +159,17 @@ export const paymentTerms = pgTable("payment_terms", {
 	pgPolicy("Allow all operations on payment_terms", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
 ]);
 
-export const vendors = pgTable("vendors", {
+export const racks = pgTable("racks", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
-	outletId: uuid("outlet_id"),
-	vendorNumber: varchar("vendor_number", { length: 100 }),
-	displayName: varchar("display_name", { length: 255 }).notNull(),
-	salutation: varchar({ length: 20 }),
-	firstName: varchar("first_name", { length: 255 }),
-	lastName: varchar("last_name", { length: 255 }),
-	companyName: varchar("company_name", { length: 255 }),
-	email: varchar({ length: 255 }),
-	phone: varchar({ length: 50 }),
-	mobilePhone: varchar("mobile_phone", { length: 50 }),
-	designation: varchar({ length: 255 }),
-	department: varchar({ length: 255 }),
-	website: varchar({ length: 255 }),
-	vendorLanguage: varchar("vendor_language", { length: 50 }).default('English'),
-	gstTreatment: varchar("gst_treatment", { length: 100 }),
-	gstin: varchar({ length: 50 }),
-	sourceOfSupply: varchar("source_of_supply", { length: 100 }),
-	pan: varchar({ length: 50 }),
-	currency: varchar({ length: 20 }).default('INR'),
-	paymentTerms: varchar("payment_terms", { length: 100 }),
-	isMsmeRegistered: boolean("is_msme_registered").default(false),
-	msmeRegistrationType: varchar("msme_registration_type", { length: 100 }),
-	msmeRegistrationNumber: varchar("msme_registration_number", { length: 100 }),
-	isDrugRegistered: boolean("is_drug_registered").default(false),
-	drugLicenceType: varchar("drug_licence_type", { length: 100 }),
-	drugLicense20: varchar("drug_license_20", { length: 100 }),
-	drugLicense21: varchar("drug_license_21", { length: 100 }),
-	drugLicense20B: varchar("drug_license_20b", { length: 100 }),
-	drugLicense21B: varchar("drug_license_21b", { length: 100 }),
-	isFssaiRegistered: boolean("is_fssai_registered").default(false),
-	fssaiNumber: varchar("fssai_number", { length: 100 }),
-	tdsRateId: varchar("tds_rate_id", { length: 100 }),
-	enablePortal: boolean("enable_portal").default(false),
-	remarks: text(),
-	xHandle: varchar("x_handle", { length: 255 }),
-	facebookHandle: varchar("facebook_handle", { length: 255 }),
-	whatsappNumber: varchar("whatsapp_number", { length: 255 }),
-	source: varchar({ length: 50 }).default('User'),
+	rackCode: varchar("rack_code", { length: 50 }).notNull(),
+	rackName: varchar("rack_name", { length: 255 }),
+	storageId: uuid("storage_id"),
+	capacity: integer(),
 	isActive: boolean("is_active").default(true),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	billingAttention: text("billing_attention"),
-	billingAddressStreet1: text("billing_address_street_1"),
-	billingAddressStreet2: text("billing_address_street_2"),
-	billingCity: text("billing_city"),
-	billingState: text("billing_state"),
-	billingPincode: text("billing_pincode"),
-	billingCountryRegion: text("billing_country_region"),
-	billingPhone: text("billing_phone"),
-	billingFax: text("billing_fax"),
-	shippingAttention: text("shipping_attention"),
-	shippingAddressStreet1: text("shipping_address_street_1"),
-	shippingAddressStreet2: text("shipping_address_street_2"),
-	shippingCity: text("shipping_city"),
-	shippingState: text("shipping_state"),
-	shippingPincode: text("shipping_pincode"),
-	shippingCountryRegion: text("shipping_country_region"),
-	shippingPhone: text("shipping_phone"),
-	shippingFax: text("shipping_fax"),
-	priceListId: uuid("price_list_id"),
-}, (table) => [
-	unique("vendors_vendor_number_unique").on(table.vendorNumber),
-]);
-
-export const accountsRecurringJournals = pgTable("accounts_recurring_journals", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
-	outletId: uuid("outlet_id"),
-	profileName: varchar("profile_name").notNull(),
-	repeatEvery: varchar("repeat_every").notNull(),
-	interval: integer().default(1).notNull(),
-	startDate: date("start_date").notNull(),
-	endDate: date("end_date"),
-	neverExpires: boolean("never_expires").default(true),
-	referenceNumber: varchar("reference_number"),
-	notes: text(),
-	currencyCode: varchar("currency_code").default('INR'),
-	reportingMethod: varchar("reporting_method").default('accrual_and_cash'),
-	status: varchar().default('active'),
-	lastGeneratedDate: timestamp("last_generated_date", { mode: 'string' }),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
-	createdBy: uuid("created_by"),
-});
-
-export const salesEwayBills = pgTable("sales_eway_bills", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	saleId: uuid("sale_id"),
-	billNumber: varchar("bill_number", { length: 100 }),
-	billDate: timestamp("bill_date", { mode: 'string' }).defaultNow(),
-	supplyType: varchar("supply_type", { length: 50 }).default('Outward'),
-	subType: varchar("sub_type", { length: 50 }).default('Supply'),
-	transporterId: varchar("transporter_id", { length: 100 }),
-	vehicleNumber: varchar("vehicle_number", { length: 50 }),
-	status: varchar({ length: 50 }).default('active'),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 }, (table) => [
-	foreignKey({
-			columns: [table.saleId],
-			foreignColumns: [salesOrders.id],
-			name: "sales_eway_bills_sale_id_sales_orders_id_fk"
-		}),
-	unique("sales_eway_bills_bill_number_unique").on(table.billNumber),
+	index("idx_racks_active_code").using("btree", table.isActive.asc().nullsLast().op("text_ops"), table.rackCode.asc().nullsLast().op("text_ops")),
+	unique("racks_rack_code_unique").on(table.rackCode),
 ]);
 
 export const products = pgTable("products", {
@@ -431,6 +320,128 @@ export const products = pgTable("products", {
 		}),
 	unique("products_item_code_unique").on(table.itemCode),
 	unique("products_sku_unique").on(table.sku),
+	check("products_inventory_valuation_method_check", sql`(inventory_valuation_method IS NULL) OR (inventory_valuation_method = ANY (ARRAY['FIFO'::inventory_valuation_method, 'LIFO'::inventory_valuation_method, 'FEFO'::inventory_valuation_method, 'Weighted Average'::inventory_valuation_method, 'Specific Identification'::inventory_valuation_method]))`),
+]);
+
+export const associateTaxes = pgTable("associate_taxes", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	taxName: varchar("tax_name", { length: 100 }).notNull(),
+	taxRate: numeric("tax_rate", { precision: 5, scale:  2 }).notNull(),
+	taxType: taxType("tax_type"),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("tax_rates_tax_name_unique").on(table.taxName),
+]);
+
+export const vendors = pgTable("vendors", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
+	outletId: uuid("outlet_id"),
+	vendorNumber: varchar("vendor_number", { length: 100 }),
+	displayName: varchar("display_name", { length: 255 }).notNull(),
+	salutation: varchar({ length: 20 }),
+	firstName: varchar("first_name", { length: 255 }),
+	lastName: varchar("last_name", { length: 255 }),
+	companyName: varchar("company_name", { length: 255 }),
+	email: varchar({ length: 255 }),
+	phone: varchar({ length: 50 }),
+	mobilePhone: varchar("mobile_phone", { length: 50 }),
+	designation: varchar({ length: 255 }),
+	department: varchar({ length: 255 }),
+	website: varchar({ length: 255 }),
+	vendorLanguage: varchar("vendor_language", { length: 50 }).default('English'),
+	gstTreatment: varchar("gst_treatment", { length: 100 }),
+	gstin: varchar({ length: 50 }),
+	sourceOfSupply: varchar("source_of_supply", { length: 100 }),
+	pan: varchar({ length: 50 }),
+	currency: varchar({ length: 20 }).default('INR'),
+	paymentTerms: varchar("payment_terms", { length: 100 }),
+	isMsmeRegistered: boolean("is_msme_registered").default(false),
+	msmeRegistrationType: varchar("msme_registration_type", { length: 100 }),
+	msmeRegistrationNumber: varchar("msme_registration_number", { length: 100 }),
+	isDrugRegistered: boolean("is_drug_registered").default(false),
+	drugLicenceType: varchar("drug_licence_type", { length: 100 }),
+	drugLicense20: varchar("drug_license_20", { length: 100 }),
+	drugLicense21: varchar("drug_license_21", { length: 100 }),
+	drugLicense20B: varchar("drug_license_20b", { length: 100 }),
+	drugLicense21B: varchar("drug_license_21b", { length: 100 }),
+	isFssaiRegistered: boolean("is_fssai_registered").default(false),
+	fssaiNumber: varchar("fssai_number", { length: 100 }),
+	tdsRateId: varchar("tds_rate_id", { length: 100 }),
+	enablePortal: boolean("enable_portal").default(false),
+	remarks: text(),
+	xHandle: varchar("x_handle", { length: 255 }),
+	facebookHandle: varchar("facebook_handle", { length: 255 }),
+	whatsappNumber: varchar("whatsapp_number", { length: 255 }),
+	source: varchar({ length: 50 }).default('User'),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	billingAttention: text("billing_attention"),
+	billingAddressStreet1: text("billing_address_street_1"),
+	billingAddressStreet2: text("billing_address_street_2"),
+	billingCity: text("billing_city"),
+	billingState: text("billing_state"),
+	billingPincode: text("billing_pincode"),
+	billingCountryRegion: text("billing_country_region"),
+	billingPhone: text("billing_phone"),
+	billingFax: text("billing_fax"),
+	shippingAttention: text("shipping_attention"),
+	shippingAddressStreet1: text("shipping_address_street_1"),
+	shippingAddressStreet2: text("shipping_address_street_2"),
+	shippingCity: text("shipping_city"),
+	shippingState: text("shipping_state"),
+	shippingPincode: text("shipping_pincode"),
+	shippingCountryRegion: text("shipping_country_region"),
+	shippingPhone: text("shipping_phone"),
+	shippingFax: text("shipping_fax"),
+	priceListId: uuid("price_list_id"),
+}, (table) => [
+	index("idx_vendors_active_display_name").using("btree", table.isActive.asc().nullsLast().op("bool_ops"), table.displayName.asc().nullsLast().op("text_ops")),
+	index("idx_vendors_display_name_trgm").using("gin", sql`lower((display_name)::text)`),
+	unique("vendors_vendor_number_unique").on(table.vendorNumber),
+]);
+
+export const accountsRecurringJournals = pgTable("accounts_recurring_journals", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
+	outletId: uuid("outlet_id"),
+	profileName: varchar("profile_name").notNull(),
+	repeatEvery: varchar("repeat_every").notNull(),
+	interval: integer().default(1).notNull(),
+	startDate: date("start_date").notNull(),
+	endDate: date("end_date"),
+	neverExpires: boolean("never_expires").default(true),
+	referenceNumber: varchar("reference_number"),
+	notes: text(),
+	currencyCode: varchar("currency_code").default('INR'),
+	reportingMethod: varchar("reporting_method").default('accrual_and_cash'),
+	status: varchar().default('active'),
+	lastGeneratedDate: timestamp("last_generated_date", { mode: 'string' }),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+	createdBy: uuid("created_by"),
+});
+
+export const salesEwayBills = pgTable("sales_eway_bills", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	saleId: uuid("sale_id"),
+	billNumber: varchar("bill_number", { length: 100 }),
+	billDate: timestamp("bill_date", { mode: 'string' }).defaultNow(),
+	supplyType: varchar("supply_type", { length: 50 }).default('Outward'),
+	subType: varchar("sub_type", { length: 50 }).default('Supply'),
+	transporterId: varchar("transporter_id", { length: 100 }),
+	vehicleNumber: varchar("vehicle_number", { length: 50 }),
+	status: varchar({ length: 50 }).default('active'),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.saleId],
+			foreignColumns: [salesOrders.id],
+			name: "sales_eway_bills_sale_id_sales_orders_id_fk"
+		}),
+	unique("sales_eway_bills_bill_number_unique").on(table.billNumber),
 ]);
 
 export const vendorContactPersons = pgTable("vendor_contact_persons", {
@@ -453,15 +464,6 @@ export const vendorContactPersons = pgTable("vendor_contact_persons", {
 			foreignColumns: [vendors.id],
 			name: "vendor_contact_persons_vendor_id_fkey"
 		}).onDelete("cascade"),
-]);
-
-export const buyingRules = pgTable("buying_rules", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	buyingRule: varchar("buying_rule", { length: 255 }).notNull(),
-	isActive: boolean("is_active").default(true),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
-}, (table) => [
-	unique("buying_rules_buying_rule_key").on(table.buyingRule),
 ]);
 
 export const compositeItemParts = pgTable("composite_item_parts", {
@@ -510,7 +512,10 @@ export const accounts = pgTable("accounts", {
 	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
 	outletId: uuid("outlet_id"),
 }, (table) => [
+	index("idx_accounts_active_system_name").using("btree", table.isActive.asc().nullsLast().op("text_ops"), table.systemAccountName.asc().nullsLast().op("bool_ops")),
+	index("idx_accounts_active_user_name").using("btree", table.isActive.asc().nullsLast().op("text_ops"), table.userAccountName.asc().nullsLast().op("text_ops")),
 	index("idx_accounts_group").using("btree", table.accountGroup.asc().nullsLast().op("enum_ops")),
+	index("idx_accounts_lookup_name_trgm").using("gin", sql`lower((COALESCE(user_account_name, system_account_name))::text)`),
 	index("idx_accounts_parent").using("btree", table.parentId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.parentId],
@@ -537,21 +542,9 @@ export const brands = pgTable("brands", {
 	isActive: boolean("is_active").default(true),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 }, (table) => [
+	index("idx_brands_active_name").using("btree", table.isActive.asc().nullsLast().op("bool_ops"), table.name.asc().nullsLast().op("bool_ops")),
+	index("idx_brands_name_trgm").using("gin", sql`lower((name)::text)`),
 	unique("brands_name_unique").on(table.name),
-]);
-
-export const reorderTerms = pgTable("reorder_terms", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	orgId: uuid("org_id").default('00000000-0000-0000-0000-000000000000').notNull(),
-	outletId: uuid("outlet_id"),
-	termName: varchar("term_name", { length: 255 }).notNull(),
-	description: text(),
-	isActive: boolean("is_active").default(true),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
-	quantity: integer().default(1).notNull(),
-}, (table) => [
-	check("reorder_terms_quantity_positive", sql`quantity > 0`),
 ]);
 
 export const salesOrders = pgTable("sales_orders", {
@@ -673,6 +666,130 @@ export const accountsRecurringJournalItems = pgTable("accounts_recurring_journal
 		}).onDelete("cascade"),
 ]);
 
+export const reorderTerms = pgTable("reorder_terms", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	termName: varchar("term_name", { length: 255 }).notNull(),
+	description: text(),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	quantity: integer().default(1).notNull(),
+	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
+	outletId: uuid("outlet_id"),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_reorder_terms_active_name").using("btree", table.isActive.asc().nullsLast().op("bool_ops"), table.termName.asc().nullsLast().op("text_ops")),
+	uniqueIndex("idx_reorder_terms_org_outlet_term_name").using("btree", sql`org_id`, sql`outlet_id`, sql`lower((term_name)::text)`).where(sql`(outlet_id IS NOT NULL)`),
+	uniqueIndex("idx_reorder_terms_org_term_name_global").using("btree", sql`org_id`, sql`lower((term_name)::text)`).where(sql`(outlet_id IS NULL)`),
+	check("reorder_terms_quantity_positive", sql`quantity > 0`),
+]);
+
+export const schedules = pgTable("schedules", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	sheduleName: varchar("shedule_name", { length: 100 }).notNull(),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	scheduleCode: varchar("schedule_code", { length: 30 }),
+	referenceDescription: text("reference_description"),
+	requiresPrescription: boolean("requires_prescription").default(false).notNull(),
+	requiresH1Register: boolean("requires_h1_register").default(false).notNull(),
+	isNarcotic: boolean("is_narcotic").default(false).notNull(),
+	requiresBatchTracking: boolean("requires_batch_tracking").default(false).notNull(),
+	sortOrder: integer("sort_order").default(0).notNull(),
+	isCommon: boolean("is_common").default(false).notNull(),
+}, (table) => [
+	index("idx_schedules_active_name").using("btree", table.isActive.asc().nullsLast().op("text_ops"), table.sheduleName.asc().nullsLast().op("text_ops")),
+	unique("schedules_shedule_name_key").on(table.sheduleName),
+]);
+
+export const auditLogs = pgTable("audit_logs", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	tableName: varchar("table_name", { length: 100 }).notNull(),
+	recordId: uuid("record_id").notNull(),
+	action: varchar({ length: 10 }).notNull(),
+	oldValues: jsonb("old_values"),
+	newValues: jsonb("new_values"),
+	userId: uuid("user_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
+	outletId: uuid("outlet_id"),
+	actorName: text("actor_name").default('system').notNull(),
+	schemaName: text("schema_name").default('public').notNull(),
+	recordPk: text("record_pk"),
+	changedColumns: text("changed_columns").array(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	txid: bigint({ mode: "number" }).default(sql`txid_current()`).notNull(),
+	source: text().default('system').notNull(),
+	moduleName: text("module_name"),
+	requestId: text("request_id"),
+}, (table) => [
+	index("idx_audit_logs_action_created").using("btree", table.action.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("idx_audit_logs_org_created").using("btree", table.orgId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("idx_audit_logs_record_pk").using("btree", table.tableName.asc().nullsLast().op("text_ops"), table.recordPk.asc().nullsLast().op("text_ops")),
+	index("idx_audit_logs_request_id").using("btree", table.requestId.asc().nullsLast().op("text_ops")),
+	index("idx_audit_logs_schema_table_record").using("btree", table.schemaName.asc().nullsLast().op("uuid_ops"), table.tableName.asc().nullsLast().op("text_ops"), table.recordId.asc().nullsLast().op("uuid_ops")),
+	index("idx_audit_logs_table_record").using("btree", table.tableName.asc().nullsLast().op("uuid_ops"), table.recordId.asc().nullsLast().op("uuid_ops")),
+	index("idx_audit_logs_table_record_pk").using("btree", table.tableName.asc().nullsLast().op("text_ops"), table.recordPk.asc().nullsLast().op("text_ops")),
+	index("idx_audit_logs_user_created").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	pgPolicy("audit_logs_read_all", { as: "permissive", for: "select", to: ["anon", "authenticated", "service_role"], using: sql`true` }),
+]);
+
+export const auditLogsArchive = pgTable("audit_logs_archive", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	tableName: varchar("table_name", { length: 100 }).notNull(),
+	recordId: uuid("record_id").notNull(),
+	action: varchar({ length: 10 }).notNull(),
+	oldValues: jsonb("old_values"),
+	newValues: jsonb("new_values"),
+	userId: uuid("user_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
+	outletId: uuid("outlet_id"),
+	actorName: text("actor_name").default('system').notNull(),
+	schemaName: text("schema_name").default('public').notNull(),
+	recordPk: text("record_pk"),
+	changedColumns: text("changed_columns"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	txid: bigint({ mode: "number" }).default(sql`txid_current()`).notNull(),
+	source: text().default('system').notNull(),
+	moduleName: text("module_name"),
+	requestId: text("request_id"),
+	archivedAt: timestamp("archived_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("audit_logs_archive_action_created_at_idx").using("btree", table.action.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("audit_logs_archive_org_id_created_at_idx").using("btree", table.orgId.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("audit_logs_archive_table_name_record_id_idx").using("btree", table.tableName.asc().nullsLast().op("uuid_ops"), table.recordId.asc().nullsLast().op("uuid_ops")),
+	index("audit_logs_archive_table_name_record_pk_idx").using("btree", table.tableName.asc().nullsLast().op("text_ops"), table.recordPk.asc().nullsLast().op("text_ops")),
+	index("audit_logs_archive_user_id_created_at_idx").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("idx_audit_logs_archive_org_created").using("btree", table.orgId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("idx_audit_logs_archive_request_id").using("btree", table.requestId.asc().nullsLast().op("text_ops")),
+	pgPolicy("audit_logs_archive_read_all", { as: "permissive", for: "select", to: ["anon", "authenticated", "service_role"], using: sql`true` }),
+]);
+
+export const buyingRules = pgTable("buying_rules", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	buyingRule: varchar("buying_rule", { length: 255 }).notNull(),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	ruleDescription: text("rule_description"),
+	systemBehavior: text("system_behavior"),
+	associatedScheduleCodes: text("associated_schedule_codes").array().default(["RAY"]).notNull(),
+	requiresRx: boolean("requires_rx").default(false).notNull(),
+	requiresPatientInfo: boolean("requires_patient_info").default(false).notNull(),
+	isSaleable: boolean("is_saleable").default(true).notNull(),
+	logToSpecialRegister: boolean("log_to_special_register").default(false).notNull(),
+	requiresDoctorName: boolean("requires_doctor_name").default(false).notNull(),
+	requiresPrescriptionDate: boolean("requires_prescription_date").default(false).notNull(),
+	requiresAgeCheck: boolean("requires_age_check").default(false).notNull(),
+	institutionalOnly: boolean("institutional_only").default(false).notNull(),
+	blocksRetailSale: boolean("blocks_retail_sale").default(false).notNull(),
+	quantityLimit: integer("quantity_limit"),
+	allowsRefill: boolean("allows_refill").default(false).notNull(),
+	sortOrder: integer("sort_order").default(0).notNull(),
+}, (table) => [
+	index("idx_buying_rules_active_name").using("btree", table.isActive.asc().nullsLast().op("text_ops"), table.buyingRule.asc().nullsLast().op("text_ops")),
+	unique("buying_rules_buying_rule_key").on(table.buyingRule),
+]);
+
 export const priceLists = pgTable("price_lists", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 255 }).notNull(),
@@ -699,24 +816,13 @@ export const categories = pgTable("categories", {
 	isActive: boolean("is_active").default(true),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 }, (table) => [
+	index("idx_categories_active_name").using("btree", table.isActive.asc().nullsLast().op("text_ops"), table.name.asc().nullsLast().op("text_ops")),
 	foreignKey({
 			columns: [table.parentId],
 			foreignColumns: [table.id],
 			name: "categories_parent_id_categories_id_fk"
 		}),
 	unique("categories_name_unique").on(table.name),
-]);
-
-export const countries = pgTable("countries", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	name: varchar({ length: 100 }).notNull(),
-	fullLabel: varchar("full_label", { length: 255 }),
-	phoneCode: varchar("phone_code", { length: 20 }).notNull(),
-	shortCode: varchar("short_code", { length: 10 }),
-	isActive: boolean("is_active").default(true),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
-}, (table) => [
-	unique("countries_name_key").on(table.name),
 ]);
 
 export const salesPayments = pgTable("sales_payments", {
@@ -765,15 +871,22 @@ export const tdsGroups = pgTable("tds_groups", {
 	pgPolicy("Allow all operations on tds_groups", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
 ]);
 
-export const storageLocations = pgTable("storage_locations", {
+export const countries = pgTable("countries", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	locationName: varchar("location_name", { length: 255 }).notNull(),
-	temperatureRange: varchar("temperature_range", { length: 50 }),
-	description: text(),
+	name: varchar({ length: 100 }).notNull(),
+	fullLabel: varchar("full_label", { length: 255 }),
+	phoneCode: varchar("phone_code", { length: 20 }).notNull(),
+	shortCode: varchar("short_code", { length: 10 }),
 	isActive: boolean("is_active").default(true),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	primaryTimezoneId: uuid("primary_timezone_id"),
 }, (table) => [
-	unique("storage_locations_location_name_unique").on(table.locationName),
+	foreignKey({
+			columns: [table.primaryTimezoneId],
+			foreignColumns: [timezones.id],
+			name: "countries_primary_timezone_id_fkey"
+		}).onDelete("set null"),
+	unique("countries_name_key").on(table.name),
 ]);
 
 export const tdsSections = pgTable("tds_sections", {
@@ -804,6 +917,53 @@ export const tdsGroupItems = pgTable("tds_group_items", {
 			name: "tds_group_items_tds_rate_id_fkey"
 		}).onDelete("cascade"),
 	pgPolicy("Allow all operations on tds_group_items", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
+]);
+
+export const accountsManualJournals = pgTable("accounts_manual_journals", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
+	outletId: uuid("outlet_id"),
+	journalNumber: varchar("journal_number", { length: 100 }).notNull(),
+	fiscalYearId: uuid("fiscal_year_id"),
+	referenceNumber: varchar("reference_number", { length: 100 }),
+	journalDate: date("journal_date").default(sql`CURRENT_DATE`),
+	notes: text(),
+	is13ThMonthAdjustment: boolean("is_13th_month_adjustment").default(false),
+	reportingMethod: accountsReportingMethod("reporting_method").default('accrual_and_cash'),
+	currencyCode: varchar("currency_code", { length: 10 }).default('INR'),
+	status: accountsManualJournalStatus().default('draft'),
+	totalAmount: numeric("total_amount", { precision: 15, scale:  2 }).default('0.00'),
+	createdBy: uuid("created_by"),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	recurringJournalId: uuid("recurring_journal_id"),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	isDeleted: boolean("is_deleted").default(false).notNull(),
+}, (table) => [
+	index("idx_accounts_manual_journals_org_is_deleted").using("btree", table.orgId.asc().nullsLast().op("bool_ops"), table.isDeleted.asc().nullsLast().op("bool_ops")),
+	foreignKey({
+			columns: [table.fiscalYearId],
+			foreignColumns: [accountsFiscalYears.id],
+			name: "accounts_manual_journals_fiscal_year_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.recurringJournalId],
+			foreignColumns: [accountsRecurringJournals.id],
+			name: "accounts_manual_journals_recurring_journal_id_fkey"
+		}).onDelete("set null"),
+	unique("accounts_manual_journals_journal_number_unique").on(table.journalNumber),
+]);
+
+export const accountsJournalNumberSettings = pgTable("accounts_journal_number_settings", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
+	outletId: uuid("outlet_id"),
+	autoGenerate: boolean("auto_generate").default(true),
+	prefix: varchar({ length: 20 }),
+	nextNumber: integer("next_number").default(1),
+	isManualOverrideAllowed: boolean("is_manual_override_allowed").default(false),
+	userId: uuid("user_id"),
+}, (table) => [
+	uniqueIndex("accounts_journal_number_settings_scope_uq").using("btree", sql`org_id`, sql`COALESCE(outlet_id, '00000000-0000-0000-0000-000000000000'::uui`, sql`COALESCE(user_id, '00000000-0000-0000-0000-000000000000'::uuid)`),
 ]);
 
 export const accountsJournalTemplates = pgTable("accounts_journal_templates", {
@@ -875,51 +1035,6 @@ export const accountsManualJournalItems = pgTable("accounts_manual_journal_items
 		}).onDelete("cascade"),
 ]);
 
-export const accountsJournalNumberSettings = pgTable("accounts_journal_number_settings", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
-	outletId: uuid("outlet_id"),
-	autoGenerate: boolean("auto_generate").default(true),
-	prefix: varchar({ length: 20 }),
-	nextNumber: integer("next_number").default(1),
-	isManualOverrideAllowed: boolean("is_manual_override_allowed").default(false),
-	userId: uuid("user_id"),
-}, (table) => [
-	uniqueIndex("accounts_journal_number_settings_scope_uq").using("btree", sql`org_id`, sql`COALESCE(outlet_id, '00000000-0000-0000-0000-000000000000'::uui`, sql`COALESCE(user_id, '00000000-0000-0000-0000-000000000000'::uuid)`),
-]);
-
-export const accountsManualJournals = pgTable("accounts_manual_journals", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
-	outletId: uuid("outlet_id"),
-	journalNumber: varchar("journal_number", { length: 100 }).notNull(),
-	fiscalYearId: uuid("fiscal_year_id"),
-	referenceNumber: varchar("reference_number", { length: 100 }),
-	journalDate: date("journal_date").default(sql`CURRENT_DATE`),
-	notes: text(),
-	is13ThMonthAdjustment: boolean("is_13th_month_adjustment").default(false),
-	reportingMethod: accountsReportingMethod("reporting_method").default('accrual_and_cash'),
-	currencyCode: varchar("currency_code", { length: 10 }).default('INR'),
-	status: accountsManualJournalStatus().default('draft'),
-	totalAmount: numeric("total_amount", { precision: 15, scale:  2 }).default('0.00'),
-	createdBy: uuid("created_by"),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
-	recurringJournalId: uuid("recurring_journal_id"),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}, (table) => [
-	foreignKey({
-			columns: [table.fiscalYearId],
-			foreignColumns: [accountsFiscalYears.id],
-			name: "accounts_manual_journals_fiscal_year_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.recurringJournalId],
-			foreignColumns: [accountsRecurringJournals.id],
-			name: "accounts_manual_journals_recurring_journal_id_fkey"
-		}).onDelete("set null"),
-	unique("accounts_manual_journals_journal_number_unique").on(table.journalNumber),
-]);
-
 export const accountTransactions = pgTable("account_transactions", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	accountId: uuid("account_id").notNull(),
@@ -934,7 +1049,11 @@ export const accountTransactions = pgTable("account_transactions", {
 	sourceType: varchar("source_type", { length: 50 }),
 	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
 	outletId: uuid("outlet_id"),
+	contactId: uuid("contact_id"),
+	contactType: varchar("contact_type", { length: 50 }),
 }, (table) => [
+	index("idx_account_transactions_contact_id").using("btree", table.contactId.asc().nullsLast().op("uuid_ops")),
+	index("idx_account_transactions_contact_type").using("btree", table.contactType.asc().nullsLast().op("text_ops")),
 	foreignKey({
 			columns: [table.accountId],
 			foreignColumns: [accounts.id],
@@ -967,22 +1086,20 @@ export const accountsReportingTags = pgTable("accounts_reporting_tags", {
 	isActive: boolean("is_active").default(true),
 });
 
-export const organization = pgTable("organization", {
+export const transactionalSequences = pgTable("transactional_sequences", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	systemId: varchar("system_id", { length: 20 }).notNull(),
-	name: varchar({ length: 255 }).notNull(),
-	slug: varchar({ length: 100 }).notNull(),
+	module: varchar({ length: 50 }).notNull(),
+	prefix: varchar({ length: 20 }).default(').notNull(),
+	nextNumber: integer("next_number").default(1).notNull(),
+	padding: integer().default(6).notNull(),
 	isActive: boolean("is_active").default(true),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
-	stateId: uuid("state_id"),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	suffix: varchar({ length: 20 }).default('),
+	outletId: uuid("outlet_id"),
+	isAuto: boolean("is_auto").default(true),
 }, (table) => [
-	foreignKey({
-			columns: [table.stateId],
-			foreignColumns: [states.id],
-			name: "organization_state_id_fkey"
-		}),
-	unique("organization_slug_key").on(table.slug),
+	uniqueIndex("idx_sequences_module_global").using("btree", table.module.asc().nullsLast().op("text_ops")).where(sql`(outlet_id IS NULL)`),
+	uniqueIndex("idx_sequences_module_outlet").using("btree", table.module.asc().nullsLast().op("text_ops"), table.outletId.asc().nullsLast().op("text_ops")).where(sql`(outlet_id IS NOT NULL)`),
 ]);
 
 export const warehouses = pgTable("warehouses", {
@@ -1008,22 +1125,6 @@ export const warehouses = pgTable("warehouses", {
 			foreignColumns: [organization.id],
 			name: "warehouses_org_id_fkey"
 		}),
-]);
-
-export const transactionalSequences = pgTable("transactional_sequences", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	module: varchar({ length: 50 }).notNull(),
-	prefix: varchar({ length: 20 }).default(').notNull(),
-	nextNumber: integer("next_number").default(1).notNull(),
-	padding: integer().default(6).notNull(),
-	isActive: boolean("is_active").default(true),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	suffix: varchar({ length: 20 }).default('),
-	outletId: uuid("outlet_id"),
-	isAuto: boolean("is_auto").default(true),
-}, (table) => [
-	uniqueIndex("idx_sequences_module_global").using("btree", table.module.asc().nullsLast().op("text_ops")).where(sql`(outlet_id IS NULL)`),
-	uniqueIndex("idx_sequences_module_outlet").using("btree", table.module.asc().nullsLast().op("text_ops"), table.outletId.asc().nullsLast().op("text_ops")).where(sql`(outlet_id IS NOT NULL)`),
 ]);
 
 export const productContents = pgTable("product_contents", {
@@ -1055,6 +1156,67 @@ export const productContents = pgTable("product_contents", {
 			foreignColumns: [strengths.id],
 			name: "product_contents_strength_id_fkey"
 		}),
+]);
+
+export const storageLocations = pgTable("storage_locations", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	locationName: varchar("location_name", { length: 255 }).notNull(),
+	temperatureRange: varchar("temperature_range", { length: 50 }),
+	description: text(),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	displayText: varchar("display_text", { length: 255 }),
+	commonExamples: text("common_examples"),
+	minTempC: numeric("min_temp_c", { precision: 5, scale:  2 }),
+	maxTempC: numeric("max_temp_c", { precision: 5, scale:  2 }),
+	isColdChain: boolean("is_cold_chain").default(false).notNull(),
+	requiresFridge: boolean("requires_fridge").default(false).notNull(),
+	sortOrder: integer("sort_order").default(0).notNull(),
+	storageType: varchar("storage_type", { length: 255 }),
+}, (table) => [
+	index("idx_storage_locations_active_name").using("btree", table.isActive.asc().nullsLast().op("text_ops"), table.locationName.asc().nullsLast().op("text_ops")),
+	unique("storage_locations_location_name_unique").on(table.locationName),
+]);
+
+export const productWarehouseStocks = pgTable("product_warehouse_stocks", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	productId: uuid("product_id").notNull(),
+	warehouseId: uuid("warehouse_id").notNull(),
+	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
+	outletId: uuid("outlet_id"),
+	openingStock: numeric("opening_stock", { precision: 15, scale:  2 }).default('0').notNull(),
+	openingStockValue: numeric("opening_stock_value", { precision: 15, scale:  2 }).default('0').notNull(),
+	accountingStock: numeric("accounting_stock", { precision: 15, scale:  2 }).default('0').notNull(),
+	physicalStock: numeric("physical_stock", { precision: 15, scale:  2 }).default('0').notNull(),
+	committedStock: numeric("committed_stock", { precision: 15, scale:  2 }).default('0').notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_product_warehouse_stocks_org_outlet").using("btree", table.orgId.asc().nullsLast().op("uuid_ops"), table.outletId.asc().nullsLast().op("uuid_ops")),
+	index("idx_product_warehouse_stocks_product").using("btree", table.productId.asc().nullsLast().op("uuid_ops")),
+	index("idx_product_warehouse_stocks_warehouse").using("btree", table.warehouseId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.productId],
+			foreignColumns: [products.id],
+			name: "product_warehouse_stocks_product_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.warehouseId],
+			foreignColumns: [warehouses.id],
+			name: "product_warehouse_stocks_warehouse_id_fkey"
+		}).onDelete("cascade"),
+	unique("product_warehouse_stocks_unique_product_warehouse").on(table.productId, table.warehouseId),
+]);
+
+export const hsnSacCodes = pgTable("hsn_sac_codes", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	type: hsnSacType().notNull(),
+	code: varchar({ length: 15 }).notNull(),
+	description: text().notNull(),
+}, (table) => [
+	index("idx_hsn_sac_code").using("btree", table.code.asc().nullsLast().op("text_ops")),
+	index("idx_hsn_sac_type").using("btree", table.type.asc().nullsLast().op("enum_ops")),
+	unique("hsn_sac_codes_code_key").on(table.code),
 ]);
 
 export const compositeItems = pgTable("composite_items", {
@@ -1217,28 +1379,6 @@ export const priceListVolumeRanges = pgTable("price_list_volume_ranges", {
 			name: "price_list_volume_ranges_price_list_item_id_fkey"
 		}).onDelete("cascade"),
 ]);
-
-export const hsnSacCodes = pgTable("hsn_sac_codes", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	type: hsnSacType().notNull(),
-	code: varchar({ length: 15 }).notNull(),
-	description: text().notNull(),
-}, (table) => [
-	index("idx_hsn_sac_code").using("btree", table.code.asc().nullsLast().op("text_ops")),
-	index("idx_hsn_sac_type").using("btree", table.type.asc().nullsLast().op("enum_ops")),
-	unique("hsn_sac_codes_code_key").on(table.code),
-]);
-
-export const auditLogs = pgTable("audit_logs", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	tableName: varchar("table_name", { length: 100 }).notNull(),
-	recordId: uuid("record_id").notNull(),
-	action: varchar({ length: 10 }).notNull(),
-	oldValues: jsonb("old_values"),
-	newValues: jsonb("new_values"),
-	userId: uuid("user_id"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-});
 
 export const customerContactPersons = pgTable("customer_contact_persons", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -1412,9 +1552,52 @@ export const outletInventory = pgTable("outlet_inventory", {
 	check("outlet_inventory_current_stock_check", sql`current_stock >= 0`),
 ]);
 
+export const uqc = pgTable("uqc", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	uqcCode: varchar("uqc_code", { length: 20 }).notNull(),
+	description: varchar({ length: 255 }).notNull(),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("uqc_uqc_code_key").on(table.uqcCode),
+]);
+
+export const productWarehouseStockAdjustments = pgTable("product_warehouse_stock_adjustments", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	productId: uuid("product_id").notNull(),
+	warehouseId: uuid("warehouse_id").notNull(),
+	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
+	outletId: uuid("outlet_id"),
+	adjustmentType: text("adjustment_type").default('physical_count').notNull(),
+	previousAccountingStock: numeric("previous_accounting_stock", { precision: 15, scale:  2 }).default('0').notNull(),
+	previousPhysicalStock: numeric("previous_physical_stock", { precision: 15, scale:  2 }).default('0').notNull(),
+	newPhysicalStock: numeric("new_physical_stock", { precision: 15, scale:  2 }).default('0').notNull(),
+	committedStock: numeric("committed_stock", { precision: 15, scale:  2 }).default('0').notNull(),
+	varianceQty: numeric("variance_qty", { precision: 15, scale:  2 }).default('0').notNull(),
+	reason: text().notNull(),
+	notes: text(),
+	adjustedAt: timestamp("adjusted_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_product_warehouse_stock_adjustments_org_outlet").using("btree", table.orgId.asc().nullsLast().op("uuid_ops"), table.outletId.asc().nullsLast().op("uuid_ops")),
+	index("idx_product_warehouse_stock_adjustments_product").using("btree", table.productId.asc().nullsLast().op("timestamptz_ops"), table.adjustedAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("idx_product_warehouse_stock_adjustments_warehouse").using("btree", table.warehouseId.asc().nullsLast().op("timestamptz_ops"), table.adjustedAt.desc().nullsFirst().op("uuid_ops")),
+	foreignKey({
+			columns: [table.productId],
+			foreignColumns: [products.id],
+			name: "product_warehouse_stock_adjustments_product_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.warehouseId],
+			foreignColumns: [warehouses.id],
+			name: "product_warehouse_stock_adjustments_warehouse_fkey"
+		}).onDelete("cascade"),
+	check("product_warehouse_stock_adjustments_type_check", sql`adjustment_type = 'physical_count'::text`),
+]);
+
 export const productOutletInventorySettings = pgTable("product_outlet_inventory_settings", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	orgId: uuid("org_id").default('00000000-0000-0000-0000-000000000000').notNull(),
+	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
 	outletId: uuid("outlet_id"),
 	productId: uuid("product_id").notNull(),
 	reorderPoint: integer("reorder_point").default(0).notNull(),
@@ -1422,12 +1605,13 @@ export const productOutletInventorySettings = pgTable("product_outlet_inventory_
 	isActive: boolean("is_active").default(true).notNull(),
 	createdById: uuid("created_by_id"),
 	updatedById: uuid("updated_by_id"),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("idx_product_outlet_inventory_settings_product").using("btree", table.productId.asc().nullsLast().op("uuid_ops")),
 	index("idx_product_outlet_inventory_settings_org_outlet").using("btree", table.orgId.asc().nullsLast().op("uuid_ops"), table.outletId.asc().nullsLast().op("uuid_ops")),
-	check("product_outlet_inventory_settings_reorder_point_check", sql`reorder_point >= 0`),
+	uniqueIndex("idx_product_outlet_inventory_settings_org_product_global").using("btree", table.orgId.asc().nullsLast().op("uuid_ops"), table.productId.asc().nullsLast().op("uuid_ops")).where(sql`(outlet_id IS NULL)`),
+	uniqueIndex("idx_product_outlet_inventory_settings_outlet_product").using("btree", table.outletId.asc().nullsLast().op("uuid_ops"), table.productId.asc().nullsLast().op("uuid_ops")).where(sql`(outlet_id IS NOT NULL)`),
+	index("idx_product_outlet_inventory_settings_product").using("btree", table.productId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.productId],
 			foreignColumns: [products.id],
@@ -1438,11 +1622,12 @@ export const productOutletInventorySettings = pgTable("product_outlet_inventory_
 			foreignColumns: [reorderTerms.id],
 			name: "product_outlet_inventory_settings_reorder_term_fkey"
 		}).onDelete("set null"),
+	check("product_outlet_inventory_settings_reorder_point_check", sql`reorder_point >= 0`),
 ]);
 
 export const compositeItemOutletInventorySettings = pgTable("composite_item_outlet_inventory_settings", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	orgId: uuid("org_id").default('00000000-0000-0000-0000-000000000000').notNull(),
+	orgId: uuid("org_id").default(sql`'00000000-0000-0000-0000-000000000000'`).notNull(),
 	outletId: uuid("outlet_id"),
 	compositeItemId: uuid("composite_item_id").notNull(),
 	reorderPoint: integer("reorder_point").default(0).notNull(),
@@ -1450,12 +1635,13 @@ export const compositeItemOutletInventorySettings = pgTable("composite_item_outl
 	isActive: boolean("is_active").default(true).notNull(),
 	createdById: uuid("created_by_id"),
 	updatedById: uuid("updated_by_id"),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	index("idx_composite_item_outlet_inventory_settings_item").using("btree", table.compositeItemId.asc().nullsLast().op("uuid_ops")),
 	index("idx_composite_item_outlet_inventory_settings_org_outlet").using("btree", table.orgId.asc().nullsLast().op("uuid_ops"), table.outletId.asc().nullsLast().op("uuid_ops")),
-	check("composite_item_outlet_inventory_settings_reorder_point_check", sql`reorder_point >= 0`),
+	uniqueIndex("uq_composite_item_outlet_inventory_settings_org_item_global").using("btree", table.orgId.asc().nullsLast().op("uuid_ops"), table.compositeItemId.asc().nullsLast().op("uuid_ops")).where(sql`(outlet_id IS NULL)`),
+	uniqueIndex("uq_composite_item_outlet_inventory_settings_outlet_item").using("btree", table.outletId.asc().nullsLast().op("uuid_ops"), table.compositeItemId.asc().nullsLast().op("uuid_ops")).where(sql`(outlet_id IS NOT NULL)`),
 	foreignKey({
 			columns: [table.compositeItemId],
 			foreignColumns: [compositeItems.id],
@@ -1466,16 +1652,93 @@ export const compositeItemOutletInventorySettings = pgTable("composite_item_outl
 			foreignColumns: [reorderTerms.id],
 			name: "composite_item_outlet_inventory_settings_reorder_term_fkey"
 		}).onDelete("set null"),
+	check("composite_item_outlet_inventory_settings_reorder_point_check", sql`reorder_point >= 0`),
 ]);
 
-export const uqc = pgTable("uqc", {
+export const industries = pgTable("industries", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	uqcCode: varchar("uqc_code", { length: 20 }).notNull(),
-	description: varchar({ length: 255 }).notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+}, (table) => [
+	unique("industries_name_key").on(table.name),
+]);
+
+export const timezones = pgTable("timezones", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: varchar({ length: 150 }).notNull(),
+	tzdbName: varchar("tzdb_name", { length: 100 }).notNull(),
+	utcOffset: varchar("utc_offset", { length: 10 }).notNull(),
+	display: varchar({ length: 255 }).notNull(),
+	countryId: uuid("country_id"),
+	isActive: boolean("is_active").default(true).notNull(),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.countryId],
+			foreignColumns: [countries.id],
+			name: "timezones_country_id_fkey"
+		}).onDelete("set null"),
+	unique("timezones_name_key").on(table.name),
+]);
+
+export const companyIdLabels = pgTable("company_id_labels", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	label: varchar({ length: 50 }).notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+}, (table) => [
+	unique("company_id_labels_label_key").on(table.label),
+]);
+
+export const organization = pgTable("organization", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	slug: varchar({ length: 100 }).notNull(),
 	isActive: boolean("is_active").default(true),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+	stateId: uuid("state_id"),
+	industry: varchar({ length: 255 }),
+	logoUrl: text("logo_url"),
+	baseCurrency: varchar("base_currency", { length: 10 }),
+	fiscalYear: varchar("fiscal_year", { length: 50 }),
+	timezone: varchar({ length: 100 }),
+	dateFormat: varchar("date_format", { length: 50 }),
+	dateSeparator: varchar("date_separator", { length: 5 }),
+	companyIdLabel: varchar("company_id_label", { length: 50 }),
+	companyIdValue: varchar("company_id_value", { length: 100 }),
+	paymentStubAddress: text("payment_stub_address"),
+	hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false).notNull(),
+	systemId: varchar("system_id", { length: 20 }).default((nextval(\'organization_system_id_seq').notNull(),
 }, (table) => [
-	unique("uqc_uqc_code_key").on(table.uqcCode),
+	uniqueIndex("organization_system_id_key").using("btree", table.systemId.asc().nullsLast().op("text_ops")),
+	foreignKey({
+			columns: [table.stateId],
+			foreignColumns: [states.id],
+			name: "organization_state_id_fkey"
+		}),
+	unique("organization_slug_key").on(table.slug),
+]);
+
+export const settingsBranding = pgTable("settings_branding", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").notNull(),
+	accentColor: varchar("accent_color", { length: 7 }).default('#22A95E').notNull(),
+	themeMode: varchar("theme_mode", { length: 10 }).default('dark').notNull(),
+	keepBranding: boolean("keep_branding").default(false).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_settings_branding_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.orgId],
+			foreignColumns: [organization.id],
+			name: "settings_branding_org_id_fkey"
+		}).onDelete("cascade"),
+	unique("settings_branding_org_id_key").on(table.orgId),
+	pgPolicy("service_role_full_access", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
+	check("settings_branding_theme_mode_check", sql`(theme_mode)::text = ANY ((ARRAY['dark'::character varying, 'light'::character varying])::text[])`),
 ]);
 
 export const accountsManualJournalTagMappings = pgTable("accounts_manual_journal_tag_mappings", {
@@ -1494,3 +1757,24 @@ export const accountsManualJournalTagMappings = pgTable("accounts_manual_journal
 		}).onDelete("cascade"),
 	primaryKey({ columns: [table.manualJournalItemId, table.reportingTagId], name: "accounts_manual_journal_tag_mappings_pkey"}),
 ]);
+export const auditLogsAll = pgView("audit_logs_all", {	id: uuid(),
+	tableName: varchar("table_name", { length: 100 }),
+	schemaName: text("schema_name"),
+	recordId: uuid("record_id"),
+	recordPk: text("record_pk"),
+	action: varchar({ length: 10 }),
+	oldValues: jsonb("old_values"),
+	newValues: jsonb("new_values"),
+	userId: uuid("user_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }),
+	orgId: uuid("org_id"),
+	outletId: uuid("outlet_id"),
+	actorName: text("actor_name"),
+	changedColumns: text("changed_columns"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	txid: bigint({ mode: "number" }),
+	source: text(),
+	moduleName: text("module_name"),
+	requestId: text("request_id"),
+	archivedAt: timestamp("archived_at", { withTimezone: true, mode: 'string' }),
+}).as(sql`SELECT audit_logs.id, audit_logs.table_name, audit_logs.schema_name, audit_logs.record_id, audit_logs.record_pk, audit_logs.action, audit_logs.old_values, audit_logs.new_values, audit_logs.user_id, audit_logs.created_at, audit_logs.org_id, audit_logs.outlet_id, audit_logs.actor_name, audit_logs.changed_columns, audit_logs.txid, audit_logs.source, audit_logs.module_name, audit_logs.request_id, NULL::timestamp with time zone AS archived_at FROM audit_logs UNION ALL SELECT audit_logs_archive.id, audit_logs_archive.table_name, audit_logs_archive.schema_name, audit_logs_archive.record_id, audit_logs_archive.record_pk, audit_logs_archive.action, audit_logs_archive.old_values, audit_logs_archive.new_values, audit_logs_archive.user_id, audit_logs_archive.created_at, audit_logs_archive.org_id, audit_logs_archive.outlet_id, audit_logs_archive.actor_name, audit_logs_archive.changed_columns, audit_logs_archive.txid, audit_logs_archive.source, audit_logs_archive.module_name, audit_logs_archive.request_id, audit_logs_archive.archived_at FROM audit_logs_archive`);

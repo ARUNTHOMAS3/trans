@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { products, batches, taxGroups, taxGroupTaxes, associateTaxes, countries, states, customers, salesPaymentLinks, salesOrders, salesEwayBills, brands, buyingRules, categories, accounts, manufacturers, vendors, racks, schedules, storageLocations, units, vendorContactPersons, compositeItemParts, compositeItems, vendorBankAccounts, tdsRates, tdsSections, uqc, accountsRecurringJournalItems, accountsRecurringJournals, salesPayments, tdsGroups, tdsGroupItems, accountsJournalTemplateItems, accountsJournalTemplates, accountsManualJournalItems, accountsManualJournals, accountsFiscalYears, accountTransactions, accountsManualJournalAttachments, organization, warehouses, contents, productContents, strengths, reorderTerms, priceLists, priceListItems, itemVendorMappings, priceListVolumeRanges, customerContactPersons, currencies, accountsManualJournalTagMappings, accountsReportingTags } from "./schema";
+import { products, batches, taxGroups, taxGroupTaxes, associateTaxes, countries, states, customers, salesPaymentLinks, brands, buyingRules, categories, accounts, manufacturers, vendors, racks, schedules, storageLocations, units, salesOrders, salesEwayBills, vendorContactPersons, compositeItemParts, compositeItems, vendorBankAccounts, tdsRates, tdsSections, uqc, accountsRecurringJournalItems, accountsRecurringJournals, salesPayments, timezones, tdsGroups, tdsGroupItems, accountsFiscalYears, accountsManualJournals, accountsJournalTemplateItems, accountsJournalTemplates, accountsManualJournalItems, accountTransactions, accountsManualJournalAttachments, organization, warehouses, contents, productContents, strengths, productWarehouseStocks, reorderTerms, priceLists, priceListItems, itemVendorMappings, priceListVolumeRanges, customerContactPersons, currencies, productWarehouseStockAdjustments, productOutletInventorySettings, compositeItemOutletInventorySettings, settingsBranding, accountsManualJournalTagMappings, accountsReportingTags } from "./schema";
 
 export const batchesRelations = relations(batches, ({one}) => ({
 	product: one(products, {
@@ -71,8 +71,11 @@ export const productsRelations = relations(products, ({one, many}) => ({
 	}),
 	compositeItemParts: many(compositeItemParts),
 	productContents: many(productContents),
+	productWarehouseStocks: many(productWarehouseStocks),
 	priceListItems: many(priceListItems),
 	itemVendorMappings: many(itemVendorMappings),
+	productWarehouseStockAdjustments: many(productWarehouseStockAdjustments),
+	productOutletInventorySettings: many(productOutletInventorySettings),
 }));
 
 export const taxGroupTaxesRelations = relations(taxGroupTaxes, ({one}) => ({
@@ -104,25 +107,33 @@ export const associateTaxesRelations = relations(associateTaxes, ({many}) => ({
 
 export const statesRelations = relations(states, ({one, many}) => ({
 	country: one(countries, {
-		fields: [states.countryId],
+		fields: [states.stateId],
 		references: [countries.id]
 	}),
-	organizations: many(organization),
 	customers_billingAddressStateId: many(customers, {
 		relationName: "customers_billingAddressStateId_states_id"
 	}),
 	customers_shippingAddressStateId: many(customers, {
 		relationName: "customers_shippingAddressStateId_states_id"
 	}),
+	organizations: many(organization),
 }));
 
-export const countriesRelations = relations(countries, ({many}) => ({
+export const countriesRelations = relations(countries, ({one, many}) => ({
 	states: many(states),
+	timezone: one(timezones, {
+		fields: [countries.primaryTimezoneId],
+		references: [timezones.id],
+		relationName: "countries_primaryTimezoneId_timezones_id"
+	}),
 	customers_billingAddressCountryId: many(customers, {
 		relationName: "customers_billingAddressCountryId_countries_id"
 	}),
 	customers_shippingAddressCountryId: many(customers, {
 		relationName: "customers_shippingAddressCountryId_countries_id"
+	}),
+	timezones: many(timezones, {
+		relationName: "timezones_countryId_countries_id"
 	}),
 }));
 
@@ -173,21 +184,6 @@ export const customersRelations = relations(customers, ({one, many}) => ({
 		fields: [customers.shippingAddressStateId],
 		references: [states.id],
 		relationName: "customers_shippingAddressStateId_states_id"
-	}),
-}));
-
-export const salesEwayBillsRelations = relations(salesEwayBills, ({one}) => ({
-	salesOrder: one(salesOrders, {
-		fields: [salesEwayBills.saleId],
-		references: [salesOrders.id]
-	}),
-}));
-
-export const salesOrdersRelations = relations(salesOrders, ({one, many}) => ({
-	salesEwayBills: many(salesEwayBills),
-	customer: one(customers, {
-		fields: [salesOrders.customerId],
-		references: [customers.id]
 	}),
 }));
 
@@ -285,6 +281,21 @@ export const unitsRelations = relations(units, ({one, many}) => ({
 	compositeItems: many(compositeItems),
 }));
 
+export const salesEwayBillsRelations = relations(salesEwayBills, ({one}) => ({
+	salesOrder: one(salesOrders, {
+		fields: [salesEwayBills.saleId],
+		references: [salesOrders.id]
+	}),
+}));
+
+export const salesOrdersRelations = relations(salesOrders, ({one, many}) => ({
+	salesEwayBills: many(salesEwayBills),
+	customer: one(customers, {
+		fields: [salesOrders.customerId],
+		references: [customers.id]
+	}),
+}));
+
 export const vendorContactPersonsRelations = relations(vendorContactPersons, ({one}) => ({
 	vendor: one(vendors, {
 		fields: [vendorContactPersons.vendorId],
@@ -350,6 +361,7 @@ export const compositeItemsRelations = relations(compositeItems, ({one, many}) =
 		fields: [compositeItems.unitId],
 		references: [units.id]
 	}),
+	compositeItemOutletInventorySettings: many(compositeItemOutletInventorySettings),
 }));
 
 export const vendorBankAccountsRelations = relations(vendorBankAccounts, ({one}) => ({
@@ -408,6 +420,17 @@ export const salesPaymentsRelations = relations(salesPayments, ({one}) => ({
 	}),
 }));
 
+export const timezonesRelations = relations(timezones, ({one, many}) => ({
+	countries: many(countries, {
+		relationName: "countries_primaryTimezoneId_timezones_id"
+	}),
+	country: one(countries, {
+		fields: [timezones.countryId],
+		references: [countries.id],
+		relationName: "timezones_countryId_countries_id"
+	}),
+}));
+
 export const tdsGroupItemsRelations = relations(tdsGroupItems, ({one}) => ({
 	tdsGroup: one(tdsGroups, {
 		fields: [tdsGroupItems.tdsGroupId],
@@ -421,6 +444,23 @@ export const tdsGroupItemsRelations = relations(tdsGroupItems, ({one}) => ({
 
 export const tdsGroupsRelations = relations(tdsGroups, ({many}) => ({
 	tdsGroupItems: many(tdsGroupItems),
+}));
+
+export const accountsManualJournalsRelations = relations(accountsManualJournals, ({one, many}) => ({
+	accountsFiscalYear: one(accountsFiscalYears, {
+		fields: [accountsManualJournals.fiscalYearId],
+		references: [accountsFiscalYears.id]
+	}),
+	accountsRecurringJournal: one(accountsRecurringJournals, {
+		fields: [accountsManualJournals.recurringJournalId],
+		references: [accountsRecurringJournals.id]
+	}),
+	accountsManualJournalItems: many(accountsManualJournalItems),
+	accountsManualJournalAttachments: many(accountsManualJournalAttachments),
+}));
+
+export const accountsFiscalYearsRelations = relations(accountsFiscalYears, ({many}) => ({
+	accountsManualJournals: many(accountsManualJournals),
 }));
 
 export const accountsJournalTemplateItemsRelations = relations(accountsJournalTemplateItems, ({one}) => ({
@@ -450,23 +490,6 @@ export const accountsManualJournalItemsRelations = relations(accountsManualJourn
 	accountsManualJournalTagMappings: many(accountsManualJournalTagMappings),
 }));
 
-export const accountsManualJournalsRelations = relations(accountsManualJournals, ({one, many}) => ({
-	accountsManualJournalItems: many(accountsManualJournalItems),
-	accountsFiscalYear: one(accountsFiscalYears, {
-		fields: [accountsManualJournals.fiscalYearId],
-		references: [accountsFiscalYears.id]
-	}),
-	accountsRecurringJournal: one(accountsRecurringJournals, {
-		fields: [accountsManualJournals.recurringJournalId],
-		references: [accountsRecurringJournals.id]
-	}),
-	accountsManualJournalAttachments: many(accountsManualJournalAttachments),
-}));
-
-export const accountsFiscalYearsRelations = relations(accountsFiscalYears, ({many}) => ({
-	accountsManualJournals: many(accountsManualJournals),
-}));
-
 export const accountTransactionsRelations = relations(accountTransactions, ({one}) => ({
 	account: one(accounts, {
 		fields: [accountTransactions.accountId],
@@ -481,19 +504,22 @@ export const accountsManualJournalAttachmentsRelations = relations(accountsManua
 	}),
 }));
 
-export const organizationRelations = relations(organization, ({one, many}) => ({
-	state: one(states, {
-		fields: [organization.stateId],
-		references: [states.id]
-	}),
-	warehouses: many(warehouses),
-}));
-
-export const warehousesRelations = relations(warehouses, ({one}) => ({
+export const warehousesRelations = relations(warehouses, ({one, many}) => ({
 	organization: one(organization, {
 		fields: [warehouses.orgId],
 		references: [organization.id]
 	}),
+	productWarehouseStocks: many(productWarehouseStocks),
+	productWarehouseStockAdjustments: many(productWarehouseStockAdjustments),
+}));
+
+export const organizationRelations = relations(organization, ({one, many}) => ({
+	warehouses: many(warehouses),
+	state: one(states, {
+		fields: [organization.stateId],
+		references: [states.id]
+	}),
+	settingsBrandings: many(settingsBranding),
 }));
 
 export const productContentsRelations = relations(productContents, ({one}) => ({
@@ -523,8 +549,21 @@ export const strengthsRelations = relations(strengths, ({many}) => ({
 	productContents: many(productContents),
 }));
 
+export const productWarehouseStocksRelations = relations(productWarehouseStocks, ({one}) => ({
+	product: one(products, {
+		fields: [productWarehouseStocks.productId],
+		references: [products.id]
+	}),
+	warehouse: one(warehouses, {
+		fields: [productWarehouseStocks.warehouseId],
+		references: [warehouses.id]
+	}),
+}));
+
 export const reorderTermsRelations = relations(reorderTerms, ({many}) => ({
 	compositeItems: many(compositeItems),
+	productOutletInventorySettings: many(productOutletInventorySettings),
+	compositeItemOutletInventorySettings: many(compositeItemOutletInventorySettings),
 }));
 
 export const priceListItemsRelations = relations(priceListItems, ({one, many}) => ({
@@ -567,6 +606,46 @@ export const customerContactPersonsRelations = relations(customerContactPersons,
 
 export const currenciesRelations = relations(currencies, ({many}) => ({
 	customers: many(customers),
+}));
+
+export const productWarehouseStockAdjustmentsRelations = relations(productWarehouseStockAdjustments, ({one}) => ({
+	product: one(products, {
+		fields: [productWarehouseStockAdjustments.productId],
+		references: [products.id]
+	}),
+	warehouse: one(warehouses, {
+		fields: [productWarehouseStockAdjustments.warehouseId],
+		references: [warehouses.id]
+	}),
+}));
+
+export const productOutletInventorySettingsRelations = relations(productOutletInventorySettings, ({one}) => ({
+	product: one(products, {
+		fields: [productOutletInventorySettings.productId],
+		references: [products.id]
+	}),
+	reorderTerm: one(reorderTerms, {
+		fields: [productOutletInventorySettings.reorderTermId],
+		references: [reorderTerms.id]
+	}),
+}));
+
+export const compositeItemOutletInventorySettingsRelations = relations(compositeItemOutletInventorySettings, ({one}) => ({
+	compositeItem: one(compositeItems, {
+		fields: [compositeItemOutletInventorySettings.compositeItemId],
+		references: [compositeItems.id]
+	}),
+	reorderTerm: one(reorderTerms, {
+		fields: [compositeItemOutletInventorySettings.reorderTermId],
+		references: [reorderTerms.id]
+	}),
+}));
+
+export const settingsBrandingRelations = relations(settingsBranding, ({one}) => ({
+	organization: one(organization, {
+		fields: [settingsBranding.orgId],
+		references: [organization.id]
+	}),
 }));
 
 export const accountsManualJournalTagMappingsRelations = relations(accountsManualJournalTagMappings, ({one}) => ({

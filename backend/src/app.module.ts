@@ -13,6 +13,7 @@ import { DocumentsModule } from "./modules/documents/documents.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { SequencesModule } from "./sequences/sequences.module";
 import { TransactionLockingModule } from "./modules/transaction-locking/transaction-locking.module";
+import { OutletsModule } from "./modules/outlets/outlets.module";
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { TransactionLockingModule } from "./modules/transaction-locking/transact
     DocumentsModule,
     SequencesModule,
     TransactionLockingModule,
+    OutletsModule,
   ],
   controllers: [],
   providers: [],

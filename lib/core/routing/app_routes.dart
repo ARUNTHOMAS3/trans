@@ -5,6 +5,9 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String settingsOrgProfile = '/settings/orgprofile';
   static const String settingsOrgBranding = '/settings/orgbranding';
+  static const String settingsLocations = '/settings/locations';
+  static const String settingsLocationsCreate = '/settings/locations/create';
+  static const String settingsLocationsEdit = '/settings/locations/:id/edit';
 
   // Items
   static const String itemsReport = '/items/report';

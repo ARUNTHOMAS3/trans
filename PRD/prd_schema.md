@@ -1193,4 +1193,20 @@ CREATE TABLE public.vendors (
   price_list_id uuid,
   CONSTRAINT vendors_pkey PRIMARY KEY (id)
 );
+
+CREATE TABLE public.settings_locations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  outlet_id uuid NOT NULL UNIQUE,
+  org_id uuid NOT NULL,
+  location_type location_type NOT NULL DEFAULT 'business',
+  is_primary boolean NOT NULL DEFAULT false,
+  parent_outlet_id uuid,
+  logo_url text,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT settings_locations_pkey PRIMARY KEY (id),
+  CONSTRAINT settings_locations_outlet_fkey FOREIGN KEY (outlet_id) REFERENCES public.outlets(id) ON DELETE CASCADE,
+  CONSTRAINT settings_locations_org_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE,
+  CONSTRAINT settings_locations_parent_outlet_fkey FOREIGN KEY (parent_outlet_id) REFERENCES public.outlets(id) ON DELETE SET NULL
+);
 ```
