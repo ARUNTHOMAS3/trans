@@ -13,6 +13,7 @@ export const challanType = pgEnum("challan_type", ['supply', 'job_work', 'other'
 export const compositeType = pgEnum("composite_type", ['assembly', 'kit'])
 export const hsnSacType = pgEnum("hsn_sac_type", ['HSN', 'SAC'])
 export const inventoryValuationMethod = pgEnum("inventory_valuation_method", ['FIFO', 'LIFO', 'Weighted Average', 'Specific Identification', 'FEFO'])
+export const locationType = pgEnum("location_type", ['business', 'warehouse'])
 export const productType = pgEnum("product_type", ['goods', 'service'])
 export const status = pgEnum("status", ['draft', 'active', 'inactive', 'sent', 'paid', 'void', 'open', 'delivered', 'invoiced', 'returned', 'assembled', 'not_shipped', 'shipped'])
 export const taxPreference = pgEnum("tax_preference", ['taxable', 'non-taxable', 'exempt'])
@@ -1739,6 +1740,75 @@ export const settingsBranding = pgTable("settings_branding", {
 	unique("settings_branding_org_id_key").on(table.orgId),
 	pgPolicy("service_role_full_access", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
 	check("settings_branding_theme_mode_check", sql`(theme_mode)::text = ANY ((ARRAY['dark'::character varying, 'light'::character varying])::text[])`),
+]);
+
+export const settingsOutlets = pgTable("settings_outlets", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	outletCode: varchar("outlet_code", { length: 50 }).notNull(),
+	gstin: varchar({ length: 50 }),
+	email: varchar({ length: 255 }),
+	phone: varchar({ length: 50 }),
+	address: text(),
+	city: varchar({ length: 100 }),
+	state: varchar({ length: 100 }),
+	country: varchar({ length: 100 }),
+	pincode: varchar({ length: 20 }),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_settings_outlets_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.orgId],
+			foreignColumns: [organization.id],
+			name: "settings_outlets_org_id_fkey"
+		}).onDelete("cascade"),
+	pgPolicy("service_role_full_access", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
+]);
+
+export const settingsLocations = pgTable("settings_locations", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	outletId: uuid("outlet_id").notNull(),
+	orgId: uuid("org_id").notNull(),
+	locationType: locationType("location_type").default('business').notNull(),
+	isPrimary: boolean("is_primary").default(false).notNull(),
+	parentOutletId: uuid("parent_outlet_id"),
+	logoUrl: text("logo_url"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_settings_locations_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
+	index("idx_settings_locations_outlet_id").using("btree", table.outletId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.orgId],
+			foreignColumns: [organization.id],
+			name: "settings_locations_org_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.outletId],
+			foreignColumns: [settingsOutlets.id],
+			name: "settings_locations_outlet_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.parentOutletId],
+			foreignColumns: [settingsOutlets.id],
+			name: "settings_locations_parent_outlet_id_fkey"
+		}).onDelete("set null"),
+	unique("settings_locations_outlet_id_key").on(table.outletId),
+	pgPolicy("service_role_full_access", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
+]);
+
+export const settingsTransactionSeries = pgTable("settings_transaction_series", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	modules: jsonb().default([]).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_settings_ts_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
 ]);
 
 export const accountsManualJournalTagMappings = pgTable("accounts_manual_journal_tag_mappings", {

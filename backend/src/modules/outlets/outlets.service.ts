@@ -1,22 +1,22 @@
 import { Injectable } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
 
-// settings_locations has two FKs pointing at settings_outlets (outlet_id and parent_outlet_id).
-// We must hint PostgREST which FK to use by specifying the constraint name.
-const SETTINGS_SELECT =
-  "*, settings_locations!settings_locations_outlet_id_fkey(location_type, parent_outlet_id, logo_url, is_primary)";
-
 @Injectable()
 export class OutletsService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
-  private flattenOutlet(outlet: any): any {
-    const settings = Array.isArray(outlet.settings_locations)
-      ? outlet.settings_locations[0]
-      : outlet.settings_locations;
-    const { settings_locations, ...rest } = outlet;
+  private async fetchSettingsMap(orgId: string): Promise<Map<string, any>> {
+    const { data } = await this.supabaseService
+      .getClient()
+      .from("settings_locations")
+      .select("outlet_id, location_type, parent_outlet_id, logo_url, is_primary")
+      .eq("org_id", orgId);
+    return new Map((data ?? []).map((s: any) => [s.outlet_id, s]));
+  }
+
+  private mergeSettings(outlet: any, settings: any) {
     return {
-      ...rest,
+      ...outlet,
       location_type: settings?.location_type ?? "business",
       parent_outlet_id: settings?.parent_outlet_id ?? null,
       logo_url: settings?.logo_url ?? null,
@@ -28,29 +28,38 @@ export class OutletsService {
     const { data, error } = await this.supabaseService
       .getClient()
       .from("settings_outlets")
-      .select(SETTINGS_SELECT)
+      .select("*")
       .eq("org_id", orgId)
       .order("created_at", { ascending: true });
 
     if (error) throw new Error(`Failed to fetch settings_outlets: ${error.message}`);
-    return (data ?? []).map((o) => this.flattenOutlet(o));
+
+    const settingsMap = await this.fetchSettingsMap(orgId);
+    return (data ?? []).map((o: any) => this.mergeSettings(o, settingsMap.get(o.id)));
   }
 
   async findOne(id: string, orgId: string) {
     const { data, error } = await this.supabaseService
       .getClient()
       .from("settings_outlets")
-      .select(SETTINGS_SELECT)
+      .select("*")
       .eq("id", id)
       .eq("org_id", orgId)
       .single();
 
     if (error) return null;
-    return this.flattenOutlet(data);
+
+    const { data: settings } = await this.supabaseService
+      .getClient()
+      .from("settings_locations")
+      .select("location_type, parent_outlet_id, logo_url, is_primary")
+      .eq("outlet_id", id)
+      .single();
+
+    return this.mergeSettings(data, settings);
   }
 
   async create(dto: any) {
-    // 1. Insert into settings_outlets (only its own columns)
     const { data: outlet, error: outletError } = await this.supabaseService
       .getClient()
       .from("settings_outlets")
@@ -73,7 +82,6 @@ export class OutletsService {
 
     if (outletError) throw new Error(`Failed to create settings_outlet: ${outletError.message}`);
 
-    // 2. Insert into settings_locations
     const { error: settingsError } = await this.supabaseService
       .getClient()
       .from("settings_locations")
@@ -88,17 +96,15 @@ export class OutletsService {
 
     if (settingsError) throw new Error(`Failed to create location settings: ${settingsError.message}`);
 
-    return {
-      ...outlet,
+    return this.mergeSettings(outlet, {
       location_type: dto.location_type ?? "business",
       parent_outlet_id: dto.parent_outlet_id ?? null,
       logo_url: dto.logo_url ?? null,
       is_primary: dto.is_primary ?? false,
-    };
+    });
   }
 
   async update(id: string, orgId: string, dto: any) {
-    // 1. Update settings_outlets table (only its own columns)
     const outletPayload: Record<string, any> = {
       updated_at: new Date().toISOString(),
     };
@@ -121,7 +127,6 @@ export class OutletsService {
 
     if (error) throw new Error(`Failed to update settings_outlet: ${error.message}`);
 
-    // 2. Upsert settings_locations (creates row if missing, updates if present)
     const settingsFields = ["location_type", "parent_outlet_id", "logo_url", "is_primary"];
     const hasSettingsUpdate = settingsFields.some((f) => f in dto);
 
@@ -147,7 +152,6 @@ export class OutletsService {
   }
 
   async remove(id: string, orgId: string) {
-    // Delete settings_locations first (FK constraint)
     await this.supabaseService
       .getClient()
       .from("settings_locations")

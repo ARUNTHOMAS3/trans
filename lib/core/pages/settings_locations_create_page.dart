@@ -428,7 +428,10 @@ class _SettingsLocationsCreatePageState
         final list = (res.data as List).cast<Map<String, dynamic>>();
         setState(() {
           _outlets = list
-              .where((o) => o['id'] != widget.outletId)
+              .where((o) =>
+                  o['id'] != widget.outletId &&
+                  (o['parent_outlet_id'] == null ||
+                      (o['parent_outlet_id'] as String?)?.isEmpty != false))
               .map(
                 (o) => _OutletOption(
                   id: o['id'].toString(),
@@ -595,6 +598,31 @@ class _SettingsLocationsCreatePageState
       final String orgId = (user?.orgId.isNotEmpty == true)
           ? user!.orgId
           : _kDevOrgId;
+
+      // Duplicate name check (same org, excluding self when editing)
+      final nameCheck = await ref.read(apiClientProvider).get(
+            '/outlets',
+            queryParameters: {'org_id': orgId},
+          );
+      if (nameCheck.success && nameCheck.data is List) {
+        final trimmed = _nameCtrl.text.trim().toLowerCase();
+        final duplicate = (nameCheck.data as List).any((o) {
+          final isSelf = widget.outletId != null &&
+              o['id']?.toString() == widget.outletId;
+          return !isSelf &&
+              (o['name'] ?? '').toString().toLowerCase() == trimmed;
+        });
+        if (duplicate) {
+          setState(() => _isSaving = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('A location with this name already exists.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
 
       // Upload logo if a new file was picked
       if (_logoPicked != null) {

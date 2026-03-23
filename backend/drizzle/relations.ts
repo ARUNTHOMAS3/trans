@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { products, batches, taxGroups, taxGroupTaxes, associateTaxes, countries, states, customers, salesPaymentLinks, brands, buyingRules, categories, accounts, manufacturers, vendors, racks, schedules, storageLocations, units, salesOrders, salesEwayBills, vendorContactPersons, compositeItemParts, compositeItems, vendorBankAccounts, tdsRates, tdsSections, uqc, accountsRecurringJournalItems, accountsRecurringJournals, salesPayments, timezones, tdsGroups, tdsGroupItems, accountsFiscalYears, accountsManualJournals, accountsJournalTemplateItems, accountsJournalTemplates, accountsManualJournalItems, accountTransactions, accountsManualJournalAttachments, organization, warehouses, contents, productContents, strengths, productWarehouseStocks, reorderTerms, priceLists, priceListItems, itemVendorMappings, priceListVolumeRanges, customerContactPersons, currencies, productWarehouseStockAdjustments, productOutletInventorySettings, compositeItemOutletInventorySettings, settingsBranding, accountsManualJournalTagMappings, accountsReportingTags } from "./schema";
+import { products, batches, taxGroups, taxGroupTaxes, associateTaxes, countries, states, customers, salesPaymentLinks, brands, buyingRules, categories, accounts, manufacturers, vendors, racks, schedules, storageLocations, units, salesOrders, salesEwayBills, vendorContactPersons, compositeItemParts, compositeItems, vendorBankAccounts, tdsRates, tdsSections, uqc, accountsRecurringJournalItems, accountsRecurringJournals, salesPayments, timezones, tdsGroups, tdsGroupItems, accountsFiscalYears, accountsManualJournals, accountsJournalTemplateItems, accountsJournalTemplates, accountsManualJournalItems, accountTransactions, accountsManualJournalAttachments, organization, warehouses, contents, productContents, strengths, productWarehouseStocks, reorderTerms, priceLists, priceListItems, itemVendorMappings, priceListVolumeRanges, customerContactPersons, currencies, productWarehouseStockAdjustments, productOutletInventorySettings, compositeItemOutletInventorySettings, settingsBranding, settingsOutlets, settingsLocations, accountsManualJournalTagMappings, accountsReportingTags } from "./schema";
 
 export const batchesRelations = relations(batches, ({one}) => ({
 	product: one(products, {
@@ -520,6 +520,8 @@ export const organizationRelations = relations(organization, ({one, many}) => ({
 		references: [states.id]
 	}),
 	settingsBrandings: many(settingsBranding),
+	settingsOutlets: many(settingsOutlets),
+	settingsLocations: many(settingsLocations),
 }));
 
 export const productContentsRelations = relations(productContents, ({one}) => ({
@@ -645,6 +647,36 @@ export const settingsBrandingRelations = relations(settingsBranding, ({one}) => 
 	organization: one(organization, {
 		fields: [settingsBranding.orgId],
 		references: [organization.id]
+	}),
+}));
+
+export const settingsOutletsRelations = relations(settingsOutlets, ({one, many}) => ({
+	organization: one(organization, {
+		fields: [settingsOutlets.orgId],
+		references: [organization.id]
+	}),
+	settingsLocations_outletId: many(settingsLocations, {
+		relationName: "settingsLocations_outletId_settingsOutlets_id"
+	}),
+	settingsLocations_parentOutletId: many(settingsLocations, {
+		relationName: "settingsLocations_parentOutletId_settingsOutlets_id"
+	}),
+}));
+
+export const settingsLocationsRelations = relations(settingsLocations, ({one}) => ({
+	organization: one(organization, {
+		fields: [settingsLocations.orgId],
+		references: [organization.id]
+	}),
+	settingsOutlet_outletId: one(settingsOutlets, {
+		fields: [settingsLocations.outletId],
+		references: [settingsOutlets.id],
+		relationName: "settingsLocations_outletId_settingsOutlets_id"
+	}),
+	settingsOutlet_parentOutletId: one(settingsOutlets, {
+		fields: [settingsLocations.parentOutletId],
+		references: [settingsOutlets.id],
+		relationName: "settingsLocations_parentOutletId_settingsOutlets_id"
 	}),
 }));
 

@@ -1,3 +1,31 @@
+## Settings: Locations — Fixes & Validations (March 23, 2026)
+
+### Backend: outlets.service.ts — switched to two-query merge pattern
+- Removed PostgREST FK hint approach (caused empty results due to ambiguous FK constraints)
+- Now does two separate queries: `settings_outlets` + `settings_locations`, merged in code via Map
+- `findAll`, `findOne`, `create`, `update`, `remove` all updated
+
+### Frontend: settings_locations_create_page.dart
+- Parent dropdown now filters out child locations (locations with a `parent_outlet_id`) — child items cannot have another child
+- Added duplicate name check before save: fetches all org outlets, compares case-insensitively, shows red snackbar if duplicate found (excludes self when editing)
+
+### Database
+- `ALTER TABLE public.settings_outlets ADD CONSTRAINT settings_outlets_org_name_unique UNIQUE (org_id, name);`
+- Backfill SQL: inserted default `settings_locations` rows for orphaned `settings_outlets` with `location_type = 'business'`
+- Updated test warehouse rows: `UPDATE settings_locations SET location_type = 'warehouse' WHERE outlet_id IN (SELECT id FROM settings_outlets WHERE name = 'test ware house');`
+- Deleted duplicate `(org_id, name)` rows before adding unique constraint
+
+## Settings: Locations — Rename outlets → settings_outlets (March 23, 2026)
+
+### Database: outlets table renamed to settings_outlets
+- `ALTER TABLE public.outlets RENAME TO settings_outlets;`
+- FK constraints from other tables automatically follow the rename (Postgres tracks by OID)
+- Optional cosmetic renames: index `idx_outlets_org_id → idx_settings_outlets_org_id`, constraint `outlets_pkey → settings_outlets_pkey`, `outlets_org_id_fkey → settings_outlets_org_id_fkey`
+
+### Backend: outlets.service.ts — updated all table references
+- All `.from("outlets")` replaced with `.from("settings_outlets")`
+- FK hint in `SETTINGS_SELECT` unchanged: `settings_locations!settings_locations_outlet_id_fkey` lives on `settings_locations`, not on the renamed table, so no change needed there
+
 ## Settings: Locations — Fix empty list after backend restructure (March 22, 2026)
 
 ### Backend: outlets.service.ts — fix FK ambiguity & primary table
