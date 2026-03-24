@@ -12,7 +12,7 @@ extension _BankDetailsSection on _PurchasesVendorsVendorCreateScreenState {
             children: [
               const Text(
                 "Add your vendor's bank details and make payments.",
-                style: TextStyle(fontSize: 13, color: AppTheme.textBody),
+                style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
               ),
               const SizedBox(height: 16),
               InkWell(
@@ -24,12 +24,12 @@ extension _BankDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.add, size: 16, color: AppTheme.primaryBlueDark),
+                    Icon(Icons.add, size: 16, color: Color(0xFF2563EB)),
                     SizedBox(width: 4),
                     Text(
                       'Add Bank Account',
                       style: TextStyle(
-                        color: AppTheme.primaryBlueDark,
+                        color: Color(0xFF2563EB),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                         decoration: TextDecoration.none,
@@ -60,7 +60,7 @@ extension _BankDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                 if (!isFirst) ...[
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24.0),
-                    child: Divider(color: AppTheme.borderColor),
+                    child: Divider(color: Color(0xFFE5E7EB)),
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -70,7 +70,7 @@ extension _BankDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textSecondary,
+                          color: Color(0xFF6B7280),
                         ),
                       ),
                       TextButton.icon(
@@ -82,12 +82,12 @@ extension _BankDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                         icon: const Icon(
                           Icons.delete_outline,
                           size: 16,
-                          color: AppTheme.textSecondary,
+                          color: Color(0xFF6B7280),
                         ),
                         label: const Text(
                           'Delete',
                           style: TextStyle(
-                            color: AppTheme.textSecondary,
+                            color: Color(0xFF6B7280),
                             fontSize: 12,
                           ),
                         ),
@@ -141,8 +141,8 @@ extension _BankDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                                         : LucideIcons.eye,
                                     size: 16,
                                     color: row.showAccountNumber
-                                        ? AppTheme.primaryBlueDark
-                                        : AppTheme.textMuted,
+                                        ? const Color(0xFF2563EB)
+                                        : const Color(0xFF9CA3AF),
                                   ),
                                 ),
                               ),
@@ -172,8 +172,8 @@ extension _BankDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                                         : LucideIcons.eye,
                                     size: 16,
                                     color: row.showReEnterAccountNumber
-                                        ? AppTheme.primaryBlueDark
-                                        : AppTheme.textMuted,
+                                        ? const Color(0xFF2563EB)
+                                        : const Color(0xFF9CA3AF),
                                   ),
                                 ),
                               ),
@@ -205,10 +205,10 @@ extension _BankDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                 bankRows.add(_BankDetailRow());
               });
             },
-            icon: const Icon(Icons.add, size: 16, color: AppTheme.primaryBlueDark),
+            icon: const Icon(Icons.add, size: 16, color: Color(0xFF2563EB)),
             label: const Text(
               'Add New Bank',
-              style: TextStyle(color: AppTheme.primaryBlueDark, fontSize: 13),
+              style: TextStyle(color: Color(0xFF2563EB), fontSize: 13),
             ),
           ),
         ],

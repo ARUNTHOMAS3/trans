@@ -7,6 +7,7 @@ abstract class PurchaseOrderRepository {
     int page = 1,
     int limit = 100,
     String? search,
+    String? status,
   });
 
   Future<PurchaseOrder?> getPurchaseOrder(String id);
@@ -21,4 +22,7 @@ abstract class PurchaseOrderRepository {
   Future<bool> deletePurchaseOrder(String id);
 
   Future<int> getTotalCount();
+  Future<Map<String, dynamic>> getPurchaseOrderSettings();
+  Future<void> updatePurchaseOrderSettings(Map<String, dynamic> settings);
+  Future<Map<String, dynamic>> getNextPurchaseOrderNumber();
 }

@@ -6,9 +6,9 @@ import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_payment_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_eway_bill_model.dart';
-import 'package:zerpai_erp/modules/purchases/models/vendor_model.dart';
-import 'package:zerpai_erp/modules/purchases/models/purchase_model.dart';
-import 'package:zerpai_erp/modules/purchases/models/purchase_bill_model.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
+import 'package:zerpai_erp/modules/purchases/bills/models/purchases_bills_bill_model.dart';
 import 'package:zerpai_erp/modules/inventory/models/stock_model.dart';
 import 'package:zerpai_erp/modules/inventory/models/inventory_adjustment_model.dart';
 import 'package:zerpai_erp/modules/inventory/models/stock_transfer_model.dart';
@@ -135,34 +135,34 @@ class VendorAdapter extends TypeAdapter<Vendor> {
   }
 }
 
-class PurchaseAdapter extends TypeAdapter<Purchase> {
+class PurchaseAdapter extends TypeAdapter<PurchaseOrder> {
   @override
   final int typeId = 8;
 
   @override
-  Purchase read(BinaryReader reader) {
+  PurchaseOrder read(BinaryReader reader) {
     final jsonString = reader.readString();
-    return Purchase.fromJson(jsonDecode(jsonString));
+    return PurchaseOrder.fromJson(jsonDecode(jsonString));
   }
 
   @override
-  void write(BinaryWriter writer, Purchase obj) {
+  void write(BinaryWriter writer, PurchaseOrder obj) {
     writer.writeString(jsonEncode(obj.toJson()));
   }
 }
 
-class PurchaseBillAdapter extends TypeAdapter<PurchaseBill> {
+class PurchaseBillAdapter extends TypeAdapter<PurchasesBill> {
   @override
   final int typeId = 9;
 
   @override
-  PurchaseBill read(BinaryReader reader) {
+  PurchasesBill read(BinaryReader reader) {
     final jsonString = reader.readString();
-    return PurchaseBill.fromJson(jsonDecode(jsonString));
+    return PurchasesBill.fromJson(jsonDecode(jsonString));
   }
 
   @override
-  void write(BinaryWriter writer, PurchaseBill obj) {
+  void write(BinaryWriter writer, PurchasesBill obj) {
     writer.writeString(jsonEncode(obj.toJson()));
   }
 }

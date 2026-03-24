@@ -9,40 +9,14 @@ import '../../../../../shared/widgets/z_button.dart';
 import '../providers/purchases_purchase_orders_provider.dart';
 import '../models/purchases_purchase_orders_order_model.dart';
 
-class PurchaseOrderOverviewScreen extends ConsumerStatefulWidget {
+class PurchaseOrderOverviewScreen extends ConsumerWidget {
   final String? initialSearchQuery;
-
   const PurchaseOrderOverviewScreen({super.key, this.initialSearchQuery});
 
   @override
-  ConsumerState<PurchaseOrderOverviewScreen> createState() =>
-      _PurchaseOrderOverviewScreenState();
-}
-
-class _PurchaseOrderOverviewScreenState
-    extends ConsumerState<PurchaseOrderOverviewScreen> {
-  late final TextEditingController _searchController;
-  String _searchQuery = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _searchQuery = widget.initialSearchQuery?.trim() ?? '';
-    _searchController = TextEditingController(text: _searchQuery);
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final purchaseOrdersAsync = ref.watch(
-      purchaseOrdersProvider(
-        PurchaseOrderFilter(page: 1, limit: 100, search: _searchQuery),
-      ),
+      purchaseOrdersProvider(PurchaseOrderFilter(page: 1, limit: 100)),
     );
 
     return ZerpaiLayout(
@@ -50,15 +24,15 @@ class _PurchaseOrderOverviewScreenState
       actions: [
         ZButton.primary(
           label: 'New Purchase Order',
-          onPressed: () => context.push('/purchases/orders/create'),
+          onPressed: () => context.push('/purchases/purchase-orders/create'),
         ),
       ],
       child: Column(
         children: [
           // Search and filters
-          _buildSearchBar(),
+          _buildSearchBar(ref),
           const SizedBox(height: AppTheme.space20),
-          
+
           // Data table
           Expanded(
             child: purchaseOrdersAsync.when(
@@ -72,7 +46,7 @@ class _PurchaseOrderOverviewScreenState
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(WidgetRef ref) {
     return Container(
       padding: const EdgeInsets.all(AppTheme.space16),
       decoration: BoxDecoration(
@@ -86,16 +60,13 @@ class _PurchaseOrderOverviewScreenState
           const SizedBox(width: AppTheme.space12),
           Expanded(
             child: TextField(
-              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search purchase orders...',
                 border: InputBorder.none,
                 hintStyle: AppTheme.metaHelper,
               ),
               onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.trim();
-                });
+                // TODO: Implement search with debouncing
               },
             ),
           ),
@@ -142,9 +113,11 @@ class _PurchaseOrderOverviewScreenState
       cells: [
         DataCell(Text(order.orderNumber)),
         DataCell(Text('Vendor Name')), // TODO: Fetch vendor name
-        DataCell(Text(
-          '${order.orderDate.day}/${order.orderDate.month}/${order.orderDate.year}',
-        )),
+        DataCell(
+          Text(
+            '${order.orderDate.day}/${order.orderDate.month}/${order.orderDate.year}',
+          ),
+        ),
         DataCell(
           Text(
             order.expectedDeliveryDate != null
@@ -152,7 +125,8 @@ class _PurchaseOrderOverviewScreenState
                 : '-',
           ),
         ),
-        DataCell(Text('₹${order.totalAmount.toStringAsFixed(2)}')),
+        DataCell(Text('₹${order.total.toStringAsFixed(2)}')),
+
         DataCell(_buildStatusBadge(order.status)),
         DataCell(
           Row(
@@ -261,24 +235,14 @@ class _PurchaseOrderOverviewScreenState
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: AppTheme.errorRed,
-          ),
+          Icon(Icons.error_outline, size: 64, color: AppTheme.errorRed),
           const SizedBox(height: AppTheme.space16),
           Text(
             'Failed to load purchase orders',
-            style: AppTheme.sectionHeader.copyWith(
-              color: AppTheme.errorRed,
-            ),
+            style: AppTheme.sectionHeader.copyWith(color: AppTheme.errorRed),
           ),
           const SizedBox(height: AppTheme.space8),
-          Text(
-            error,
-            style: AppTheme.metaHelper,
-            textAlign: TextAlign.center,
-          ),
+          Text(error, style: AppTheme.metaHelper, textAlign: TextAlign.center),
           const SizedBox(height: AppTheme.space24),
           ZButton.primary(
             label: 'Retry',

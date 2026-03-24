@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/core/logging/app_logger.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
@@ -19,7 +21,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:zerpai_erp/core/routing/app_router.dart';
-import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 part 'sections/purchases_vendors_builders.dart';
 part 'sections/purchases_vendors_primary_info_section.dart';
@@ -54,11 +55,11 @@ class _PurchasesVendorsVendorCreateScreenState
   final double _fieldSpacing = 24.0;
 
   static const String _whatsappSvg =
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path fill="rgba(61, 255, 2, 1.00)" d="M476.9 161.1C435 119.1 379.2 96 319.9 96C197.5 96 97.9 195.6 97.9 318C97.9 357.1 108.1 395.3 127.5 429L96 544L213.7 513.1C246.1 530.8 282.6 540.1 319.8 540.1L319.9 540.1C442.2 540.1 544 440.5 544 318.1C544 258.8 518.8 203.1 476.9 161.1zM319.9 502.7C286.7 502.7 254.2 493.8 225.9 477L219.2 473L149.4 491.3L168 423.2L163.6 416.2C145.1 386.8 135.4 352.9 135.4 318C135.4 216.3 218.2 133.5 320 133.5C369.3 133.5 415.6 152.7 450.4 187.6C485.2 222.5 506.6 268.8 506.5 318.1C506.5 419.9 421.6 502.7 319.9 502.7zM421.1 364.5C415.6 361.7 388.3 348.3 383.2 346.5C378.1 344.6 374.4 343.7 370.7 349.3C367 354.9 356.4 367.3 353.1 371.1C349.9 374.8 346.6 375.3 341.1 372.5C308.5 356.2 287.1 343.4 265.6 306.5C259.9 296.7 271.3 297.4 281.9 276.2C283.7 272.5 282.8 269.3 281.4 266.5C280 263.7 268.9 236.4 264.3 225.3C259.8 214.5 255.2 216 251.8 215.8C248.6 215.6 244.9 215.6 241.2 215.6C237.5 215.6 231.5 217 226.4 222.5C221.3 228.1 207 241.5 207 268.8C207 296.1 226.9 322.5 229.6 326.2C232.4 329.9 268.7 385.9 324.4 410C359.6 425.2 373.4 426.5 391 423.9C401.7 422.3 423.8 410.5 428.4 397.5C433 384.5 433 373.4 431.6 371.1C430.3 368.6 426.6 367.2 421.1 364.5z"/></svg>';
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path fill="#1af43e" d="M380.9 97.1c-41.9-42-97.7-65.1-157-65.1-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480 117.7 449.1c32.4 17.7 68.9 27 106.1 27l.1 0c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3 18.6-68.1-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1s56.2 81.2 56.1 130.5c0 101.8-84.9 184.6-186.6 184.6zM325.1 300.5c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8s-14.3 18-17.6 21.8c-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7 .9-6.9-.5-9.7s-12.5-30.1-17.1-41.2c-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2s-9.7 1.4-14.8 6.9c-5.1 5.6-19.4 19-19.4 46.3s19.9 53.7 22.6 57.4c2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4s4.6-24.1 3.2-26.4c-1.3-2.5-5-3.9-10.5-6.6z"/></svg>''';
   static const String _facebookSvg =
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path fill="rgba(30, 21, 207, 1.00)" d="M576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 440 146.7 540.8 258.2 568.5L258.2 398.2L205.4 398.2L205.4 320L258.2 320L258.2 286.3C258.2 199.2 297.6 158.8 383.2 158.8C399.4 158.8 427.4 162 438.9 165.2L438.9 236C432.9 235.4 422.4 235 409.3 235C367.3 235 351.1 250.9 351.1 292.2L351.1 320L434.7 320L420.3 398.2L351 398.2L351 574.1C477.8 558.8 576 450.9 576 320z"/></svg>';
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#2a70ea" d="M512 256C512 114.6 397.4 0 256 0S0 114.6 0 256C0 376 82.7 476.8 194.2 504.5l0-170.3-52.8 0 0-78.2 52.8 0 0-33.7c0-87.1 39.4-127.5 125-127.5 16.2 0 44.2 3.2 55.7 6.4l0 70.8c-6-.6-16.5-1-29.6-1-42 0-58.2 15.9-58.2 57.2l0 27.8 83.6 0-14.4 78.2-69.3 0 0 175.9C413.8 494.8 512 386.9 512 256z"/></svg>''';
   static const String _xSvg =
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M453.2 112L523.8 112L369.6 288.2L551 528L409 528L297.7 382.6L170.5 528L99.8 528L264.7 339.5L90.8 112L236.4 112L336.9 244.9L453.2 112zM428.4 485.8L467.5 485.8L215.1 152L173.1 152L428.4 485.8z"/></svg>';
+      '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path fill="#010409" d="M357.2 48L427.8 48 273.6 224.2 455 464 313 464 201.7 318.6 74.5 464 3.8 464 168.7 275.5-5.2 48 140.4 48 240.9 180.9 357.2 48zM332.4 421.8l39.1 0-252.4-333.8-42 0 255.3 333.8z"/></svg>''';
 
   // Primary Info Controllers
   final _displayNameCtrl = TextEditingController();
@@ -113,7 +114,6 @@ class _PurchasesVendorsVendorCreateScreenState
   final List<PlatformFile> _attachedFiles = [];
   final LayerLink _attachedFilesLink = LayerLink();
   OverlayEntry? _attachedFilesOverlayEntry;
-  bool _isDirty = false;
 
   // License Details
   bool isDrugRegistered = false;
@@ -170,7 +170,7 @@ class _PurchasesVendorsVendorCreateScreenState
   final _billingPinCtrl = TextEditingController();
   final _billingPhoneCtrl = TextEditingController();
   final _billingFaxCtrl = TextEditingController();
-  String? _billingCountry;
+  String? _billingCountry = 'India';
   String? _billingState;
   String _billingPhoneCode = '+91';
 
@@ -181,7 +181,7 @@ class _PurchasesVendorsVendorCreateScreenState
   final _shippingPinCtrl = TextEditingController();
   final _shippingPhoneCtrl = TextEditingController();
   final _shippingFaxCtrl = TextEditingController();
-  String? _shippingCountry;
+  String? _shippingCountry = 'India';
   String? _shippingState;
   String _shippingPhoneCode = '+91';
   List<String> _phoneCodesList = [
@@ -254,16 +254,14 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      debugPrint('❌ Error fetching next vendor number: $e');
+      AppLogger.error('Error fetching next vendor number', error: e, module: 'purchases');
     }
   }
 
   Future<void> _loadPaymentTerms() async {
     try {
-      debugPrint('🔍 Loading payment terms...');
       final lookupsService = LookupsApiService();
       final terms = await lookupsService.getPaymentTerms();
-      debugPrint('🔍 Loaded ${terms.length} payment terms');
       if (mounted) {
         setState(() {
           _paymentTermsList = terms;
@@ -274,12 +272,11 @@ class _PurchasesVendorsVendorCreateScreenState
               orElse: () => terms.first,
             );
             _paymentTerms = net30['id'];
-            debugPrint('🔍 Default payment term set to: $_paymentTerms');
           }
         });
       }
     } catch (e) {
-      debugPrint('❌ Error loading payment terms: $e');
+      AppLogger.error('Error loading payment terms', error: e, module: 'purchases');
     }
   }
 
@@ -293,7 +290,7 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      debugPrint('❌ Error loading TDS rates: $e');
+      AppLogger.error('Error loading TDS rates', error: e, module: 'purchases');
     }
   }
 
@@ -307,7 +304,7 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      debugPrint('❌ Error loading Price Lists: $e');
+      AppLogger.error('Error loading price lists', error: e, module: 'purchases');
     }
   }
 
@@ -344,10 +341,20 @@ class _PurchasesVendorsVendorCreateScreenState
             }
           }
           _phoneCodeToLabel = labels;
+
+          // Set India as default country
+          final india = countries.firstWhere(
+            (c) => c['name']?.toString().toLowerCase() == 'india',
+            orElse: () => {},
+          );
+          if (india.isNotEmpty) {
+            _billingCountry ??= india['name']?.toString();
+            _shippingCountry ??= india['name']?.toString();
+          }
         });
       }
     } catch (e) {
-      debugPrint('❌ Error loading countries/phone codes: $e');
+      AppLogger.error('Error loading countries/phone codes', error: e, module: 'purchases');
     }
   }
 
@@ -365,7 +372,7 @@ class _PurchasesVendorsVendorCreateScreenState
         });
       }
     } catch (e) {
-      debugPrint('❌ Error loading source of supply states: $e');
+      AppLogger.error('Error loading source of supply states', error: e, module: 'purchases');
     }
   }
 
@@ -786,44 +793,40 @@ class _PurchasesVendorsVendorCreateScreenState
         );
 
         if (isDuplicate) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'The vendor number "$currentNumber" already exists. Please use a unique number.',
-                ),
-                backgroundColor: Colors.red,
-              ),
-            );
-            setState(() => isLoading = false);
+          // AUTOMATIC CONCURRENCY HANDLING: Retrieve the next available number silently.
+          final nextFormatted = await LookupsApiService().getNextSequence(
+            'vendor',
+          );
+          if (nextFormatted != null) {
+            _vendorNumberCtrl.text = nextFormatted;
           }
-          return;
         }
 
+        // Use the potentially updated number
+        final finalVendorNumber = _vendorNumberCtrl.text.trim();
+        final updatedVendor = vendor.copyWith(vendorNumber: finalVendorNumber);
+
         // 2. Create the vendor
-        await ref.read(vendorProvider.notifier).createVendor(vendor);
+        await ref.read(vendorProvider.notifier).createVendor(updatedVendor);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Vendor created successfully')),
           );
 
-          // 3. Inform backend to increment sequence (backend now handles the check
-          // to only increment if it was the auto-generated one)
+          // 3. Inform backend to increment sequence
           try {
             await LookupsApiService().incrementSequence(
               'vendor',
-              usedNumber: currentNumber,
+              usedNumber: finalVendorNumber,
             );
           } catch (e) {
-            debugPrint('⚠️ Failed to increment vendor sequence: $e');
+            AppLogger.warning('Failed to increment vendor sequence', error: e, module: 'purchases');
           }
 
-          if (context.canPop()) {
-            context.pop();
-          } else {
-            context.go(AppRoutes.purchasesVendors);
-          }
+          // 4. RESET FORM & FETCH NEXT NUMBER (Stay on page)
+          _resetForm();
+          _fetchNextVendorNumber();
         }
       } catch (e) {
         if (mounted) {
@@ -837,12 +840,78 @@ class _PurchasesVendorsVendorCreateScreenState
     }
   }
 
-  void _onCancel() {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go(AppRoutes.purchasesVendors);
-    }
+  void _resetForm() {
+    setState(() {
+      // Clear Text Controllers
+      _displayNameCtrl.clear();
+      _firstNameCtrl.clear();
+      _lastNameCtrl.clear();
+      _companyNameCtrl.clear();
+      _emailCtrl.clear();
+      _workPhoneCtrl.clear();
+      _mobilePhoneCtrl.clear();
+      _panCtrl.clear();
+      _gstinPrefillCtrl.clear();
+      _websiteUrlCtrl.clear();
+      _departmentCtrl.clear();
+      _designationCtrl.clear();
+      _whatsappCtrl.clear();
+      _facebookCtrl.clear();
+      _xHandleCtrl.clear();
+      _skypeCtrl.clear();
+      _remarksCtrl.clear();
+      _msmeRegistrationNumberCtrl.clear();
+      drugLicense20Ctrl.clear();
+      drugLicense21Ctrl.clear();
+      drugLicense20BCtrl.clear();
+      drugLicense21BCtrl.clear();
+      fssaiCtrl.clear();
+      _billingAttentionCtrl.clear();
+      _billingStreet1Ctrl.clear();
+      _billingStreet2Ctrl.clear();
+      _billingCityCtrl.clear();
+      _billingPinCtrl.clear();
+      _billingPhoneCtrl.clear();
+      _billingFaxCtrl.clear();
+      _shippingAttentionCtrl.clear();
+      _shippingStreet1Ctrl.clear();
+      _shippingStreet2Ctrl.clear();
+      _shippingCityCtrl.clear();
+      _shippingPinCtrl.clear();
+      _shippingPhoneCtrl.clear();
+      _shippingFaxCtrl.clear();
+
+      // Reset Collections to defaults
+      _displayNameOptions = [];
+      _attachedFiles.clear();
+      // Contact Persons: reset to one empty row
+      contactRows.clear();
+      contactRows.add(_ContactPersonRow());
+      // Bank Details: clear all
+      bankRows.clear();
+
+      // License Files
+      drugLicense20Docs.clear();
+      drugLicense21Docs.clear();
+      drugLicense20BDocs.clear();
+      drugLicense21BDocs.clear();
+      fssaiDocs.clear();
+      msmeDocs.clear();
+
+      // Reset Booleans & Dropdowns
+      _salutation = 'Mr.';
+      _gstTreatment = null; // or reset to default if desired
+      _sourceOfSupply = null;
+      _isMsmeRegistered = false;
+      _msmeRegistrationType = null;
+      isDrugRegistered = false;
+      drugLicenceType = null;
+      isFssaiRegistered = false;
+
+      // Keep: _vendorLanguage, _currency, phone/mobile codes, state/country selections
+      // Reset Tab
+      _tabController.animateTo(0);
+    });
   }
 
   @override
@@ -850,9 +919,6 @@ class _PurchasesVendorsVendorCreateScreenState
     return ZerpaiLayout(
       pageTitle: 'New Vendor',
       enableBodyScroll: true,
-      onSave: _handleSave,
-      onCancel: _onCancel,
-      isDirty: _isDirty,
       footer: _buildFooter(),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
@@ -863,10 +929,7 @@ class _PurchasesVendorsVendorCreateScreenState
             children: [
               _buildPrefillBanner(),
               const SizedBox(height: 32),
-              Form(
-                onChanged: () => setState(() => _isDirty = true),
-                child: _buildPrimaryInfo(),
-              ),
+              _buildPrimaryInfo(),
               const SizedBox(height: 32),
               _buildTabSection(),
             ],
@@ -880,18 +943,18 @@ class _PurchasesVendorsVendorCreateScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.infoBg,
+        color: const Color(0xFFEFF6FF),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppTheme.infoBgBorder),
+        border: Border.all(color: const Color(0xFFDBEAFE)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline, size: 16, color: AppTheme.primaryBlueDark),
+          const Icon(Icons.info_outline, size: 16, color: Color(0xFF2563EB)),
           const SizedBox(width: 8),
           const Expanded(
             child: Text(
               'Prefill Vendor details from the GST portal using the Vendor\'s GSTIN.',
-              style: TextStyle(fontSize: 12, color: AppTheme.primaryBlueDark),
+              style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8)),
             ),
           ),
           InkWell(
@@ -900,7 +963,7 @@ class _PurchasesVendorsVendorCreateScreenState
               'Prefill >',
               style: TextStyle(
                 fontSize: 12,
-                color: AppTheme.primaryBlueDark,
+                color: Color(0xFF2563EB),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -916,14 +979,14 @@ class _PurchasesVendorsVendorCreateScreenState
       children: [
         Container(
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
           ),
           child: TabBar(
             controller: _tabController,
             isScrollable: true,
-            labelColor: AppTheme.primaryBlueDark,
-            unselectedLabelColor: AppTheme.textSecondary,
-            indicatorColor: AppTheme.primaryBlueDark,
+            labelColor: const Color(0xFF2563EB),
+            unselectedLabelColor: const Color(0xFF6B7280),
+            indicatorColor: const Color(0xFF2563EB),
             indicatorWeight: 2,
             indicatorSize: TabBarIndicatorSize.label,
             labelPadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -976,7 +1039,7 @@ class _PurchasesVendorsVendorCreateScreenState
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: AppTheme.borderColor)),
+        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
       ),
       child: Row(
         children: [
@@ -984,6 +1047,7 @@ class _PurchasesVendorsVendorCreateScreenState
             onPressed: isLoading ? null : _handleSave,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              backgroundColor: const Color(0xFF2563EB),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -997,13 +1061,17 @@ class _PurchasesVendorsVendorCreateScreenState
                       color: Colors.white,
                     ),
                   )
-                : const Text('Save'),
+                : const Text('Save', style: TextStyle(color: Colors.white)),
           ),
           const SizedBox(width: 12),
-          Tooltip(
-            message: 'Cancel (Esc)',
-            child: OutlinedButton(
-              onPressed: _onCancel,
+          OutlinedButton(
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go(AppRoutes.purchasesVendors);
+              }
+            },
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -1012,8 +1080,7 @@ class _PurchasesVendorsVendorCreateScreenState
             ),
             child: const Text('Cancel'),
           ),
-        ),
-      ],
+        ],
       ),
     );
   }

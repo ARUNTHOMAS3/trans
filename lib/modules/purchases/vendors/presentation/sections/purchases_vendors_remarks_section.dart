@@ -7,7 +7,7 @@ extension _MiscSections on _PurchasesVendorsVendorCreateScreenState {
       child: Center(
         child: Text(
           "You've not created any Custom Fields.",
-          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+          style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
         ),
       ),
     );
@@ -19,7 +19,7 @@ extension _MiscSections on _PurchasesVendorsVendorCreateScreenState {
       child: Center(
         child: Text(
           "You've not created any Reporting Tags.",
-          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+          style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
         ),
       ),
     );
@@ -38,7 +38,7 @@ extension _MiscSections on _PurchasesVendorsVendorCreateScreenState {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.textBody,
+                  color: Color(0xFF374151),
                 ),
               ),
               const SizedBox(width: 4),
@@ -46,7 +46,7 @@ extension _MiscSections on _PurchasesVendorsVendorCreateScreenState {
                 '(For Internal Use)',
                 style: TextStyle(
                   fontSize: 12,
-                  color: AppTheme.textSecondary.withValues(alpha: 0.8),
+                  color: const Color(0xFF6B7280).withValues(alpha: 0.8),
                 ),
               ),
             ],

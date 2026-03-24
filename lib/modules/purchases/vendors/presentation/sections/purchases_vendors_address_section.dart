@@ -29,20 +29,20 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
+                color: Color(0xFF111827),
               ),
             ),
             if (isShipping) ...[
               const SizedBox(width: 8),
               const Text(
                 '(',
-                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
               ),
               const SizedBox(width: 4),
               const Icon(
                 Icons.arrow_downward,
                 size: 14,
-                color: AppTheme.primaryBlueDark,
+                color: Color(0xFF2563EB),
               ),
               const SizedBox(width: 2),
               InkWell(
@@ -63,7 +63,7 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
                   'Copy billing address',
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppTheme.primaryBlueDark,
+                    color: Color(0xFF2563EB),
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -71,7 +71,7 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
               const SizedBox(width: 4),
               const Text(
                 ')',
-                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
               ),
             ],
           ],
@@ -199,95 +199,104 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
             width: 110,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: isDropdown
-                ? Consumer(
-                    builder: (context, ref, _) {
-                      if (label == 'Country/Region') {
-                        final countriesAsync = ref.watch(
-                          countriesProvider(null),
-                        );
-                        return FormDropdown<String>(
-                          height: _inputHeight,
-                          value:
-                              (dropdownValue != null &&
-                                  dropdownValue.isNotEmpty)
-                              ? dropdownValue
-                              : null,
-                          hint: 'Select',
-                          items: [
-                            ...(countriesAsync.asData?.value.map(
-                                  (e) => e['name'] as String,
-                                ) ??
-                                []),
-                          ],
-                          onChanged: onDropdownChanged!,
-                        );
-                      } else if (label == 'State') {
-                        final country = isShipping
-                            ? _shippingCountry
-                            : _billingCountry;
-                        final countries =
-                            ref.read(countriesProvider(null)).asData?.value ??
-                            [];
-                        final countryShortCode =
-                            countries.firstWhere(
-                              (c) => c['name'] == country,
-                              orElse: () => {'shortCode': 'IN'},
-                            )['shortCode'] ??
-                            'IN';
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: _fieldWidth),
+                child: isDropdown
+                    ? Consumer(
+                        builder: (context, ref, _) {
+                          if (label == 'Country/Region') {
+                            final countriesAsync = ref.watch(
+                              countriesProvider(null),
+                            );
+                            return FormDropdown<String>(
+                              height: _inputHeight,
+                              value:
+                                  (dropdownValue != null &&
+                                      dropdownValue.isNotEmpty)
+                                  ? dropdownValue
+                                  : null,
+                              hint: 'Select',
+                              items: [
+                                ...(countriesAsync.asData?.value.map(
+                                      (e) => e['name'] as String,
+                                    ) ??
+                                    []),
+                              ],
+                              onChanged: onDropdownChanged!,
+                            );
+                          } else if (label == 'State') {
+                            final country = isShipping
+                                ? _shippingCountry
+                                : _billingCountry;
+                            final countries =
+                                ref
+                                    .read(countriesProvider(null))
+                                    .asData
+                                    ?.value ??
+                                [];
+                            final countryShortCode =
+                                countries.firstWhere(
+                                  (c) => c['name'] == country,
+                                  orElse: () => {'shortCode': 'IN'},
+                                )['shortCode'] ??
+                                'IN';
 
-                        final statesAsync = ref.watch(
-                          statesProvider(countryShortCode),
-                        );
-                        return FormDropdown<String>(
-                          height: _inputHeight,
-                          isLoading: statesAsync.isLoading,
-                          value:
-                              (dropdownValue != null &&
-                                  dropdownValue.isNotEmpty)
-                              ? dropdownValue
-                              : null,
-                          hint: 'Select or type to add',
-                          allowCustomValue: true,
-                          items: [...(statesAsync.asData?.value ?? [])],
-                          onChanged: onDropdownChanged!,
-                        );
-                      }
-                      return FormDropdown<String>(
-                        height: _inputHeight,
-                        value: null,
-                        hint: 'Select',
-                        items: const [],
-                        onChanged: (_) {},
-                      );
-                    },
-                  )
-                : (isPhone && label == 'Phone'
-                      ? _buildPhoneRow(
-                          code: isShipping
-                              ? _shippingPhoneCode
-                              : _billingPhoneCode,
-                          onCodeChanged: (v) => _state(() {
-                            if (isShipping) {
-                              _shippingPhoneCode = v;
-                            } else {
-                              _billingPhoneCode = v;
-                            }
-                          }),
-                          controller: ctrl!,
-                          hintText: '',
-                        )
-                      : CustomTextField(
-                          height: maxLines > 1 ? null : _inputHeight,
-                          controller: ctrl!,
-                          hintText: hint,
-                          maxLines: maxLines,
-                        )),
+                            final statesAsync = ref.watch(
+                              statesProvider(countryShortCode),
+                            );
+                            return FormDropdown<String>(
+                              height: _inputHeight,
+                              isLoading: statesAsync.isLoading,
+                              value:
+                                  (dropdownValue != null &&
+                                      dropdownValue.isNotEmpty)
+                                  ? dropdownValue
+                                  : null,
+                              hint: 'Select or type to add',
+                              allowCustomValue: true,
+                              items: [...(statesAsync.asData?.value ?? [])],
+                              onChanged: onDropdownChanged!,
+                            );
+                          }
+                          return FormDropdown<String>(
+                            height: _inputHeight,
+                            value: null,
+                            hint: 'Select',
+                            items: const [],
+                            onChanged: (_) {},
+                          );
+                        },
+                      )
+                    : (isPhone && label == 'Phone'
+                          ? _buildPhoneRow(
+                              code: isShipping
+                                  ? _shippingPhoneCode
+                                  : _billingPhoneCode,
+                              onCodeChanged: (v) => _state(() {
+                                if (isShipping) {
+                                  _shippingPhoneCode = v;
+                                } else {
+                                  _billingPhoneCode = v;
+                                }
+                              }),
+                              controller: ctrl!,
+                              hintText: '',
+                            )
+                          : CustomTextField(
+                              height: maxLines > 1 ? null : _inputHeight,
+                              controller: ctrl!,
+                              hintText: hint,
+                              maxLines: maxLines,
+                            )),
+              ),
+            ),
           ),
         ],
       ),

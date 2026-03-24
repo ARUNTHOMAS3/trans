@@ -61,6 +61,7 @@ class ZerpaiLayout extends StatelessWidget {
   final VoidCallback? onSearch;
   final bool isDirty;
   final FocusNode? searchFocusNode;
+  final Widget? endDrawer;
 
   const ZerpaiLayout({
     super.key,
@@ -80,6 +81,7 @@ class ZerpaiLayout extends StatelessWidget {
     this.onSearch,
     this.isDirty = false,
     this.searchFocusNode,
+    this.endDrawer,
   });
 
   @override
@@ -142,6 +144,7 @@ class ZerpaiLayout extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: floatingActionButton,
+      endDrawer: endDrawer,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

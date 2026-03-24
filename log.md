@@ -1,3 +1,54 @@
+## Purchases Module Integration (March 23, 2026)
+
+### Files integrated from co-dev (Althaf) into lib/modules/purchases/
+
+**Purchase Orders**
+- `purchase_orders/models/purchases_purchase_orders_order_model.dart` — PurchaseOrder, PurchaseOrderItem, WarehouseModel
+- `purchase_orders/notifiers/purchase_order_notifier.dart` — PurchaseOrderState + PurchaseOrderNotifier (Riverpod StateNotifier)
+- `purchase_orders/providers/purchases_purchase_orders_provider.dart` — purchaseOrdersProvider, warehousesProvider, poNextNumberProvider
+- `purchase_orders/repositories/` — abstract + Dio impl (ApiClient)
+- `purchase_orders/presentation/purchases_purchase_orders_create.dart` — full PO creation screen (math parser, warehouse popover, item sidebar)
+- `purchase_orders/presentation/purchases_purchase_orders_order_overview.dart` — PO list screen
+
+**Vendors**
+- `vendors/models/purchases_vendors_vendor_model.dart` — Vendor model (GST, drug license, FSSAI, MSME, bank details)
+- `vendors/providers/vendor_provider.dart` — VendorState + VendorNotifier
+- `vendors/repositories/` — abstract + Dio impl
+- `vendors/presentation/purchases_vendors_vendor_list.dart` — vendor list screen
+- `vendors/presentation/purchases_vendors_vendor_create.dart` — multi-tab vendor creation (10 section part files)
+- `vendors/presentation/sections/` — builders, primary info, other details, address, contacts, bank, license, remarks, helpers, dialogs
+
+**Bills**
+- `bills/models/purchases_bills_bill_model.dart` — PurchasesBill + PurchasesBillLineItem
+- `bills/providers/purchases_bills_provider.dart` — BillsState + BillsNotifier
+- `bills/repositories/purchases_bills_repository.dart` — abstract + Dio impl
+- `bills/presentation/purchases_bills_list.dart` — bills list with status filter chips
+- `bills/presentation/purchases_bills_create.dart` — bill creation screen
+
+**Shared: item_details_sidebar.dart**
+- Created `lib/modules/items/items/presentation/widgets/item_details_sidebar.dart`
+- `itemDetailsSidebarProvider = StateProvider<Item?>` — set before opening endDrawer
+- `ItemDetailsSidebar` — 3-tab drawer (Item Details, Stock Locations, Transactions) using AppTheme tokens
+
+**ZerpaiLayout updated**
+- Added `endDrawer: Widget?` parameter — passed through to Scaffold
+
+**Router updated (app_router.dart)**
+- `purchases/vendors` → `PurchasesVendorsVendorListScreen`
+- `purchases/vendors/create` → `PurchasesVendorsVendorCreateScreen`
+- `purchases/purchase-orders` → `PurchaseOrderOverviewScreen`
+- `purchases/purchase-orders/create` → `PurchaseOrderCreateScreen`
+- `purchases/bills` → `PurchasesBillsListScreen`
+- `purchases/bills/create` → `PurchasesBillCreateScreen`
+
+### Standards compliance fixes applied during integration
+- Replaced all `print()`/`debugPrint()` (36 calls across 7 files) with `AppLogger.error/warning/info/debug`
+- Replaced Flutter `Tooltip` (4 files) with `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart`
+- Added `initialSearchQuery: String?` param to `PurchasesVendorsVendorListScreen` and `PurchaseOrderOverviewScreen` for deep-link support (per CLAUDE.md)
+- Fixed broken route path `/purchases/orders/create` → `/purchases/purchase-orders/create` in overview screen
+
+---
+
 ## Settings: Locations — Fixes & Validations (March 23, 2026)
 
 ### Backend: outlets.service.ts — switched to two-query merge pattern

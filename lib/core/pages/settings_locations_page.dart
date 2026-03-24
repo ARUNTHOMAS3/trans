@@ -260,6 +260,7 @@ class _OutletRow {
   final bool isActive;
   final String locationType; // 'business' | 'warehouse'
   final String? parentOutletId;
+  final bool isPrimary;
 
   const _OutletRow({
     required this.id,
@@ -276,6 +277,7 @@ class _OutletRow {
     required this.isActive,
     required this.locationType,
     this.parentOutletId,
+    this.isPrimary = false,
   });
 
   factory _OutletRow.fromJson(Map<String, dynamic> j) => _OutletRow(
@@ -293,6 +295,7 @@ class _OutletRow {
         isActive: j['is_active'] as bool? ?? true,
         locationType: (j['location_type'] ?? 'business').toString(),
         parentOutletId: j['parent_outlet_id']?.toString(),
+        isPrimary: j['is_primary'] as bool? ?? false,
       );
 
   bool get isWarehouse => locationType == 'warehouse';
@@ -892,38 +895,69 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                     statusDot,
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        outlet.name,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.textPrimary,
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textPrimary,
+                          ),
+                          children: [
+                            TextSpan(text: outlet.name),
+                            if (outlet.isWarehouse)
+                              const TextSpan(
+                                text: ' (Warehouse)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w400,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
                   ])
-                : Text(
-                    outlet.name,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textPrimary,
-                    ),
+                : Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          outlet.name,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (outlet.isPrimary) ...[
+                        const SizedBox(width: 6),
+                        const Icon(LucideIcons.star,
+                            size: 13, color: Color(0xFFFFC107)),
+                      ],
+                    ],
                   ),
           ),
 
           // GSTIN
           Expanded(
             flex: 2,
-            child: Text(
-              outlet.gstin.isNotEmpty ? outlet.gstin : '—',
-              style: TextStyle(
-                fontSize: 13,
-                color: outlet.gstin.isNotEmpty
-                    ? AppTheme.textPrimary
-                    : AppTheme.textSecondary,
-              ),
-            ),
+            child: outlet.gstin.isNotEmpty
+                ? Text(
+                    outlet.gstin,
+                    style: const TextStyle(
+                        fontSize: 13, color: AppTheme.textPrimary),
+                  )
+                : GestureDetector(
+                    onTap: () => _showAssociateGstinDialog(outlet),
+                    child: Text(
+                      'Associate GSTIN >',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: accentColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
           ),
 
           // Default Transaction Series (placeholder)

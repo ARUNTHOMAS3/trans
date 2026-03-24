@@ -16,7 +16,7 @@ extension _PrimaryInfoSection on _PurchasesVendorsVendorCreateScreenState {
                 child: FormDropdown<String>(
                   height: _inputHeight,
                   value: _salutation,
-                  items: const ['Mr.', 'Mrs.', 'Ms.', 'Dr.'],
+                  items: const ['Mr.', 'Mrs.', 'Ms.', 'Miss', 'Dr.'],
                   itemBuilder: (item, isSelected, isHovered) =>
                       _buildStandardLookupRow(item, isSelected, isHovered),
                   onChanged: (val) {
@@ -54,6 +54,7 @@ extension _PrimaryInfoSection on _PurchasesVendorsVendorCreateScreenState {
           child: CustomTextField(
             height: _inputHeight,
             controller: _companyNameCtrl,
+            onChanged: (_) => _refreshDisplayNameOptions(),
           ),
         ),
 
@@ -167,11 +168,11 @@ extension _PrimaryInfoSection on _PurchasesVendorsVendorCreateScreenState {
           height: _inputHeight,
           width: _inputHeight,
           decoration: BoxDecoration(
-            border: Border.all(color: AppTheme.borderColor),
+            border: Border.all(color: const Color(0xFFD1D5DB)),
             borderRadius: BorderRadius.circular(4),
             color: Colors.white,
           ),
-          child: Icon(icon, size: 18, color: AppTheme.primaryBlueDark),
+          child: Icon(icon, size: 18, color: const Color(0xFF2563EB)),
         ),
       ),
     );
@@ -180,6 +181,6 @@ extension _PrimaryInfoSection on _PurchasesVendorsVendorCreateScreenState {
       return button;
     }
 
-    return Tooltip(message: tooltip, child: button);
+    return ZTooltip(message: tooltip, child: button);
   }
 }

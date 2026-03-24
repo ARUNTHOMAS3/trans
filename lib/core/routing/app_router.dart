@@ -65,6 +65,9 @@ import 'package:zerpai_erp/core/pages/settings_locations_create_page.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_list.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart';
+import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_list.dart';
+import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_create.dart';
 
 // Shared
 import 'package:zerpai_erp/shared/widgets/placeholder_screen.dart';
@@ -696,7 +699,11 @@ final GoRouter appRouter = GoRouter(
             ),
             GoRoute(
               path: 'purchases/bills',
-              builder: (context, state) => const PlaceholderScreen(title: 'Bills'),
+              builder: (context, state) => const PurchasesBillsListScreen(),
+            ),
+            GoRoute(
+              path: 'purchases/bills/create',
+              builder: (context, state) => const PurchasesBillCreateScreen(),
             ),
             GoRoute(
               path: 'purchases/payments-made',
@@ -710,8 +717,7 @@ final GoRouter appRouter = GoRouter(
             ),
             GoRoute(
               path: 'purchases/purchase-orders/create',
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'New Purchase Order'),
+              builder: (context, state) => const PurchaseOrderCreateScreen(),
             ),
             GoRoute(
               path: 'documents',

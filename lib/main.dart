@@ -14,9 +14,9 @@ import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_payment_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_eway_bill_model.dart';
-import 'package:zerpai_erp/modules/purchases/models/vendor_model.dart';
-import 'package:zerpai_erp/modules/purchases/models/purchase_model.dart';
-import 'package:zerpai_erp/modules/purchases/models/purchase_bill_model.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
+import 'package:zerpai_erp/modules/purchases/bills/models/purchases_bills_bill_model.dart';
 import 'package:zerpai_erp/modules/inventory/models/stock_model.dart';
 import 'package:zerpai_erp/modules/inventory/models/inventory_adjustment_model.dart';
 import 'package:zerpai_erp/modules/inventory/models/stock_transfer_model.dart';
@@ -111,8 +111,8 @@ void main() async {
       'payments': SalesPayment,
       'eway_bills': SalesEWayBill,
       'vendors': Vendor,
-      'purchase_orders': Purchase,
-      'bills': PurchaseBill,
+      'purchase_orders': PurchaseOrder,
+      'bills': PurchasesBill,
       'stock': Stock,
       'adjustments': InventoryAdjustment,
       'transfers': StockTransfer,
@@ -156,10 +156,10 @@ void main() async {
         box = await Hive.openBox<SalesEWayBill>(boxName);
       } else if (type == Vendor) {
         box = await Hive.openBox<Vendor>(boxName);
-      } else if (type == Purchase) {
-        box = await Hive.openBox<Purchase>(boxName);
-      } else if (type == PurchaseBill) {
-        box = await Hive.openBox<PurchaseBill>(boxName);
+      } else if (type == PurchaseOrder) {
+        box = await Hive.openBox<PurchaseOrder>(boxName);
+      } else if (type == PurchasesBill) {
+        box = await Hive.openBox<PurchasesBill>(boxName);
       } else if (type == Stock) {
         box = await Hive.openBox<Stock>(boxName);
       } else if (type == InventoryAdjustment) {

@@ -16,12 +16,12 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
               children: [
                 Checkbox(
                   value: isDrugRegistered,
-                  activeColor: AppTheme.primaryBlueDark,
+                  activeColor: const Color(0xFF2563EB),
                   onChanged: (v) => _state(() => isDrugRegistered = v ?? false),
                 ),
                 const Text(
                   'This Vendor Is Registered Drug Licence',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textBody),
+                  style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
                 ),
               ],
             ),
@@ -180,13 +180,13 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
               children: [
                 Checkbox(
                   value: isFssaiRegistered,
-                  activeColor: AppTheme.primaryBlueDark,
+                  activeColor: const Color(0xFF2563EB),
                   onChanged: (v) =>
                       _state(() => isFssaiRegistered = v ?? false),
                 ),
                 const Text(
                   'This Vendor Is Registered FSSAI License',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textBody),
+                  style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
                 ),
               ],
             ),
@@ -230,13 +230,13 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
               children: [
                 Checkbox(
                   value: _isMsmeRegistered,
-                  activeColor: AppTheme.primaryBlueDark,
+                  activeColor: const Color(0xFF2563EB),
                   onChanged: (v) =>
                       _state(() => _isMsmeRegistered = v ?? false),
                 ),
                 const Text(
                   'This Vendor Is Registered MSME',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textBody),
+                  style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
                 ),
               ],
             ),
@@ -298,7 +298,7 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
         SizedBox(
           width: 32,
           height: _inputHeight,
-          child: Tooltip(
+          child: ZTooltip(
             message: 'Attach documents (PDF/Image)',
             child: InkWell(
               borderRadius: BorderRadius.circular(4),
@@ -307,7 +307,7 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
                 child: Icon(
                   LucideIcons.upload,
                   size: 18,
-                  color: AppTheme.textSecondary,
+                  color: Color(0xFF6B7280),
                 ),
               ),
             ),
@@ -318,7 +318,7 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
           CompositedTransformTarget(
             link: _getLicenseLink(field),
             child: Material(
-              color: AppTheme.infoBlue,
+              color: const Color(0xFF3B82F6),
               borderRadius: BorderRadius.circular(4),
               child: InkWell(
                 onTap: () => _toggleLicenseOverlay(field),
@@ -380,7 +380,7 @@ extension _LicenseSection on _PurchasesVendorsVendorCreateScreenState {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.borderColor),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.08),

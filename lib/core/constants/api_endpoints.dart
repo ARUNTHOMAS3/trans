@@ -12,6 +12,9 @@ class ApiEndpoints {
   // Purchases endpoints
   static const String vendors = '$baseUrl/vendors';
   static const String purchaseOrders = '$baseUrl/purchase-orders';
+  static const String purchaseOrderNextNumber = '$purchaseOrders/next-number';
+  static const String purchaseOrderSettings = '$purchaseOrders/settings';
+  static const String warehouses = '$baseUrl/warehouses';
   static const String bills = '$baseUrl/bills';
   
   // Items endpoints

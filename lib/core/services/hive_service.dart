@@ -7,9 +7,9 @@ import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_payment_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_eway_bill_model.dart';
-import 'package:zerpai_erp/modules/purchases/models/vendor_model.dart';
-import 'package:zerpai_erp/modules/purchases/models/purchase_model.dart';
-import 'package:zerpai_erp/modules/purchases/models/purchase_bill_model.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
+import 'package:zerpai_erp/modules/purchases/bills/models/purchases_bills_bill_model.dart';
 import 'package:zerpai_erp/modules/inventory/models/stock_model.dart';
 import 'package:zerpai_erp/modules/inventory/models/inventory_adjustment_model.dart';
 import 'package:zerpai_erp/modules/inventory/models/stock_transfer_model.dart';
@@ -30,8 +30,8 @@ class HiveService {
   Box<SalesPayment> get paymentsBox => Hive.box<SalesPayment>('payments');
   Box<SalesEWayBill> get ewayBillsBox => Hive.box<SalesEWayBill>('eway_bills');
   Box<Vendor> get vendorsBox => Hive.box<Vendor>('vendors');
-  Box<Purchase> get purchaseOrdersBox => Hive.box<Purchase>('purchase_orders');
-  Box<PurchaseBill> get billsBox => Hive.box<PurchaseBill>('bills');
+  Box<PurchaseOrder> get purchaseOrdersBox => Hive.box<PurchaseOrder>('purchase_orders');
+  Box<PurchasesBill> get billsBox => Hive.box<PurchasesBill>('bills');
   Box<Stock> get stockBox => Hive.box<Stock>('stock');
   Box<InventoryAdjustment> get adjustmentsBox =>
       Hive.box<InventoryAdjustment>('adjustments');
@@ -319,7 +319,7 @@ class HiveService {
   // ==================== PURCHASE ORDERS ====================
 
   /// Save purchase orders to local cache
-  Future<void> savePurchaseOrders(List<Purchase> orders) async {
+  Future<void> savePurchaseOrders(List<PurchaseOrder> orders) async {
     await purchaseOrdersBox.clear();
     for (var order in orders) {
       await purchaseOrdersBox.put(order.id, order);
@@ -327,17 +327,17 @@ class HiveService {
   }
 
   /// Get all cached purchase orders
-  List<Purchase> getPurchaseOrders() {
+  List<PurchaseOrder> getPurchaseOrders() {
     return purchaseOrdersBox.values.toList();
   }
 
   /// Get single purchase order by ID
-  Purchase? getPurchaseOrder(String id) {
+  PurchaseOrder? getPurchaseOrder(String id) {
     return purchaseOrdersBox.get(id);
   }
 
   /// Save single purchase order
-  Future<void> savePurchaseOrder(Purchase order) async {
+  Future<void> savePurchaseOrder(PurchaseOrder order) async {
     await purchaseOrdersBox.put(order.id, order);
   }
 
@@ -349,7 +349,7 @@ class HiveService {
   // ==================== PURCHASE BILLS ====================
 
   /// Save purchase bills to local cache
-  Future<void> saveBills(List<PurchaseBill> bills) async {
+  Future<void> saveBills(List<PurchasesBill> bills) async {
     await billsBox.clear();
     for (var bill in bills) {
       await billsBox.put(bill.id, bill);
@@ -357,17 +357,17 @@ class HiveService {
   }
 
   /// Get all cached purchase bills
-  List<PurchaseBill> getBills() {
+  List<PurchasesBill> getBills() {
     return billsBox.values.toList();
   }
 
   /// Get single purchase bill by ID
-  PurchaseBill? getBill(String id) {
+  PurchasesBill? getBill(String id) {
     return billsBox.get(id);
   }
 
   /// Save single purchase bill
-  Future<void> saveBill(PurchaseBill bill) async {
+  Future<void> saveBill(PurchasesBill bill) async {
     await billsBox.put(bill.id, bill);
   }
 

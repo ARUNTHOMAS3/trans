@@ -1,20 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/constants/api_endpoints.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository.dart';
 
 class VendorRepositoryImpl implements VendorRepository {
   final ApiClient _apiClient;
 
-  VendorRepositoryImpl({ApiClient? apiClient})
-    : _apiClient = apiClient ?? ApiClient();
+  VendorRepositoryImpl(this._apiClient);
 
   @override
-  Future<List<Vendor>> getAllVendors({
-    int page = 1,
-    int limit = 100,
-    String? search,
-  }) async {
+  Future<List<Vendor>> getAllVendors({int page = 1, int limit = 100, String? search}) async {
     try {
       final queryParameters = {
         'page': page,
@@ -23,13 +19,13 @@ class VendorRepositoryImpl implements VendorRepository {
       };
 
       final response = await _apiClient.get(
-        '/vendors',
+        ApiEndpoints.vendors,
         queryParameters: queryParameters,
       );
 
       if (response.statusCode == 200) {
         final data = response.data;
-
+        
         // Handle paginated response format
         if (data is Map<String, dynamic> && data.containsKey('data')) {
           final List<dynamic> items = data['data'] as List;
@@ -37,7 +33,7 @@ class VendorRepositoryImpl implements VendorRepository {
               .map((json) => Vendor.fromJson(json as Map<String, dynamic>))
               .toList();
         }
-
+        
         // Handle direct array format
         if (data is List) {
           return data
@@ -55,12 +51,12 @@ class VendorRepositoryImpl implements VendorRepository {
   @override
   Future<Vendor?> getVendorById(String id) async {
     try {
-      final response = await _apiClient.get('/vendors/$id');
-
+      final response = await _apiClient.get('${ApiEndpoints.vendors}/$id');
+      
       if (response.statusCode == 200) {
         return Vendor.fromJson(response.data);
       }
-
+      
       return null;
     } catch (e) {
       throw Exception('Failed to fetch vendor: $e');
@@ -75,12 +71,15 @@ class VendorRepositoryImpl implements VendorRepository {
       data.remove('created_at');
       data.remove('updated_at');
 
-      final response = await _apiClient.post('/vendors', data: data);
-
+      final response = await _apiClient.post(
+        ApiEndpoints.vendors,
+        data: data,
+      );
+      
       if (response.statusCode == 201 || response.statusCode == 200) {
         return Vendor.fromJson(response.data);
       }
-
+      
       throw Exception('Failed to create vendor');
     } catch (e) {
       throw Exception('Failed to create vendor: $e');
@@ -95,12 +94,15 @@ class VendorRepositoryImpl implements VendorRepository {
       data.remove('created_at');
       data.removeWhere((key, value) => value == null);
 
-      final response = await _apiClient.put('/vendors/$id', data: data);
-
+      final response = await _apiClient.put(
+        '${ApiEndpoints.vendors}/$id',
+        data: data,
+      );
+      
       if (response.statusCode == 200) {
         return Vendor.fromJson(response.data);
       }
-
+      
       throw Exception('Failed to update vendor');
     } catch (e) {
       throw Exception('Failed to update vendor: $e');
@@ -110,8 +112,8 @@ class VendorRepositoryImpl implements VendorRepository {
   @override
   Future<void> deleteVendor(String id) async {
     try {
-      final response = await _apiClient.delete('/vendors/$id');
-
+      final response = await _apiClient.delete('${ApiEndpoints.vendors}/$id');
+      
       if (response.statusCode != 200 && response.statusCode != 204) {
         throw Exception('Failed to delete vendor');
       }
@@ -122,5 +124,5 @@ class VendorRepositoryImpl implements VendorRepository {
 }
 
 final vendorRepositoryProvider = Provider<VendorRepository>((ref) {
-  return VendorRepositoryImpl();
+  return VendorRepositoryImpl(ref.read(apiClientProvider));
 });

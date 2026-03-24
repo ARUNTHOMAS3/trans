@@ -10,7 +10,7 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
               ),
               const SizedBox(height: 4),
               Text(
@@ -18,7 +18,7 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                  color: Color(0xFF111827),
                 ),
               ),
             ],
@@ -38,9 +38,9 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
         (o) => o.label == 'Registered Business - Regular',
       );
 
-      _displayNameCtrl.text =
-          (result.tradeName.isNotEmpty ? result.tradeName : result.legalName)
-              .toUpperCase();
+      _displayNameCtrl.text = (result.tradeName.isNotEmpty
+          ? result.tradeName
+          : result.legalName);
 
       if (_panCtrl.text.isEmpty && result.gstin.length >= 12) {
         _panCtrl.text = result.gstin.substring(2, 12);
@@ -108,7 +108,7 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
         });
       }
     } catch (e) {
-      debugPrint('❌ Error syncing vendor number preferences: $e');
+      AppLogger.error('Error syncing vendor number preferences', error: e, module: 'purchases');
       if (mounted) {
         _state(() {
           _vendorNumberPrefixCtrl.text = 'VEN-';
@@ -141,7 +141,7 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
         });
       }
     } catch (e) {
-      debugPrint('❌ Error applying vendor number preferences: $e');
+      AppLogger.error('Error applying vendor number preferences', error: e, module: 'purchases');
     }
   }
 
@@ -150,8 +150,9 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
       _salutation,
       _firstNameCtrl.text,
       _lastNameCtrl.text,
+      _companyNameCtrl.text,
     );
-    final current = _displayNameCtrl.text.trim().toUpperCase();
+    final current = _displayNameCtrl.text.trim();
     final bool shouldAutoSet =
         current.isEmpty || _displayNameOptions.contains(current);
 
@@ -168,10 +169,12 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
     String currentSalutation,
     String firstName,
     String lastName,
+    String companyName,
   ) {
     final salutationText = currentSalutation.trim();
     final first = firstName.trim();
     final last = lastName.trim();
+    final company = companyName.trim();
 
     final fullName = [first, last].where((name) => name.isNotEmpty).join(' ');
     final options = <String>[];
@@ -185,9 +188,12 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
     if (first.isNotEmpty && last.isNotEmpty) {
       options.add('$last, $first');
     }
+    if (company.isNotEmpty) {
+      options.add(company);
+    }
 
     return options
-        .map((value) => value.trim().toUpperCase())
+        .map((value) => value.trim())
         .where((value) => value.isNotEmpty)
         .toSet()
         .toList();
@@ -242,14 +248,14 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('You can upload a maximum of 10 files'),
-                backgroundColor: AppTheme.errorRed,
+                backgroundColor: Color(0xFFDC2626),
               ),
             );
           }
         });
       }
     } catch (e) {
-      debugPrint('❌ Error picking files: $e');
+      AppLogger.error('Error picking files', error: e, module: 'purchases');
     }
   }
 

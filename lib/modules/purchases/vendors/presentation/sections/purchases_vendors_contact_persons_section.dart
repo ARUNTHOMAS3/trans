@@ -37,13 +37,13 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
     const headerStyle = TextStyle(
       fontSize: 11,
       fontWeight: FontWeight.bold,
-      color: AppTheme.textSecondary,
+      color: Color(0xFF6B7280),
     );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.bgLight,
-        border: Border.all(color: AppTheme.borderColor),
+        color: const Color(0xFFF9FAFB),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: const Row(
@@ -119,7 +119,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               decoration: BoxDecoration(
-                border: Border.all(color: AppTheme.borderColor),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -129,7 +129,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
                     child: FormDropdown<String>(
                       height: _inputHeight,
                       value: row.salutation,
-                      items: const ['Mr.', 'Mrs.', 'Ms.', 'Dr.'],
+                      items: const ['Mr.', 'Mrs.', 'Ms.', 'Miss', 'Dr.'],
                       onChanged: (v) =>
                           _state(() => row.salutation = v ?? 'Mr.'),
                     ),
@@ -183,22 +183,20 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  if (index > 0 && row.isHovered)
+                  if (row.isHovered)
                     IconButton(
                       onPressed: () => removeContactRow(index),
                       icon: const Icon(
                         Icons.close,
                         size: 18,
-                        color: AppTheme.errorRed,
+                        color: Color(0xFFEF4444),
                       ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       splashRadius: 20,
                     )
                   else
-                    const SizedBox(
-                      width: 32,
-                    ), // Placeholder to maintain alignment
+                    const SizedBox(width: 32),
                 ],
               ),
             ),
@@ -216,7 +214,20 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
 
   void removeContactRow(int index) {
     _state(() {
-      contactRows.removeAt(index).dispose();
+      if (index == 0) {
+        // Clear content for the first row
+        final row = contactRows[index];
+        row.firstNameCtrl.clear();
+        row.lastNameCtrl.clear();
+        row.emailCtrl.clear();
+        row.workPhoneCtrl.clear();
+        row.mobilePhoneCtrl.clear();
+        row.salutation = 'Mr.';
+        row.workCode = '+91';
+        row.mobileCode = '+91';
+      } else {
+        contactRows.removeAt(index).dispose();
+      }
     });
   }
 }

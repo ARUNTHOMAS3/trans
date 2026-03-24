@@ -58,7 +58,7 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                     },
                     child: const Text(
                       'Get Taxpayer details',
-                      style: TextStyle(fontSize: 12, color: AppTheme.primaryBlueDark),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF2563EB)),
                     ),
                   ),
                 ],
@@ -222,7 +222,7 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                 Checkbox(
                   value: _enablePortal,
                   onChanged: (val) => _state(() => _enablePortal = val!),
-                  activeColor: AppTheme.primaryBlueDark,
+                  activeColor: const Color(0xFF2563EB),
                 ),
                 Expanded(
                   child: Text(
@@ -246,7 +246,7 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     DottedBorder(
-                      color: AppTheme.infoBlue,
+                      color: const Color(0xFF3B82F6),
                       strokeWidth: 1,
                       dashPattern: const [4, 2],
                       borderType: BorderType.RRect,
@@ -274,14 +274,14 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                                     Icon(
                                       LucideIcons.upload,
                                       size: 16,
-                                      color: AppTheme.textSecondary,
+                                      color: Color(0xFF6B7280),
                                     ),
                                     SizedBox(width: 8),
                                     Text(
                                       'Upload File',
                                       style: TextStyle(
                                         fontSize: 13,
-                                        color: AppTheme.textBody,
+                                        color: Color(0xFF374151),
                                       ),
                                     ),
                                   ],
@@ -291,7 +291,7 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                             Container(
                               width: 1,
                               height: 20,
-                              color: AppTheme.borderColor,
+                              color: const Color(0xFFE5E7EB),
                             ),
                             InkWell(
                               onTap: () {},
@@ -303,7 +303,7 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                                 child: Icon(
                                   Icons.keyboard_arrow_down,
                                   size: 18,
-                                  color: AppTheme.textSecondary,
+                                  color: Color(0xFF6B7280),
                                 ),
                               ),
                             ),
@@ -316,7 +316,7 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                       CompositedTransformTarget(
                         link: _attachedFilesLink,
                         child: Material(
-                          color: AppTheme.infoBlue,
+                          color: const Color(0xFF3B82F6),
                           borderRadius: BorderRadius.circular(4),
                           child: InkWell(
                             onTap: _toggleAttachedFilesList,
@@ -355,7 +355,7 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                 const SizedBox(height: 6),
                 const Text(
                   'You can upload a maximum of 10 files, 10MB each',
-                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                  style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
                 ),
               ],
             ),
@@ -411,7 +411,7 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
           ),
         ),
         _buildFormRow(
-          label: 'X',
+          label: 'X (formerly Twitter)',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -419,40 +419,32 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                 height: _inputHeight,
                 controller: _xHandleCtrl,
                 prefixBox: true,
-                prefixWidget: Center(
-                  child: SvgPicture.string(
-                    _PurchasesVendorsVendorCreateScreenState._xSvg,
-                    width: 14,
-                    height: 14,
-                    colorFilter: const ColorFilter.mode(
-                      AppTheme.textSecondary,
-                      BlendMode.srcIn,
-                    ),
-                  ),
+                prefixWidget: SvgPicture.string(
+                  _PurchasesVendorsVendorCreateScreenState._xSvg,
+                  width: 20,
+                  height: 20,
                 ),
               ),
               const Padding(
                 padding: EdgeInsets.only(top: 4, left: 4),
                 child: Text(
                   'https://x.com/',
-                  style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                  style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
                 ),
               ),
             ],
           ),
         ),
         _buildFormRow(
-          label: 'WhatsApp Number',
+          label: 'WhatsApp',
           child: CustomTextField(
             height: _inputHeight,
             controller: _whatsappCtrl,
             prefixBox: true,
-            prefixWidget: Center(
-              child: SvgPicture.string(
-                _PurchasesVendorsVendorCreateScreenState._whatsappSvg,
-                width: 16,
-                height: 16,
-              ),
+            prefixWidget: SvgPicture.string(
+              _PurchasesVendorsVendorCreateScreenState._whatsappSvg,
+              width: 24,
+              height: 24,
             ),
           ),
         ),
@@ -465,19 +457,17 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                 height: _inputHeight,
                 controller: _facebookCtrl,
                 prefixBox: true,
-                prefixWidget: Center(
-                  child: SvgPicture.string(
-                    _PurchasesVendorsVendorCreateScreenState._facebookSvg,
-                    width: 16,
-                    height: 16,
-                  ),
+                prefixWidget: SvgPicture.string(
+                  _PurchasesVendorsVendorCreateScreenState._facebookSvg,
+                  width: 22,
+                  height: 22,
                 ),
               ),
               const Padding(
                 padding: EdgeInsets.only(top: 4, left: 4),
                 child: Text(
                   'http://www.facebook.com/',
-                  style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                  style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
                 ),
               ),
             ],
@@ -523,7 +513,7 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.borderColor),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.08),
@@ -578,13 +568,13 @@ class _FileItemWidgetState extends State<_FileItemWidget> {
       onExit: (_) => setState(() => _isHovered = false),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        color: _isHovered ? AppTheme.infoBlue : Colors.transparent,
+        color: _isHovered ? const Color(0xFF3B82F6) : Colors.transparent,
         child: Row(
           children: [
             Icon(
               Icons.image_outlined,
               size: 20,
-              color: _isHovered ? Colors.white : AppTheme.infoBlue,
+              color: _isHovered ? Colors.white : const Color(0xFF3B82F6),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -601,7 +591,7 @@ class _FileItemWidgetState extends State<_FileItemWidget> {
                       fontWeight: FontWeight.w500,
                       color: _isHovered
                           ? Colors.white
-                          : AppTheme.textPrimary,
+                          : const Color(0xFF111827),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -611,7 +601,7 @@ class _FileItemWidgetState extends State<_FileItemWidget> {
                       fontSize: 11,
                       color: _isHovered
                           ? Colors.white70
-                          : AppTheme.textSecondary,
+                          : const Color(0xFF6B7280),
                     ),
                   ),
                 ],

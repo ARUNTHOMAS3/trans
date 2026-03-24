@@ -47,15 +47,17 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
             }
 
             return Dialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
               alignment: Alignment.topCenter,
-              insetPadding: const EdgeInsets.fromLTRB(16, 80, 16, 24),
+              insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 16, 12, 12),
+                      padding: const EdgeInsets.fromLTRB(24, 0, 12, 12),
                       child: Row(
                         children: [
                           const Expanded(
@@ -215,7 +217,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildVendorNumberDialogHeader(dialogContext),
-                    const Divider(height: 1, color: AppTheme.borderColor),
+                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
                     if (duplicateError != null)
                       Container(
                         width: double.infinity,
@@ -223,12 +225,12 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                           horizontal: 16,
                           vertical: 8,
                         ),
-                        color: AppTheme.errorBgBorder,
+                        color: const Color(0xFFFEE2E2),
                         child: Row(
                           children: [
                             const Icon(
                               Icons.error_outline,
-                              color: AppTheme.errorRed,
+                              color: Color(0xFFDC2626),
                               size: 16,
                             ),
                             const SizedBox(width: 8),
@@ -236,7 +238,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                               child: Text(
                                 duplicateError!,
                                 style: const TextStyle(
-                                  color: AppTheme.errorRed,
+                                  color: Color(0xFFDC2626),
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -247,7 +249,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                                   setDialogState(() => duplicateError = null),
                               child: const Icon(
                                 Icons.close,
-                                color: AppTheme.errorRed,
+                                color: Color(0xFFDC2626),
                                 size: 16,
                               ),
                             ),
@@ -266,7 +268,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                             'incremented by 1.',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppTheme.textSecondary,
+                              color: Color(0xFF6B7280),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -306,7 +308,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                             width: double.infinity,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: AppTheme.warningBg,
+                              color: const Color(0xFFFFF7ED),
                               border: Border.all(
                                 color: const Color(0xFFFED7AA),
                               ),
@@ -319,7 +321,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                               'field after closing this popup.',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: AppTheme.warningTextDark,
+                                color: Color(0xFF92400E),
                               ),
                             ),
                           ),
@@ -380,6 +382,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                                       },
                                 style: ElevatedButton.styleFrom(
                                   elevation: 0,
+                                  backgroundColor: const Color(0xFF22C55E),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 18,
                                     vertical: 10,
@@ -426,7 +429,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
 
   Widget _buildVendorNumberDialogHeader(BuildContext dialogContext) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 12, 12),
+      padding: const EdgeInsets.fromLTRB(24, 0, 12, 12),
       child: Row(
         children: [
           const Text(
@@ -434,13 +437,13 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
+              color: Color(0xFF111827),
             ),
           ),
           const Spacer(),
           IconButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            icon: const Icon(Icons.close, size: 18, color: AppTheme.errorRed),
+            icon: const Icon(Icons.close, size: 18, color: Color(0xFFE11D48)),
             splashRadius: 20,
           ),
         ],

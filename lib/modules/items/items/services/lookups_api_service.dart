@@ -558,6 +558,29 @@ class LookupsApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getShipmentPreferences() async {
+    try {
+      final response = await _apiClient.get('/api/v1/shipment-preferences');
+      final data = response.data;
+      if (data is List) return data.cast<Map<String, dynamic>>();
+      if (data is Map && data['data'] is List) return (data['data'] as List).cast<Map<String, dynamic>>();
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> syncShipmentPreferences(List<Map<String, dynamic>> items) async {
+    try {
+      final response = await _apiClient.post('/api/v1/shipment-preferences/sync', data: {'items': items});
+      final data = response.data;
+      if (data is List) return data.cast<Map<String, dynamic>>();
+      return items;
+    } catch (e) {
+      return items;
+    }
+  }
+
   Future<bool> checkDuplicateNumber(String module, String number) async {
     try {
       final response = await _apiClient.get(
