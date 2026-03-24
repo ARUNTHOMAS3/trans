@@ -1,6 +1,6 @@
 # Contributor Covenant Code of Conduct
 
-Version 2.1 — August 2018
+Version 2.1 — January 2026
 
 Our Pledge
 
