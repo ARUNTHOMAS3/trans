@@ -9,6 +9,16 @@ class AppRoutes {
   static const String settingsLocationsCreate = '/settings/locations/create';
   static const String settingsLocationsEdit = '/settings/locations/:id/edit';
 
+  // Branches (business locations)
+  static const String settingsBranches = '/settings/branches';
+  static const String settingsBranchCreate = '/settings/branches/create';
+  static const String settingsBranchEdit = '/settings/branches/:id/edit';
+
+  // Warehouses
+  static const String settingsWarehouses = '/settings/warehouses';
+  static const String settingsWarehouseCreate = '/settings/warehouses/create';
+  static const String settingsWarehouseEdit = '/settings/warehouses/:id/edit';
+
   // Items
   static const String itemsReport = '/items/report';
   static const String itemsCreate = '/items/create';

@@ -60,6 +60,10 @@ import 'package:zerpai_erp/core/pages/settings_organization_profile_page.dart';
 import 'package:zerpai_erp/core/pages/settings_organization_branding_page.dart';
 import 'package:zerpai_erp/core/pages/settings_locations_page.dart';
 import 'package:zerpai_erp/core/pages/settings_locations_create_page.dart';
+import 'package:zerpai_erp/core/pages/settings_branches_list_page.dart';
+import 'package:zerpai_erp/core/pages/settings_branches_create_page.dart';
+import 'package:zerpai_erp/core/pages/settings_warehouses_list_page.dart';
+import 'package:zerpai_erp/core/pages/settings_warehouses_create_page.dart';
 
 // Purchasing Module
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_list.dart';
@@ -186,6 +190,34 @@ final GoRouter appRouter = GoRouter(
               path: 'settings/locations/:id/edit',
               builder: (context, state) => SettingsLocationsCreatePage(
                 outletId: state.pathParameters['id'],
+              ),
+            ),
+            GoRoute(
+              path: 'settings/branches',
+              builder: (context, state) => const SettingsBranchesListPage(),
+            ),
+            GoRoute(
+              path: 'settings/branches/create',
+              builder: (context, state) => const SettingsBranchCreatePage(),
+            ),
+            GoRoute(
+              path: 'settings/branches/:id/edit',
+              builder: (context, state) => SettingsBranchCreatePage(
+                branchId: state.pathParameters['id'],
+              ),
+            ),
+            GoRoute(
+              path: 'settings/warehouses',
+              builder: (context, state) => const SettingsWarehousesListPage(),
+            ),
+            GoRoute(
+              path: 'settings/warehouses/create',
+              builder: (context, state) => const SettingsWarehouseCreatePage(),
+            ),
+            GoRoute(
+              path: 'settings/warehouses/:id/edit',
+              builder: (context, state) => SettingsWarehouseCreatePage(
+                warehouseId: state.pathParameters['id'],
               ),
             ),
 

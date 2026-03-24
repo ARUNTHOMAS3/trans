@@ -8,6 +8,7 @@ import 'package:zerpai_erp/modules/purchases/purchase_orders/providers/purchases
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
+import 'package:zerpai_erp/modules/items/items/controllers/items_state.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/items/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/items/pricelist/providers/pricelist_provider.dart';
@@ -58,7 +59,8 @@ class _ItemRowController {
   final LayerLink itemDiscountAccountLink = LayerLink();
   final LayerLink warehouseSelectionLink = LayerLink();
   final LayerLink hsnLink = LayerLink();
-  final LayerLink itemMenuLink = LayerLink();
+  final LayerLink itemDetailsMenuLink = LayerLink();
+  final LayerLink rowActionsMenuLink = LayerLink();
 
   void dispose() {
     nameCtrl.dispose();
@@ -3446,13 +3448,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                               ),
                                               // 3-dot menu
                                               CompositedTransformTarget(
-                                                link: _rowControllers[index].itemMenuLink,
+                                                link: _rowControllers[index].itemDetailsMenuLink,
                                                 child: GestureDetector(
                                                   onTap: () => _showItemMenu(
                                                     context,
                                                     index,
                                                     item,
-                                                    _rowControllers[index].itemMenuLink,
+                                                    _rowControllers[index].itemDetailsMenuLink,
                                                   ),
                                                   child: const Padding(
                                                     padding: EdgeInsets.all(4),
@@ -3927,8 +3929,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           link: ctrl.taxLink,
                           child: GestureDetector(
                             onTap: () {
-                              final taxes =
-                                  ref.read(itemsControllerProvider).taxRates;
+                              final taxes = _purchaseOrderTaxes(
+                                ref.read(itemsControllerProvider),
+                              );
                               _showTaxPopover(context, index, item, taxes);
                             },
                             child: Container(
@@ -3994,13 +3997,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CompositedTransformTarget(
-                          link: _rowControllers[index].itemMenuLink,
+                          link: _rowControllers[index].rowActionsMenuLink,
                           child: GestureDetector(
                             onTap: () => _showItemMenu(
                               context,
                               index,
                               item,
-                              _rowControllers[index].itemMenuLink,
+                              _rowControllers[index].rowActionsMenuLink,
                             ),
                             child: const Padding(
                               padding: EdgeInsets.all(4),
@@ -5781,6 +5784,24 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         ),
       ),
     );
+  }
+
+  List<TaxRate> _purchaseOrderTaxes(ItemsState itemsState) {
+    final seen = <String>{};
+    final merged = <TaxRate>[];
+
+    void addAll(List<TaxRate> taxes) {
+      for (final tax in taxes) {
+        if (tax.id.isEmpty || !seen.add(tax.id)) {
+          continue;
+        }
+        merged.add(tax);
+      }
+    }
+
+    addAll(itemsState.taxGroups);
+    addAll(itemsState.taxRates);
+    return merged;
   }
 
   Widget _zRadio(

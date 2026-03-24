@@ -86,7 +86,8 @@ const List<_NavSection> _navSections = <_NavSection>[
         items: <_NavEntry>[
           _NavEntry(label: 'Profile', route: AppRoutes.settingsOrgProfile),
           _NavEntry(label: 'Branding', route: AppRoutes.settingsOrgBranding),
-          _NavEntry(label: 'Locations', route: AppRoutes.settingsLocations),
+          _NavEntry(label: 'Branches', route: AppRoutes.settingsBranches),
+          _NavEntry(label: 'Warehouses', route: AppRoutes.settingsWarehouses),
           _NavEntry(label: 'Approvals'),
           _NavEntry(label: 'Manage Subscription'),
         ],

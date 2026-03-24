@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/purchases_purchase_orders_order_model.dart';
 import '../providers/purchases_purchase_orders_provider.dart';
 import '../../../items/items/models/item_model.dart';
+import '../../../items/items/models/tax_rate_model.dart';
 import '../../../inventory/providers/stock_provider.dart';
 import '../../../items/items/controllers/items_controller.dart';
 import '../../../items/pricelist/models/pricelist_model.dart';
@@ -308,18 +309,9 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     }
 
     // Fetch tax info
-    String? taxName;
-    double taxRate = 0.0;
-    if (product.intraStateTaxId != null) {
-      try {
-        final itemsController = _ref.read(itemsControllerProvider);
-        final tax = itemsController.taxRates.firstWhere((t) => t.id == product.intraStateTaxId);
-        taxName = tax.taxName;
-        taxRate = tax.taxRate;
-      } catch (e) {
-        taxName = product.intraStateTaxId;
-      }
-    }
+    final resolvedTax = _resolvePurchaseTax(product);
+    final String? taxName = resolvedTax?.taxName ?? product.intraStateTaxName;
+    final double taxRate = resolvedTax?.taxRate ?? 0.0;
 
     // Find account name
     String? accountName;
@@ -482,6 +474,29 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       ],
     );
     if (state.items.isEmpty) addItemRow(); // ensure at least one
+  }
+
+  TaxRate? _resolvePurchaseTax(Item product) {
+    final taxId = product.intraStateTaxId;
+    if (taxId == null || taxId.isEmpty) {
+      return null;
+    }
+
+    final itemsState = _ref.read(itemsControllerProvider);
+
+    for (final tax in itemsState.taxGroups) {
+      if (tax.id == taxId) {
+        return tax;
+      }
+    }
+
+    for (final tax in itemsState.taxRates) {
+      if (tax.id == taxId) {
+        return tax;
+      }
+    }
+
+    return null;
   }
 }
 

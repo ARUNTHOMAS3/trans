@@ -158,7 +158,7 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         if (orgId != null && orgId.isNotEmpty) 'org_id': orgId,
       };
       final outletsResponse = await _apiClient.get(
-        '/outlets',
+        'outlets',
         queryParameters: queryParameters,
       );
 

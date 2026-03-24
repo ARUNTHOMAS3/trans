@@ -7037,3 +7037,47 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 ### Result
 - The Purchase Order create form now uses the standard reusable date picker for both visible date inputs.
 - The screen remains aligned with the repo rule to use `ZerpaiDatePicker` wherever the shared pattern is suitable.
+
+## Purchase Order Item Menu Anchor Fix (24/03/2026)
+
+### Root cause
+- The Purchase Order item row had two different three-dots triggers pointing at the same `LayerLink`:
+  - the inline item-details menu trigger
+  - the far-right row actions trigger
+- Because both targets shared one anchor, the custom overlay menu could attach to the wrong trigger location, making the action menu appear visually misplaced.
+
+### Files updated
+- Updated `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`:
+  - split the shared menu anchor into separate links for the inline item-details trigger and the far-right row-actions trigger
+  - preserved the existing item menu behavior while making each trigger open from its own correct location
+
+### Validation
+- `flutter analyze lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`
+
+### Result
+- The item action menu now opens relative to the trigger that was actually clicked instead of drifting because of an anchor collision.
+
+## Purchase Order Tax Resolution Fix (24/03/2026)
+
+### Root cause
+- Product tax assignment in the live schema can point to a tax group, but Purchase Order autofill only searched the plain `taxRates` lookup list.
+- When that lookup missed, the notifier fell back to showing the raw tax UUID in the row label.
+- The tax popover also read only `taxRates`, so rows backed by `taxGroups` produced an empty dropdown body.
+
+### Files updated
+- Updated `lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart`:
+  - added schema-aware tax resolution for purchase items
+  - now resolves `intraStateTaxId` against `taxGroups` first, then `taxRates`
+  - removed the UUID-as-label fallback
+  - now falls back to the product’s stored tax name when available instead of exposing the raw ID
+- Updated `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`:
+  - changed the tax popover source from `taxRates` only to a merged list of `taxGroups` and `taxRates`
+  - deduplicated the merged list by tax ID before rendering the dropdown
+
+### Validation
+- `flutter analyze lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`
+
+### Result
+- Purchase Order item autofill now resolves tax labels using the correct schema-backed lookup priority.
+- The tax dropdown now shows data instead of rendering an empty list when the selected product tax is a tax group.
+- Raw tax UUIDs are no longer used as the visible label in the row.
