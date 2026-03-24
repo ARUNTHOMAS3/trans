@@ -38,6 +38,13 @@ This file governs how Claude should behave when working in this repository. Read
 - **GoRouter only** for navigation. Never use `Navigator.push` directly.
 - **Every screen, sub-screen, tab, and significant dialog state must be deep-linkable** via a named GoRouter route with path/query params so browser refresh, direct URL, and back-navigation restore full context without data loss.
 - **Inter font** globally. No per-module font overrides.
+- **Canonical Flutter structure**:
+  - `lib/core/` = app infrastructure only
+  - `lib/core/layout/` = shell/navigation infrastructure only
+  - `lib/shared/widgets/` = reusable UI widgets and responsive UI primitives
+  - `lib/shared/services/` = cross-feature services
+  - `lib/modules/` = feature-specific code
+  - Never treat `lib/core/widgets/` as the reusable widget home.
 
 ### Backend
 - **Drizzle ORM only**. Never suggest Prisma, TypeORM, or raw SQL outside of Drizzle.
@@ -76,9 +83,10 @@ lib/
   core/
     routing/        # app_router.dart lives here
     theme/          # app_theme.dart lives here
+    layout/         # shell/navigation infrastructure only
   shared/
-    services/       # api_client.dart (Dio)
-    widgets/        # reusable components
+    services/       # cross-feature services
+    widgets/        # reusable UI components
   modules/
     home/
     items/

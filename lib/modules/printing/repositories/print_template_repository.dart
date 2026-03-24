@@ -1,7 +1,7 @@
 // PATH: lib/modules/printing/repositories/print_template_repository.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 import '../models/print_template.dart';
 
 class PrintTemplateRepository {

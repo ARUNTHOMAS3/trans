@@ -27,8 +27,8 @@ extension _GenericListTable on _SalesGenericListScreenState {
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: isSorted
-                          ? AppTheme.textPrimary
-                          : AppTheme.textSecondary,
+                          ? const Color(0xFF111827)
+                          : const Color(0xFF6B7280),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -44,8 +44,8 @@ extension _GenericListTable on _SalesGenericListScreenState {
                           : LucideIcons.arrowUp,
                       size: 14,
                       color: isSorted
-                          ? AppTheme.primaryBlueDark
-                          : AppTheme.textMuted,
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFF9CA3AF),
                     ),
                 ],
               ),
@@ -70,7 +70,7 @@ extension _GenericListTable on _SalesGenericListScreenState {
                   child: Container(
                     width: 1,
                     height: 20,
-                    color: AppTheme.borderColor,
+                    color: const Color(0xFFE5E7EB),
                   ),
                 ),
               ),
@@ -89,7 +89,7 @@ extension _GenericListTable on _SalesGenericListScreenState {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       alignment: Alignment.centerLeft,
       child: DefaultTextStyle(
-        style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+        style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
         overflow: _clipText ? TextOverflow.clip : TextOverflow.ellipsis,
         maxLines: 1,
         child: _getCellContent(item, col.key),
@@ -104,7 +104,7 @@ extension _GenericListTable on _SalesGenericListScreenState {
           item.displayName,
           style: const TextStyle(
             fontSize: 13,
-            color: AppTheme.primaryBlueDark,
+            color: Color(0xFF2563EB),
             fontWeight: FontWeight.w600,
           ),
         );
@@ -169,7 +169,7 @@ extension _GenericListTable on _SalesGenericListScreenState {
       if (key == 'Order#') {
         return Text(
           item.saleNumber,
-          style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlueDark),
+          style: const TextStyle(fontSize: 13, color: Color(0xFF2563EB)),
         );
       }
       if (key == 'Customer Name') {
@@ -197,7 +197,7 @@ extension _GenericListTable on _SalesGenericListScreenState {
       if (key == 'Payment#') {
         return Text(
           item.paymentNumber,
-          style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlueDark),
+          style: const TextStyle(fontSize: 13, color: Color(0xFF2563EB)),
         );
       }
       if (key == 'Reference#') {
@@ -228,7 +228,7 @@ extension _GenericListTable on _SalesGenericListScreenState {
       if (key == 'E-Way Bill#') {
         return Text(
           item.billNumber,
-          style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlueDark),
+          style: const TextStyle(fontSize: 13, color: Color(0xFF2563EB)),
         );
       }
       if (key == 'Supply Type') {
@@ -250,7 +250,7 @@ extension _GenericListTable on _SalesGenericListScreenState {
       if (key == 'Link#') {
         return Text(
           item.linkNumber,
-          style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlueDark),
+          style: const TextStyle(fontSize: 13, color: Color(0xFF2563EB)),
         );
       }
       if (key == 'Customer Name') {

@@ -9,7 +9,7 @@
 - [reports_inventory_inventory_stock.dart](file://lib/modules/reports/presentation/reports_inventory_inventory_stock.dart)
 - [report_model.dart](file://lib/modules/reports/models/report_model.dart)
 - [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart)
-- [app_router.dart](file://lib/core/router/app_router.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
 - [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart)
 </cite>
 
@@ -67,7 +67,7 @@ PL -. "valuation inputs" .-> RIM
 - [reports_inventory_inventory_stock.dart](file://lib/modules/reports/presentation/reports_inventory_inventory_stock.dart#L1-L2)
 - [report_model.dart](file://lib/modules/reports/models/report_model.dart#L1-L2)
 - [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
-- [app_router.dart](file://lib/core/router/app_router.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
 - [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart)
 
 **Section sources**
@@ -78,7 +78,7 @@ PL -. "valuation inputs" .-> RIM
 - [reports_inventory_inventory_stock.dart](file://lib/modules/reports/presentation/reports_inventory_inventory_stock.dart#L1-L2)
 - [report_model.dart](file://lib/modules/reports/models/report_model.dart#L1-L2)
 - [pricelist_model.dart](file://lib/modules/pricelist/models/pricelist_model.dart#L1-L150)
-- [app_router.dart](file://lib/core/router/app_router.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
 - [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart)
 
 ## Core Components
@@ -158,7 +158,7 @@ P-->>S : Render table with totals
 - [reports_sales_sales_daily.dart](file://lib/modules/reports/presentation/reports_sales_sales_daily.dart#L13-L203)
 - [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L31-L33)
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L53-L96)
-- [app_router.dart](file://lib/core/router/app_router.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
 
 ## Detailed Component Analysis
 
@@ -188,7 +188,7 @@ Nav --> End(["Show Daily Sales"])
 - [reports_reports_dashboard.dart](file://lib/modules/reports/presentation/reports_reports_dashboard.dart#L10-L30)
 - [reports_reports_dashboard.dart](file://lib/modules/reports/presentation/reports_reports_dashboard.dart#L114-L156)
 - [reports_reports_dashboard.dart](file://lib/modules/reports/presentation/reports_reports_dashboard.dart#L158-L212)
-- [app_router.dart](file://lib/core/router/app_router.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
 
 **Section sources**
 - [reports_reports_dashboard.dart](file://lib/modules/reports/presentation/reports_reports_dashboard.dart#L1-L214)
@@ -327,7 +327,7 @@ RD --> AL
 - [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L31-L33)
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L53-L96)
 - [reports_reports_dashboard.dart](file://lib/modules/reports/presentation/reports_reports_dashboard.dart#L193-L197)
-- [app_router.dart](file://lib/core/router/app_router.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
 - [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart)
 
 **Section sources**
@@ -335,7 +335,7 @@ RD --> AL
 - [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L1-L119)
 - [sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L1-L118)
 - [reports_reports_dashboard.dart](file://lib/modules/reports/presentation/reports_reports_dashboard.dart#L1-L214)
-- [app_router.dart](file://lib/core/router/app_router.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
 - [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart)
 
 ## Performance Considerations
@@ -367,14 +367,14 @@ RD --> AL
   - Ensure route names used in dashboard navigation match registered routes.
   - References:
     - Navigation logic: [reports_reports_dashboard.dart](file://lib/modules/reports/presentation/reports_reports_dashboard.dart#L193-L197)
-    - Router definition: [app_router.dart](file://lib/core/router/app_router.dart)
+    - Router definition: [app_router.dart](file://lib/core/routing/app_router.dart)
 
 **Section sources**
 - [reports_sales_sales_daily.dart](file://lib/modules/reports/presentation/reports_sales_sales_daily.dart#L23-L32)
 - [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L76-L84)
 - [reports_sales_sales_daily.dart](file://lib/modules/reports/presentation/reports_sales_sales_daily.dart#L184-L199)
 - [reports_reports_dashboard.dart](file://lib/modules/reports/presentation/reports_reports_dashboard.dart#L193-L197)
-- [app_router.dart](file://lib/core/router/app_router.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
 
 ## Conclusion
 The Financial Reporting system currently provides a dashboard for report discovery and a daily sales summary with totals. The foundation is solid: strongly typed models, Riverpod providers, and a shared UI shell. Future work should focus on:

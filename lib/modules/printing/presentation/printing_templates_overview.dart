@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import '../models/print_template.dart';

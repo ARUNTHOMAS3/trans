@@ -7,9 +7,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:intl/intl.dart';
+import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/modules/sales/models/gstin_lookup_model.dart';
 import 'package:zerpai_erp/modules/sales/services/gstin_lookup_service.dart';
 import 'package:zerpai_erp/core/constants/phone_prefixes.dart';
@@ -17,13 +21,14 @@ import '../controllers/sales_order_controller.dart';
 import '../models/sales_customer_model.dart';
 import '../../items/pricelist/models/pricelist_model.dart';
 import '../../items/pricelist/providers/pricelist_provider.dart';
-import 'package:zerpai_erp/core/services/lookup_service.dart';
-import 'package:zerpai_erp/core/services/storage_service.dart';
+import 'package:zerpai_erp/shared/services/lookup_service.dart';
+import 'package:zerpai_erp/shared/services/storage_service.dart';
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
-import 'package:zerpai_erp/core/widgets/common/skeleton.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart';
+import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 part 'sections/sales_customer_address_section.dart';
@@ -84,22 +89,29 @@ class _SalesCustomerCreateScreenState
     // Load initial currencies
     _loadCurrencies();
 
-    // Load price lists
+    // Load price lists, countries and phone codes
     Future.microtask(() {
       ref.read(priceListNotifierProvider.notifier).fetchPriceLists();
       _loadIndiaStates();
+      _loadCountries();
     });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+
+    drugLicense20Focus.dispose();
+    drugLicense21Focus.dispose();
+    drugLicense20BFocus.dispose();
+    drugLicense21BFocus.dispose();
+    fssaiFocus.dispose();
+    msmeFocus.dispose();
     super.dispose();
   }
 
   // Layout Constants (Instance members for extension access)
-  final double _salutationWidth = 70.0;
-  final double _primaryContactWidth = 360.0;
+
   final double _labelWidth = 150.0;
   final double _fieldWidth = 360.0;
   final double _inputHeight = 34.0;
@@ -132,7 +144,7 @@ class _SalesCustomerCreateScreenState
   String taxPreference = 'Taxable';
   String? exemptionReason;
 
-  List<Map<String, String>> _indiaStates = [];
+  List<String> _indiaStates = [];
   Future<void> _loadIndiaStates() async {
     try {
       final countries = await ref.read(countriesProvider(null).future);
@@ -144,11 +156,11 @@ class _SalesCustomerCreateScreenState
       if (india.isNotEmpty && india['id'] != null) {
         final states = await ref.read(statesProvider(india['id']!).future);
         _state(() {
-          _indiaStates = states;
+          _indiaStates = states.map((s) => s['name'] ?? '').where((n) => n.isNotEmpty).toList();
         });
       }
     } catch (e) {
-      debugPrint('Error loading India states: $e');
+      AppLogger.error('Error loading India states', error: e);
     }
   }
 
@@ -198,7 +210,17 @@ class _SalesCustomerCreateScreenState
   final creditLimitCtrl = TextEditingController();
   String paymentTerms = 'Net 360';
   PriceList? selectedPriceList;
+  String? selectedPriceListId;
+  List<Map<String, dynamic>> _priceListsList = [];
   bool enablePortal = false;
+
+
+  // Phone codes (loaded dynamically from countries table)
+  List<String> _phoneCodesList = phonePrefixOptions;
+  Map<String, String> _phoneCodeToLabel = {};
+
+  // Payment terms (loaded dynamically)
+  List<Map<String, dynamic>> _paymentTermsList = [];
 
   // Licence Details
   bool isDrugRegistered = false;
@@ -212,6 +234,20 @@ class _SalesCustomerCreateScreenState
   final drugLicense21BCtrl = TextEditingController(); // Wholesale Form 21B
   final fssaiCtrl = TextEditingController();
   final msmeNumberCtrl = TextEditingController();
+
+  // Licence focus nodes & error strings
+  final drugLicense20Focus = FocusNode();
+  String? drugLicense20Error;
+  final drugLicense21Focus = FocusNode();
+  String? drugLicense21Error;
+  final drugLicense20BFocus = FocusNode();
+  String? drugLicense20BError;
+  final drugLicense21BFocus = FocusNode();
+  String? drugLicense21BError;
+  final fssaiFocus = FocusNode();
+  String? fssaiError;
+  final msmeFocus = FocusNode();
+  String? msmeError;
 
   // License document files
   List<PlatformFile> drugLicense20Docs = [];
@@ -235,81 +271,6 @@ class _SalesCustomerCreateScreenState
   final placeOfCustomerCtrl = TextEditingController();
   bool isRecurring = false;
 
-  // File picker methods for license documents
-  Future<void> _pickLicenseDocument(String licenseType) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-      allowMultiple: true,
-      withData: true,
-    );
-
-    if (result == null || result.files.isEmpty) return;
-
-    setState(() {
-      List<PlatformFile> targetList;
-      switch (licenseType) {
-        case 'drugLicense20':
-          targetList = drugLicense20Docs;
-          break;
-        case 'drugLicense21':
-          targetList = drugLicense21Docs;
-          break;
-        case 'drugLicense20B':
-          targetList = drugLicense20BDocs;
-          break;
-        case 'drugLicense21B':
-          targetList = drugLicense21BDocs;
-          break;
-        case 'fssai':
-          targetList = fssaiDocs;
-          break;
-        case 'msme':
-          targetList = msmeDocs;
-          break;
-        default:
-          return;
-      }
-
-      final remainingSlots = 5 - targetList.length;
-      if (remainingSlots <= 0) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Maximum 5 files allowed')),
-          );
-        }
-        return;
-      }
-
-      final filesToAdd = result.files.take(remainingSlots).toList();
-      targetList.addAll(filesToAdd);
-    });
-  }
-
-  void _removeLicenseDocument(String licenseType, PlatformFile file) {
-    setState(() {
-      switch (licenseType) {
-        case 'drugLicense20':
-          drugLicense20Docs.remove(file);
-          break;
-        case 'drugLicense21':
-          drugLicense21Docs.remove(file);
-          break;
-        case 'drugLicense20B':
-          drugLicense20BDocs.remove(file);
-          break;
-        case 'drugLicense21B':
-          drugLicense21BDocs.remove(file);
-          break;
-        case 'fssai':
-          fssaiDocs.remove(file);
-          break;
-        case 'msme':
-          msmeDocs.remove(file);
-          break;
-      }
-    });
-  }
 
   Future<void> _pickDocuments() async {
     final result = await FilePicker.platform.pickFiles(
@@ -345,6 +306,16 @@ class _SalesCustomerCreateScreenState
 
   @override
   Widget build(BuildContext context) {
+    // Keep _priceListsList in sync with the provider
+    ref.watch(priceListNotifierProvider).whenData((lists) {
+      _priceListsList = lists.map((p) => {
+        'id': p.id,
+        'name': p.name,
+        'status': p.status,
+        'transaction_type': p.transactionType,
+      }).toList();
+    });
+
     return ZerpaiLayout(
       pageTitle: 'New Customer',
       useTopPadding: false,
@@ -681,7 +652,7 @@ class _SalesCustomerCreateScreenState
         }
       }
     } catch (e) {
-      debugPrint('❌ Error creating customer: $e');
+      AppLogger.error('Error creating customer', error: e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -719,7 +690,7 @@ class _SalesCustomerCreateScreenState
         });
       }
     } catch (e) {
-      debugPrint('Error loading currencies: $e');
+      AppLogger.error('Error loading currencies', error: e);
       if (mounted && _localCurrencyOptions.isEmpty) {
         setState(() {
           _localCurrencyOptions = defaultCurrencyOptions;
@@ -732,6 +703,7 @@ class _SalesCustomerCreateScreenState
 
 class _ContactPersonRow {
   String salutation = 'Mr.';
+  bool isHovered = false;
   final firstNameCtrl = TextEditingController();
   final lastNameCtrl = TextEditingController();
   final emailCtrl = TextEditingController();

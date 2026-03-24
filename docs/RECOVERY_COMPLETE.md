@@ -86,7 +86,7 @@ Check your IDE for any remaining errors. Most should be resolved now.
 
 ```bash
 M lib/main.dart  # Fixed import path
-M lib/core/router/app_router.dart  # Fixed import path
+M lib/core/routing/app_router.dart  # Fixed import path
 ```
 
 ## 🚀 Next Steps
@@ -109,7 +109,7 @@ git add lib/shared/widgets/hsn_sac_search_modal.dart
 
 # Stage fixes
 git add lib/main.dart
-git add lib/core/router/app_router.dart
+git add lib/core/routing/app_router.dart
 
 # Commit everything
 git commit -m "feat: GST compliance implementation + merge recovery

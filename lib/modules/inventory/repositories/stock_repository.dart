@@ -1,8 +1,8 @@
 // FILE: lib/modules/inventory/repositories/stock_repository.dart
 // Repository pattern for Stock Management - Online-first with offline fallback (PRD Section 12.2)
 
-import 'package:zerpai_erp/core/services/hive_service.dart';
-import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/shared/services/hive_service.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/inventory/models/stock_model.dart';
 

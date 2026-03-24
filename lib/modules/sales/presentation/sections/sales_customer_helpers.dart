@@ -38,6 +38,8 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
         label == 'Overseas';
   }
 
+  bool _isGstinRequired() => !_shouldHideGstRegistrationFields();
+
   bool _shouldHidePlaceOfSupply() {
     return gstTreatment.label == 'Overseas';
   }
@@ -58,6 +60,7 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
       next,
       firstNameCtrl.text,
       lastNameCtrl.text,
+      companyNameCtrl.text,
     );
     final current = displayNameCtrl.text.trim();
     final bool shouldAutoSet =
@@ -77,6 +80,7 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
       salutation,
       firstNameCtrl.text,
       lastNameCtrl.text,
+      companyNameCtrl.text,
     );
     final current = displayNameCtrl.text.trim();
     final bool shouldAutoSet =
@@ -95,6 +99,63 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
     return phonePrefixMaxDigits[code] ?? 15;
   }
 
+  /// Trim phone number if it exceeds the max length for the new code.
+  void _trimPhoneForCode(String code, TextEditingController ctrl) {
+    final max = _phoneMaxLengthForCode(code);
+    if (ctrl.text.length > max) {
+      ctrl.text = ctrl.text.substring(0, max);
+    }
+  }
+
+  /// Load phone codes from the countries table (same approach as vendors).
+  Future<void> _loadCountries() async {
+    try {
+      final lookupsService = LookupsApiService();
+      final countries = await lookupsService.getCountries();
+      if (!mounted) return;
+      _state(() {
+        final codes = countries
+            .map((c) => c['phone_code']?.toString())
+            .where((c) => c != null && c.isNotEmpty)
+            .cast<String>()
+            .toSet()
+            .toList();
+
+        if (codes.isNotEmpty) {
+          codes.sort((a, b) {
+            if (a == '+91') return -1;
+            if (b == '+91') return 1;
+            return a.compareTo(b);
+          });
+          _phoneCodesList = codes;
+        }
+
+        // Build labels map: phone_code → country name
+        final labels = <String, String>{};
+        for (final c in countries) {
+          final code = c['phone_code']?.toString();
+          final name = c['name']?.toString();
+          if (code != null && name != null) {
+            labels[code] = name;
+          }
+        }
+        _phoneCodeToLabel = labels;
+
+        // Set India as default country
+        final india = countries.firstWhere(
+          (c) => c['name']?.toString().toLowerCase() == 'india',
+          orElse: () => {},
+        );
+        if (india.isNotEmpty) {
+          billingCountryId ??= india['id']?.toString();
+          shippingCountryId ??= india['id']?.toString();
+        }
+      });
+    } catch (e) {
+      AppLogger.error('Error loading countries/phone codes', error: e);
+    }
+  }
+
   Widget _prefillInfoTile({required String title, required String value}) {
     return Row(
       children: [
@@ -104,7 +165,7 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
               ),
               const SizedBox(height: 4),
               Text(
@@ -112,7 +173,7 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                  color: Color(0xFF111827),
                 ),
               ),
             ],
@@ -125,9 +186,9 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
   void _applyGstinPrefill(GstinLookupResult result, GstinAddress? address) {
     _state(() {
       companyNameCtrl.text = result.legalName;
-      displayNameCtrl.text =
-          (result.tradeName.isNotEmpty ? result.tradeName : result.legalName)
-              .toUpperCase();
+      displayNameCtrl.text = (result.tradeName.isNotEmpty
+          ? result.tradeName
+          : result.legalName);
       gstinPrefillCtrl.text = result.gstin;
       businessLegalNameCtrl.text = result.legalName;
       businessTradeNameCtrl.text = result.tradeName;

@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 
@@ -111,6 +111,7 @@ final countriesProvider =
       return data
           .map(
             (json) => {
+              'id': (json['id'] ?? '') as String,
               'name': json['name'] as String,
               'fullLabel': json['full_label'] as String,
               'phoneCode': json['phone_code'] as String,
@@ -120,7 +121,7 @@ final countriesProvider =
           .toList();
     });
 
-final statesProvider = FutureProvider.family<List<String>, String>((
+final statesProvider = FutureProvider.family<List<Map<String, String>>, String>((
   ref,
   countryCode,
 ) async {
@@ -128,5 +129,13 @@ final statesProvider = FutureProvider.family<List<String>, String>((
   final service = ref.watch(lookupServiceProvider);
   final data = await service.getStates(countryCode);
 
-  return data.map((json) => json['name'] as String).toList();
+  return data
+      .map(
+        (json) => {
+          'id': (json['id'] ?? '') as String,
+          'name': (json['name'] ?? '') as String,
+          'code': (json['code'] ?? '') as String,
+        },
+      )
+      .toList();
 });

@@ -32,7 +32,12 @@ class StorageService {
       try {
         final fileName =
             'products/${DateTime.now().millisecondsSinceEpoch}_$i.${file.extension}';
-        final url = await _uploadToR2(fileName, file.bytes!, file.extension);
+        final url = await _uploadToR2(
+          fileName,
+          file.bytes!,
+          file.extension,
+          contentType: 'image/${file.extension}',
+        );
         if (url != null) {
           urls.add(url);
         }
@@ -48,14 +53,49 @@ class StorageService {
     if (file.bytes == null) return null;
     final String objectName =
         'outlet-logos/${DateTime.now().millisecondsSinceEpoch}.${file.extension ?? 'jpg'}';
-    return _uploadToR2(objectName, file.bytes!, file.extension);
+    return _uploadToR2(
+      objectName,
+      file.bytes!,
+      file.extension,
+      contentType: 'image/${file.extension ?? 'jpg'}',
+    );
+  }
+
+  Future<String?> uploadLicenseDocument(PlatformFile file) async {
+    if (file.bytes == null) return null;
+
+    try {
+      final fileName =
+          'licenses/${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+
+      String contentType = 'application/octet-stream';
+      final ext = file.extension?.toLowerCase();
+      if (ext == 'pdf') {
+        contentType = 'application/pdf';
+      } else if (ext == 'jpg' || ext == 'jpeg') {
+        contentType = 'image/jpeg';
+      } else if (ext == 'png') {
+        contentType = 'image/png';
+      }
+
+      return await _uploadToR2(
+        fileName,
+        file.bytes!,
+        ext,
+        contentType: contentType,
+      );
+    } catch (e) {
+      debugPrint('Error uploading license document: $e');
+      return null;
+    }
   }
 
   Future<String?> _uploadToR2(
     String objectName,
     Uint8List fileBytes,
-    String? extension,
-  ) async {
+    String? extension, {
+    String contentType = 'application/octet-stream',
+  }) async {
     final DateTime now = DateTime.now().toUtc();
     final String dateStr = _formatDate(now); // YYYYMMDD
     final String timestamp = _formatTimestamp(now); // YYYYMMDDTHHMMSSZ
@@ -121,7 +161,7 @@ class StorageService {
             'Authorization': authorization,
             'x-amz-date': timestamp,
             'x-amz-content-sha256': payloadHash,
-            'Content-Type': 'image/$extension',
+            'Content-Type': contentType,
           },
         ),
       );

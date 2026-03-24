@@ -6,7 +6,7 @@
 - [lib/main.dart](file://lib/main.dart)
 - [backend/src/app.module.ts](file://backend/src/app.module.ts)
 - [backend/src/main.ts](file://backend/src/main.ts)
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart)
 - [lib/modules/items/models/item_model.dart](file://lib/modules/items/models/item_model.dart)
 - [lib/modules/items/controller/items_controller.dart](file://lib/modules/items/controller/items_controller.dart)
 - [lib/modules/items/presentation/items_item_create.dart](file://lib/modules/items/presentation/items_item_create.dart)
@@ -42,7 +42,7 @@ graph TB
 subgraph "Frontend (Flutter)"
 APP["ZerpaiApp<br/>lib/app.dart"]
 MAIN["main.dart"]
-ROUTER["App Router<br/>lib/core/router/app_router.dart"]
+ROUTER["App Router<br/>lib/core/routing/app_router.dart"]
 ITEMS["Items Module<br/>lib/modules/items/*"]
 SALES["Sales Module<br/>lib/modules/sales/*"]
 REPORTS["Reports Module<br/>lib/modules/reports/*"]
@@ -77,7 +77,7 @@ DB_SCHEMA --> SUPABASE
 - [lib/main.dart](file://lib/main.dart#L1-L29)
 - [backend/src/app.module.ts](file://backend/src/app.module.ts#L1-L20)
 - [backend/src/main.ts](file://backend/src/main.ts#L1-L56)
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
 - [backend/src/db/schema.ts](file://backend/src/db/schema.ts#L1-L293)
 
 **Section sources**
@@ -85,7 +85,7 @@ DB_SCHEMA --> SUPABASE
 - [lib/main.dart](file://lib/main.dart#L1-L29)
 - [backend/src/app.module.ts](file://backend/src/app.module.ts#L1-L20)
 - [backend/src/main.ts](file://backend/src/main.ts#L1-L56)
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
 
 ## Core Components
 - Items/Products module: Product master, formulations, pricing, inventory settings, tax preferences, and composition tracking.
@@ -298,7 +298,7 @@ Ctrl-->>UI : AsyncValue.data(list)
 - [lib/modules/sales/models/sales_order_model.dart](file://lib/modules/sales/models/sales_order_model.dart#L1-L118)
 - [lib/modules/sales/controller/sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L1-L119)
 - [backend/src/sales/sales.service.ts](file://backend/src/sales/sales.service.ts#L1-L162)
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart#L37-L90)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart#L37-L90)
 - [backend/src/db/schema.ts](file://backend/src/db/schema.ts#L213-L291)
 
 ### Reports Module
@@ -321,11 +321,11 @@ DailySales --> |No| End(["Stay"])
 
 **Diagram sources**
 - [lib/modules/reports/presentation/reports_reports_dashboard.dart](file://lib/modules/reports/presentation/reports_reports_dashboard.dart#L1-L214)
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart#L260-L265)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart#L260-L265)
 
 **Section sources**
 - [lib/modules/reports/presentation/reports_reports_dashboard.dart](file://lib/modules/reports/presentation/reports_reports_dashboard.dart#L1-L214)
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart#L260-L265)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart#L260-L265)
 
 ### Purchase Module
 - Purpose: Vendor management and procurement processes.
@@ -335,7 +335,7 @@ DailySales --> |No| End(["Stay"])
   - Purchase module UI routes are registered but content is placeholder.
 
 **Section sources**
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart#L234-L258)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart#L234-L258)
 
 ### Financial Module
 - Purpose: Chart of accounts, multi-currency support, and tax automation.

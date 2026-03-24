@@ -209,7 +209,7 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                       Icon(
                         LucideIcons.sliders,
                         size: 20,
-                        color: AppTheme.textBody,
+                        color: Color(0xFF374151),
                       ),
                       SizedBox(width: 8),
                       Text(
@@ -226,7 +226,7 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                       Text(
                         '$selectedCount of $totalCount Selected',
                         style: const TextStyle(
-                          color: AppTheme.textSecondary,
+                          color: Color(0xFF6B7280),
                           fontSize: 13,
                         ),
                       ),
@@ -234,7 +234,7 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                       IconButton(
                         icon: const Icon(
                           LucideIcons.x,
-                          color: AppTheme.errorRed,
+                          color: Color(0xFFEF4444),
                           size: 20,
                         ),
                         onPressed: () => Navigator.of(context).pop(),
@@ -254,7 +254,7 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                 decoration: InputDecoration(
                   prefixIcon: const Icon(
                     LucideIcons.search,
-                    color: AppTheme.textMuted,
+                    color: Color(0xFF9CA3AF),
                     size: 20,
                   ),
                   hintText: 'Search',
@@ -264,11 +264,11 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: AppTheme.borderColor),
+                    borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: AppTheme.borderColor),
+                    borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
                   ),
                 ),
                 onChanged: (v) => setState(() => _searchQuery = v),
@@ -297,6 +297,7 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                   ElevatedButton(
                     onPressed: () => widget.onSave(_items),
                     style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
@@ -308,8 +309,8 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                   OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.textBody,
-                      side: const BorderSide(color: AppTheme.borderColor),
+                      foregroundColor: const Color(0xFF374151),
+                      side: const BorderSide(color: Color(0xFFD1D5DB)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -331,14 +332,14 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
       key: ValueKey(col.key),
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: AppTheme.bgLight,
+        color: const Color(0xFFF9FAFB),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: Colors.transparent),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          hoverColor: AppTheme.infoBg,
+          hoverColor: const Color(0xFFEFF6FF),
           onTap: () {
             if (!col.isLocked) {
               setState(() => col.isVisible = !col.isVisible);
@@ -352,7 +353,7 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                   index: index,
                   child: const Icon(
                     LucideIcons.gripVertical,
-                    color: AppTheme.textMuted,
+                    color: Color(0xFF9CA3AF),
                     size: 20,
                   ),
                 ),
@@ -361,7 +362,7 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                   const Icon(
                     LucideIcons.lock,
                     size: 18,
-                    color: AppTheme.textSecondary,
+                    color: Color(0xFF6B7280),
                   )
                 else
                   SizedBox(
@@ -371,8 +372,8 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                       value: col.isVisible,
                       onChanged: (v) =>
                           setState(() => col.isVisible = v ?? false),
-                      activeColor: AppTheme.primaryBlueDark,
-                      side: const BorderSide(color: AppTheme.borderColor),
+                      activeColor: const Color(0xFF2563EB),
+                      side: const BorderSide(color: Color(0xFFD1D5DB)),
                     ),
                   ),
                 const SizedBox(width: 12),
@@ -381,7 +382,7 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
                     col.label,
                     style: const TextStyle(
                       fontSize: 14,
-                      color: AppTheme.textBody,
+                      color: Color(0xFF374151),
                     ),
                   ),
                 ),
@@ -405,7 +406,7 @@ class _PinButton extends StatelessWidget {
   Widget build(BuildContext context) {
     // Only show if hovered ideally
     return isActive
-        ? const Icon(LucideIcons.pin, size: 18, color: AppTheme.primaryBlueDark)
+        ? const Icon(LucideIcons.pin, size: 18, color: Color(0xFF2563EB))
         : const SizedBox(width: 18);
   }
 }

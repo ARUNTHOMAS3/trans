@@ -50,8 +50,8 @@ extension _SalesGenericListTableLogic on _SalesGenericListScreenState {
         value: value,
         onChanged: onChanged,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
-        activeColor: AppTheme.primaryBlueDark,
-        side: const BorderSide(color: AppTheme.borderColor),
+        activeColor: const Color(0xFF2563EB),
+        side: const BorderSide(color: Color(0xFFD1D5DB)),
       ),
     );
   }

@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
-import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 
 /// The result of a TaxEngine resolution.
 enum GstTaxType {

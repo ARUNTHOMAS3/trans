@@ -57,10 +57,10 @@ lib/
 │   ├── routing/app_router.dart       ← GoRouter config (CENTRAL)
 │   ├── theme/app_theme.dart          ← Design system (SOURCE OF TRUTH)
 │   ├── layout/zerpai_sidebar.dart    ← Main sidebar nav
-│   └── widgets/                      ← Shared reusable widgets
 ├── shared/
+│   ├── widgets/                      ← Reusable UI widgets and dialogs
 │   └── services/
-│       ├── api_client.dart           ← Dio client (ONLY HTTP client)
+│       ├── api_client.dart           ← Cross-feature HTTP entry point
 │       └── env_service.dart          ← Environment vars
 └── modules/
     ├── items/                        ← Products/Items module
@@ -71,6 +71,14 @@ lib/
     ├── reports/                      ← Reports module
     └── documents/                    ← Documents module
 ```
+
+Canonical placement rule:
+- `lib/core/` = app infrastructure only
+- `lib/core/layout/` = shell/navigation infrastructure only
+- `lib/shared/widgets/` = reusable widgets
+- `lib/shared/services/` = cross-feature services
+- `lib/modules/` = feature-specific code
+- Never use `lib/core/widgets/` as the reusable widget home
 
 ---
 

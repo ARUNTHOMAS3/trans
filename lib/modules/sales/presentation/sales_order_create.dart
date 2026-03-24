@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
-import 'package:zerpai_erp/core/widgets/forms/custom_text_field.dart';
-import 'package:zerpai_erp/core/widgets/forms/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
@@ -22,7 +22,7 @@ import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/sales/presentation/widgets/sales_order_item_row.dart';
 import 'package:zerpai_erp/modules/sales/presentation/widgets/bulk_items_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
-import 'package:zerpai_erp/core/services/lookup_service.dart';
+import 'package:zerpai_erp/shared/services/lookup_service.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_simple_list_dialog.dart';
@@ -544,7 +544,7 @@ class _SalesOrderCreateScreenState
                               displayStringForValue: (id) => customers
                                   .firstWhere((c) => c.id == id)
                                   .displayName,
-                              itemHeight: 56,
+
                               showSettings: true,
                               settingsLabel: 'New Customer',
                               settingsIcon: LucideIcons.plus,
@@ -1565,7 +1565,7 @@ class _SalesOrderCreateScreenState
                                           value: null,
                                           hint:
                                               'Type or click to select an item.',
-                                          hideBorderDefault: true,
+            
                                           items: products
                                               .map((p) => p.id!)
                                               .toList(),
@@ -1620,7 +1620,7 @@ class _SalesOrderCreateScreenState
                             CustomTextField(
                               controller: row.quantityCtrl,
                               height: 36,
-                              hideBorderDefault: true,
+
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                     decimal: true,
@@ -1691,7 +1691,6 @@ class _SalesOrderCreateScreenState
                           child: CustomTextField(
                             controller: row.fQtyCtrl,
                             height: 36,
-                            hideBorderDefault: true,
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
@@ -1716,7 +1715,7 @@ class _SalesOrderCreateScreenState
                             CustomTextField(
                               controller: row.rateCtrl,
                               height: 36,
-                              hideBorderDefault: true,
+
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                     decimal: true,
@@ -1772,14 +1771,11 @@ class _SalesOrderCreateScreenState
                         child: CustomTextField(
                           controller: row.discountCtrl,
                           height: 36,
-                          hideBorderDefault: true,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
                           contentCase: ContentCase.none,
                           textAlign: TextAlign.right,
-                          padding: const EdgeInsets.only(left: 12, right: 0),
-                          suffixSeparator: true,
                           suffixWidget: _buildDiscountTypeSelector(row),
                           onChanged: (_) => _calculateTotals(),
                         ),
@@ -1797,7 +1793,6 @@ class _SalesOrderCreateScreenState
                         child: FormDropdown<String>(
                           value: row.taxId,
                           height: 36,
-                          hideBorderDefault: true,
                           hint: 'Tax',
                           items: taxRates.map((t) => t.id).toList(),
                           displayStringForValue: (id) =>

@@ -50,6 +50,8 @@ class FormDropdown<T> extends StatefulWidget {
   final Color? fillColor;
   final bool showLeftBorder;
   final bool showRightBorder;
+  final bool hideBorderDefault;
+  final double? itemHeight;
 
   const FormDropdown({
     super.key,
@@ -86,6 +88,8 @@ class FormDropdown<T> extends StatefulWidget {
     this.fillColor,
     this.showLeftBorder = true,
     this.showRightBorder = true,
+    this.hideBorderDefault = false,
+    this.itemHeight,
   });
 
   @override
@@ -104,9 +108,10 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
 
   late List<T> _filteredItems;
   int? _hoveredIndex;
+  bool _isHoveredField = false;
 
   static const double _fieldHeight = 40.0;
-  static const double _rowHeight = 40.0;
+  double get _rowHeight => widget.itemHeight ?? 40.0;
   static const double _overlayMaxHeight = 320.0;
   static const double _searchBlockHeight = 56.0;
   static const double _settingsRowHeight = 40.0;
@@ -826,10 +831,13 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
           link: _layerLink,
           child: SizedBox(
             height: widget.height ?? _fieldHeight,
-            child: InkWell(
-              onTap: widget.enabled ? _toggleDropdown : null,
-              hoverColor: Colors.transparent,
-              child: Container(
+            child: MouseRegion(
+              onEnter: (_) => setState(() => _isHoveredField = true),
+              onExit: (_) => setState(() => _isHoveredField = false),
+              child: InkWell(
+                onTap: widget.enabled ? _toggleDropdown : null,
+                hoverColor: Colors.transparent,
+                child: Container(
                 padding:
                     widget.padding ??
                     const EdgeInsets.symmetric(horizontal: 10),
@@ -910,6 +918,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                 ),
               ),
             ),
+            ),
           ),
         ),
         // Error text removed - parent should handle layout with error text if needed
@@ -918,13 +927,16 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   }
 
   BorderSide _getBorderSide(bool hasError) {
+    final bool shouldShowBorder =
+        !widget.hideBorderDefault || _isOpen || _isHoveredField || hasError;
     return BorderSide(
-      color: hasError
-          ? AppTheme
-                .errorRed // Red on error
-          : _isOpen
-          ? AppTheme.primaryBlueDark
-          : AppTheme.borderColor,
+      color: !shouldShowBorder
+          ? Colors.transparent
+          : hasError
+              ? AppTheme.errorRed
+              : _isOpen
+                  ? AppTheme.primaryBlueDark
+                  : AppTheme.borderColor,
     );
   }
 }

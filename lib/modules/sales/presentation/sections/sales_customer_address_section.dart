@@ -2,310 +2,213 @@ part of '../sales_customer_create.dart';
 
 extension _AddressSection on _SalesCustomerCreateScreenState {
   Widget _buildAddressSection() {
-    final countriesAsync = ref.watch(countriesProvider(null));
-    final billingStatesAsync = ref.watch(
-      statesProvider(billingCountryId ?? ''),
-    );
-    final shippingStatesAsync = ref.watch(
-      statesProvider(shippingCountryId ?? ''),
-    );
-
-    final countries = countriesAsync.value ?? [];
-    final billingStates = billingStatesAsync.value ?? [];
-    final shippingStates = shippingStatesAsync.value ?? [];
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 24.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'BILLING ADDRESS',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryBlueDark,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _labeledInlineField(
-                  'Attention',
-                  CustomTextField(
-                    height: _inputHeight,
-                    controller: billingAttentionCtrl,
-                    forceUppercase: false,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'Country / Region',
-                  FormDropdown<Map<String, String>>(
-                    height: _inputHeight,
-                    value:
-                        countries
-                            .firstWhere(
-                              (c) => c['id'] == billingCountryId,
-                              orElse: () => {},
-                            )
-                            .isEmpty
-                        ? null
-                        : countries.firstWhere(
-                            (c) => c['id'] == billingCountryId,
-                          ),
-                    hint: 'Select',
-                    items: countries,
-                    displayStringForValue: (c) => c['name'] ?? '',
-                    onChanged: (v) {
-                      _state(() {
-                        billingCountryId = v?['id'];
-                        // Reset state when country changes
-                        billingStateId = null;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'Street 1',
-                  CustomTextField(
-                    height: _inputHeight,
-                    controller: billingStreetCtrl,
-                    forceUppercase: false,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'Street 2',
-                  CustomTextField(
-                    height: _inputHeight,
-                    controller: billingStreet2Ctrl,
-                    forceUppercase: false,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'City',
-                  CustomTextField(
-                    height: _inputHeight,
-                    controller: billingCityCtrl,
-                    forceUppercase: false,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'State',
-                  FormDropdown<Map<String, String>>(
-                    height: _inputHeight,
-                    value:
-                        billingStates
-                            .firstWhere(
-                              (s) => s['id'] == billingStateId,
-                              orElse: () => {},
-                            )
-                            .isEmpty
-                        ? null
-                        : billingStates.firstWhere(
-                            (s) => s['id'] == billingStateId,
-                          ),
-                    hint: 'Select or type to add',
-                    items: billingStates,
-                    displayStringForValue: (s) => s['name'] ?? '',
-                    onChanged: (v) {
-                      _state(() {
-                        billingStateId = v?['id'];
-                      });
-                    },
-                    allowCustomValue: true,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'Zip Code',
-                  CustomTextField(
-                    height: _inputHeight,
-                    controller: billingPinCtrl,
-                    forceUppercase: false,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'Phone',
-                  _buildPhoneRow(
-                    code: billingPhoneCode,
-                    onCodeChanged: (v) => _state(() => billingPhoneCode = v),
-                    controller: billingPhoneCtrl,
-                    hintText: 'Phone',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'Fax',
-                  CustomTextField(
-                    height: _inputHeight,
-                    controller: billingFaxCtrl,
-                    forceUppercase: false,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          Expanded(child: _buildAddressForm('Billing Address')),
           const SizedBox(width: 48),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'SHIPPING ADDRESS',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.primaryBlueDark,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: _copyBillingToShipping,
-                      icon: const Icon(Icons.copy, size: 14),
-                      label: const Text('Copy billing address'),
-                      style: TextButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        textStyle: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _labeledInlineField(
-                  'Attention',
-                  CustomTextField(
-                    height: _inputHeight,
-                    controller: shippingAttentionCtrl,
-                    forceUppercase: false,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'Country / Region',
-                  FormDropdown<Map<String, String>>(
-                    height: _inputHeight,
-                    value:
-                        countries
-                            .firstWhere(
-                              (c) => c['id'] == shippingCountryId,
-                              orElse: () => {},
-                            )
-                            .isEmpty
-                        ? null
-                        : countries.firstWhere(
-                            (c) => c['id'] == shippingCountryId,
-                          ),
-                    hint: 'Select',
-                    items: countries,
-                    displayStringForValue: (c) => c['name'] ?? '',
-                    onChanged: (v) {
-                      _state(() {
-                        shippingCountryId = v?['id'];
-                        // Reset state when country changes
-                        shippingStateId = null;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'Street 1',
-                  CustomTextField(
-                    height: _inputHeight,
-                    controller: shippingStreetCtrl,
-                    forceUppercase: false,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'Street 2',
-                  CustomTextField(
-                    height: _inputHeight,
-                    controller: shippingStreet2Ctrl,
-                    forceUppercase: false,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'City',
-                  CustomTextField(
-                    height: _inputHeight,
-                    controller: shippingCityCtrl,
-                    forceUppercase: false,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'State',
-                  FormDropdown<Map<String, String>>(
-                    height: _inputHeight,
-                    value:
-                        shippingStates
-                            .firstWhere(
-                              (s) => s['id'] == shippingStateId,
-                              orElse: () => {},
-                            )
-                            .isEmpty
-                        ? null
-                        : shippingStates.firstWhere(
-                            (s) => s['id'] == shippingStateId,
-                          ),
-                    hint: 'Select or type to add',
-                    items: shippingStates,
-                    displayStringForValue: (s) => s['name'] ?? '',
-                    onChanged: (v) {
-                      _state(() {
-                        shippingStateId = v?['id'];
-                      });
-                    },
-                    allowCustomValue: true,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'Zip Code',
-                  CustomTextField(
-                    height: _inputHeight,
-                    controller: shippingPinCtrl,
-                    forceUppercase: false,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'Phone',
-                  _buildPhoneRow(
-                    code: shippingPhoneCode,
-                    onCodeChanged: (v) => _state(() => shippingPhoneCode = v),
-                    controller: shippingPhoneCtrl,
-                    hintText: 'Phone',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _labeledInlineField(
-                  'Fax',
-                  CustomTextField(
-                    height: _inputHeight,
-                    controller: shippingFaxCtrl,
-                    forceUppercase: false,
-                  ),
-                ),
-              ],
-            ),
+            child: _buildAddressForm('Shipping Address', isShipping: true),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAddressForm(String title, {bool isShipping = false}) {
+    final countriesAsync = ref.watch(countriesProvider(null));
+    final countries = countriesAsync.value ?? [];
+
+    final countryId = isShipping ? shippingCountryId : billingCountryId;
+    final statesAsync = ref.watch(statesProvider(countryId ?? ''));
+    final states = statesAsync.value ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF111827),
+              ),
+            ),
+            if (isShipping) ...[
+              const SizedBox(width: 8),
+              const Text(
+                '(',
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.arrow_downward,
+                size: 14,
+                color: AppTheme.primaryBlueDark,
+              ),
+              const SizedBox(width: 2),
+              InkWell(
+                onTap: _copyBillingToShipping,
+                child: const Text(
+                  'Copy billing address',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.primaryBlueDark,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Text(
+                ')',
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 16),
+        _labeledInlineField(
+          'Attention',
+          CustomTextField(
+            height: _inputHeight,
+            controller: isShipping
+                ? shippingAttentionCtrl
+                : billingAttentionCtrl,
+            forceUppercase: false,
+          ),
+        ),
+        _labeledInlineField(
+          'Country/Region',
+          FormDropdown<Map<String, String>>(
+            height: _inputHeight,
+            value:
+                countries
+                    .firstWhere(
+                      (c) =>
+                          c['id'] ==
+                          (isShipping ? shippingCountryId : billingCountryId),
+                      orElse: () => {},
+                    )
+                    .isEmpty
+                ? null
+                : countries.firstWhere(
+                    (c) =>
+                        c['id'] ==
+                        (isShipping ? shippingCountryId : billingCountryId),
+                  ),
+            hint: 'Select',
+            items: countries,
+            displayStringForValue: (c) => c['name'] ?? '',
+            onChanged: (v) {
+              _state(() {
+                if (isShipping) {
+                  shippingCountryId = v?['id'];
+                  shippingStateId = null;
+                } else {
+                  billingCountryId = v?['id'];
+                  billingStateId = null;
+                }
+              });
+            },
+          ),
+        ),
+        _labeledInlineField(
+          'Address',
+          CustomTextField(
+            height: _inputHeight,
+            controller: isShipping ? shippingStreetCtrl : billingStreetCtrl,
+            hintText: 'Street 1',
+            forceUppercase: false,
+          ),
+        ),
+        _labeledInlineField(
+          '',
+          CustomTextField(
+            height: _inputHeight,
+            controller: isShipping ? shippingStreet2Ctrl : billingStreet2Ctrl,
+            hintText: 'Street 2',
+            forceUppercase: false,
+          ),
+        ),
+        _labeledInlineField(
+          'City',
+          CustomTextField(
+            height: _inputHeight,
+            controller: isShipping ? shippingCityCtrl : billingCityCtrl,
+            forceUppercase: false,
+          ),
+        ),
+        _labeledInlineField(
+          'State',
+          FormDropdown<Map<String, String>>(
+            height: _inputHeight,
+            value:
+                states
+                    .firstWhere(
+                      (s) =>
+                          s['id'] ==
+                          (isShipping ? shippingStateId : billingStateId),
+                      orElse: () => {},
+                    )
+                    .isEmpty
+                ? null
+                : states.firstWhere(
+                    (s) =>
+                        s['id'] ==
+                        (isShipping ? shippingStateId : billingStateId),
+                  ),
+            hint: 'Select or type to add',
+            items: states,
+            displayStringForValue: (s) => s['name'] ?? '',
+            onChanged: (v) {
+              _state(() {
+                if (isShipping) {
+                  shippingStateId = v?['id'];
+                } else {
+                  billingStateId = v?['id'];
+                }
+              });
+            },
+            allowCustomValue: true,
+          ),
+        ),
+        _labeledInlineField(
+          'Pin Code',
+          CustomTextField(
+            height: _inputHeight,
+            controller: isShipping ? shippingPinCtrl : billingPinCtrl,
+            forceUppercase: false,
+          ),
+        ),
+        _labeledInlineField(
+          'Phone',
+          _buildPhoneRow(
+            code: isShipping ? shippingPhoneCode : billingPhoneCode,
+            onCodeChanged: (v) => _state(() {
+              if (isShipping) {
+                shippingPhoneCode = v;
+              } else {
+                billingPhoneCode = v;
+              }
+            }),
+            controller: isShipping ? shippingPhoneCtrl : billingPhoneCtrl,
+            hintText: 'Phone',
+          ),
+        ),
+        _labeledInlineField(
+          'Fax Number',
+          CustomTextField(
+            height: _inputHeight,
+            controller: isShipping ? shippingFaxCtrl : billingFaxCtrl,
+            forceUppercase: false,
+          ),
+        ),
+      ],
     );
   }
 

@@ -1422,26 +1422,12 @@ class _PurchasesBillCreateScreenState
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            initialValue: value,
-            items: items
-                .map(
-                  (e) => DropdownMenuItem(
-                    value: e,
-                    child: Text(e, style: const TextStyle(fontSize: 13)),
-                  ),
-                )
-                .toList(),
+          FormDropdown<String>(
+            value: value,
+            items: items,
+            displayStringForValue: (e) => e,
             onChanged: onChanged,
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
+            height: _fieldHeight,
           ),
         ],
       ),
@@ -1479,22 +1465,17 @@ class _PurchasesBillCreateScreenState
   }
 
   Widget _buildStatesDropdown(String? value, ValueChanged<String?> onChanged) {
-    return SizedBox(
+    final items = {if (value != null) value, ..._statesList}.toList();
+    return FormDropdown<String>(
+      value: value,
+      items: items,
+      displayStringForValue: (s) => s,
+      hint: 'Select State',
+      onChanged: onChanged,
       height: _fieldHeight,
-      child: DropdownButtonFormField<String>(
-        initialValue: value,
-        isDense: true,
-        decoration: _getInputDecoration('Select State'),
-        items: {if (value != null) value, ..._statesList}
-            .map(
-              (s) => DropdownMenuItem(
-                value: s,
-                child: Text(s, style: const TextStyle(fontSize: 13)),
-              ),
-            )
-            .toList(),
-        onChanged: onChanged,
-      ),
+      border: Border.all(color: _fieldBorder),
+      borderRadius: BorderRadius.circular(6),
+      fillColor: _cardBg,
     );
   }
 
@@ -1502,22 +1483,17 @@ class _PurchasesBillCreateScreenState
     String? value,
     ValueChanged<String?> onChanged,
   ) {
-    return SizedBox(
+    final items = {if (value != null) value, ..._gstTreatments}.toList();
+    return FormDropdown<String>(
+      value: value,
+      items: items,
+      displayStringForValue: (t) => t,
+      hint: 'Select GST Treatment',
+      onChanged: onChanged,
       height: _fieldHeight,
-      child: DropdownButtonFormField<String>(
-        initialValue: value,
-        isDense: true,
-        decoration: _getInputDecoration('Select GST Treatment'),
-        items: {if (value != null) value, ..._gstTreatments}
-            .map(
-              (t) => DropdownMenuItem(
-                value: t,
-                child: Text(t, style: const TextStyle(fontSize: 13)),
-              ),
-            )
-            .toList(),
-        onChanged: onChanged,
-      ),
+      border: Border.all(color: _fieldBorder),
+      borderRadius: BorderRadius.circular(6),
+      fillColor: _cardBg,
     );
   }
 
@@ -3468,24 +3444,19 @@ class _PurchasesBillCreateScreenState
   }
 
   Widget _buildWarehouseDropdown() {
-    return SizedBox(
+    final items = {_warehouse, 'ZABNIX PRIVATE LIMITED', 'MAIN WAREHOUSE'}.toList();
+    return FormDropdown<String>(
+      value: _warehouse,
+      items: items,
+      displayStringForValue: (w) => w,
+      hint: 'Select Warehouse',
+      onChanged: (val) {
+        if (val != null) setState(() => _warehouse = val);
+      },
       height: _fieldHeight,
-      child: DropdownButtonFormField<String>(
-        initialValue: _warehouse,
-        onChanged: (val) {
-          if (val != null) setState(() => _warehouse = val);
-        },
-        isDense: true,
-        decoration: _getInputDecoration('Select Warehouse'),
-        items: {_warehouse, 'ZABNIX PRIVATE LIMITED', 'MAIN WAREHOUSE'}.map((
-          w,
-        ) {
-          return DropdownMenuItem(
-            value: w,
-            child: Text(w, style: const TextStyle(fontSize: 13)),
-          );
-        }).toList(),
-      ),
+      border: Border.all(color: _fieldBorder),
+      borderRadius: BorderRadius.circular(6),
+      fillColor: _cardBg,
     );
   }
 
@@ -5275,104 +5246,6 @@ class _PurchasesBillCreateScreenState
   }
 
 
-  Widget _buildHorizontalField({
-    required String label,
-    required Widget child,
-    Color labelColor = const Color(0xFF374151),
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(label, style: TextStyle(fontSize: 13, color: labelColor)),
-        ),
-        Expanded(flex: 3, child: child),
-      ],
-    );
-  }
-
-  Widget _dialogTextField({
-    required TextEditingController ctrl,
-    String? hint,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: ctrl,
-      keyboardType: keyboardType,
-      validator: validator,
-      style: const TextStyle(fontSize: 13),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: Color(0xFF2563EB)),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-      ),
-    );
-  }
-
-  Widget _dialogDateField(BuildContext ctx, TextEditingController ctrl) {
-    return GestureDetector(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: ctx,
-          initialDate: DateTime.now().add(const Duration(days: 365)),
-          firstDate: DateTime.now(),
-          lastDate: DateTime(2099),
-        );
-        if (picked != null) {
-          ctrl.text = DateFormat('dd-MM-yyyy').format(picked);
-        }
-      },
-      child: AbsorbPointer(
-        child: TextFormField(
-          controller: ctrl,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
-          decoration: InputDecoration(
-            hintText: 'dd-MM-yyyy',
-            hintStyle: const TextStyle(color: Color(0xFFD1D5DB), fontSize: 13),
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Color(0xFF2563EB)),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   List<shared.AccountNode> _mapNodes(List<coa.AccountNode> nodes) {
     final List<coa.AccountNode> flatAccounts = <coa.AccountNode>[];
@@ -5688,26 +5561,15 @@ class _PurchasesBillCreateScreenState
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          isDense: true,
-                          initialValue: _selectedTotalsTax,
-                          decoration: _getInputDecoration('Select a Tax'),
-                          items:
-                              {
-                                    if (_selectedTotalsTax != null)
-                                      _selectedTotalsTax!,
-                                    ..._standardTaxOptions,
-                                  }
-                                  .map(
-                                    (t) => DropdownMenuItem(
-                                      value: t,
-                                      child: Text(
-                                        t,
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
+                        child: FormDropdown<String>(
+                          height: 36,
+                          value: _selectedTotalsTax,
+                          hint: 'Select a Tax',
+                          items: {
+                            if (_selectedTotalsTax != null)
+                              _selectedTotalsTax!,
+                            ..._standardTaxOptions,
+                          }.toList(),
                           onChanged: (val) {
                             setState(() => _selectedTotalsTax = val);
                           },

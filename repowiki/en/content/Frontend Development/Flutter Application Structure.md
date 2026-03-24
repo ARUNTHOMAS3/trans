@@ -4,9 +4,9 @@
 **Referenced Files in This Document**
 - [main.dart](file://lib/main.dart)
 - [app.dart](file://lib/app.dart)
-- [app_router.dart](file://lib/core/router/app_router.dart)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart)
-- [app_theme.dart](file://lib/core/router/theme/app_theme.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart)
+- [app_theme.dart](file://lib/core/theme/app_theme.dart)
 - [api_client.dart](file://lib/shared/services/api_client.dart)
 - [items_item_create.dart](file://lib/modules/items/presentation/items_item_create.dart)
 - [sales_sales_order_create.dart](file://lib/modules/sales/presentation/sales_sales_order_create.dart)
@@ -35,8 +35,8 @@ This document explains the Flutter application structure of ZerpAI ERP as define
 
 ## Project Structure
 ZerpAI ERP follows a strict, standardized folder structure for the Flutter frontend:
-- lib/core/: Core infrastructure and reusable components (routing, theme, layout, API client, logging, utilities, extensions)
-- lib/shared/: Shared providers and models used across modules
+- lib/core/: App infrastructure only (routing, theme, shell layout, logging, utilities, extensions)
+- lib/shared/: Reusable UI widgets, shared services, responsive primitives, providers, and models used across modules
 - lib/modules/<module>/: Feature-specific modules with a consistent internal structure (models/, providers/, repositories/, presentation/)
 - assets/: Static assets (images, icons, fonts)
 - test/: Mirrors lib/ structure for unit, widget, and integration tests
@@ -50,9 +50,9 @@ MODULES["modules/"]
 ASSETS["assets/"]
 TEST["test/"]
 end
-CORE_LAYOUT["core/layout/zerpai_layout.dart"]
-CORE_ROUTER["core/router/app_router.dart"]
-CORE_THEME["core/router/theme/app_theme.dart"]
+CORE_LAYOUT["shared/widgets/zerpai_layout.dart"]
+CORE_ROUTER["core/routing/app_router.dart"]
+CORE_THEME["core/theme/app_theme.dart"]
 CORE_API["shared/services/api_client.dart"]
 MODULE_ITEMS["modules/items/"]
 MODULE_SALES["modules/sales/"]
@@ -65,9 +65,9 @@ MODULES --> MODULE_SALES
 ```
 
 **Diagram sources**
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L1-L73)
-- [app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
-- [app_theme.dart](file://lib/core/router/theme/app_theme.dart#L1-L93)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L1-L73)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
+- [app_theme.dart](file://lib/core/theme/app_theme.dart#L1-L93)
 - [api_client.dart](file://lib/shared/services/api_client.dart#L1-L62)
 - [items_item_create.dart](file://lib/modules/items/presentation/items_item_create.dart#L1-L200)
 - [sales_sales_order_create.dart](file://lib/modules/sales/presentation/sales_sales_order_create.dart#L1-L200)
@@ -88,9 +88,9 @@ MODULES --> MODULE_SALES
 **Section sources**
 - [main.dart](file://lib/main.dart#L1-L29)
 - [app.dart](file://lib/app.dart#L1-L32)
-- [app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L1-L73)
-- [app_theme.dart](file://lib/core/router/theme/app_theme.dart#L1-L93)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L1-L73)
+- [app_theme.dart](file://lib/core/theme/app_theme.dart#L1-L93)
 - [app_colors.dart](file://lib/core/constants/app_colors.dart#L1-L10)
 - [api_client.dart](file://lib/shared/services/api_client.dart#L1-L62)
 - [responsive_layout.dart](file://lib/shared/responsive/responsive_layout.dart#L1-L48)
@@ -174,12 +174,12 @@ Screen-->>User : Display page with ZerpaiLayout
 ```
 
 **Diagram sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L170)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L35-L71)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L170)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L35-L71)
 
 **Section sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L1-L73)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L1-L73)
 
 ### Module Structure and Patterns
 Modules follow a standardized internal structure:
@@ -261,18 +261,18 @@ ZerpaiLayout --> ResponsiveLayout : "used within"
 ```
 
 **Diagram sources**
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L5-L72)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L5-L72)
 - [responsive_layout.dart](file://lib/shared/responsive/responsive_layout.dart#L7-L47)
 
 **Section sources**
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L1-L73)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L1-L73)
 - [responsive_layout.dart](file://lib/shared/responsive/responsive_layout.dart#L1-L48)
 
 ### Theme and Branding
 The theme defines colors, typography, and component styles. Color constants and theme definitions are centralized.
 
 **Section sources**
-- [app_theme.dart](file://lib/core/router/theme/app_theme.dart#L1-L93)
+- [app_theme.dart](file://lib/core/theme/app_theme.dart#L1-L93)
 - [app_colors.dart](file://lib/core/constants/app_colors.dart#L1-L10)
 
 ## Dependency Analysis
@@ -321,7 +321,7 @@ Common areas to check when encountering issues:
 
 **Section sources**
 - [main.dart](file://lib/main.dart#L20-L25)
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L170)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L170)
 - [items_repository_impl.dart](file://lib/modules/items/repositories/items_repository_impl.dart#L57-L82)
 
 ## Conclusion
@@ -339,7 +339,7 @@ ZerpAI ERP’s Flutter codebase adheres to a disciplined, modular architecture w
 
 **Section sources**
 - [prd_folder_structure.md](file://PRD/prd_folder_structure.md#L196-L244)
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L170)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L170)
 
 ### Guidelines for Creating New Features
 - Use snake_case for filenames and follow the module’s internal structure.
@@ -350,4 +350,5 @@ ZerpAI ERP’s Flutter codebase adheres to a disciplined, modular architecture w
 
 **Section sources**
 - [PRD.md](file://PRD/PRD.md#L136-L160)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L1-L73)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L1-L73)
+

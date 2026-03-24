@@ -17,6 +17,16 @@
 | **Deployment** | Vercel                         |
 | **Storage**    | Cloudflare R2                  |
 
+## Canonical Flutter Structure Rule
+
+- Use one placement rule across the repo:
+  - `lib/core/` = app infrastructure only.
+  - `lib/core/layout/` = shell/navigation infrastructure only.
+  - `lib/shared/widgets/` = reusable widgets, dialogs, inputs, page wrappers, and responsive UI primitives.
+  - `lib/shared/services/` = cross-feature services.
+  - `lib/modules/` = feature-specific code.
+- `lib/core/widgets/` is legacy and must not be treated as the reusable widget home.
+
 ## UI Surface Rule
 
 - For Zerpai UI, dialogs, popup menus, dropdown overlays, date pickers, popovers, and similar floating surfaces must default to pure white `#FFFFFF`.

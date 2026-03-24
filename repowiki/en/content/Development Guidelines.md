@@ -15,7 +15,7 @@
 - [backend/src/products/products.service.ts](file://backend/src/products/products.service.ts)
 - [lib/app.dart](file://lib/app.dart)
 - [lib/main.dart](file://lib/main.dart)
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart)
 - [lib/shared/services/api_client.dart](file://lib/shared/services/api_client.dart)
 </cite>
 
@@ -55,6 +55,14 @@ Flutter web layouts must use the shared responsive foundation instead of screen-
 ## Deep Linking Rule
 New modules and major internal sub-screens must expose deep-linkable GoRouter routes so refresh, direct URL entry, and browser navigation preserve working context instead of dropping users back to a parent page.
 
+## Canonical Flutter Structure Rule
+- `lib/core/` = app infrastructure only.
+- `lib/core/layout/` = shell/navigation infrastructure only.
+- `lib/shared/widgets/` = reusable UI widgets and responsive UI primitives.
+- `lib/shared/services/` = cross-feature services.
+- `lib/modules/` = feature-specific code.
+- Do not use `lib/core/widgets/` as the reusable widget home.
+
 ## Project Structure
 ZerpAI ERP follows a monorepo layout with a Flutter frontend (web and Android), a NestJS backend, and Supabase-managed database migrations. The frontend is organized around core, shared, and feature modules. The backend is organized by domain modules (e.g., products, sales) and common infrastructure (middleware, database).
 
@@ -63,7 +71,7 @@ graph TB
 subgraph "Frontend (Flutter)"
 A_main["lib/main.dart"]
 A_app["lib/app.dart"]
-A_router["lib/core/router/app_router.dart"]
+A_router["lib/core/routing/app_router.dart"]
 A_api["lib/shared/services/api_client.dart"]
 end
 subgraph "Backend (NestJS)"
@@ -88,7 +96,7 @@ B_prod_svc --> D_mig
 **Diagram sources**
 - [lib/main.dart](file://lib/main.dart#L1-L29)
 - [lib/app.dart](file://lib/app.dart#L1-L32)
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
 - [lib/shared/services/api_client.dart](file://lib/shared/services/api_client.dart#L1-L62)
 - [backend/src/main.ts](file://backend/src/main.ts#L1-L56)
 - [backend/src/app.module.ts](file://backend/src/app.module.ts#L1-L20)
@@ -99,7 +107,7 @@ B_prod_svc --> D_mig
 - [README.md](file://README.md#L5-L28)
 - [lib/main.dart](file://lib/main.dart#L1-L29)
 - [lib/app.dart](file://lib/app.dart#L1-L32)
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
 - [backend/src/main.ts](file://backend/src/main.ts#L1-L56)
 - [backend/src/app.module.ts](file://backend/src/app.module.ts#L1-L20)
 
@@ -118,7 +126,7 @@ Key implementation patterns:
 **Section sources**
 - [lib/main.dart](file://lib/main.dart#L1-L29)
 - [lib/app.dart](file://lib/app.dart#L1-L32)
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
 - [backend/src/main.ts](file://backend/src/main.ts#L1-L56)
 - [backend/src/app.module.ts](file://backend/src/app.module.ts#L1-L20)
 - [backend/src/products/products.controller.ts](file://backend/src/products/products.controller.ts#L1-L250)
@@ -163,7 +171,7 @@ participant Env as ".env loader"
 participant Hive as "Hive"
 participant Supa as "Supabase"
 participant App as "lib/app.dart"
-participant Router as "lib/core/router/app_router.dart"
+participant Router as "lib/core/routing/app_router.dart"
 Entry->>Env : load environment
 Entry->>Hive : initialize and open boxes
 Entry->>Supa : initialize client
@@ -174,12 +182,12 @@ App->>Router : register routes
 **Diagram sources**
 - [lib/main.dart](file://lib/main.dart#L1-L29)
 - [lib/app.dart](file://lib/app.dart#L1-L32)
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
 
 **Section sources**
 - [lib/main.dart](file://lib/main.dart#L1-L29)
 - [lib/app.dart](file://lib/app.dart#L1-L32)
-- [lib/core/router/app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
+- [lib/core/routing/app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
 
 ### Backend Bootstrapping and Middleware
 - Bootstrap configures environment variables, CORS, and a global validation pipe with detailed error logging.
@@ -367,3 +375,4 @@ These guidelines consolidate the repository’s established patterns for structu
 
 **Section sources**
 - [CODE_OF_CONDUCT.md](file://CODE_OF_CONDUCT.md#L1-L31)
+

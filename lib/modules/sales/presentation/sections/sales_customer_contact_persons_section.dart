@@ -21,6 +21,12 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
             onPressed: _addContactRow,
             icon: const Icon(Icons.add, size: 16),
             label: const Text('Add Contact Person'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
           ),
         ],
       ),
@@ -37,7 +43,7 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.bgLight,
-        border: Border.all(color: AppTheme.borderColor),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -103,87 +109,120 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
   }
 
   Widget _buildContactRow(int index, _ContactPersonRow row) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.borderColor),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: FormDropdown<String>(
-                height: _inputHeight,
-                value: row.salutation,
-                items: const ['Mr.', 'Mrs', 'Ms.', 'Dr.'],
-                onChanged: (v) => _state(() => row.salutation = v ?? 'Mr.'),
+    return StatefulBuilder(
+      builder: (context, setRowState) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: MouseRegion(
+            onEnter: (_) => setRowState(() => row.isHovered = true),
+            onExit: (_) => setRowState(() => row.isHovered = false),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: FormDropdown<String>(
+                      height: _inputHeight,
+                      value: row.salutation,
+                      items: const ['Mr.', 'Mrs.', 'Ms.', 'Miss', 'Dr.'],
+                      onChanged: (v) =>
+                          _state(() => row.salutation = v ?? 'Mr.'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: CustomTextField(
+                      height: _inputHeight,
+                      controller: row.firstNameCtrl,
+                      forceUppercase: false,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: CustomTextField(
+                      height: _inputHeight,
+                      controller: row.lastNameCtrl,
+                      forceUppercase: false,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 3,
+                    child: CustomTextField(
+                      height: _inputHeight,
+                      controller: row.emailCtrl,
+                      forceUppercase: false,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 3,
+                    child: _buildPhoneRow(
+                      code: row.workCode,
+                      onCodeChanged: (v) => _state(() => row.workCode = v),
+                      controller: row.workPhoneCtrl,
+                      hintText: '',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 3,
+                    child: _buildPhoneRow(
+                      code: row.mobileCode,
+                      onCodeChanged: (v) => _state(() => row.mobileCode = v),
+                      controller: row.mobilePhoneCtrl,
+                      hintText: '',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (row.isHovered)
+                    IconButton(
+                      onPressed: () => _removeContactRow(index),
+                      icon: const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: Color(0xFFEF4444),
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      splashRadius: 20,
+                    )
+                  else
+                    const SizedBox(width: 32),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 2,
-              child: CustomTextField(
-                height: _inputHeight,
-                controller: row.firstNameCtrl,
-                forceUppercase: false,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 2,
-              child: CustomTextField(
-                height: _inputHeight,
-                controller: row.lastNameCtrl,
-                forceUppercase: false,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: CustomTextField(
-                height: _inputHeight,
-                controller: row.emailCtrl,
-                forceUppercase: false,
-                keyboardType: TextInputType.emailAddress,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: _buildPhoneRow(
-                code: row.workCode,
-                onCodeChanged: (v) => _state(() => row.workCode = v),
-                controller: row.workPhoneCtrl,
-                hintText: '',
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: _buildPhoneRow(
-                code: row.mobileCode,
-                onCodeChanged: (v) => _state(() => row.mobileCode = v),
-                controller: row.mobilePhoneCtrl,
-                hintText: '',
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: () =>
-                  _state(() => contactRows.removeAt(index).dispose()),
-              icon: const Icon(
-                Icons.close,
-                size: 18,
-                color: AppTheme.errorRed,
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
+  }
+
+  void _removeContactRow(int index) {
+    _state(() {
+      if (index == 0) {
+        // Clear content for the first row
+        final row = contactRows[index];
+        row.firstNameCtrl.clear();
+        row.lastNameCtrl.clear();
+        row.emailCtrl.clear();
+        row.workPhoneCtrl.clear();
+        row.mobilePhoneCtrl.clear();
+        row.salutation = 'Mr.';
+        row.workCode = '+91';
+        row.mobileCode = '+91';
+      } else {
+        contactRows.removeAt(index).dispose();
+      }
+    });
   }
 
   void _addContactRow() {

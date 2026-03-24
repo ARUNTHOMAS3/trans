@@ -20,7 +20,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                   padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
                   decoration: const BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(color: AppTheme.borderColor),
+                      bottom: BorderSide(color: Color(0xFFE5E7EB)),
                     ),
                   ),
                   child: Row(
@@ -38,7 +38,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                         icon: const Icon(
                           LucideIcons.x,
                           size: 20,
-                          color: AppTheme.errorRed,
+                          color: Color(0xFFEF4444),
                         ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -91,7 +91,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: const BoxDecoration(
-                    color: AppTheme.bgLight,
+                    color: Color(0xFFF9FAFB),
                     borderRadius: BorderRadius.vertical(
                       bottom: Radius.circular(8),
                     ),
@@ -101,6 +101,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                       ElevatedButton(
                         onPressed: () => Navigator.pop(context),
                         style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF22C55E),
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(
@@ -120,8 +121,8 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                       OutlinedButton(
                         onPressed: () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.textBody,
-                          side: const BorderSide(color: AppTheme.borderColor),
+                          foregroundColor: const Color(0xFF374151),
+                          side: const BorderSide(color: Color(0xFFD1D5DB)),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 20,
                             vertical: 10,
@@ -175,7 +176,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                   padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
                   decoration: const BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(color: AppTheme.borderColor),
+                      bottom: BorderSide(color: Color(0xFFE5E7EB)),
                     ),
                   ),
                   child: Row(
@@ -193,7 +194,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                         icon: const Icon(
                           LucideIcons.x,
                           size: 20,
-                          color: AppTheme.errorRed,
+                          color: Color(0xFFEF4444),
                         ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -212,7 +213,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppTheme.infoBg,
+                            color: const Color(0xFFEFF6FF),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Row(
@@ -220,7 +221,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                               const Icon(
                                 LucideIcons.info,
                                 size: 18,
-                                color: AppTheme.primaryBlueDark,
+                                color: Color(0xFF2563EB),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -243,7 +244,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.errorRed,
+                            color: Color(0xFFEF4444),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -318,7 +319,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.errorRed,
+                            color: Color(0xFFEF4444),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -335,7 +336,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.errorRed,
+                            color: Color(0xFFEF4444),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -398,7 +399,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                           'File Protection Password',
                           style: TextStyle(
                             fontSize: 13,
-                            color: AppTheme.textBody,
+                            color: Color(0xFF374151),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -470,7 +471,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: const BoxDecoration(
-                    color: AppTheme.bgLight,
+                    color: Color(0xFFF9FAFB),
                     borderRadius: BorderRadius.vertical(
                       bottom: Radius.circular(8),
                     ),
@@ -480,6 +481,7 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                       ElevatedButton(
                         onPressed: () => Navigator.pop(context),
                         style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF22C55E),
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(
@@ -499,8 +501,8 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
                       OutlinedButton(
                         onPressed: () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.textBody,
-                          side: const BorderSide(color: AppTheme.borderColor),
+                          foregroundColor: const Color(0xFF374151),
+                          side: const BorderSide(color: Color(0xFFD1D5DB)),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 20,
                             vertical: 10,
@@ -536,14 +538,14 @@ extension _GenericListImportExportDialog on _SalesGenericListScreenState {
           children: [
             Radio<String>(
               value: value,
-              activeColor: AppTheme.primaryBlueDark,
+              activeColor: const Color(0xFF2563EB),
               visualDensity: VisualDensity.compact,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             const SizedBox(width: 8),
             Text(
               label,
-              style: const TextStyle(fontSize: 14, color: AppTheme.textBody),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF374151)),
             ),
           ],
         ),

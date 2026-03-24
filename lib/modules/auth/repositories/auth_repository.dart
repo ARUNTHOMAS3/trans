@@ -3,7 +3,7 @@
 import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
-import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 import '../models/user_model.dart';
 
 class AuthRepository {

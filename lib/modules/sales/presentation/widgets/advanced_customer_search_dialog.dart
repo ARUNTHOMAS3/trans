@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../../models/sales_customer_model.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
 
 // ─── Colour constants (matching Invoice Plus style) ──────────────────────────
 const _kBorder = Color(0xFFE5E7EB);
-const _kLabelGrey = Color(0xFF6B7280);
+const _kLabelGrey = AppTheme.textSecondary;
 const _kBodyText = Color(0xFF111827);
-const _kBlue = Color(0xFF2563EB);
+const _kBlue = AppTheme.primaryBlueDark;
 const _kGreen = Color(0xFF16A34A);
 
 class AdvancedCustomerSearchDialog extends StatefulWidget {
@@ -162,7 +163,7 @@ class _AdvancedCustomerSearchDialogState
                                       horizontal: 12,
                                     ),
                                     decoration: const BoxDecoration(
-                                      color: Color(0xFFF9FAFB),
+                                      color: AppTheme.bgLight,
                                       borderRadius: BorderRadius.only(
                                         topLeft: Radius.circular(5),
                                         bottomLeft: Radius.circular(5),
@@ -175,13 +176,13 @@ class _AdvancedCustomerSearchDialogState
                                             _filterBy,
                                             style: const TextStyle(
                                               fontSize: 14,
-                                              color: Color(0xFF374151),
+                                              color: AppTheme.textBody,
                                             ),
                                           ),
                                         ),
                                         const Icon(
                                           Icons.arrow_drop_down,
-                                          color: Color(0xFF6B7280),
+                                          color: AppTheme.textSecondary,
                                           size: 20,
                                         ),
                                       ],
@@ -237,7 +238,7 @@ class _AdvancedCustomerSearchDialogState
 
                       // ── Table Header ────────────────────────────────────
                       Container(
-                        color: const Color(0xFFF9FAFB),
+                        color: AppTheme.bgLight,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24,
                           vertical: 12,
@@ -306,7 +307,7 @@ class _AdvancedCustomerSearchDialogState
                                         c.email ?? '',
                                         style: const TextStyle(
                                           fontSize: 13,
-                                          color: Color(0xFF4B5563),
+                                          color: AppTheme.textSubtle,
                                         ),
                                       ),
                                     ),
@@ -316,7 +317,7 @@ class _AdvancedCustomerSearchDialogState
                                         c.companyName ?? '',
                                         style: const TextStyle(
                                           fontSize: 13,
-                                          color: Color(0xFF4B5563),
+                                          color: AppTheme.textSubtle,
                                         ),
                                       ),
                                     ),
@@ -326,7 +327,7 @@ class _AdvancedCustomerSearchDialogState
                                         c.phone ?? '',
                                         style: const TextStyle(
                                           fontSize: 13,
-                                          color: Color(0xFF4B5563),
+                                          color: AppTheme.textSubtle,
                                         ),
                                       ),
                                     ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SalesOrderPreferencesDialog extends StatefulWidget {
   final String currentPrefix;
@@ -78,7 +79,7 @@ class _SalesOrderPreferencesDialogState extends State<SalesOrderPreferencesDialo
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF374151),
+                color: AppTheme.textBody,
               ),
             ),
             const SizedBox(height: 4),
@@ -86,7 +87,7 @@ class _SalesOrderPreferencesDialogState extends State<SalesOrderPreferencesDialo
               'Default Transaction Series',
               style: TextStyle(
                 fontSize: 14,
-                color: Color(0xFF6B7280),
+                color: AppTheme.textSecondary,
               ),
             ),
             const SizedBox(height: 16),
@@ -98,7 +99,7 @@ class _SalesOrderPreferencesDialogState extends State<SalesOrderPreferencesDialo
               'Your sales order numbers are set on auto-generate mode to save your time. Are you sure about changing this setting?',
               style: TextStyle(
                 fontSize: 13,
-                color: Color(0xFF4B5563),
+                color: AppTheme.textSubtle,
                 height: 1.5,
               ),
             ),
@@ -108,151 +109,128 @@ class _SalesOrderPreferencesDialogState extends State<SalesOrderPreferencesDialo
             RadioGroup<bool>(
               groupValue: _isAutoGenerate,
               onChanged: (val) {
-                setState(() => _isAutoGenerate = val ?? false);
+                if (val != null) setState(() => _isAutoGenerate = val);
               },
               child: Column(
                 children: [
-                  Row(
+            // Option 1: Auto-generate
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: Radio<bool>(
+                    value: true,
+                    activeColor: AppTheme.infoBlue,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: Radio<bool>(
-                          value: true,
-                          activeColor: Color(0xFF3B82F6),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  'Continue auto-generating sales order numbers',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFF1F2937),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.info_outline,
-                                  size: 14,
-                                  color: Colors.blue.shade400,
-                                ),
-                              ],
+                      Row(
+                        children: [
+                          const Text(
+                            'Continue auto-generating sales order numbers',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF1F2937),
                             ),
-                            if (_isAutoGenerate) ...[
-                              const SizedBox(height: 12),
-                              Row(
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.info_outline, size: 14, color: Colors.blue.shade400),
+                        ],
+                      ),
+                      if (_isAutoGenerate) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    flex: 2,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Prefix',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF6B7280),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        TextField(
-                                          controller: _prefixController,
-                                          decoration: InputDecoration(
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 8,
-                                                ),
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                              borderSide: const BorderSide(
-                                                color: Color(0xFFD1D5DB),
-                                              ),
-                                            ),
-                                            isDense: true,
-                                          ),
-                                          style: const TextStyle(fontSize: 13),
-                                        ),
-                                      ],
-                                    ),
+                                  const Text(
+                                    'Prefix',
+                                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    flex: 3,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Next Number',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF6B7280),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        TextField(
-                                          controller: _nextNumberController,
-                                          decoration: InputDecoration(
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 8,
-                                                ),
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                              borderSide: const BorderSide(
-                                                color: Color(0xFFD1D5DB),
-                                              ),
-                                            ),
-                                            isDense: true,
-                                          ),
-                                          style: const TextStyle(fontSize: 13),
-                                        ),
-                                      ],
+                                  const SizedBox(height: 4),
+                                  TextField(
+                                    controller: _prefixController,
+                                    decoration: InputDecoration(
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                                      ),
+                                      isDense: true,
                                     ),
+                                    style: const TextStyle(fontSize: 13),
                                   ),
                                 ],
                               ),
-                            ],
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Next Number',
+                                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  TextField(
+                                    controller: _nextNumberController,
+                                    decoration: InputDecoration(
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                                      ),
+                                      isDense: true,
+                                    ),
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      ),
+                      ],
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: Radio<bool>(
-                          value: false,
-                          activeColor: Color(0xFF3B82F6),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Enter sales order numbers manually',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF1F2937),
-                        ),
-                      ),
-                    ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Option 2: Manual
+            Row(
+              children: [
+                SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: Radio<bool>(
+                    value: false,
+                    activeColor: AppTheme.infoBlue,
                   ),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Enter sales order numbers manually',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+              ],
+            ),
                 ],
               ),
             ),
@@ -282,7 +260,7 @@ class _SalesOrderPreferencesDialogState extends State<SalesOrderPreferencesDialo
                 OutlinedButton(
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF374151),
+                    foregroundColor: AppTheme.textBody,
                     side: const BorderSide(color: Color(0xFFD1D5DB)),
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),

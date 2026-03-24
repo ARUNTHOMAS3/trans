@@ -8,7 +8,7 @@
 - [sales_eway_bill_model.dart](file://lib/modules/sales/models/sales_eway_bill_model.dart)
 - [sales_eway_bill_create.dart](file://lib/modules/sales/presentation/sales_eway_bill_create.dart)
 - [sales_order_api_service.dart](file://lib/modules/sales/services/sales_order_api_service.dart)
-- [app_router.dart](file://lib/core/router/app_router.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
 - [sales_generic_list_table.dart](file://lib/modules/sales/presentation/sections/sales_generic_list_table.dart)
 </cite>
 
@@ -78,7 +78,7 @@ API --> UI
 - [sales_eway_bill_model.dart](file://lib/modules/sales/models/sales_eway_bill_model.dart#L1-L52)
 - [sales_eway_bill_create.dart](file://lib/modules/sales/presentation/sales_eway_bill_create.dart#L1-L215)
 - [sales_order_api_service.dart](file://lib/modules/sales/services/sales_order_api_service.dart#L135-L161)
-- [app_router.dart](file://lib/core/router/app_router.dart#L224-L234)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L224-L234)
 
 ## Core Components
 - SalesController: Exposes GET /sales/eway-bills and POST /sales/eway-bills endpoints
@@ -218,8 +218,8 @@ Integration:
 - Generic list screen displays e-way bills with columns for bill number, date, supply type, sub type, and status
 
 **Section sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L61-L62)
-- [app_router.dart](file://lib/core/router/app_router.dart#L224-L234)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L61-L62)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L224-L234)
 - [sales_generic_list_table.dart](file://lib/modules/sales/presentation/sections/sales_generic_list_table.dart#L203-L224)
 
 ## API Reference

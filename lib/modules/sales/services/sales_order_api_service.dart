@@ -192,7 +192,7 @@
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 import '../models/sales_order_model.dart';
 import '../models/sales_customer_model.dart';
 import '../models/sales_payment_model.dart';

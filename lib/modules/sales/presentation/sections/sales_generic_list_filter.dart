@@ -47,7 +47,7 @@ extension _SalesGenericListFilter on _SalesGenericListScreenState {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.borderColor),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -90,7 +90,7 @@ extension _SalesGenericListFilter on _SalesGenericListScreenState {
                                 width: 20,
                                 height: 20,
                                 decoration: const BoxDecoration(
-                                  color: AppTheme.primaryBlueDark,
+                                  color: Color(0xFF2563EB),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(
@@ -104,7 +104,7 @@ extension _SalesGenericListFilter on _SalesGenericListScreenState {
                                 'New Custom View',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: AppTheme.primaryBlueDark,
+                                  color: Color(0xFF2563EB),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -141,7 +141,7 @@ extension _SalesGenericListFilter on _SalesGenericListScreenState {
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: AppTheme.textSecondary,
+          color: Color(0xFF6B7280),
           letterSpacing: 0.5,
         ),
       ),
@@ -149,8 +149,8 @@ extension _SalesGenericListFilter on _SalesGenericListScreenState {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
           color: isFavorites
-              ? AppTheme.accentGreen
-              : AppTheme.primaryBlueDark,
+              ? const Color(0xFF10B981)
+              : const Color(0xFF2563EB),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
@@ -175,7 +175,7 @@ extension _SalesGenericListFilter on _SalesGenericListScreenState {
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
-            color: isSelected ? AppTheme.infoBg : null,
+            color: isSelected ? const Color(0xFFEFF6FF) : null,
             child: Row(
               children: [
                 Expanded(
@@ -184,8 +184,8 @@ extension _SalesGenericListFilter on _SalesGenericListScreenState {
                     style: TextStyle(
                       fontSize: 13,
                       color: isSelected
-                          ? AppTheme.primaryBlueDark
-                          : AppTheme.textBody,
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFF374151),
                       fontWeight: isSelected
                           ? FontWeight.w500
                           : FontWeight.normal,
@@ -206,8 +206,8 @@ extension _SalesGenericListFilter on _SalesGenericListScreenState {
                     isFavorite ? LucideIcons.star : LucideIcons.star,
                     size: 18,
                     color: isFavorite
-                        ? AppTheme.warningOrange
-                        : AppTheme.textMuted,
+                        ? const Color(0xFFF59E0B)
+                        : const Color(0xFF9CA3AF),
                   ),
                 ),
               ],

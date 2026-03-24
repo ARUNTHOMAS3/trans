@@ -48,7 +48,7 @@ No authentication setup is allowed until production. The application must run wi
 - items_items_item_detail.dart: Line 237
 - column_visibility_manager.dart: Lines 46, 59
 
-### 6. lib/core/widgets/inputs/manage_simple_list_dialog.dart (1 print)
+### 6. lib/shared/widgets/inputs/manage_simple_list_dialog.dart (1 print)
 - Line 88: Live sync error
 
 ## Total: ~40 print statements to replace

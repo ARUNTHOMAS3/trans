@@ -21,7 +21,7 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                 children: [
                   const CircleAvatar(
                     radius: 16,
-                    backgroundColor: AppTheme.borderColor,
+                    backgroundColor: Color(0xFFE5E7EB),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -40,7 +40,7 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                           index == 0 ? 'Customer created.' : 'Address updated.',
                           style: const TextStyle(
                             fontSize: 13,
-                            color: AppTheme.textBody,
+                            color: Color(0xFF374151),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -48,7 +48,7 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                           'Just now',
                           style: TextStyle(
                             fontSize: 11,
-                            color: AppTheme.textSecondary,
+                            color: Color(0xFF6B7280),
                           ),
                         ),
                       ],
@@ -79,6 +79,8 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                 ElevatedButton(
                   onPressed: () {},
                   style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -110,9 +112,9 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) => Container(
         decoration: BoxDecoration(
-          color: AppTheme.bgLight,
+          color: const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: AppTheme.borderColor),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -122,13 +124,13 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.textBody,
+                color: Color(0xFF374151),
               ),
             ),
             leading: const Icon(
               LucideIcons.chevronRight,
               size: 18,
-              color: AppTheme.textSecondary,
+              color: Color(0xFF6B7280),
             ),
             trailing: InkWell(
               onTap: () {},
@@ -138,14 +140,14 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                   Icon(
                     LucideIcons.plusCircle,
                     size: 16,
-                    color: AppTheme.primaryBlueDark,
+                    color: Color(0xFF2563EB),
                   ),
                   SizedBox(width: 4),
                   Text(
                     'New',
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.primaryBlueDark,
+                      color: Color(0xFF2563EB),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -159,7 +161,7 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                   'No ${types[index]} found for this customer.',
                   style: const TextStyle(
                     fontSize: 12,
-                    color: AppTheme.textSecondary,
+                    color: Color(0xFF6B7280),
                   ),
                 ),
               ),
@@ -206,10 +208,10 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                 children: [
                   const CircleAvatar(
                     radius: 14,
-                    backgroundColor: AppTheme.bgDisabled,
+                    backgroundColor: Color(0xFFF3F4F6),
                     child: Text(
                       'Z',
-                      style: TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                      style: TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -229,7 +231,7 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                           'Draft Notification - New auto-generated invoice for the recurring profile: check',
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppTheme.textSubtle,
+                            color: Color(0xFF4B5563),
                           ),
                         ),
                       ],
@@ -237,7 +239,7 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                   ),
                   const Text(
                     '30-05-2025 11:20 AM',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                    style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
                   ),
                 ],
               ),
@@ -276,6 +278,7 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                 icon: const Icon(LucideIcons.send, size: 16),
                 label: const Text('Send Email'),
                 style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF22C55E),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
@@ -294,7 +297,7 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                 width: 800,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  border: Border.all(color: AppTheme.borderColor),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
@@ -328,7 +331,7 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                     ),
                     const Text(
                       'From 01-01-2026 To 31-01-2026',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                     ),
                     const SizedBox(height: 48),
                     Row(
@@ -349,7 +352,7 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                               customer.displayName,
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: AppTheme.primaryBlueDark,
+                                color: Color(0xFF2563EB),
                               ),
                             ),
                           ],
@@ -358,7 +361,7 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                         Container(
                           width: 250,
                           decoration: BoxDecoration(
-                            color: AppTheme.bgDisabled,
+                            color: const Color(0xFFF3F4F6),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           padding: const EdgeInsets.all(16),
@@ -394,11 +397,11 @@ extension _OverviewOtherTabs on _SalesCustomerOverviewScreenState {
                     // Statement Table
                     Table(
                       border: const TableBorder(
-                        horizontalInside: BorderSide(color: AppTheme.borderColor),
+                        horizontalInside: BorderSide(color: Color(0xFFE5E7EB)),
                       ),
                       children: [
                         const TableRow(
-                          decoration: BoxDecoration(color: AppTheme.textBody),
+                          decoration: BoxDecoration(color: Color(0xFF374151)),
                           children: [
                             TableCellWidget('Date', isHeader: true),
                             TableCellWidget('Transactions', isHeader: true),

@@ -2,29 +2,57 @@ part of '../sales_customer_overview.dart';
 
 extension _OverviewActions on _SalesCustomerOverviewScreenState {
   Widget _buildNewTransactionDropdown() {
-    return InkWell(
-      onTap: () => context.push(AppRoutes.salesCustomersCreate),
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: AppTheme.successGreen,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'New',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+    return MenuAnchor(
+      builder: (context, controller, child) {
+        return InkWell(
+          onTap: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF22C55E),
+              borderRadius: BorderRadius.circular(4),
             ),
-          ],
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'New Transaction',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Icon(LucideIcons.chevronDown, color: Colors.white, size: 16),
+              ],
+            ),
+          ),
+        );
+      },
+      menuChildren: [
+        const MenuItemButton(
+          onPressed: null,
+          child: Text(
+            'SALES',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF9CA3AF),
+            ),
+          ),
         ),
-      ),
+        _popupItem('Invoice'),
+        _popupItem('Bill Of Supply'),
+        _popupItem('Customer Payment'),
+        _popupItem('Retainer Invoice'),
+        _popupItem('Sales Order'),
+        _popupItem('Package'),
+        _popupItem('Delivery Challan'),
+        _popupItem('Credit Note'),
+      ],
     );
   }
 
@@ -56,24 +84,24 @@ extension _OverviewActions on _SalesCustomerOverviewScreenState {
       padding: EdgeInsets.symmetric(horizontal: isIconOnly ? 8 : 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: AppTheme.borderColor),
+        border: Border.all(color: const Color(0xFFD1D5DB)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != LucideIcons.chevronDown || label.isNotEmpty)
-            Icon(icon, size: 16, color: AppTheme.textSubtle),
+            Icon(icon, size: 16, color: const Color(0xFF4B5563)),
           if (!isIconOnly && label.isNotEmpty) ...[
             const SizedBox(width: 8),
             Text(
               label,
-              style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
             ),
           ],
           if (icon == LucideIcons.chevronDown && label.isNotEmpty) ...[
             const SizedBox(width: 4),
-            Icon(icon, size: 16, color: AppTheme.textSubtle),
+            Icon(icon, size: 16, color: const Color(0xFF4B5563)),
           ],
         ],
       ),
@@ -89,7 +117,7 @@ extension _OverviewActions on _SalesCustomerOverviewScreenState {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         child: Text(
           text,
-          style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+          style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
         ),
       ),
     );
@@ -146,7 +174,7 @@ extension _OverviewActions on _SalesCustomerOverviewScreenState {
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Text(
                     'No Files Attached',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                    style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
                   ),
                 ),
               ),
@@ -154,9 +182,9 @@ extension _OverviewActions on _SalesCustomerOverviewScreenState {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 decoration: BoxDecoration(
-                  color: AppTheme.bgLight,
+                  color: const Color(0xFFF9FAFB),
                   border: Border.all(
-                    color: AppTheme.borderColor,
+                    color: const Color(0xFFD1D5DB),
                     style: BorderStyle.solid,
                   ),
                   borderRadius: BorderRadius.circular(4),
@@ -169,14 +197,14 @@ extension _OverviewActions on _SalesCustomerOverviewScreenState {
                         Icon(
                           LucideIcons.upload,
                           size: 18,
-                          color: AppTheme.primaryBlueDark,
+                          color: Color(0xFF2563EB),
                         ),
                         SizedBox(width: 8),
                         Text(
                           'Upload your Files',
                           style: TextStyle(
                             fontSize: 13,
-                            color: AppTheme.primaryBlueDark,
+                            color: Color(0xFF2563EB),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -184,14 +212,14 @@ extension _OverviewActions on _SalesCustomerOverviewScreenState {
                         Icon(
                           LucideIcons.chevronDown,
                           size: 16,
-                          color: AppTheme.primaryBlueDark,
+                          color: Color(0xFF2563EB),
                         ),
                       ],
                     ),
                     SizedBox(height: 12),
                     Text(
                       'You can upload a maximum of 10 files, 10MB each',
-                      style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                      style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
                     ),
                   ],
                 ),
@@ -212,7 +240,7 @@ extension _OverviewActions on _SalesCustomerOverviewScreenState {
           icon: const Icon(
             LucideIcons.settings,
             size: 18,
-            color: AppTheme.textSecondary,
+            color: Color(0xFF6B7280),
           ),
         );
       },

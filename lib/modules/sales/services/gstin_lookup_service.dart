@@ -1,4 +1,4 @@
-import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 import '../models/gstin_lookup_model.dart';
 
 class GstinLookupService {

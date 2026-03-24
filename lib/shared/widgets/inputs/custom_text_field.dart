@@ -43,6 +43,10 @@ class CustomTextField extends StatefulWidget {
   final VoidCallback? onTap;
   final bool showLeftBorder;
   final bool showRightBorder;
+  final Color? fillColor;
+  final bool hideBorderDefault;
+  final EdgeInsets? padding;
+  final bool suffixSeparator;
 
   const CustomTextField({
     super.key,
@@ -76,6 +80,10 @@ class CustomTextField extends StatefulWidget {
     this.onTap,
     this.showLeftBorder = true,
     this.showRightBorder = true,
+    this.fillColor,
+    this.hideBorderDefault = false,
+    this.padding,
+    this.suffixSeparator = false,
     Widget? suffixWidget,
     Widget? suffix,
   }) : suffixWidget = suffixWidget ?? suffix;
@@ -88,6 +96,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
   FocusNode? _internalFocusNode;
   late FocusNode _effectiveFocusNode;
   ZerpaiSearchShortcutScopeState? _registeredSearchScope;
+  bool _isHovered = false;
 
   static const double _defaultHeight = 44;
 
@@ -170,6 +179,15 @@ class _CustomTextFieldState extends State<CustomTextField> {
       borderColor = AppTheme.borderColor; // Default grey
     }
 
+    final bool shouldShowBorder =
+        !widget.hideBorderDefault ||
+        _effectiveFocusNode.hasFocus ||
+        _isHovered ||
+        hasError;
+    final Color effectiveBorderColor = shouldShowBorder
+        ? borderColor
+        : Colors.transparent;
+
     // Handle input formatters - copy to avoid modifying the original list
     List<TextInputFormatter> formatters = List.from(
       widget.inputFormatters ?? [],
@@ -242,33 +260,41 @@ class _CustomTextFieldState extends State<CustomTextField> {
         ],
         SizedBox(
           height: fieldHeight,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: widget.borderRadius ?? BorderRadius.circular(4),
-              border: widget.border ??
-                  Border(
-                    top: BorderSide(color: borderColor, width: 1),
-                    bottom: BorderSide(color: borderColor, width: 1),
-                    left: widget.showLeftBorder
-                        ? BorderSide(color: borderColor, width: 1)
-                        : BorderSide.none,
-                    right: widget.showRightBorder
-                        ? BorderSide(color: borderColor, width: 1)
-                        : BorderSide.none,
+          child: MouseRegion(
+            onEnter: (_) => setState(() => _isHovered = true),
+            onExit: (_) => setState(() => _isHovered = false),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              decoration: BoxDecoration(
+                color:
+                    widget.fillColor ??
+                    (widget.enabled ? Colors.white : const Color(0xFFF3F4F6)),
+                borderRadius: widget.borderRadius ?? BorderRadius.circular(4),
+                border: widget.border ??
+                    Border(
+                      top: BorderSide(color: effectiveBorderColor, width: 1),
+                      bottom: BorderSide(color: effectiveBorderColor, width: 1),
+                      left: widget.showLeftBorder
+                          ? BorderSide(color: effectiveBorderColor, width: 1)
+                          : BorderSide.none,
+                      right: widget.showRightBorder
+                          ? BorderSide(color: effectiveBorderColor, width: 1)
+                          : BorderSide.none,
+                    ),
+              ),
+              padding:
+                  widget.padding ??
+                  EdgeInsets.only(
+                    left:
+                        (widget.prefixWidget != null ||
+                                widget.prefixIcon != null) &&
+                            widget.prefixBox
+                        ? 0
+                        : 10,
+                    right: 10,
                   ),
-            ),
-            padding: EdgeInsets.only(
-              left:
-                  (widget.prefixWidget != null || widget.prefixIcon != null) &&
-                      widget.prefixBox
-                  ? 0
-                  : 10,
-              right: 10,
-            ),
-            alignment: isMultiline ? Alignment.topLeft : Alignment.centerLeft,
-            child: Row(
+              alignment: isMultiline ? Alignment.topLeft : Alignment.centerLeft,
+              child: Row(
               crossAxisAlignment: isMultiline
                   ? CrossAxisAlignment.start
                   : CrossAxisAlignment.center,
@@ -362,11 +388,19 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
                 /// SUFFIX WIDGET
                 if (widget.suffixWidget != null) ...[
+                  if (widget.suffixSeparator)
+                    Container(
+                      width: 1,
+                      height: double.infinity,
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      color: AppTheme.borderColor,
+                    ),
                   const SizedBox(width: 8),
                   widget.suffixWidget!,
                 ],
               ],
             ),
+          ),
           ),
         ),
         if (hasError) ...[

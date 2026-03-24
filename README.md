@@ -39,6 +39,15 @@ zerpai_erp/
 - Dialogs, popup menus, dropdown overlays, date pickers, popovers, and similar floating surfaces must default to pure white `#FFFFFF`.
 - Do not rely on inherited Material surface tinting for these components unless a design exception is explicitly requested.
 
+## 🧱 Canonical Flutter Structure Rule
+
+- `lib/core/` is for app infrastructure only: routing, theme, logging, shell layout, and bootstrap concerns.
+- `lib/core/layout/` is only for app shell/navigation infrastructure such as sidebar, navbar, and shell metrics.
+- `lib/shared/widgets/` is the canonical home for reusable widgets, dialogs, inputs, page wrappers, and responsive UI primitives.
+- `lib/shared/services/` is the canonical home for cross-feature services consumed by modules and repositories.
+- `lib/modules/` remains the home for feature-specific code.
+- Do not use `lib/core/widgets/` as the reusable widget home.
+
 ## 📅 Shared Date Picker Rule
 
 - Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` as the standard reusable date picker across the app wherever the shared anchored picker pattern is feasible.

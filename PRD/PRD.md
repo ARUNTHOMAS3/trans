@@ -186,7 +186,9 @@ To support seamless transitions between local development and production deploym
 **Key Rules (Quick Reference):**
 
 - **App infrastructure** (router, theme, API): `lib/core/`
-- **Reusable widgets** (forms, layout): `lib/core/widgets/`
+- **Shell/navigation infrastructure** (sidebar, navbar, shell): `lib/core/layout/`
+- **Reusable widgets** (forms, dialogs, layout wrappers, responsive UI): `lib/shared/widgets/`
+- **Cross-feature services**: `lib/shared/services/`
 - **Feature-specific code**: `lib/modules/<module>/`
 - **File naming**: `module_submodule_page.dart` (e.g., `items_pricelist_pricelist_creation.dart`, `sales_orders_order_creation.dart`). Avoid `_screen` suffixes unless required for clarity.
 

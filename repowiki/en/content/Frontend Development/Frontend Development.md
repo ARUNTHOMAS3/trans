@@ -5,9 +5,8 @@
 - [main.dart](file://lib/main.dart)
 - [app.dart](file://lib/app.dart)
 - [pubspec.yaml](file://pubspec.yaml)
-- [app_router.dart](file://lib/core/router/app_router.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
 - [app_theme.dart](file://lib/core/theme/app_theme.dart)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart)
 - [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart)
 - [breakpoints.dart](file://lib/shared/responsive/breakpoints.dart)
 - [responsive_context.dart](file://lib/shared/responsive/responsive_context.dart)
@@ -34,6 +33,13 @@
 ## Introduction
 This document provides comprehensive frontend development guidance for the Flutter-based ZerpAI ERP application. It explains the project structure, file naming conventions, module organization, Riverpod state management, routing, theming, reusable components, shared services, and utility functions. It also covers API integration patterns, error handling strategies, offline data synchronization, responsive design, and best practices for building new features consistently across the application.
 
+Canonical placement rule:
+- `lib/core/` = app infrastructure only
+- `lib/core/layout/` = shell/navigation infrastructure only
+- `lib/shared/widgets/` = reusable UI widgets and responsive UI primitives
+- `lib/shared/services/` = cross-feature services
+- `lib/modules/` = feature-specific code
+
 ## Project Structure
 The application follows a layered, feature-based organization:
 - Root entrypoint initializes platform services and runs the app.
@@ -49,9 +55,9 @@ MAIN["lib/main.dart"]
 APP["lib/app.dart"]
 end
 subgraph "Core"
-ROUTER["lib/core/router/app_router.dart"]
+ROUTER["lib/core/routing/app_router.dart"]
 THEME["lib/core/theme/app_theme.dart"]
-LAYOUT["lib/core/layout/zerpai_layout.dart"]
+LAYOUT["lib/shared/widgets/zerpai_layout.dart"]
 end
 subgraph "Modules"
 ITEMS["lib/modules/items/..."]
@@ -78,9 +84,9 @@ REPORTS --> SERVICES
 **Diagram sources**
 - [main.dart](file://lib/main.dart#L1-L29)
 - [app.dart](file://lib/app.dart#L1-L32)
-- [app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
 - [app_theme.dart](file://lib/core/theme/app_theme.dart#L1-L85)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L1-L73)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L1-L73)
 
 **Section sources**
 - [main.dart](file://lib/main.dart#L1-L29)
@@ -105,9 +111,9 @@ REPORTS --> SERVICES
 
 **Section sources**
 - [main.dart](file://lib/main.dart#L8-L28)
-- [app_router.dart](file://lib/core/router/app_router.dart#L28-L276)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L28-L276)
 - [app_theme.dart](file://lib/core/theme/app_theme.dart#L10-L83)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L5-L72)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L5-L72)
 - [breakpoints.dart](file://lib/shared/responsive/breakpoints.dart#L8-L64)
 - [responsive_layout.dart](file://lib/shared/responsive/responsive_layout.dart#L7-L47)
 - [items_controller.dart](file://lib/modules/items/controller/items_controller.dart#L16-L23)
@@ -134,8 +140,8 @@ PRESENT --> SHARED
 **Diagram sources**
 - [main.dart](file://lib/main.dart#L8-L28)
 - [app.dart](file://lib/app.dart#L10-L29)
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L265)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L35-L71)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L265)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L35-L71)
 
 ## Detailed Component Analysis
 
@@ -157,12 +163,12 @@ Screen-->>User : Display list with columns and actions
 ```
 
 **Diagram sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L120)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L120)
 
 **Section sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L29-L90)
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L265)
-- [app_router.dart](file://lib/core/router/app_router.dart#L268-L340)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L29-L90)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L265)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L268-L340)
 
 ### Theme Management
 - Global theme configuration and reusable input decoration helpers are defined in a dedicated theme module.
@@ -205,10 +211,10 @@ class ZerpaiLayout {
 ```
 
 **Diagram sources**
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L5-L72)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L5-L72)
 
 **Section sources**
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L24-L71)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L24-L71)
 - [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L1-L2)
 
 ### Responsive Design
@@ -406,3 +412,4 @@ ZerpAI ERP’s frontend is structured around clear layers and Riverpod-driven st
   - Initialize required Hive boxes at startup; design repositories to handle offline scenarios gracefully.
 
 [No sources needed since this section provides general guidance]
+

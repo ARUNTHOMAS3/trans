@@ -1,5 +1,16 @@
 # Zerpai Agent Rules
 
+## Canonical Flutter Structure Rule
+
+- Use one placement rule across the repo:
+  - `lib/core/` = app infrastructure only (`routing/`, `theme/`, `layout/`, logging, core bootstrap wiring).
+  - `lib/core/layout/` = app shell/navigation infrastructure only (sidebar, navbar, shell metrics, shell wrapper).
+  - `lib/shared/widgets/` = reusable UI widgets, dialogs, inputs, page wrappers, report shells, and responsive UI primitives.
+  - `lib/shared/services/` = cross-feature services consumed by modules, repositories, and shared UI.
+  - `lib/modules/<module>/` = feature-specific code only.
+- Do not place reusable widgets in `lib/core/widgets/`.
+- Do not create duplicate service implementations under both `core/services` and `shared/services`; prefer `shared/services` for cross-feature usage and reserve `core/` for app infrastructure concerns only.
+
 ## Pure White Surface Rule
 
 - All dialogs, popup menus, dropdown overlays, date pickers, popovers, modal sheets, and similar floating surfaces must default to pure white `#FFFFFF`.

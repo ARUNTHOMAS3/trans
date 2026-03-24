@@ -2,9 +2,9 @@
 
 <cite>
 **Referenced Files in This Document**
-- [app_router.dart](file://lib/core/router/app_router.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
 - [app_theme.dart](file://lib/core/theme/app_theme.dart)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart)
 - [zerpai_navbar.dart](file://lib/core/layout/zerpai_navbar.dart)
 - [zerpai_sidebar.dart](file://lib/core/layout/zerpai_sidebar.dart)
 - [zerpai_sidebar_item.dart](file://lib/core/layout/zerpai_sidebar_item.dart)
@@ -32,6 +32,11 @@
 ## Introduction
 This document describes the core infrastructure of the ZerpAI ERP frontend, focusing on the routing system, theme management, responsive layout, logging, and error handling. It explains how routes are defined and navigated, how Material Design principles are applied to color and typography, how the page layout adapts across devices, and how logging and error handling are standardized. Practical examples illustrate how to add new routes, customize themes, and extend the layout system, along with performance considerations and best practices.
 
+Canonical placement rule:
+- `lib/core/` = app infrastructure only
+- `lib/core/layout/` = shell/navigation infrastructure such as sidebar and navbar
+- `lib/shared/widgets/` = reusable page wrappers and reusable UI widgets
+
 ## Project Structure
 The core infrastructure spans several modules:
 - Routing: centralized route definitions and navigation
@@ -51,7 +56,7 @@ subgraph "Routing"
 ROUTER["core/router/app_router.dart"]
 end
 subgraph "Layout"
-LAYOUT["core/layout/zerpai_layout.dart"]
+LAYOUT["shared/widgets/zerpai_layout.dart"]
 NAVBAR["core/layout/zerpai_navbar.dart"]
 SIDEBAR["core/layout/zerpai_sidebar.dart"]
 SIDEBAR_ITEM["core/layout/zerpai_sidebar_item.dart"]
@@ -85,8 +90,8 @@ APP --> EXC
 **Diagram sources**
 - [main.dart](file://lib/main.dart#L1-L29)
 - [app.dart](file://lib/app.dart#L1-L32)
-- [app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L1-L73)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L1-L73)
 - [zerpai_navbar.dart](file://lib/core/layout/zerpai_navbar.dart#L1-L382)
 - [zerpai_sidebar.dart](file://lib/core/layout/zerpai_sidebar.dart#L1-L1044)
 - [zerpai_sidebar_item.dart](file://lib/core/layout/zerpai_sidebar_item.dart#L1-L461)
@@ -110,8 +115,8 @@ APP --> EXC
 - Error system: standardized exception classes with user-friendly messages
 
 **Section sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L28-L265)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L5-L73)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L28-L265)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L5-L73)
 - [app_theme.dart](file://lib/core/theme/app_theme.dart#L5-L85)
 - [breakpoints.dart](file://lib/shared/responsive/breakpoints.dart#L8-L64)
 - [responsive_layout.dart](file://lib/shared/responsive/responsive_layout.dart#L7-L48)
@@ -145,8 +150,8 @@ Layout-->>App : "page content"
 **Diagram sources**
 - [main.dart](file://lib/main.dart#L8-L28)
 - [app.dart](file://lib/app.dart#L10-L30)
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L101)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L24-L71)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L101)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L24-L71)
 - [zerpai_navbar.dart](file://lib/core/layout/zerpai_navbar.dart#L57-L382)
 - [zerpai_sidebar.dart](file://lib/core/layout/zerpai_sidebar.dart#L589-L630)
 
@@ -168,8 +173,8 @@ Content --> End(["Rendered"])
 ```
 
 **Diagram sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L101)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L24-L71)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L101)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L24-L71)
 
 Practical example: adding a new route
 - Define a constant in the AppRoutes class
@@ -180,7 +185,7 @@ Parameter handling
 - Current routes are path-only; parameters are not used. For query parameters or path segments, consider using a dedicated navigator wrapper or route observers.
 
 **Section sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L28-L265)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L28-L265)
 
 ### Theme Management
 - Material Design: uses Material 3 with a light theme
@@ -291,7 +296,7 @@ ZerpaiSidebar --> ZerpaiSidebarItem : "renders"
 ```
 
 **Diagram sources**
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L5-L73)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L5-L73)
 - [zerpai_navbar.dart](file://lib/core/layout/zerpai_navbar.dart#L3-L382)
 - [zerpai_sidebar.dart](file://lib/core/layout/zerpai_sidebar.dart#L506-L630)
 - [zerpai_sidebar_item.dart](file://lib/core/layout/zerpai_sidebar_item.dart#L233-L315)
@@ -302,7 +307,7 @@ Extending the layout system
 - Customize ZerpaiNavbar for additional actions or branding
 
 **Section sources**
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L24-L71)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L24-L71)
 - [zerpai_navbar.dart](file://lib/core/layout/zerpai_navbar.dart#L57-L382)
 - [zerpai_sidebar.dart](file://lib/core/layout/zerpai_sidebar.dart#L518-L630)
 - [zerpai_sidebar_item.dart](file://lib/core/layout/zerpai_sidebar_item.dart#L281-L315)
@@ -402,8 +407,8 @@ APP --> EXC["app_exceptions.dart"]
 **Diagram sources**
 - [main.dart](file://lib/main.dart#L1-L29)
 - [app.dart](file://lib/app.dart#L1-L32)
-- [app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L1-L73)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L1-L73)
 - [zerpai_navbar.dart](file://lib/core/layout/zerpai_navbar.dart#L1-L382)
 - [zerpai_sidebar.dart](file://lib/core/layout/zerpai_sidebar.dart#L1-L1044)
 - [app_theme.dart](file://lib/core/theme/app_theme.dart#L1-L85)
@@ -415,7 +420,7 @@ APP --> EXC["app_exceptions.dart"]
 
 **Section sources**
 - [app.dart](file://lib/app.dart#L10-L30)
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L101)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L101)
 
 ## Performance Considerations
 - Routing
@@ -457,8 +462,8 @@ APP --> EXC["app_exceptions.dart"]
   - Log stack traces with AppLogger.error for failures
 
 **Section sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L101)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L42-L45)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L101)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L42-L45)
 - [app_theme.dart](file://lib/core/theme/app_theme.dart#L10-L85)
 - [breakpoints.dart](file://lib/shared/responsive/breakpoints.dart#L26-L64)
 - [responsive_layout.dart](file://lib/shared/responsive/responsive_layout.dart#L32-L46)
@@ -496,3 +501,4 @@ By following the patterns and best practices described, teams can reliably add n
   - Pass onNavigate to maintain consistent navigation behavior
 
 [No sources needed since this section provides general guidance]
+

@@ -1,7 +1,7 @@
 // FILE: lib/modules/items/services/lookups_api_service.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/modules/items/items/models/unit_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/uqc_model.dart';

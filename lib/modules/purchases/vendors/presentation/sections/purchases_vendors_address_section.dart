@@ -141,7 +141,7 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
             // Check if it's a custom value (not in current list)
             final states =
                 ref.read(statesProvider(countryShortCode)).asData?.value ?? [];
-            if (!states.contains(v)) {
+            if (!states.any((s) => s['name'] == v)) {
               // Save new state to database
               await ref
                   .read(lookupServiceProvider)
@@ -261,7 +261,12 @@ extension _AddressSection on _PurchasesVendorsVendorCreateScreenState {
                                   : null,
                               hint: 'Select or type to add',
                               allowCustomValue: true,
-                              items: [...(statesAsync.asData?.value ?? [])],
+                              items: [
+                                ...(statesAsync.asData?.value.map(
+                                      (e) => e['name'] ?? '',
+                                    ) ??
+                                    []),
+                              ],
                               onChanged: onDropdownChanged!,
                             );
                           }

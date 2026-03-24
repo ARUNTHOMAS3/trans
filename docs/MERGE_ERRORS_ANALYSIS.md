@@ -19,7 +19,7 @@ Target of URI doesn't exist:
 ```
 
 **Impact**: Router cannot load Items Report screen  
-**Location**: `lib/core/router/app_router.dart:6`  
+**Location**: `lib/core/routing/app_router.dart:6`  
 **Fix**: Create missing file or update import path
 
 ### 2. **Part-of Directive Mismatches**
@@ -185,7 +185,7 @@ part of '../items_items_item_detail.dart';
 ### **Must Fix** (Blocking compilation):
 
 1. ✅ `lib/main.dart` - **ALREADY FIXED** (import path)
-2. ❌ `lib/core/router/app_router.dart` - Missing import
+2. ❌ `lib/core/routing/app_router.dart` - Missing import
 3. ❌ `lib/modules/items/items/presentation/items_items_item_detail.dart` - Wrong sidebar import
 4. ❌ All section files in `lib/modules/items/items/presentation/sections/` - Part-of directives
 

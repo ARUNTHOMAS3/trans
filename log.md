@@ -1,3 +1,249 @@
+## FileUploadButton — Badge Design Correction (March 24, 2026)
+
+### Problem
+Badge was rendered as a small corner overlay on top-right of the upload icon (notification-badge style), causing wrong visual appearance.
+
+### Fix
+`Positioned(top: 0, right: -10)` with a small 18px-high pill → `Positioned(left: 40, top: 0)` with a full-height pill sitting inline to the RIGHT of the upload icon.
+
+### Correct design
+- Badge is a blue pill (`AppTheme.infoBlue`) sitting **8 px to the right** of the 32 px upload icon (`left: 40` = 32 + 8)
+- Same height as the upload button (`widget.height`)
+- Contains paperclip icon + file count in white text
+- Uses `Material` + `InkWell` for proper ripple feedback
+- Renders outside 32 px layout footprint via `Stack(clipBehavior: Clip.none)` — no layout shift
+
+### File changed
+- `lib/shared/widgets/inputs/file_upload_button.dart`
+
+## FileUploadButton — Global Shared Widget (March 24, 2026)
+
+### New file created
+- `lib/shared/widgets/inputs/file_upload_button.dart` — self-contained upload button with file badge and overlay popup
+
+### Widget API
+```dart
+FileUploadButton(
+  files: myFileList,
+  onFilesChanged: (updated) => setState(() => myFileList = updated),
+  height: 34,              // optional, default 34
+  allowedExtensions: [...], // optional, default ['pdf','jpg','jpeg','png']
+  maxFiles: 5,             // optional, default 5
+)
+```
+
+### Design
+- Always 32 px wide in layout — badge floats via `Stack(clipBehavior: Clip.none)` + `Positioned` so it never causes overflow
+- Badge appears top-right as a small pill (paperclip icon + count), clicking opens the file list overlay
+- Upload icon always visible; clicking picks files via FilePicker
+- Self-contained: owns `LayerLink`, `OverlayEntry`, file picker logic — parent only provides `files` + `onFilesChanged`
+- `_FileListItem` inner widget: hover-to-reveal delete, smart icon by extension (PDF/image/generic)
+- Fixes "RIGHT OVERFLOW BY 20 PIXELS" error seen in screenshot
+
+### Infrastructure removed from sales_customer_create.dart
+- Deleted: 6× `LayerLink` fields (`_drug20Link`, etc.), `OverlayEntry _licenseOverlayEntry`, `String? _activeLicenseField`
+- Deleted: `_getLicenseLink()`, `_getLicenseFilesList()`, `_toggleLicenseOverlay()`, `_removeLicenseOverlay()`
+- Deleted: `_pickLicenseDocument()`, `_removeLicenseDocument()`
+- Removed `_licenseOverlayEntry?.remove()` from `dispose()`
+
+### Cleaned up from section/builder files
+- `sales_customer_licence_section.dart`: `_buildLicenseAttachmentIcon()` and `_buildLicenseOverlay()` removed
+- `sales_customer_builders.dart`: `_FileItemWidget` class removed (equivalent now lives inside `file_upload_button.dart`)
+
+### Usage wired up (sales_customer_licence_section.dart)
+- All 6 attachment spots updated: `drugLicense20`, `drugLicense21`, `drugLicense20B`, `drugLicense21B`, `fssai`, `msme`
+
+### log.md rule codified
+- Strict append-only rule: new entries prepend at top, never modify existing content, never use size-limited reads
+- Rule saved to memory: `feedback_log_updates.md`
+
+## Diagnostic Fixes — Warnings & Errors (March 24, 2026)
+
+### sales_order_create.dart — Undefined named parameters removed
+- `itemHeight: 56` removed from `FormDropdown` (param does not exist)
+- `hideBorderDefault: true` removed from 6× `FormDropdown`/`CustomTextField` calls (param does not exist in either widget)
+- `padding: EdgeInsets.only(left: 12, right: 0)` removed from `CustomTextField` (param does not exist)
+- `suffixSeparator: true` removed from `CustomTextField` (param does not exist)
+
+### purchases_bills_create.dart — Cleanup
+- `_dialogDateField` method deleted (unused element warning)
+- Previously deleted: `_buildHorizontalField`, `_dialogTextField` (both unused)
+
+### sales_customer_create.dart
+- `_salutationWidth` and `_primaryContactWidth` fields deleted (unused field warnings)
+
+### sales_customer_overview.dart
+- Unused import `app_router.dart` removed
+
+### sales_customer_builders.dart
+- Unnecessary null comparison `paymentTerms != null &&` and `!` removed (field is non-nullable `String`)
+
+### Widget deprecation fixes
+- `advanced_customer_search_dialog.dart`: `withOpacity(0.15)` → `withValues(alpha: 0.15)`
+- `custom_date_picker.dart`: `withOpacity(0.1)` → `withValues(alpha: 0.1)`
+- `sales_order_preferences_dialog.dart`: `Radio.groupValue`/`onChanged` → wrapped in `RadioGroup<bool>`
+- `settings_locations_create_page.dart`: `Radio.groupValue`/`onChanged` → wrapped in `RadioGroup<String>`
+
+### Hardcoded colors — AppTheme token replacement (background agent)
+- Applied to: `sales_order_preferences_dialog.dart`, `advanced_customer_search_dialog.dart`, `sales_order_item_row.dart`, and all `sales_customer_*` section files
+- Mapping: `0xFF374151`→`AppTheme.textBody`, `0xFF6B7280`→`AppTheme.textSecondary`, `0xFF9CA3AF`→`AppTheme.textMuted`, `0xFF2563EB`→`AppTheme.primaryBlueDark`, `0xFF3B82F6`→`AppTheme.infoBlue`, `0xFF4B5563`→`AppTheme.textSubtle`, etc.
+- Rule saved to memory: never use inline `Color(0xFFxxxxxx)` — always use AppTheme tokens
+
+## Widget Layer Cleanup — 24/03/2026
+
+### Goal
+- Standardize reusable Flutter widgets on `lib/shared/widgets/...`
+- Remove duplicated legacy copies from `lib/core/widgets/...`
+- Keep `lib/core/` focused on app infrastructure and settings-only UI
+
+### Imports migrated
+- `lib/modules/sales/presentation/sales_order_create.dart`
+- `lib/modules/sales/presentation/sales_customer_create.dart`
+- `lib/modules/items/composite_items/presentation/items_composite_items_composite_creation.dart`
+
+### Legacy files removed
+- `lib/core/widgets/common/keyboard_scrollable.dart`
+- `lib/core/widgets/common/skeleton.dart`
+- `lib/core/widgets/common/z_button.dart`
+- `lib/core/widgets/dialogs/hsn_sac_search_modal.dart`
+- `lib/core/widgets/forms/account_tree_dropdown.dart`
+- `lib/core/widgets/forms/category_dropdown.dart`
+- `lib/core/widgets/forms/custom_text_field.dart`
+- `lib/core/widgets/forms/dropdown_input.dart`
+- `lib/core/widgets/forms/field_label.dart`
+- `lib/core/widgets/forms/form_row.dart`
+- `lib/core/widgets/forms/manage_categories_dialog.dart`
+- `lib/core/widgets/forms/manage_list_dialog.dart`
+- `lib/core/widgets/forms/manage_reorder_terms_dialog.dart`
+- `lib/core/widgets/forms/manage_simple_list_dialog.dart`
+- `lib/core/widgets/forms/radio_input.dart`
+- `lib/core/widgets/forms/shared_field_layout.dart`
+- `lib/core/widgets/forms/text_input.dart`
+- `lib/core/widgets/forms/uppercase_text_formatter.dart`
+- `lib/core/widgets/forms/z_tooltip.dart`
+- `lib/core/widgets/forms/zerpai_builders.dart`
+- `lib/core/widgets/forms/zerpai_radio_group.dart`
+
+### Intentional keep
+- `lib/core/widgets/settings_search_field.dart`
+  - remains in `core` because it is settings-specific UI, not a general reusable ERP widget
+
+### Compatibility fixes added to shared widgets
+- `lib/shared/widgets/inputs/custom_text_field.dart`
+  - restored support for `fillColor`, `hideBorderDefault`, `padding`, `suffixSeparator`
+- `lib/shared/widgets/inputs/dropdown_input.dart`
+  - restored support for `hideBorderDefault` and `itemHeight`
+
+### Validation
+- First `flutter analyze` run failed after the import migration
+  - cause: shared widget APIs did not yet expose all parameters used by migrated sales screens
+- Fixed by extending the shared widget API instead of restoring deleted `core/widgets`
+- Final validation:
+  - `flutter analyze` → `No issues found!`
+  - `flutter test` → `All 49 tests passed!`
+- Note:
+  - transaction-lock provider tests intentionally emit `AppLogger.error(...)` output while still passing
+
+### Canonical rule adopted
+- `lib/core/` = routing, theme, layout, infrastructure, settings-only support widgets
+- `lib/shared/widgets/` = reusable UI widgets, inputs, dialogs, buttons, shells, helpers
+
+## Core/Shared Consolidation Pass 2 — 24/03/2026
+
+### Goal
+- Continue the `core` vs `shared` cleanup outside the widget-input layer
+- Remove dead duplicate sidebar files
+- Standardize feature/shared-layer `ApiClient` imports onto the shared wrapper while keeping the implementation in `lib/core/services/api_client.dart`
+
+### Dead duplicate files removed
+- `lib/shared/widgets/sidebar/zerpai_sidebar.dart`
+- `lib/shared/widgets/sidebar/zerpai_sidebar_item.dart`
+
+### Import standardization
+- Switched non-core callers from `package:zerpai_erp/core/services/api_client.dart` to `package:zerpai_erp/shared/services/api_client.dart`
+- Applied to:
+  - `lib/shared/services/lookup_service.dart`
+  - `lib/shared/utils/tax_engine.dart`
+  - `lib/shared/widgets/hsn_sac_search_modal.dart`
+  - `lib/modules/accountant/repositories/accountant_repository.dart`
+  - `lib/modules/auth/controller/auth_controller.dart`
+  - `lib/modules/auth/presentation/auth_auth_login.dart`
+  - `lib/modules/auth/presentation/auth_organization_management_overview.dart`
+  - `lib/modules/auth/presentation/auth_profile_overview.dart`
+  - `lib/modules/auth/presentation/auth_user_management_overview.dart`
+  - `lib/modules/auth/repositories/auth_repository.dart`
+  - `lib/modules/auth/repositories/user_management_repository.dart`
+  - `lib/modules/inventory/repositories/adjustments_repository.dart`
+  - `lib/modules/inventory/repositories/stock_repository.dart`
+  - `lib/modules/inventory/repositories/transfers_repository.dart`
+  - `lib/modules/items/items/services/lookups_api_service.dart`
+  - `lib/modules/items/items/services/products_api_service.dart`
+  - `lib/modules/printing/presentation/printing_templates_overview.dart`
+  - `lib/modules/printing/repositories/print_template_repository.dart`
+  - `lib/modules/reports/repositories/reports_repository.dart`
+  - `lib/modules/sales/repositories/customers_repository.dart`
+  - `lib/modules/sales/repositories/eway_bills_repository.dart`
+  - `lib/modules/sales/repositories/payments_repository.dart`
+  - `lib/modules/sales/repositories/sales_orders_repository.dart`
+  - `lib/modules/sales/services/gstin_lookup_service.dart`
+  - `lib/modules/sales/services/hsn_sac_lookup_service.dart`
+  - `lib/modules/sales/services/sales_order_api_service.dart`
+
+### Dependency rule used
+- `core` keeps the real implementation:
+  - `lib/core/services/api_client.dart`
+- `shared` exposes the re-export wrapper for non-core consumers:
+  - `lib/shared/services/api_client.dart`
+- `core` pages and `core` services were intentionally left on direct `core/services/api_client.dart` imports to avoid reversing the dependency direction.
+
+### Validation
+- `flutter analyze` → `No issues found!`
+- `flutter test` → `All 49 tests passed!`
+- Note:
+  - transaction-lock provider tests still emit expected logger output while passing
+
+## Sales Module Integration — Sections & Widgets (March 24, 2026)
+
+### Files integrated from co-dev (Althaf) into lib/modules/sales/
+
+**Sections (part files for sales_customer_create.dart)**
+- `sections/sales_customer_licence_section.dart` — Drug licence (20/20B/21/21B), FSSAI, MSME registration with file attachment overlays
+- `sections/sales_customer_address_section.dart` — Billing/shipping address with state dropdown
+- `sections/sales_customer_bank_section.dart` — Bank account details
+- `sections/sales_customer_contact_section.dart` — Contact persons management
+- `sections/sales_customer_other_section.dart` — Payment terms, price list, custom fields
+- `sections/sales_customer_builders.dart` — Shared form row builder, `_FileItemWidget`, attachment icon builder, overlay builder
+- `sections/sales_customer_helpers.dart` — Validation helpers, document pick logic
+- (+ 16 additional section part files)
+
+**Widgets**
+- `widgets/advanced_customer_search_dialog.dart` — Advanced search dialog with package import fix
+- `widgets/bulk_items_dialog.dart` — Bulk item selection dialog
+- `widgets/custom_date_picker.dart` — Custom date picker widget
+- `widgets/sales_order_item_row.dart` — Item row widget for sales orders
+- `widgets/sales_order_preferences_dialog.dart` — Order preferences dialog
+
+### Parent screen updates (sales_customer_create.dart)
+- Added imports: `app_logger.dart`, `manage_payment_terms_dialog.dart`, `lookups_api_service.dart`, `z_tooltip.dart`
+- Added `_loadCountries()` call in `initState`
+- Added dispose for `_licenseOverlayEntry` and 6 new `FocusNode` fields
+- Added fields: `selectedPriceListId`, `_priceListsList`, `_phoneCodesList`, `_phoneCodeToLabel`, `_paymentTermsList`
+- Added 6 FocusNode + 6 error String? fields for license inputs (drugLicense20, 21, 20B, 21B, fssai, msme)
+- Added 6 `LayerLink` fields + `_licenseOverlayEntry`, `_activeLicenseField` for overlay system
+- Added methods: `_getLicenseLink()`, `_getLicenseFilesList()`, `_toggleLicenseOverlay()`, `_removeLicenseOverlay()`
+- Changed `_indiaStates` to `List<String>`, updated `_loadIndiaStates()` to extract names
+- Changed `_removeLicenseDocument` signature to `(String field, {int? index})`
+- Synced `_priceListsList` in `build()` via `ref.watch(priceListNotifierProvider).whenData(...)`
+- Added `isHovered = false` to `_ContactPersonRow`
+- Replaced 3× `debugPrint` with `AppLogger.error`
+
+### PRD compliance fixes applied
+- `sales_customer_builders.dart`: 2× `Tooltip` → `ZTooltip`, 1× `debugPrint` → `AppLogger.error`
+- `sales_customer_helpers.dart`: 1× `debugPrint` → `AppLogger.error`
+- `sales_customer_licence_section.dart`: 1× `Tooltip` → `ZTooltip`
+- `advanced_customer_search_dialog.dart`: relative import → package import
+- `purchases_bills_create.dart`: all 5× `DropdownButtonFormField` → `FormDropdown`, removed invalid `AccountTreeDropdown` params (`fillColor`, `width`), removed unused imports
+
 ## Purchases Module Integration (March 23, 2026)
 
 ### Files integrated from co-dev (Althaf) into lib/modules/purchases/
@@ -6490,3 +6736,85 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - `_buildTableRow()` accepts `isChild`, `isLastChild`, `hasChildren` params
 - Child rows: leading area shows `_TreeLinePainter` (CustomPainter drawing vertical + horizontal branch lines) replacing the status dot; status dot appears inline before the name text
 - `_TreeLinePainter` draws: vertical line top→mid, optional vertical line mid→bottom (if not last child), horizontal branch mid→right; colour = `AppTheme.borderColor`
+
+## Service Canonicalization Pass (24/03/2026)
+
+### Canonical direction applied
+- Kept app shell/layout infrastructure in `lib/core/...`.
+- Standardized cross-feature runtime services onto `lib/shared/services/...` for non-core feature code and repositories.
+
+### Imports normalized to shared services
+- Moved feature imports to shared service entry points in:
+  - `lib/modules/items/composite_items/presentation/items_composite_items_composite_creation.dart`
+  - `lib/modules/sales/presentation/sales_customer_create.dart`
+  - `lib/modules/sales/presentation/sales_order_create.dart`
+- Moved repository imports from `lib/core/services/hive_service.dart` to `lib/shared/services/hive_service.dart` in:
+  - `lib/modules/accountant/repositories/accountant_repository.dart`
+  - `lib/modules/inventory/repositories/adjustments_repository.dart`
+  - `lib/modules/inventory/repositories/stock_repository.dart`
+  - `lib/modules/inventory/repositories/transfers_repository.dart`
+  - `lib/modules/items/items/repositories/items_repository_impl.dart`
+  - `lib/modules/items/items/repositories/products_repository.dart`
+  - `lib/modules/sales/repositories/customers_repository.dart`
+  - `lib/modules/sales/repositories/eway_bills_repository.dart`
+  - `lib/modules/sales/repositories/payments_repository.dart`
+  - `lib/modules/sales/repositories/sales_orders_repository.dart`
+
+### Shared service contracts upgraded
+- Updated `lib/shared/services/lookup_service.dart` so `countriesProvider` exposes `id` and `statesProvider` returns named state maps (`id`, `name`, `code`) instead of plain strings.
+- Updated `lib/shared/services/storage_service.dart` to carry the richer shared contract:
+  - `uploadLicenseDocument(...)`
+  - content-type aware `_uploadToR2(...)`
+  - explicit image content types for product and location uploads
+- Updated `lib/modules/purchases/vendors/presentation/sections/purchases_vendors_address_section.dart` to consume the normalized state-map provider shape.
+
+### Dead core duplicates removed
+- Deleted:
+  - `lib/core/services/lookup_service.dart`
+  - `lib/core/services/recent_history_service.dart`
+  - `lib/core/services/storage_service.dart`
+  - `lib/core/services/sync/global_sync_manager.dart`
+  - `lib/core/services/sync/sync_service.dart`
+
+### Validation
+- `flutter analyze` passed with no issues.
+- `flutter test` passed: 49 tests.
+- Test output still includes expected `AppLogger.error` lines from transaction-lock failure-path tests; suite result is green.
+
+## Documentation Canonical Structure Alignment (24/03/2026)
+
+### Canonical rule locked
+- `lib/core/` = app infrastructure only.
+- `lib/core/layout/` = shell/navigation infrastructure only.
+- `lib/shared/widgets/` = reusable UI widgets, dialogs, page wrappers, and responsive UI primitives.
+- `lib/shared/services/` = cross-feature services.
+- `lib/modules/` = feature-specific code.
+- `lib/core/widgets/` is no longer documented as the reusable widget home.
+
+### Documentation sets updated
+- Updated top-level governance and agent docs:
+  - `AGENTS.md`
+  - `CLAUDE.md`
+  - `.agent/ARCHITECTURE.md`
+  - `.agent/agents/mobile-developer.md`
+  - `README.md`
+- Updated PRD docs:
+  - `PRD/PRD.md`
+  - `PRD/prd_ui.md`
+  - `PRD/prd_folder_structure.md`
+  - `PRD/PRINT_REPLACEMENT_GUIDE.md`
+- Updated repowiki guidance docs so structure/path references match the canonical rule:
+  - `repowiki/en/content/Development Guidelines.md`
+  - `repowiki/en/content/Frontend Development/Frontend Development.md`
+  - `repowiki/en/content/Frontend Development/Core Infrastructure.md`
+  - `repowiki/en/content/Frontend Development/Flutter Application Structure.md`
+  - `repowiki/en/content/Architecture & Design/Frontend Architecture.md`
+- Normalized stale router/layout path references across additional repowiki docs from old `core/router` and nonexistent `core/layout/zerpai_layout.dart` references to the current canonical paths.
+- Updated related docs in `docs/` where the old router path was still referenced:
+  - `docs/MERGE_ERRORS_ANALYSIS.md`
+  - `docs/RECOVERY_COMPLETE.md`
+
+### Result
+- The active docs no longer contradict each other on reusable widget placement.
+- The docs now consistently describe `core` as infrastructure, `shared` as reusable UI/services, and `modules` as feature code.
+- Secondary documentation no longer points to the old `lib/core/router/app_router.dart` or `lib/core/layout/zerpai_layout.dart` paths.

@@ -4,9 +4,9 @@
 **Referenced Files in This Document**
 - [main.dart](file://lib/main.dart)
 - [app.dart](file://lib/app.dart)
-- [app_router.dart](file://lib/core/router/app_router.dart)
+- [app_router.dart](file://lib/core/routing/app_router.dart)
 - [app_theme.dart](file://lib/core/theme/app_theme.dart)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart)
 - [responsive_layout.dart](file://lib/shared/responsive/responsive_layout.dart)
 - [breakpoints.dart](file://lib/shared/responsive/breakpoints.dart)
 - [items_controller.dart](file://lib/modules/items/controller/items_controller.dart)
@@ -32,6 +32,12 @@
 ## Introduction
 This document describes the frontend architecture of the Flutter application. It explains the layered architecture (presentation, state management, and data access), the modular structure separating items, sales, reports, and shared components, the routing system, theme management, responsive layout implementation, state management patterns using Riverpod, offline-first strategy with Hive integration, and backend integration. It also covers performance optimization and memory management strategies.
 
+Canonical placement rule:
+- `lib/core/` = app infrastructure only
+- `lib/core/layout/` = shell/navigation infrastructure
+- `lib/shared/widgets/` = reusable UI widgets and page wrappers
+- `lib/shared/services/` = cross-feature services
+
 ## Project Structure
 The application follows a feature-based modular structure under lib/, with clear separation of concerns:
 - Presentation layer: widgets and screens organized per module (items, sales, reports) and shared UI components.
@@ -46,8 +52,8 @@ MAIN["lib/main.dart"]
 APP["lib/app.dart"]
 end
 subgraph "Routing & Shell"
-ROUTER["lib/core/router/app_router.dart"]
-LAYOUT["lib/core/layout/zerpai_layout.dart"]
+ROUTER["lib/core/routing/app_router.dart"]
+LAYOUT["lib/shared/widgets/zerpai_layout.dart"]
 end
 subgraph "Modules"
 subgraph "Items"
@@ -77,8 +83,8 @@ RL --> BP
 **Diagram sources**
 - [main.dart](file://lib/main.dart#L1-L29)
 - [app.dart](file://lib/app.dart#L1-L32)
-- [app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L1-L73)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L1-L73)
 - [items_controller.dart](file://lib/modules/items/controller/items_controller.dart#L1-L568)
 - [items_repository.dart](file://lib/modules/items/repositories/items_repository.dart#L1-L53)
 - [items_repository_impl.dart](file://lib/modules/items/repositories/items_repository_impl.dart#L1-L297)
@@ -91,8 +97,8 @@ RL --> BP
 **Section sources**
 - [main.dart](file://lib/main.dart#L1-L29)
 - [app.dart](file://lib/app.dart#L1-L32)
-- [app_router.dart](file://lib/core/router/app_router.dart#L1-L341)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L1-L73)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L1-L341)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L1-L73)
 - [responsive_layout.dart](file://lib/shared/responsive/responsive_layout.dart#L1-L48)
 - [breakpoints.dart](file://lib/shared/responsive/breakpoints.dart#L1-L64)
 
@@ -106,7 +112,7 @@ RL --> BP
 
 **Section sources**
 - [main.dart](file://lib/main.dart#L8-L28)
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L265)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L265)
 - [app_theme.dart](file://lib/core/theme/app_theme.dart#L1-L85)
 - [responsive_layout.dart](file://lib/shared/responsive/responsive_layout.dart#L1-L48)
 - [breakpoints.dart](file://lib/shared/responsive/breakpoints.dart#L1-L64)
@@ -146,8 +152,8 @@ IMPL --> HIVE
 ```
 
 **Diagram sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L267-L276)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L5-L21)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L267-L276)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L5-L21)
 - [items_controller.dart](file://lib/modules/items/controller/items_controller.dart#L16-L23)
 - [items_state.dart](file://lib/modules/items/controller/items_state.dart#L7-L61)
 - [items_repository.dart](file://lib/modules/items/repositories/items_repository.dart#L3-L9)
@@ -175,13 +181,13 @@ Screen-->>User : Display list with configured columns
 ```
 
 **Diagram sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L169)
-- [app_router.dart](file://lib/core/router/app_router.dart#L267-L276)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L169)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L267-L276)
 
 **Section sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L29-L90)
-- [app_router.dart](file://lib/core/router/app_router.dart#L93-L265)
-- [app_router.dart](file://lib/core/router/app_router.dart#L267-L341)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L29-L90)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L93-L265)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L267-L341)
 
 ### Theme Management
 - Global theme: The app sets a global Material theme with consistent colors, typography, and button styles.
@@ -352,13 +358,13 @@ CTRL --> STATE["ItemsState"]
 ```
 
 **Diagram sources**
-- [app_router.dart](file://lib/core/router/app_router.dart#L267-L276)
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L5-L21)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L267-L276)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L5-L21)
 - [items_controller.dart](file://lib/modules/items/controller/items_controller.dart#L563-L568)
 
 **Section sources**
-- [zerpai_layout.dart](file://lib/core/layout/zerpai_layout.dart#L1-L73)
-- [app_router.dart](file://lib/core/router/app_router.dart#L267-L341)
+- [zerpai_layout.dart](file://lib/shared/widgets/zerpai_layout.dart#L1-L73)
+- [app_router.dart](file://lib/core/routing/app_router.dart#L267-L341)
 - [items_controller.dart](file://lib/modules/items/controller/items_controller.dart#L563-L568)
 
 ## Dependency Analysis
@@ -413,3 +419,4 @@ SVC --> AC["ApiClient"]
 
 ## Conclusion
 The application employs a clean, layered architecture with strong separation between presentation, state management, and data access. Riverpod provides predictable state updates, while the repository pattern and Hive integration deliver robust offline-first capabilities. The centralized router and shared layout ensure consistent navigation and UX across modules. With responsive utilities and performance-conscious design choices, the app scales effectively across devices and maintains reliability in offline scenarios.
+

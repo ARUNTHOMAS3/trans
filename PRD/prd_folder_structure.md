@@ -381,18 +381,6 @@ zerpai_erp/
 │   │   │   ├── zerpai_sidebar.dart  # Main sidebar navigation
 │   │   │   ├── zerpai_navbar.dart   # Top navigation bar
 │   │   │   └── responsive_layout.dart
-│   │   ├── widgets/                 # ⭐ Core reusable widgets
-│   │   │   ├── forms/               # Form components (moved from shared)
-│   │   │   │   ├── form_dropdown.dart
-│   │   │   │   ├── form_text_field.dart
-│   │   │   │   └── form_date_picker.dart
-│   │   │   ├── common/              # Generic widgets
-│   │   │   │   ├── loading_indicator.dart
-│   │   │   │   ├── error_widget.dart
-│   │   │   │   └── empty_state.dart
-│   │   │   └── dialogs/
-│   │   │       ├── confirmation_dialog.dart
-│   │   │       └── info_dialog.dart
 │   │   ├── constants/
 │   │   │   ├── api_endpoints.dart   # Backend API URLs
 │   │   │   ├── app_constants.dart   # App-wide constants
@@ -410,6 +398,14 @@ zerpai_erp/
 │   │   │   ├── dio_client.dart      # Dio singleton instance
 │   │   │   ├── api_interceptors.dart # Auth token, logging
 │   │   │   └── api_response.dart    # Standardized response wrapper
+│   ├── shared/                      # ⭐ Reusable cross-feature building blocks
+│   │   ├── widgets/
+│   │   │   ├── inputs/              # Form controls, pickers, tooltips
+│   │   │   ├── dialogs/             # Reusable dialogs
+│   │   │   ├── reports/             # Reusable report shells
+│   │   │   └── texts/
+│   │   ├── services/                # Cross-feature services
+│   │   └── responsive/              # Shared responsive primitives
 │   │   ├── storage/
 │   │   │   ├── hive_service.dart    # Hive initialization
 │   │   │   └── preferences_service.dart
@@ -521,16 +517,16 @@ zerpai_erp/
 
 | Folder             | Purpose                            | Examples                                                        |
 | ------------------ | ---------------------------------- | --------------------------------------------------------------- |
-| **`lib/core/`**    | App infrastructure & core widgets  | Router, theme, API client, logger, sidebar/navbar, form widgets |
-| **`lib/shared/`**  | Shared providers & models ONLY     | Common providers (items, vendors), shared models (Address)      |
+| **`lib/core/`**    | App infrastructure only            | Router, theme, logger, shell layout, bootstrap wiring           |
+| **`lib/shared/`**  | Reusable UI and cross-feature code | Widgets, services, responsive primitives, shared models         |
 | **`lib/modules/`** | Feature-specific code (isolated)   | Sales, items, inventory                                         |
 | **`assets/`**      | Images, fonts, icons               | Item images, app logo                                           |
 | **`test/`**        | All tests (mirrors `lib/` exactly) | Unit, widget, integration tests                                 |
 
 **Key Distinction:**
 
-- **`core/`**: Infrastructure that the app NEEDS to run (router, theme, API client, layout)
-- **`shared/`**: Business data that's SHARED across modules (providers, models)
+- **`core/`**: Infrastructure that the app NEEDS to run (router, theme, logging, shell layout)
+- **`shared/`**: Reusable UI and cross-feature services/models used across modules
 - **`modules/`**: Feature-specific business logic
 
 ---
@@ -636,8 +632,12 @@ START
 │  └─ YES → lib/core/<category>/
 │  └─ NO → Continue
 │
-├─ Is it a reusable UI widget? (FormDropdown, LoadingIndicator)
-│  └─ YES → lib/core/widgets/<category>/
+├─ Is it a reusable UI widget? (FormDropdown, ZTooltip, dialogs, page wrappers)
+│  └─ YES → lib/shared/widgets/<category>/
+│  └─ NO → Continue
+│
+├─ Is it a cross-feature service? (ApiClient, StorageService, LookupService, HiveService)
+│  └─ YES → lib/shared/services/
 │  └─ NO → Continue
 │
 ├─ Is it a shared provider or model? (itemsProvider, Address model)
@@ -657,16 +657,17 @@ START
 | Component                 | Location                                                              | Rationale              |
 | ------------------------- | --------------------------------------------------------------------- | ---------------------- |
 | App router (GoRouter)     | `lib/core/routing/app_router.dart`                                    | Core infrastructure    |
-| **Sidebar navigation** ⭐ | `lib/core/layout/zerpai_sidebar.dart`                                 | Core layout component  |
-| **Navbar** ⭐             | `lib/core/layout/zerpai_navbar.dart`                                  | Core layout component  |
+| **Sidebar navigation** ⭐ | `lib/core/layout/zerpai_sidebar.dart`                                 | Core shell component   |
+| **Navbar** ⭐             | `lib/core/layout/zerpai_navbar.dart`                                  | Core shell component   |
 | App theme                 | `lib/core/theme/app_theme.dart`                                       | Core infrastructure    |
 | Dio client                | `lib/core/api/dio_client.dart`                                        | Core infrastructure    |
-| **FormDropdown** ⭐       | `lib/core/widgets/forms/form_dropdown.dart`                           | Core reusable widget   |
-| LoadingIndicator          | `lib/core/widgets/common/loading_indicator.dart`                      | Core reusable widget   |
+| **FormDropdown** ⭐       | `lib/shared/widgets/inputs/dropdown_input.dart`                       | Shared reusable widget |
+| **ZerpaiDatePicker** ⭐   | `lib/shared/widgets/inputs/zerpai_date_picker.dart`                   | Shared reusable widget |
+| **ZTooltip** ⭐           | `lib/shared/widgets/inputs/z_tooltip.dart`                            | Shared reusable widget |
+| StorageService            | `lib/shared/services/storage_service.dart`                            | Shared service         |
 | Currency formatter        | `lib/core/utils/currency_formatter.dart`                              | Core utility           |
 | String extensions         | `lib/core/extensions/string_extensions.dart`                          | Core extension         |
-| Items provider            | `lib/shared/providers/common_providers.dart`                          | Shared across modules  |
-| Address model             | `lib/shared/models/common_models.dart`                                | Shared model           |
+| Shared model              | `lib/shared/models/common_models.dart`                                | Shared model           |
 | SalesOrderCard            | `lib/modules/sales/presentation/widgets/sales_orders_order_card.dart` | Module-specific widget |
 | Item model                | `lib/modules/items/models/items_items_item_model.dart`                | Module-specific        |
 | Items provider            | `lib/modules/items/providers/items_items_item_provider.dart`          | Module-specific        |
@@ -954,8 +955,8 @@ lib/modules/sales/presentation/
 
 ```
 # Correct - clear separation
-lib/core/widgets/forms/
-└── form_dropdown.dart           # Generic, reusable
+lib/shared/widgets/inputs/
+└── dropdown_input.dart          # Generic, reusable
 
 lib/modules/sales/presentation/widgets/
 └── sales_orders_order_card.dart        # Module-specific
@@ -999,7 +1000,8 @@ Get-ChildItem -Path lib -Recurse -Filter "*.dart" |
 - [ ] Move theme files to `lib/core/theme/`
 - [ ] Move API client to `lib/core/api/`
 - [ ] Organize module internals (models/, providers/, presentation/)
-- [ ] Move generic widgets to `lib/core/widgets/`
+- [ ] Move reusable widgets to `lib/shared/widgets/`
+- [ ] Move cross-feature services to `lib/shared/services/`
 - [ ] Rename any PascalCase files to snake_case
 - [ ] Update all import statements
 
@@ -1062,11 +1064,11 @@ mkdir -p test/modules/<module>/{models,providers,presentation}
 # 1. Identify category
 # - forms/, layout/, common/, dialogs/
 
-# 2. Create in core/widgets/<category>/
-touch lib/core/widgets/forms/new_widget.dart
+# 2. Create in shared/widgets/<category>/
+touch lib/shared/widgets/inputs/new_widget.dart
 
 # 3. Add test
-touch test/core/widgets/forms/new_widget_test.dart
+touch test/shared/widgets/new_widget_test.dart
 ```
 
 ---

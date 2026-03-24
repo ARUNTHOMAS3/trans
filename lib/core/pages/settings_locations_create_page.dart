@@ -1055,29 +1055,40 @@ class _SettingsLocationsCreatePageState
       children: [
         _buildSectionLabel('Location Type'),
         const SizedBox(height: AppTheme.space12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildTypeCard(
-                type: 'business',
-                title: 'Business Location',
-                description:
-                    'A Business Location represents your organization or office\'s '
-                    'operational location. It is used to record transactions, assess '
-                    'regional performance, and monitor stock levels for items stored at this location.',
+        RadioGroup<String>(
+          groupValue: _locationType,
+          onChanged: (v) {
+            if (v != null) {
+              setState(() {
+                _locationType = v;
+                if (v == 'warehouse') _isChildLocation = false;
+              });
+            }
+          },
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildTypeCard(
+                  type: 'business',
+                  title: 'Business Location',
+                  description:
+                      'A Business Location represents your organization or office\'s '
+                      'operational location. It is used to record transactions, assess '
+                      'regional performance, and monitor stock levels for items stored at this location.',
+                ),
               ),
-            ),
-            const SizedBox(width: AppTheme.space16),
-            Expanded(
-              child: _buildTypeCard(
-                type: 'warehouse',
-                title: 'Warehouse Only Location',
-                description:
-                    'A Warehouse Only Location refers to where your items are stored. '
-                    'It helps track and monitor stock levels for items stored at this location.',
+              const SizedBox(width: AppTheme.space16),
+              Expanded(
+                child: _buildTypeCard(
+                  type: 'warehouse',
+                  title: 'Warehouse Only Location',
+                  description:
+                      'A Warehouse Only Location refers to where your items are stored. '
+                      'It helps track and monitor stock levels for items stored at this location.',
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -1115,11 +1126,6 @@ class _SettingsLocationsCreatePageState
               height: 18,
               child: Radio<String>(
                 value: type,
-                groupValue: _locationType,
-                onChanged: (v) => setState(() {
-                  _locationType = v ?? type;
-                  if (v == 'warehouse') _isChildLocation = false;
-                }),
                 activeColor: accentColor,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
