@@ -431,7 +431,7 @@ At a later production stage, existing tables may be renamed to comply with this 
 
 ### 12.3 Schema Snapshot Compliance (MANDATORY)
 
-- **Schema Reference:** `PRD/prd_schema.md` is the current schema snapshot.
+- **Schema Reference:** `PRD/prd_schema.md` is the current schema snapshot, regenerated from `current schema.txt` on 2026-03-24.
 - **Form Mapping:** Every creation/edit form must map to the corresponding table(s) in the schema snapshot.
 - **No Drift:** Do not invent fields or tables outside the snapshot without a schema update.
 - **Updates:** Schema will be updated periodically; refresh the snapshot when DB changes.

@@ -31,8 +31,12 @@
 ## Introduction
 This document describes the ZerpAI ERP database schema and design. It covers the current normalized schema for products, customers, sales orders, inventory, and lookup tables. It explains entity relationships, foreign key constraints, referential integrity, enum definitions, multi-tenant design patterns, UUID primary keys, timestamps, indexing strategies, performance considerations, and seed data population. It also documents the evolution from earlier migrations and the current Drizzle ORM model used by the backend.
 
+Authoritative source note:
+- The current live table inventory is maintained in `PRD/prd_schema.md`, regenerated from `current schema.txt` on 2026-03-24.
+- If this repowiki summary conflicts with `PRD/prd_schema.md`, trust `PRD/prd_schema.md`.
+
 ## Project Structure
-The database schema is defined primarily via Supabase SQL migrations and mirrored in the backend using Drizzle ORM. The key elements are:
+The database schema is defined primarily via the live schema snapshot in `PRD/prd_schema.md`, supported by Supabase SQL migrations, and mirrored in the backend using Drizzle ORM. The key elements are:
 - Migrations define the canonical schema and seed data
 - Backend schema.ts defines enums and table structures for type-safe ORM usage
 - Scripts populate lookup tables and sample data for development/testing

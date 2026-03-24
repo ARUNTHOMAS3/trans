@@ -53,7 +53,7 @@ MAIN["main.dart"]
 APP["app.dart"]
 end
 subgraph "Routing"
-ROUTER["core/router/app_router.dart"]
+ROUTER["core/routing/app_router.dart"]
 end
 subgraph "Layout"
 LAYOUT["shared/widgets/zerpai_layout.dart"]

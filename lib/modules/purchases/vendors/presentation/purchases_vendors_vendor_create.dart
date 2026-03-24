@@ -21,6 +21,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:zerpai_erp/core/routing/app_router.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart';
 
 part 'sections/purchases_vendors_builders.dart';
 part 'sections/purchases_vendors_primary_info_section.dart';
@@ -133,34 +135,21 @@ class _PurchasesVendorsVendorCreateScreenState
   String? drugLicense20BError;
   String? drugLicense21BError;
 
-  final List<PlatformFile> drugLicense20Docs = [];
-  final List<PlatformFile> drugLicense21Docs = [];
-  final List<PlatformFile> drugLicense20BDocs = [];
-  final List<PlatformFile> drugLicense21BDocs = [];
-
-  final LayerLink drugLicense20Link = LayerLink();
-  final LayerLink drugLicense21Link = LayerLink();
-  final LayerLink drugLicense20BLink = LayerLink();
-  final LayerLink drugLicense21BLink = LayerLink();
+  List<PlatformFile> drugLicense20Docs = [];
+  List<PlatformFile> drugLicense21Docs = [];
+  List<PlatformFile> drugLicense20BDocs = [];
+  List<PlatformFile> drugLicense21BDocs = [];
 
   bool isFssaiRegistered = false;
   final fssaiCtrl = TextEditingController();
   final fssaiFocus = FocusNode();
   String? fssaiError;
-  final List<PlatformFile> fssaiDocs = [];
-  final LayerLink fssaiLink = LayerLink();
+  List<PlatformFile> fssaiDocs = [];
 
-  // MSME state (reusing/aligning with your snippet)
-  // _isMsmeRegistered already exists at line 84
-  // _msmeRegistrationType exists at 85
-  // _msmeRegistrationNumberCtrl exists at 86
-  final List<PlatformFile> msmeDocs = [];
-  final msmeLink = LayerLink();
+  // MSME state
+  List<PlatformFile> msmeDocs = [];
   final msmeFocus = FocusNode();
   String? msmeError;
-
-  OverlayEntry? _licenseOverlayEntry;
-  String? _activeLicenseField;
 
   // Address Controllers
   final _billingAttentionCtrl = TextEditingController();
@@ -413,7 +402,6 @@ class _PurchasesVendorsVendorCreateScreenState
     drugLicense21BFocus.dispose();
     fssaiFocus.dispose();
     msmeFocus.dispose();
-    _removeLicenseOverlay();
     for (var row in bankRows) {
       row.dispose();
     }
@@ -435,108 +423,6 @@ class _PurchasesVendorsVendorCreateScreenState
       row.dispose();
     }
     super.dispose();
-  }
-
-  Future<void> _pickLicenseDocument(String field) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-      allowMultiple: true,
-    );
-
-    if (result != null && result.files.isNotEmpty) {
-      _state(() {
-        switch (field) {
-          case 'drugLicense20':
-            drugLicense20Docs.addAll(result.files);
-            break;
-          case 'drugLicense21':
-            drugLicense21Docs.addAll(result.files);
-            break;
-          case 'drugLicense20B':
-            drugLicense20BDocs.addAll(result.files);
-            break;
-          case 'drugLicense21B':
-            drugLicense21BDocs.addAll(result.files);
-            break;
-          case 'fssai':
-            fssaiDocs.addAll(result.files);
-            break;
-          case 'msme':
-            msmeDocs.addAll(result.files);
-            break;
-        }
-      });
-    }
-  }
-
-  void _removeLicenseDocument(String field, {int? index}) {
-    _state(() {
-      switch (field) {
-        case 'drugLicense20':
-          if (index != null) {
-            if (index >= 0 && index < drugLicense20Docs.length) {
-              drugLicense20Docs.removeAt(index);
-            }
-          } else {
-            drugLicense20Docs.clear();
-          }
-          break;
-        case 'drugLicense21':
-          if (index != null) {
-            if (index >= 0 && index < drugLicense21Docs.length) {
-              drugLicense21Docs.removeAt(index);
-            }
-          } else {
-            drugLicense21Docs.clear();
-          }
-          break;
-        case 'drugLicense20B':
-          if (index != null) {
-            if (index >= 0 && index < drugLicense20BDocs.length) {
-              drugLicense20BDocs.removeAt(index);
-            }
-          } else {
-            drugLicense20BDocs.clear();
-          }
-          break;
-        case 'drugLicense21B':
-          if (index != null) {
-            if (index >= 0 && index < drugLicense21BDocs.length) {
-              drugLicense21BDocs.removeAt(index);
-            }
-          } else {
-            drugLicense21BDocs.clear();
-          }
-          break;
-        case 'fssai':
-          if (index != null) {
-            if (index >= 0 && index < fssaiDocs.length) {
-              fssaiDocs.removeAt(index);
-            }
-          } else {
-            fssaiDocs.clear();
-          }
-          break;
-        case 'msme':
-          if (index != null) {
-            if (index >= 0 && index < msmeDocs.length) {
-              msmeDocs.removeAt(index);
-            }
-          } else {
-            msmeDocs.clear();
-          }
-          break;
-      }
-
-      // Update or close overlay if empty
-      final list = _getLicenseFilesList(field);
-      if (list.isEmpty) {
-        _removeLicenseOverlay();
-      } else {
-        _licenseOverlayEntry?.markNeedsBuild();
-      }
-    });
   }
 
   void _onLicenseFocusChange(String field) {
@@ -624,69 +510,6 @@ class _PurchasesVendorsVendorCreateScreenState
     }
     // Add specific format validations if needed later
     return null;
-  }
-
-  List<PlatformFile> _getLicenseFilesList(String field) {
-    switch (field) {
-      case 'drugLicense20':
-        return drugLicense20Docs;
-      case 'drugLicense21':
-        return drugLicense21Docs;
-      case 'drugLicense20B':
-        return drugLicense20BDocs;
-      case 'drugLicense21B':
-        return drugLicense21BDocs;
-      case 'fssai':
-        return fssaiDocs;
-      case 'msme':
-        return msmeDocs;
-      default:
-        return [];
-    }
-  }
-
-  LayerLink _getLicenseLink(String field) {
-    switch (field) {
-      case 'drugLicense20':
-        return drugLicense20Link;
-      case 'drugLicense21':
-        return drugLicense21Link;
-      case 'drugLicense20B':
-        return drugLicense20BLink;
-      case 'drugLicense21B':
-        return drugLicense21BLink;
-      case 'fssai':
-        return fssaiLink;
-      case 'msme':
-        return msmeLink;
-      default:
-        return LayerLink();
-    }
-  }
-
-  void _toggleLicenseOverlay(String field) {
-    if (_licenseOverlayEntry != null && _activeLicenseField == field) {
-      _removeLicenseOverlay();
-    } else {
-      if (_licenseOverlayEntry != null) _removeLicenseOverlay();
-      _showLicenseOverlay(field);
-    }
-  }
-
-  void _showLicenseOverlay(String field) {
-    if (!mounted) return;
-    _activeLicenseField = field;
-    final overlay = Overlay.of(context);
-    _licenseOverlayEntry = OverlayEntry(
-      builder: (context) => _buildLicenseOverlay(field),
-    );
-    overlay.insert(_licenseOverlayEntry!);
-  }
-
-  void _removeLicenseOverlay() {
-    _licenseOverlayEntry?.remove();
-    _licenseOverlayEntry = null;
-    _activeLicenseField = null;
   }
 
   Future<void> _handleSave() async {

@@ -1,3 +1,56 @@
+## Vendor License Section — FileUploadButton Migration (March 24, 2026)
+
+### Problem
+Vendor create page (`purchases_vendors_vendor_create.dart`) had a hand-rolled license attachment implementation: 6 LayerLinks, OverlayEntry, _activeLicenseField, `_pickLicenseDocument()`, `_removeLicenseDocument()`, `_getLicenseFilesList()`, `_getLicenseLink()`, `_toggleLicenseOverlay()`, `_showLicenseOverlay()`, `_removeLicenseOverlay()` — identical to the old customer page before it was refactored.
+
+### Fix
+Replaced all 6 `_buildLicenseAttachmentIcon(files, field)` calls in `purchases_vendors_license_section.dart` with `FileUploadButton`:
+```dart
+FileUploadButton(
+  files: drugLicense20BDocs,
+  height: _inputHeight,
+  onFilesChanged: (updated) => _state(() => drugLicense20BDocs = updated),
+),
+```
+Repeated for: drugLicense20, drugLicense21, drugLicense20B, drugLicense21B, fssai, msme.
+
+### Deleted from purchases_vendors_vendor_create.dart
+- 6× LayerLink fields (drugLicense20Link … msmeLink)
+- `OverlayEntry? _licenseOverlayEntry` + `String? _activeLicenseField`
+- `_removeLicenseOverlay()` call in dispose()
+- `_pickLicenseDocument()`, `_removeLicenseDocument()`, `_getLicenseFilesList()`
+- `_getLicenseLink()`, `_toggleLicenseOverlay()`, `_showLicenseOverlay()`, `_removeLicenseOverlay()`
+
+### Deleted from purchases_vendors_license_section.dart
+- `_buildLicenseAttachmentIcon()` method
+- `_buildLicenseOverlay()` method
+
+### Colors fixed in license_section.dart
+- `Color(0xFF2563EB)` → `AppTheme.primaryBlueDark`
+- `Color(0xFF374151)` → `AppTheme.textBody`
+
+### Imports added to vendor_create.dart
+- `package:zerpai_erp/core/theme/app_theme.dart`
+- `package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart`
+
+## Path Normalization — core/widgets Migration (March 24, 2026)
+
+### Stale doc references fixed
+- `.amazonq/rules/PRD.md:185` — `lib/core/widgets/` → `lib/shared/widgets/` (was pointing to forbidden folder)
+- `repowiki/en/content/Frontend Development/Core Infrastructure.md:56` — `core/router/app_router.dart` → `core/routing/app_router.dart` (missing "ing" in folder name)
+
+### settings_search_field.dart migrated
+- Moved: `lib/core/widgets/settings_search_field.dart` → `lib/shared/widgets/settings_search_field.dart`
+- Updated 6 import sites in `lib/core/pages/`:
+  - `settings_page.dart`
+  - `settings_branding_page.dart`
+  - `settings_organization_profile_page.dart`
+  - `settings_organization_branding_page.dart`
+  - `settings_locations_page.dart`
+  - `settings_locations_create_page.dart`
+- `lib/core/widgets/` folder and its empty subdirs (`common/`, `dialogs/`, `forms/`) fully deleted
+- No imports remain pointing at `core/widgets/`
+
 ## FileUploadButton — Badge Design Correction (March 24, 2026)
 
 ### Problem
@@ -6818,3 +6871,55 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - The active docs no longer contradict each other on reusable widget placement.
 - The docs now consistently describe `core` as infrastructure, `shared` as reusable UI/services, and `modules` as feature code.
 - Secondary documentation no longer points to the old `lib/core/router/app_router.dart` or `lib/core/layout/zerpai_layout.dart` paths.
+
+## Database Schema Snapshot Sync (24/03/2026)
+
+### Source applied
+- Treated `current schema.txt` as the latest live schema dump and regenerated the PRD schema snapshot from it.
+
+### Files updated
+- Regenerated `PRD/prd_schema.md` with:
+  - fresh 2026-03-24 source metadata
+  - authoritative inventory of 74 base tables
+  - full raw schema snapshot from `current schema.txt`
+- Updated `DB_SCHEMA_AWARENESS.md` to:
+  - point at the regenerated PRD schema snapshot
+  - include the current authoritative table inventory
+  - reflect the live settings tables (`settings_branding`, `settings_locations`, `settings_outlets`, `settings_transaction_series`)
+- Updated `PRD/PRD.md` schema compliance section so it explicitly references the 2026-03-24 regenerated snapshot.
+- Updated `repowiki/en/content/Data Management/Database Schema & Design.md` to state that `PRD/prd_schema.md` is the authoritative live table inventory.
+
+### Result
+- PRD schema docs now match the current DB dump in `current schema.txt`.
+- The settings table set documented in the repo now includes the live `settings_branding`, `settings_outlets`, and `settings_transaction_series` tables in addition to `settings_locations`.
+- Schema-aware docs now point back to a single authoritative snapshot instead of relying on older migration-only descriptions.
+
+## Root Database Knowledge File Expansion (24/03/2026)
+
+### Goal
+- Upgraded `DB_SCHEMA_AWARENESS.md` from a business-summary file into a comprehensive root knowledge file that now covers:
+  - what each table is
+  - why it exists
+  - what data it stores
+  - the full live column inventory for every base table
+
+### Source usage
+- Used `current schema.txt` as the live DDL source for all base tables.
+- Reused existing project-aware narrative context already present in `DB_SCHEMA_AWARENESS.md`.
+- Cross-checked the repo’s data-model intent against:
+  - `backend/drizzle/schema.ts`
+  - `backend/drizzle/relations.ts`
+
+### What changed
+- Corrected the root file metadata from 79 tables to 74 live base tables.
+- Kept the table-by-table narrative/business explanations in the main body.
+- Added **Appendix A — Full Column Inventory** to `DB_SCHEMA_AWARENESS.md`, generated from the live schema dump.
+- The appendix now lists, for every table:
+  - every column name
+  - SQL type
+  - DB-level details such as `NOT NULL`, defaults, and inline uniqueness markers
+  - table-level PK/FK constraints
+
+### Result
+- `DB_SCHEMA_AWARENESS.md` is now the comprehensive root knowledge file for the live DB shape plus business meaning.
+- Developers can use the main body for intent and the appendix for exact column-level awareness without switching back to the raw DDL for normal schema reading.
