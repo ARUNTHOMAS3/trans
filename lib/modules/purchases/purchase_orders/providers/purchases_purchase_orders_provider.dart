@@ -7,6 +7,8 @@ import '../repositories/purchases_purchase_orders_order_repository_impl.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import '../../../auth/controller/auth_controller.dart';
 
+const String _kDevOrgId = '00000000-0000-0000-0000-000000000002';
+
 final purchaseOrderRepositoryProvider = Provider<PurchaseOrderRepositoryImpl>(
   (ref) => PurchaseOrderRepositoryImpl(ref.read(apiClientProvider)),
 );
@@ -61,11 +63,13 @@ final deletePurchaseOrderProvider = FutureProvider.family<bool, String>((
 
 final warehousesProvider = FutureProvider<List<WarehouseModel>>((ref) async {
   final user = ref.watch(authUserProvider);
-  AppLogger.debug('Loading warehouses', data: {'orgId': user?.orgId}, module: 'purchases');
+  final orgId =
+      (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+  AppLogger.debug('Loading warehouses', data: {'orgId': orgId}, module: 'purchases');
 
   final repository = ref.read(purchaseOrderRepositoryProvider);
   try {
-    final list = await repository.getWarehouses(orgId: user?.orgId);
+    final list = await repository.getWarehouses(orgId: orgId);
     return list;
   } catch (e, st) {
     AppLogger.error('Failed to load warehouses', error: e, stackTrace: st, module: 'purchases');

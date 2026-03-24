@@ -30,6 +30,8 @@ import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/mixins/licence_validation_mixin.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/gstin_prefill_banner.dart';
 
 part 'sections/sales_customer_address_section.dart';
 part 'sections/sales_customer_primary_info_section.dart';
@@ -54,7 +56,11 @@ class SalesCustomerCreateScreen extends ConsumerStatefulWidget {
 
 class _SalesCustomerCreateScreenState
     extends ConsumerState<SalesCustomerCreateScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, LicenceValidationMixin<SalesCustomerCreateScreen> {
+
+  // LicenceValidationMixin: map local msme controller name to mixin contract
+  @override
+  TextEditingController get msmeCtrl => msmeNumberCtrl;
   late TabController _tabController;
   bool isLoading = true;
 
@@ -86,6 +92,9 @@ class _SalesCustomerCreateScreenState
       }
     });
 
+    // Wire up focus-based licence validation via LicenceValidationMixin
+    initLicenceValidation();
+
     // Load initial currencies
     _loadCurrencies();
 
@@ -101,21 +110,16 @@ class _SalesCustomerCreateScreenState
   void dispose() {
     _tabController.dispose();
 
-    drugLicense20Focus.dispose();
-    drugLicense21Focus.dispose();
-    drugLicense20BFocus.dispose();
-    drugLicense21BFocus.dispose();
-    fssaiFocus.dispose();
-    msmeFocus.dispose();
+    disposeLicenceNodes(); // LicenceValidationMixin
     super.dispose();
   }
 
   // Layout Constants (Instance members for extension access)
 
-  final double _labelWidth = 150.0;
-  final double _fieldWidth = 360.0;
-  final double _inputHeight = 34.0;
-  final double _fieldSpacing = 8.0;
+  final double _labelWidth = 180.0;
+  final double _fieldWidth = 480.0;
+  final double _inputHeight = 36.0;
+  final double _fieldSpacing = 24.0;
 
   // General Info
   String customerType = 'Business';
@@ -235,19 +239,13 @@ class _SalesCustomerCreateScreenState
   final fssaiCtrl = TextEditingController();
   final msmeNumberCtrl = TextEditingController();
 
-  // Licence focus nodes & error strings
+  // Licence focus nodes (error strings come from LicenceValidationMixin)
   final drugLicense20Focus = FocusNode();
-  String? drugLicense20Error;
   final drugLicense21Focus = FocusNode();
-  String? drugLicense21Error;
   final drugLicense20BFocus = FocusNode();
-  String? drugLicense20BError;
   final drugLicense21BFocus = FocusNode();
-  String? drugLicense21BError;
   final fssaiFocus = FocusNode();
-  String? fssaiError;
   final msmeFocus = FocusNode();
-  String? msmeError;
 
   // License document files
   List<PlatformFile> drugLicense20Docs = [];
@@ -318,19 +316,24 @@ class _SalesCustomerCreateScreenState
 
     return ZerpaiLayout(
       pageTitle: 'New Customer',
-      useTopPadding: false,
-      horizontalPaddingValue: 24,
-      footer: _buildFooter(),
       enableBodyScroll: true,
-      child: isLoading
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [_buildPrimaryInfo(), FormSkeleton()],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [_buildPrimaryInfo(), _buildTabSection()],
-            ),
+      footer: _buildFooter(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+        child: isLoading
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [_buildPrimaryInfo(), const FormSkeleton()],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildPrimaryInfo(),
+                  const SizedBox(height: 32),
+                  _buildTabSection(),
+                ],
+              ),
+      ),
     );
   }
 

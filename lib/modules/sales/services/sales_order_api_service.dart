@@ -1,6 +1,6 @@
 // import 'package:dio/dio.dart';
 // import 'package:flutter/foundation.dart';
-// import 'package:zerpai_erp/core/services/api_client.dart';
+// import 'package:zerpai_erp/shared/services/api_client.dart';
 // import '../models/sales_order_model.dart';
 // import '../models/sales_customer_model.dart';
 // import '../models/sales_payment_model.dart';
@@ -213,6 +213,41 @@ class SalesOrderApiService {
       throw Exception('Failed to load customers');
     } catch (e) {
       throw Exception('Error fetching customers: $e');
+    }
+  }
+
+  Future<SalesCustomer> getCustomerById(String id) async {
+    try {
+      final response = await _apiClient.get('/sales/customers/$id');
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        if (responseData is Map<String, dynamic>) {
+          if (responseData.containsKey('statusCode') &&
+              (responseData['statusCode'] is int) &&
+              (responseData['statusCode'] as int) >= 400) {
+            throw Exception(responseData['message'] ?? 'Customer not found');
+          }
+          if (responseData.containsKey('data')) {
+            if (responseData['data'] == null) {
+              throw Exception('Customer not found');
+            }
+            return SalesCustomer.fromJson(responseData['data']);
+          }
+          if (responseData.containsKey('id')) {
+            return SalesCustomer.fromJson(responseData);
+          }
+          throw Exception('Invalid customer payload');
+        }
+        throw Exception('Invalid customer response');
+      }
+      throw Exception('Failed to load customer');
+    } catch (e) {
+      if (e is DioException) {
+        debugPrint(
+          '❌ getCustomerById error: ${e.response?.statusCode} -> ${e.response?.data}',
+        );
+      }
+      throw Exception('Error fetching customer by id: $e');
     }
   }
 

@@ -2,14 +2,11 @@ part of '../sales_customer_create.dart';
 
 extension _PrimaryInfoSection on _SalesCustomerCreateScreenState {
   Widget _buildPrimaryInfo() {
-    return Container(
-      padding: const EdgeInsets.only(top: 12.0),
-      decoration: const BoxDecoration(color: Colors.white),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPrefillBanner(),
-          const SizedBox(height: 32),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPrefillBanner(),
+        const SizedBox(height: 32),
 
           // 1. Customer Type
           _buildFormRow(
@@ -368,8 +365,7 @@ extension _PrimaryInfoSection on _SalesCustomerCreateScreenState {
                   _state(() => customerLanguage = v ?? customerLanguage),
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }

@@ -408,18 +408,24 @@ class WarehouseModel {
   });
 
   factory WarehouseModel.fromJson(Map<String, dynamic> json) {
-    // Handle both camelCase (from interceptor) and snake_case (raw DB)
+    // Handle both legacy warehouses rows and settings_outlets/settings_locations rows.
     return WarehouseModel(
       id: (json['id'] ?? '').toString(),
       orgId: (json['orgId'] ?? json['org_id'])?.toString(),
       name: (json['name'] ?? 'Unknown Warehouse').toString(),
-      attention: (json['attention'] ?? json['attention'])?.toString(),
-      addressStreet1: (json['addressStreet1'] ?? json['address_street_1'])?.toString(),
+      attention: json['attention']?.toString(),
+      addressStreet1: (json['addressStreet1'] ??
+              json['address_street_1'] ??
+              json['address'])
+          ?.toString(),
       addressStreet2: (json['addressStreet2'] ?? json['address_street_2'])?.toString(),
       city: json['city']?.toString(),
       state: json['state']?.toString(),
-      zipCode: (json['zipCode'] ?? json['zip_code'])?.toString(),
-      countryRegion: (json['countryRegion'] ?? json['country_region'])?.toString() ?? 'India',
+      zipCode: (json['zipCode'] ?? json['zip_code'] ?? json['pincode'])?.toString(),
+      countryRegion:
+          (json['countryRegion'] ?? json['country_region'] ?? json['country'])
+              ?.toString() ??
+          'India',
       phone: json['phone']?.toString(),
       email: json['email']?.toString(),
       isActive: json['isActive'] ?? json['is_active'] ?? true,

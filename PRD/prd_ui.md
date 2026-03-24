@@ -10,6 +10,7 @@
 ## 1. Core UI Governance (Mandatory)
 
 - **Canonical placement rule:** `lib/core/` is for app infrastructure only, `lib/core/layout/` is for shell/navigation infrastructure, `lib/shared/widgets/` is for reusable UI widgets, and `lib/shared/services/` is for cross-feature services. Do not use `lib/core/widgets/` as the reusable widget home.
+- **Check `REUSABLES.md` before creating anything reusable.** Before creating a new shared widget, mixin, service, utility, helper, or reusable UI pattern, search the root `REUSABLES.md` catalog first. Reuse existing entries instead of duplicating them. If a new reusable is created, add it to `REUSABLES.md` immediately and explicitly tell the user what was reused or created.
 - **Use app_theme.dart tokens only** (colors, spacing, typography).
 - **No hardcoded colors, spacing, or fonts** unless explicitly approved.
 - **All UI decisions must follow PRD Section 14** and the rules below.

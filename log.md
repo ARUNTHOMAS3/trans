@@ -1,3 +1,35 @@
+## Licence Validation Mixin + GSTIN Banner Extraction (March 24, 2026)
+
+### Changes
+Extracted duplicated licence-field validation and GSTIN prefill banner into shared reusables used by both vendor and customer create screens.
+
+**New files**
+- `lib/shared/mixins/licence_validation_mixin.dart` — `LicenceValidationMixin<W extends StatefulWidget>` mixin. Provides on-blur, context-aware validation for drug licence (20/21/20B/21B), FSSAI, and MSME fields. Abstract getters satisfied by existing field declarations; only `msmeCtrl` and (for vendor) `isMsmeRegistered` need explicit `@override` getters.
+- `lib/shared/widgets/inputs/gstin_prefill_banner.dart` — `GstinPrefillBanner` stateless widget. Params: `entityLabel`, `onPrefill`.
+
+**Customer (`sales_customer_create.dart` + section files)**
+- Added `with LicenceValidationMixin<SalesCustomerCreateScreen>`
+- Removed 6 duplicate error field declarations (now owned by mixin)
+- Replaced 6 `addListener` calls with `initLicenceValidation()`
+- Replaced 6 focus `.dispose()` calls with `disposeLicenceNodes()`
+- Removed old `_onLicenseFocusChange` / `_getLicenseFocusNode` / `_validateLicenseField` / `_getLicenseErrorMessage` methods from helpers file
+- Replaced `_buildPrefillBanner()` body with `GstinPrefillBanner(entityLabel: 'Customer', onPrefill: ...)`
+- Licence section checkbox/type handlers updated to call mixin clear helpers
+
+**Vendor (`purchases_vendors_vendor_create.dart` + section files)**
+- Same changes as customer above
+- Extra `@override bool get isMsmeRegistered => _isMsmeRegistered` because vendor uses prefixed field name
+- `_buildPrefillBanner()` replaced with `GstinPrefillBanner(entityLabel: 'Vendor', onPrefill: ...)`
+
+**Fix: `conflicting_generic_interfaces`**
+- Changed mixin declaration from `on State` to `on State<W>` (generic) to avoid Dart's type conflict when `ConsumerState<T>` provides `State<T>` while `on State` resolved to `State<StatefulWidget>`
+
+**New docs**
+- `REUSABLES.md` — project-root catalog of all shared widgets, mixins, services, constants, and theme tokens
+- `CLAUDE.md` — added "Reusables — Check Before Creating" rule and added `REUSABLES.md` to Key Reference Files
+
+---
+
 ## Vendor License Section — FileUploadButton Migration (March 24, 2026)
 
 ### Problem
@@ -6923,3 +6955,85 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 ### Result
 - `DB_SCHEMA_AWARENESS.md` is now the comprehensive root knowledge file for the live DB shape plus business meaning.
 - Developers can use the main body for intent and the appendix for exact column-level awareness without switching back to the raw DDL for normal schema reading.
+
+## Flutter Deprecation Cleanup (24/03/2026)
+
+### Files updated
+- Updated `lib/modules/sales/presentation/sales_order_create.dart`:
+  - replaced deprecated `Color.withOpacity(...)` calls with `Color.withValues(alpha: ...)`
+- Updated `lib/modules/sales/presentation/widgets/sales_order_preferences_dialog.dart`:
+  - replaced deprecated per-radio `groupValue` and `onChanged` usage with a `RadioGroup<bool>` ancestor
+  - preserved the existing auto-generate vs manual selection behavior
+
+### Validation
+- `flutter analyze lib/modules/sales/presentation/sales_order_create.dart`
+- `flutter analyze lib/modules/sales/presentation/widgets/sales_order_preferences_dialog.dart`
+
+### Result
+- The targeted sales-order deprecation warnings were removed without changing screen behavior.
+- The sales-order preferences dialog now follows the current Flutter radio-group pattern.
+
+## Purchase Order Warehouse Data Wiring (24/03/2026)
+
+### Goal
+- Connected the Purchase Order warehouse dropdown to schema-backed location data instead of leaving it dependent on an empty legacy path.
+
+### Files updated
+- Updated `lib/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart`:
+  - added the standard auth-free dev org fallback for warehouse loading
+- Updated `lib/modules/purchases/purchase_orders/repositories/purchases_purchase_orders_order_repository_impl.dart`:
+  - changed warehouse loading to query `/outlets?org_id=...`
+  - filtered the response to `location_type == 'warehouse'`
+  - kept a fallback to the legacy `/products/lookups/warehouses` path if no settings-backed warehouse rows are present
+- Updated `lib/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart`:
+  - expanded `WarehouseModel.fromJson` to map both legacy `warehouses` rows and `settings_outlets/settings_locations` rows
+  - mapped `address`, `country`, and `pincode` from the settings schema into the warehouse display model
+
+### Schema/source alignment
+- This change now prefers the live settings location masters exposed by the `outlets` module, which is backed by:
+  - `settings_outlets`
+  - `settings_locations`
+- That matches the current schema-aware settings/location system better than relying only on the older `warehouses` table.
+
+### Validation
+- `flutter analyze lib/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart lib/modules/purchases/purchase_orders/repositories/purchases_purchase_orders_order_repository_impl.dart lib/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`
+
+### Result
+- The Purchase Order delivery-address warehouse selector now pulls from the DB-backed settings/outlets warehouse records for the current org.
+- If settings-backed warehouse rows are missing, the screen still falls back to the legacy warehouse lookup instead of breaking.
+
+## Reusables Governance Rule Update (24/03/2026)
+
+### Files updated
+- Updated `AGENTS.md`
+- Updated `CLAUDE.md`
+- Updated `PRD/PRD.md`
+- Updated `PRD/prd_ui.md`
+
+### Rule added/aligned
+- `REUSABLES.md` is now an explicit mandatory pre-check before creating any new shared widget, mixin, service, utility, helper, or reusable UI pattern.
+- Existing reusables must be used instead of duplicated.
+- Newly created reusables must be added to `REUSABLES.md` after creation.
+- Developers and agents must explicitly tell the user when a suitable reusable already exists and when a new reusable is created.
+- The always-check shortlist is now aligned across the governance docs: `FormDropdown<T>`, `CustomTextField`, `ZerpaiDatePicker`, `ZTooltip`, `GstinPrefillBanner`, `LicenceValidationMixin`, `ZerpaiLayout`, `ZButton`, `ZerpaiConfirmationDialog`, and `AppTheme` tokens.
+
+### Notes
+- Per request, `REUSABLES.md` itself was not modified in this pass.
+
+## Purchase Order Shared Date Picker Adoption (24/03/2026)
+
+### Reusable used
+- Reused `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` for the Purchase Order date fields instead of keeping raw text-entry date inputs.
+
+### Files updated
+- Updated `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`:
+  - replaced the Purchase Order `Date` field with the shared anchored date picker
+  - replaced the `Delivery Date` field with the shared anchored date picker
+  - added controller sync so the text fields always reflect `PurchaseOrderState.orderDate` and `expectedDeliveryDate`
+
+### Validation
+- `flutter analyze lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`
+
+### Result
+- The Purchase Order create form now uses the standard reusable date picker for both visible date inputs.
+- The screen remains aligned with the repo rule to use `ZerpaiDatePicker` wherever the shared pattern is suitable.

@@ -1,50 +1,50 @@
 // FILE: lib/core/constants/api_endpoints.dart
 
 class ApiEndpoints {
-  // Base URL is configured in environment
-  static const String baseUrl = '/api/v1';
-  
+  // Paths are relative to the Dio baseURL (which already includes /api/v1/).
+  // Do NOT add a leading slash — Dio resolves relative paths against baseURL.
+
   // Sales endpoints
-  static const String customers = '$baseUrl/customers';
-  static const String salesOrders = '$baseUrl/sales-orders';
-  static const String invoices = '$baseUrl/invoices';
-  
+  static const String customers = 'customers';
+  static const String salesOrders = 'sales-orders';
+  static const String invoices = 'invoices';
+
   // Purchases endpoints
-  static const String vendors = '$baseUrl/vendors';
-  static const String purchaseOrders = '$baseUrl/purchase-orders';
-  static const String purchaseOrderNextNumber = '$purchaseOrders/next-number';
-  static const String purchaseOrderSettings = '$purchaseOrders/settings';
-  static const String warehouses = '$baseUrl/warehouses';
-  static const String bills = '$baseUrl/bills';
-  
+  static const String vendors = 'vendors';
+  static const String purchaseOrders = 'purchase-orders';
+  static const String purchaseOrderNextNumber = 'purchase-orders/next-number';
+  static const String purchaseOrderSettings = 'purchase-orders/settings';
+  static const String warehouses = 'warehouses';
+  static const String bills = 'bills';
+
   // Items endpoints
-  static const String products = '$baseUrl/products';
-  static const String priceLists = '$baseUrl/price-lists';
-  
+  static const String products = 'products';
+  static const String priceLists = 'price-lists';
+
   // Inventory endpoints
-  static const String inventory = '$baseUrl/inventory';
-  static const String assemblies = '$baseUrl/assemblies';
-  static const String stockMovements = '$baseUrl/stock-movements';
-  
+  static const String inventory = 'inventory';
+  static const String assemblies = 'assemblies';
+  static const String stockMovements = 'stock-movements';
+
   // Accounts endpoints
-  static const String chartOfAccounts = '$baseUrl/accountant';
-  static const String journalEntries = '$baseUrl/accountant/manual-journals';
-  
+  static const String chartOfAccounts = 'accountant';
+  static const String journalEntries = 'accountant/manual-journals';
+
   // Reports endpoints
-  static const String reports = '$baseUrl/reports';
-  static const String salesReports = '$baseUrl/reports/sales';
-  static const String inventoryReports = '$baseUrl/reports/inventory';
-  static const String gstReports = '$baseUrl/reports/gst';
-  
+  static const String reports = 'reports';
+  static const String salesReports = 'reports/sales';
+  static const String inventoryReports = 'reports/inventory';
+  static const String gstReports = 'reports/gst';
+
   // Authentication endpoints
-  static const String auth = '$baseUrl/auth';
-  static const String login = '$auth/login';
-  static const String logout = '$auth/logout';
-  static const String refreshToken = '$auth/refresh';
-  
+  static const String auth = 'auth';
+  static const String login = 'auth/login';
+  static const String logout = 'auth/logout';
+  static const String refreshToken = 'auth/refresh';
+
   // Lookups
-  static const String units = '$baseUrl/units';
-  static const String categories = '$baseUrl/categories';
-  static const String taxRates = '$baseUrl/tax-rates';
-  static const String accounts = '$baseUrl/accountant';
+  static const String units = 'units';
+  static const String categories = 'categories';
+  static const String taxRates = 'tax-rates';
+  static const String accounts = 'accountant';
 }

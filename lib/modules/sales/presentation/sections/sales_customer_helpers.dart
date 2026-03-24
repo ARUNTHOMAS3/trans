@@ -264,4 +264,5 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
     var i = (math.log(bytes) / math.log(1024)).floor();
     return "${(bytes / math.pow(1024, i)).toStringAsFixed(2)} ${suffixes[i]}";
   }
+
 }

@@ -21,6 +21,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/widgets/item_details_sidebar.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
@@ -102,6 +103,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   final _discountCtrl = TextEditingController();
   final _adjustmentCtrl = TextEditingController();
   final _deliveryNameCtrl = TextEditingController(); // Editable warehouse name
+  final GlobalKey _orderDateFieldKey = GlobalKey();
+  final GlobalKey _deliveryDateFieldKey = GlobalKey();
 
   OverlayEntry? _gstOverlay;
   OverlayEntry? _poOverlay;
@@ -768,6 +771,21 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
     collect(accountsState.roots);
 
+    final orderDateText = DateFormat('dd-MM-yyyy').format(poState.orderDate);
+    if (_orderDateCtrl.text != orderDateText) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _orderDateCtrl.text = orderDateText;
+      });
+    }
+
+    final deliveryDateText = poState.expectedDeliveryDate != null
+        ? DateFormat('dd-MM-yyyy').format(poState.expectedDeliveryDate!)
+        : '';
+    if (_deliveryDateCtrl.text != deliveryDateText) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _deliveryDateCtrl.text = deliveryDateText;
+      });
+    }
 
     // Initial load sync for Order Number controller
     if (_poNumberCtrl.text != poState.orderNumber) {
@@ -1142,7 +1160,15 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               _zFormRow(
                 label: 'Date',
                 isRequired: true,
-                child: SizedBox(width: 320, child: _zField(_orderDateCtrl)),
+                child: SizedBox(
+                  width: 320,
+                  child: _zDateField(
+                    controller: _orderDateCtrl,
+                    targetKey: _orderDateFieldKey,
+                    value: poState.orderDate,
+                    onSelected: (date) => notifier.updateField(orderDate: date),
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               // ── Delivery Date + Payment Terms ──
@@ -1152,7 +1178,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   children: [
                     SizedBox(
                       width: 320,
-                      child: _zField(_deliveryDateCtrl, hint: 'dd-MM-yyyy'),
+                      child: _zDateField(
+                        controller: _deliveryDateCtrl,
+                        targetKey: _deliveryDateFieldKey,
+                        value: poState.expectedDeliveryDate,
+                        hint: 'dd-MM-yyyy',
+                        onSelected: (date) =>
+                            notifier.updateField(expectedDeliveryDate: date),
+                      ),
                     ),
                     const SizedBox(width: 48),
                     Text(
@@ -5710,6 +5743,41 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             filled: true,
             fillColor: _bgWhite,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _zDateField({
+    required TextEditingController controller,
+    required GlobalKey targetKey,
+    required DateTime? value,
+    required ValueChanged<DateTime> onSelected,
+    String hint = 'dd-MM-yyyy',
+  }) {
+    return KeyedSubtree(
+      key: targetKey,
+      child: _zField(
+        controller,
+        hint: hint,
+        readOnly: true,
+        onTap: () async {
+          final selected = await ZerpaiDatePicker.show(
+            context,
+            initialDate: value ?? DateTime.now(),
+            firstDate: DateTime(2000),
+            lastDate: DateTime(2100),
+            targetKey: targetKey,
+          );
+          if (selected != null) {
+            controller.text = DateFormat('dd-MM-yyyy').format(selected);
+            onSelected(selected);
+          }
+        },
+        suffixIcon: const Icon(
+          Icons.calendar_today_outlined,
+          size: 16,
+          color: _hintColor,
         ),
       ),
     );

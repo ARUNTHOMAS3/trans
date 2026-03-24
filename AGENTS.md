@@ -11,6 +11,15 @@
 - Do not place reusable widgets in `lib/core/widgets/`.
 - Do not create duplicate service implementations under both `core/services` and `shared/services`; prefer `shared/services` for cross-feature usage and reserve `core/` for app infrastructure concerns only.
 
+## Reusables Rule
+
+- Before creating any new shared widget, mixin, service, utility, helper, or reusable UI pattern, check `REUSABLES.md` at the project root first.
+- If a suitable reusable already exists, use it instead of creating a duplicate.
+- If no suitable reusable exists and a genuinely reusable abstraction is created, add it to `REUSABLES.md` immediately after creation.
+- When an existing reusable is available for the task, explicitly tell the user which reusable can be used.
+- When a new reusable is created, explicitly tell the user so they can decide whether it should be promoted or reused elsewhere.
+- Reusables that should always be checked first include: `FormDropdown<T>`, `CustomTextField`, `ZerpaiDatePicker`, `ZTooltip`, `GstinPrefillBanner`, `LicenceValidationMixin`, `ZerpaiLayout`, `ZButton`, `ZerpaiConfirmationDialog`, and `AppTheme` tokens.
+
 ## Pure White Surface Rule
 
 - All dialogs, popup menus, dropdown overlays, date pickers, popovers, modal sheets, and similar floating surfaces must default to pure white `#FFFFFF`.

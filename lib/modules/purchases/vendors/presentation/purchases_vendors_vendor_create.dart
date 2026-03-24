@@ -23,6 +23,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart';
+import 'package:zerpai_erp/shared/mixins/licence_validation_mixin.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/gstin_prefill_banner.dart';
 
 part 'sections/purchases_vendors_builders.dart';
 part 'sections/purchases_vendors_primary_info_section.dart';
@@ -45,7 +47,13 @@ class PurchasesVendorsVendorCreateScreen extends ConsumerStatefulWidget {
 
 class _PurchasesVendorsVendorCreateScreenState
     extends ConsumerState<PurchasesVendorsVendorCreateScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, LicenceValidationMixin<PurchasesVendorsVendorCreateScreen> {
+
+  // LicenceValidationMixin: map local names to mixin contract
+  @override
+  TextEditingController get msmeCtrl => _msmeRegistrationNumberCtrl;
+  @override
+  bool get isMsmeRegistered => _isMsmeRegistered;
   late TabController _tabController;
   bool isLoading = false;
   final _formKey = GlobalKey<FormState>();
@@ -130,11 +138,6 @@ class _PurchasesVendorsVendorCreateScreenState
   final drugLicense20BFocus = FocusNode();
   final drugLicense21BFocus = FocusNode();
 
-  String? drugLicense20Error;
-  String? drugLicense21Error;
-  String? drugLicense20BError;
-  String? drugLicense21BError;
-
   List<PlatformFile> drugLicense20Docs = [];
   List<PlatformFile> drugLicense21Docs = [];
   List<PlatformFile> drugLicense20BDocs = [];
@@ -143,13 +146,11 @@ class _PurchasesVendorsVendorCreateScreenState
   bool isFssaiRegistered = false;
   final fssaiCtrl = TextEditingController();
   final fssaiFocus = FocusNode();
-  String? fssaiError;
   List<PlatformFile> fssaiDocs = [];
 
   // MSME state
   List<PlatformFile> msmeDocs = [];
   final msmeFocus = FocusNode();
-  String? msmeError;
 
   // Address Controllers
   final _billingAttentionCtrl = TextEditingController();
@@ -216,21 +217,7 @@ class _PurchasesVendorsVendorCreateScreenState
     _loadSourceOfSupply(); // Load Indian states for Source of Supply
     _localCurrencyOptions = List.from(defaultCurrencyOptions);
 
-    // License Focus Listeners
-    drugLicense20Focus.addListener(
-      () => _onLicenseFocusChange('drugLicense20'),
-    );
-    drugLicense21Focus.addListener(
-      () => _onLicenseFocusChange('drugLicense21'),
-    );
-    drugLicense20BFocus.addListener(
-      () => _onLicenseFocusChange('drugLicense20B'),
-    );
-    drugLicense21BFocus.addListener(
-      () => _onLicenseFocusChange('drugLicense21B'),
-    );
-    fssaiFocus.addListener(() => _onLicenseFocusChange('fssai'));
-    msmeFocus.addListener(() => _onLicenseFocusChange('msme'));
+    initLicenceValidation();
   }
 
   Future<void> _fetchNextVendorNumber() async {
@@ -396,12 +383,7 @@ class _PurchasesVendorsVendorCreateScreenState
     drugLicense20BCtrl.dispose();
     drugLicense21BCtrl.dispose();
     fssaiCtrl.dispose();
-    drugLicense20Focus.dispose();
-    drugLicense21Focus.dispose();
-    drugLicense20BFocus.dispose();
-    drugLicense21BFocus.dispose();
-    fssaiFocus.dispose();
-    msmeFocus.dispose();
+    disposeLicenceNodes();
     for (var row in bankRows) {
       row.dispose();
     }
@@ -423,93 +405,6 @@ class _PurchasesVendorsVendorCreateScreenState
       row.dispose();
     }
     super.dispose();
-  }
-
-  void _onLicenseFocusChange(String field) {
-    final focusNode = _getLicenseFocusNode(field);
-    if (!focusNode.hasFocus) {
-      _validateLicenseField(field);
-    }
-  }
-
-  FocusNode _getLicenseFocusNode(String field) {
-    switch (field) {
-      case 'drugLicense20':
-        return drugLicense20Focus;
-      case 'drugLicense21':
-        return drugLicense21Focus;
-      case 'drugLicense20B':
-        return drugLicense20BFocus;
-      case 'drugLicense21B':
-        return drugLicense21BFocus;
-      case 'fssai':
-        return fssaiFocus;
-      case 'msme':
-        return msmeFocus;
-      default:
-        return FocusNode();
-    }
-  }
-
-  void _validateLicenseField(String field) {
-    setState(() {
-      switch (field) {
-        case 'drugLicense20':
-          drugLicense20Error = _getLicenseErrorMessage(
-            field,
-            drugLicense20Ctrl.text,
-          );
-          break;
-        case 'drugLicense21':
-          drugLicense21Error = _getLicenseErrorMessage(
-            field,
-            drugLicense21Ctrl.text,
-          );
-          break;
-        case 'drugLicense20B':
-          drugLicense20BError = _getLicenseErrorMessage(
-            field,
-            drugLicense20BCtrl.text,
-          );
-          break;
-        case 'drugLicense21B':
-          drugLicense21BError = _getLicenseErrorMessage(
-            field,
-            drugLicense21BCtrl.text,
-          );
-          break;
-        case 'fssai':
-          fssaiError = _getLicenseErrorMessage(field, fssaiCtrl.text);
-          break;
-        case 'msme':
-          msmeError = _getLicenseErrorMessage(
-            field,
-            _msmeRegistrationNumberCtrl.text,
-          );
-          break;
-      }
-    });
-  }
-
-  String? _getLicenseErrorMessage(String field, String value) {
-    if (value.trim().isEmpty) {
-      switch (field) {
-        case 'drugLicense20':
-          return 'Enter a valid Drug License 20.';
-        case 'drugLicense21':
-          return 'Enter a valid Drug License 21.';
-        case 'drugLicense20B':
-          return 'Enter a valid Drug License 20B.';
-        case 'drugLicense21B':
-          return 'Enter a valid Drug License 21B.';
-        case 'fssai':
-          return 'Enter a valid FSSAI Number.';
-        case 'msme':
-          return 'Enter a valid MSME/Udyam Registration Number. Ensure that the number is in the format UDYAM-XX-00-0000000.';
-      }
-    }
-    // Add specific format validations if needed later
-    return null;
   }
 
   Future<void> _handleSave() async {
@@ -762,39 +657,8 @@ class _PurchasesVendorsVendorCreateScreenState
     );
   }
 
-  Widget _buildPrefillBanner() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFFDBEAFE)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.info_outline, size: 16, color: Color(0xFF2563EB)),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text(
-              'Prefill Vendor details from the GST portal using the Vendor\'s GSTIN.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8)),
-            ),
-          ),
-          InkWell(
-            onTap: _openGstinPrefillDialog,
-            child: const Text(
-              'Prefill >',
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF2563EB),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildPrefillBanner() =>
+      GstinPrefillBanner(entityLabel: 'Vendor', onPrefill: _openGstinPrefillDialog);
 
   Widget _buildTabSection() {
     return Column(

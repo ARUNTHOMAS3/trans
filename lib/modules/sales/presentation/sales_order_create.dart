@@ -12,21 +12,23 @@ import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
-import 'package:zerpai_erp/modules/items/pricelist/models/pricelist_model.dart';
-import 'package:zerpai_erp/modules/items/pricelist/providers/pricelist_provider.dart';
-import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
-import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
-import 'package:zerpai_erp/modules/sales/models/sales_order_item_model.dart';
-import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
+import '../controllers/sales_order_controller.dart';
+import '../models/sales_order_model.dart';
+import '../models/sales_order_item_model.dart';
+import '../models/sales_customer_model.dart';
+import '../../items/pricelist/providers/pricelist_provider.dart';
+import '../../items/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/sales/presentation/widgets/sales_order_item_row.dart';
 import 'package:zerpai_erp/modules/sales/presentation/widgets/bulk_items_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'widgets/advanced_customer_search_dialog.dart';
 import 'package:zerpai_erp/shared/services/lookup_service.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_simple_list_dialog.dart';
-import 'widgets/advanced_customer_search_dialog.dart';
+import 'package:zerpai_erp/shared/constants/currency_constants.dart';
+
 import 'widgets/custom_date_picker.dart';
 import 'widgets/sales_order_preferences_dialog.dart';
 
@@ -106,6 +108,8 @@ class _SalesOrderCreateScreenState
   OverlayEntry? _hsnOverlay;
   OverlayEntry? _warehouseOverlay;
   OverlayEntry? _itemDetailsSidebarOverlay;
+  OverlayEntry? _customerDetailsSidebarOverlay;
+  bool _isLoadingCustomerDetails = false;
   SalesOrderItemRow? _activeHsnRow;
   OverlayEntry? _discountOverlay;
   SalesOrderItemRow? _activeDiscountRow;
@@ -297,8 +301,106 @@ class _SalesOrderCreateScreenState
       row.dispose();
     }
     _itemDetailsSidebarOverlay?.remove();
+    _customerDetailsSidebarOverlay?.remove();
     _uploadOverlay?.remove();
     super.dispose();
+  }
+
+  void _showCustomerDetailsSidebar(
+    SalesCustomer customer, {
+    String? currencyLabel,
+  }) {
+    _customerDetailsSidebarOverlay?.remove();
+    _customerDetailsSidebarOverlay = null;
+
+    _customerDetailsSidebarOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          GestureDetector(
+            onTap: () {
+              _customerDetailsSidebarOverlay?.remove();
+              _customerDetailsSidebarOverlay = null;
+            },
+            child: Container(color: Colors.black.withValues(alpha: 0.05)),
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: Material(
+              color: Colors.transparent,
+              child: _CustomerDetailsSidebar(
+                customer: customer,
+                currencyLabel: currencyLabel,
+                onClose: () {
+                  _customerDetailsSidebarOverlay?.remove();
+                  _customerDetailsSidebarOverlay = null;
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_customerDetailsSidebarOverlay!);
+  }
+
+  String _resolveCurrencyLabel(
+    String? currencyId,
+    List<CurrencyOption> currencies,
+  ) {
+    final raw = (currencyId ?? '').trim();
+    if (raw.isEmpty) {
+      return 'INR - Indian Rupee';
+    }
+
+    for (final currency in currencies) {
+      if (currency.id == raw) {
+        return currency.label.isNotEmpty
+            ? currency.label
+            : '${currency.code} - ${currency.name}';
+      }
+    }
+
+    for (final currency in currencies) {
+      if (currency.code.toUpperCase() == raw.toUpperCase()) {
+        return currency.label.isNotEmpty
+            ? currency.label
+            : '${currency.code} - ${currency.name}';
+      }
+    }
+
+    return raw;
+  }
+
+  Future<void> _openSelectedCustomerDetailsSidebar() async {
+    final customerId = _selectedCustomerId;
+    if (customerId == null || _isLoadingCustomerDetails) return;
+
+    setState(() => _isLoadingCustomerDetails = true);
+
+    try {
+      final api = ref.read(salesOrderApiServiceProvider);
+      final customer = await api.getCustomerById(customerId);
+      final currencies = await ref.read(currenciesProvider(null).future);
+      final currencyLabel = _resolveCurrencyLabel(customer.currencyId, currencies);
+      if (!mounted) return;
+
+      setState(() {
+        _selectedCustomer = customer;
+      });
+      _showCustomerDetailsSidebar(customer, currencyLabel: currencyLabel);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load customer details: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingCustomerDetails = false);
+      }
+    }
   }
 
   void _showItemDetailsSidebar(SalesOrderItemRow row) {
@@ -440,6 +542,7 @@ class _SalesOrderCreateScreenState
     final customersAsync = ref.watch(salesCustomersProvider);
     final itemsState = ref.watch(itemsControllerProvider);
     final priceListsAsync = ref.watch(filteredPriceListsProvider);
+    final currenciesAsync = ref.watch(currenciesProvider(null));
 
     return ZerpaiLayout(
       pageTitle: 'New Sales Order',
@@ -471,7 +574,11 @@ class _SalesOrderCreateScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeaderSection(customersAsync, priceListsAsync),
+            _buildHeaderSection(
+              customersAsync,
+              priceListsAsync,
+              currenciesAsync,
+            ),
             const SizedBox(height: 24),
             Align(
               alignment: Alignment.centerLeft,
@@ -504,6 +611,7 @@ class _SalesOrderCreateScreenState
   Widget _buildHeaderSection(
     AsyncValue<List<SalesCustomer>> customersAsync,
     AsyncValue<List<PriceList>> priceListsAsync,
+    AsyncValue<List<CurrencyOption>> currenciesAsync,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -544,7 +652,7 @@ class _SalesOrderCreateScreenState
                               displayStringForValue: (id) => customers
                                   .firstWhere((c) => c.id == id)
                                   .displayName,
-
+                              itemHeight: 56,
                               showSettings: true,
                               settingsLabel: 'New Customer',
                               settingsIcon: LucideIcons.plus,
@@ -668,6 +776,8 @@ class _SalesOrderCreateScreenState
                               },
                               onChanged: (val) {
                                 setState(() {
+                                  _customerDetailsSidebarOverlay?.remove();
+                                  _customerDetailsSidebarOverlay = null;
                                   _selectedCustomerId = val;
                                   final customers =
                                       customersAsync.asData?.value ?? [];
@@ -736,7 +846,15 @@ class _SalesOrderCreateScreenState
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    _selectedCustomer?.currencyId ?? 'INR',
+                                    currenciesAsync.when(
+                                      data: (currencies) =>
+                                          _resolveCurrencyLabel(
+                                            _selectedCustomer?.currencyId,
+                                            currencies,
+                                          ),
+                                      loading: () => 'Loading currency...',
+                                      error: (_, __) => 'Currency unavailable',
+                                    ),
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -753,9 +871,9 @@ class _SalesOrderCreateScreenState
                               color: const Color(0xFF475569), // Slate-600
                               borderRadius: BorderRadius.circular(6),
                               child: InkWell(
-                                onTap: () {
-                                  // TODO: Show customer details
-                                },
+                                onTap: _isLoadingCustomerDetails
+                                    ? null
+                                    : _openSelectedCustomerDetailsSidebar,
                                 borderRadius: BorderRadius.circular(6),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
@@ -765,6 +883,20 @@ class _SalesOrderCreateScreenState
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
+                                      if (_isLoadingCustomerDetails) ...[
+                                        const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  Colors.white,
+                                                ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                      ],
                                       Text(
                                         "${_selectedCustomer?.displayName}'s Details",
                                         style: const TextStyle(
@@ -1565,7 +1697,7 @@ class _SalesOrderCreateScreenState
                                           value: null,
                                           hint:
                                               'Type or click to select an item.',
-            
+                                          hideBorderDefault: true,
                                           items: products
                                               .map((p) => p.id!)
                                               .toList(),
@@ -1620,7 +1752,7 @@ class _SalesOrderCreateScreenState
                             CustomTextField(
                               controller: row.quantityCtrl,
                               height: 36,
-
+                              hideBorderDefault: true,
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                     decimal: true,
@@ -1691,6 +1823,7 @@ class _SalesOrderCreateScreenState
                           child: CustomTextField(
                             controller: row.fQtyCtrl,
                             height: 36,
+                            hideBorderDefault: true,
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
@@ -1715,7 +1848,7 @@ class _SalesOrderCreateScreenState
                             CustomTextField(
                               controller: row.rateCtrl,
                               height: 36,
-
+                              hideBorderDefault: true,
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                     decimal: true,
@@ -1771,11 +1904,14 @@ class _SalesOrderCreateScreenState
                         child: CustomTextField(
                           controller: row.discountCtrl,
                           height: 36,
+                          hideBorderDefault: true,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
                           contentCase: ContentCase.none,
                           textAlign: TextAlign.right,
+                          padding: const EdgeInsets.only(left: 12, right: 0),
+                          suffixSeparator: true,
                           suffixWidget: _buildDiscountTypeSelector(row),
                           onChanged: (_) => _calculateTotals(),
                         ),
@@ -1793,6 +1929,7 @@ class _SalesOrderCreateScreenState
                         child: FormDropdown<String>(
                           value: row.taxId,
                           height: 36,
+                          hideBorderDefault: true,
                           hint: 'Tax',
                           items: taxRates.map((t) => t.id).toList(),
                           displayStringForValue: (id) =>
@@ -1975,7 +2112,10 @@ class _SalesOrderCreateScreenState
                       child: Row(
                         children: [
                           Text(
-                            item.hsnCode ?? '',
+                            (item.type == 'goods'
+                                    ? item.hsnCode
+                                    : item.hsnCode) ??
+                                '',
                             style: const TextStyle(
                               fontSize: 12,
                               color: _kBlue,
@@ -4146,7 +4286,9 @@ class _SalesOrderCreateScreenState
       if (_activeHsnRow == row) return;
     }
 
-    final hsnCtrl = TextEditingController(text: row.item?.hsnCode ?? '');
+    final hsnCtrl = TextEditingController(
+      text: row.item?.hsnCode ?? '',
+    );
     _activeHsnRow = row;
 
     _hsnOverlay = OverlayEntry(
@@ -4230,9 +4372,17 @@ class _SalesOrderCreateScreenState
                               onPressed: () {
                                 setState(() {
                                   if (row.item != null) {
-                                    row.item = row.item!.copyWith(
-                                      hsnCode: hsnCtrl.text,
-                                    );
+                                    final isGoods =
+                                        row.item!.type.toLowerCase() == 'goods';
+                                    if (isGoods) {
+                                      row.item = row.item!.copyWith(
+                                        hsnCode: hsnCtrl.text,
+                                      );
+                                    } else {
+                                      row.item = row.item!.copyWith(
+                                        hsnCode: hsnCtrl.text,
+                                      );
+                                    }
                                   }
                                 });
                                 _hsnOverlay?.remove();
@@ -4329,6 +4479,8 @@ class _SalesOrderCreateScreenState
         customers: customers,
         onSelect: (c) {
           setState(() {
+            _customerDetailsSidebarOverlay?.remove();
+            _customerDetailsSidebarOverlay = null;
             _selectedCustomerId = c.id;
             _selectedCustomer = c;
 
@@ -5665,8 +5817,791 @@ class _ArrowPainter extends CustomPainter {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Item Details Sidebar — slides from right as shown in screenshot
+// Customer Details Sidebar — slides from right as shown in screenshot
 // ─────────────────────────────────────────────────────────────────────────────
+class _CustomerDetailsSidebar extends StatefulWidget {
+  final SalesCustomer customer;
+  final String? currencyLabel;
+  final VoidCallback onClose;
+
+  const _CustomerDetailsSidebar({
+    required this.customer,
+    this.currencyLabel,
+    required this.onClose,
+  });
+
+  @override
+  State<_CustomerDetailsSidebar> createState() =>
+      _CustomerDetailsSidebarState();
+}
+
+class _CustomerDetailsSidebarState extends State<_CustomerDetailsSidebar> {
+  int _activeTabIndex = 0;
+  bool _isContactPersonsExpanded = false;
+  bool _isAddressExpanded = false;
+
+  String _inr(double? value) {
+    final amount = value ?? 0;
+    return '₹${amount.toStringAsFixed(2)}';
+  }
+
+  Widget _tabItem(String label, int index) {
+    final isActive = _activeTabIndex == index;
+    return InkWell(
+      onTap: () => setState(() => _activeTabIndex = index),
+      child: Container(
+        padding: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isActive
+                  ? const Color(0xFF2563EB)
+                  : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+            color: isActive ? const Color(0xFF2563EB) : const Color(0xFF374151),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow({
+    required String label,
+    required Widget value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 165,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF64748B),
+              ),
+            ),
+          ),
+          Expanded(child: value),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryTile({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+    bool showRightBorder = false,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        decoration: BoxDecoration(
+          border: showRightBorder
+              ? const Border(right: BorderSide(color: Color(0xFFE5E7EB)))
+              : null,
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: iconColor, size: 16),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF020617),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _contactDisplayName(CustomerContact contact) {
+    final parts = <String>[];
+    final values = [contact.salutation, contact.firstName, contact.lastName];
+    for (final value in values) {
+      final text = value?.trim() ?? '';
+      if (text.isNotEmpty) parts.add(text);
+    }
+
+    if (parts.isNotEmpty) return parts.join(' ');
+    if ((contact.email ?? '').trim().isNotEmpty) return contact.email!.trim();
+    return 'Unnamed Contact';
+  }
+
+  Widget _buildContactPersonsSection(List<CustomerContact> contacts) {
+    final badge = contacts.isNotEmpty ? '${contacts.length}' : null;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isContactPersonsExpanded = !_isContactPersonsExpanded;
+              });
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              child: Row(
+                children: [
+                  const Text(
+                    'Contact Persons',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  if (badge != null) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        badge,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  Icon(
+                    _isContactPersonsExpanded
+                        ? LucideIcons.chevronDown
+                        : LucideIcons.chevronRight,
+                    size: 16,
+                    color: const Color(0xFF475569),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_isContactPersonsExpanded) ...[
+            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: contacts.isEmpty
+                  ? const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'No contact persons found for this customer.',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                      ),
+                    )
+                  : Column(
+                      children: contacts
+                          .asMap()
+                          .entries
+                          .map(
+                            (entry) => Container(
+                              width: double.infinity,
+                              margin: EdgeInsets.only(
+                                bottom: entry.key == contacts.length - 1 ? 0 : 10,
+                              ),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _contactDisplayName(entry.value),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  if ((entry.value.email ?? '').trim().isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      entry.value.email!.trim(),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF475569),
+                                      ),
+                                    ),
+                                  ],
+                                  if ((entry.value.mobilePhone ?? '').trim().isNotEmpty ||
+                                      (entry.value.workPhone ?? '').trim().isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      (entry.value.mobilePhone ?? '').trim().isNotEmpty
+                                          ? entry.value.mobilePhone!.trim()
+                                          : entry.value.workPhone!.trim(),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddressCard({
+    required String title,
+    required List<String> lines,
+    String? phone,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF334155),
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (lines.isEmpty)
+            const Text(
+              'No address found.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            )
+          else
+            Text(
+              lines.join('\n'),
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.45,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+          if ((phone ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              phone!.trim(),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddressSection(SalesCustomer customer) {
+    final billingLines = <String>[
+      if ((customer.billingAddressStreet1 ?? '').trim().isNotEmpty)
+        customer.billingAddressStreet1!.trim(),
+      if ((customer.billingAddressStreet2 ?? '').trim().isNotEmpty)
+        customer.billingAddressStreet2!.trim(),
+      if ((customer.billingAddressCity ?? '').trim().isNotEmpty)
+        customer.billingAddressCity!.trim(),
+      [
+        customer.billingAddressStateId?.trim() ?? '',
+        customer.billingAddressZip?.trim() ?? '',
+      ].where((value) => value.isNotEmpty).join(', '),
+      if ((customer.billingAddressCountryId ?? '').trim().isNotEmpty)
+        customer.billingAddressCountryId!.trim(),
+    ].where((value) => value.trim().isNotEmpty).toList();
+
+    final shippingLines = <String>[
+      if ((customer.shippingAddressStreet1 ?? '').trim().isNotEmpty)
+        customer.shippingAddressStreet1!.trim(),
+      if ((customer.shippingAddressStreet2 ?? '').trim().isNotEmpty)
+        customer.shippingAddressStreet2!.trim(),
+      if ((customer.shippingAddressCity ?? '').trim().isNotEmpty)
+        customer.shippingAddressCity!.trim(),
+      [
+        customer.shippingAddressStateId?.trim() ?? '',
+        customer.shippingAddressZip?.trim() ?? '',
+      ].where((value) => value.isNotEmpty).join(', '),
+      if ((customer.shippingAddressCountryId ?? '').trim().isNotEmpty)
+        customer.shippingAddressCountryId!.trim(),
+    ].where((value) => value.trim().isNotEmpty).toList();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isAddressExpanded = !_isAddressExpanded;
+              });
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              child: Row(
+                children: [
+                  const Text(
+                    'Address',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    _isAddressExpanded
+                        ? LucideIcons.chevronDown
+                        : LucideIcons.chevronRight,
+                    size: 16,
+                    color: const Color(0xFF475569),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_isAddressExpanded) ...[
+            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: Column(
+                children: [
+                  _buildAddressCard(
+                    title: 'Billing Address',
+                    lines: billingLines,
+                    phone: customer.billingAddressPhone,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildAddressCard(
+                    title: 'Shipping Address',
+                    lines: shippingLines,
+                    phone: customer.shippingAddressPhone,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsTab() {
+    final c = widget.customer;
+    final hasFacebook = (c.facebookHandle ?? '').trim().isNotEmpty;
+    final hasX = (c.twitterHandle ?? '').trim().isNotEmpty;
+    final portalEnabled = c.enablePortal ?? false;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Row(
+              children: [
+                _summaryTile(
+                  icon: LucideIcons.alertTriangle,
+                  iconColor: const Color(0xFFF59E0B),
+                  label: 'Outstanding Receivables',
+                  value: _inr(c.receivables),
+                  showRightBorder: true,
+                ),
+                _summaryTile(
+                  icon: LucideIcons.badgeCheck,
+                  iconColor: const Color(0xFF10B981),
+                  label: 'Unused Credits',
+                  value: _inr(0),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.only(bottom: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(14, 14, 14, 12),
+                  child: Text(
+                    'Contact Details',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 4),
+                  child: Column(
+                    children: [
+                      _detailRow(
+                        label: 'Customer Type',
+                        value: Text(
+                          c.customerType ?? 'Business',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      _detailRow(
+                        label: 'Currency',
+                        value: Text(
+                          (widget.currencyLabel ?? '').isNotEmpty
+                              ? widget.currencyLabel!
+                              : (c.currencyId ?? 'INR'),
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      _detailRow(
+                        label: 'Credit Limit',
+                        value: Text(
+                          _inr(c.creditLimit),
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      _detailRow(
+                        label: 'Payment Terms',
+                        value: Text(
+                          (c.paymentTerms ?? '').isNotEmpty
+                              ? c.paymentTerms!
+                              : 'Net 30',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      _detailRow(
+                        label: 'Portal Status',
+                        value: Text(
+                          portalEnabled ? 'Enabled' : 'Disabled',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: portalEnabled
+                                ? const Color(0xFF2563EB)
+                                : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                      _detailRow(
+                        label: 'Customer Language',
+                        value: const Row(
+                          children: [
+                            Text('English', style: TextStyle(fontSize: 14)),
+                            SizedBox(width: 6),
+                            Icon(
+                              LucideIcons.info,
+                              size: 14,
+                              color: Color(0xFF64748B),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _detailRow(
+                        label: 'Social Networks',
+                        value: Row(
+                          children: [
+                            if (hasFacebook)
+                              const FaIcon(
+                                FontAwesomeIcons.facebook,
+                                size: 15,
+                                color: Color(0xFF1877F2),
+                              ),
+                            if (hasFacebook && hasX) const SizedBox(width: 10),
+                            if (hasX)
+                              const FaIcon(
+                                FontAwesomeIcons.xTwitter,
+                                size: 15,
+                                color: Color(0xFF020617),
+                              ),
+                            if (!hasFacebook && !hasX)
+                              const Text('-', style: TextStyle(fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                      _detailRow(
+                        label: 'Price List',
+                        value: Text(
+                          (c.priceList ?? '').isNotEmpty
+                              ? c.priceList!
+                              : 'Pricelist',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      _detailRow(
+                        label: 'GST Treatment',
+                        value: Text(
+                          c.gstTreatment ?? 'Unregistered Business',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      _detailRow(
+                        label: 'Place of Supply',
+                        value: Text(
+                          (c.placeOfSupply ?? '').isNotEmpty
+                              ? c.placeOfSupply!
+                              : '-',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      _detailRow(
+                        label: 'Tax Preference',
+                        value: Text(
+                          c.taxPreference ?? 'Taxable',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildContactPersonsSection(c.contactPersons ?? const []),
+          _buildAddressSection(c),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivityTab() {
+    return const Center(
+      child: Text(
+        'No activity found.',
+        style: TextStyle(
+          fontSize: 14,
+          color: Color(0xFF64748B),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.customer;
+    final customerCode = (c.customerNumber ?? '').isNotEmpty
+        ? c.customerNumber!
+        : c.displayName;
+    final customerName = c.displayName.isNotEmpty ? c.displayName : customerCode;
+    final initial = c.displayName.isNotEmpty
+        ? c.displayName[0].toUpperCase()
+        : 'C';
+
+    return Container(
+      width: 500,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        border: const Border(left: BorderSide(color: Color(0xFFE5E7EB))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(-6, 0),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      initial,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Customer',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              customerName,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF020617),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(
+                            LucideIcons.externalLink,
+                            size: 14,
+                            color: Color(0xFF2563EB),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: widget.onClose,
+                  icon: const Icon(
+                    LucideIcons.x,
+                    size: 18,
+                    color: Color(0xFFEF4444),
+                  ),
+                  splashRadius: 18,
+                ),
+              ],
+            ),
+          ),
+          Container(
+            color: Colors.white,
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      LucideIcons.fileText,
+                      size: 14,
+                      color: Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      customerCode,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(
+                      LucideIcons.mail,
+                      size: 14,
+                      color: Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      (c.email ?? '').isNotEmpty ? c.email! : 'No email',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: Row(
+              children: [
+                _tabItem('Details', 0),
+                const SizedBox(width: 24),
+                _tabItem('Activity Log', 1),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+          Expanded(
+            child: _activeTabIndex == 0 ? _buildDetailsTab() : _buildActivityTab(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ItemDetailsSidebar extends StatefulWidget {
   final SalesOrderItemRow row;
   final VoidCallback onClose;
@@ -5974,3 +6909,4 @@ class TooltipShapeBorder extends ShapeBorder {
   @override
   ShapeBorder scale(double t) => this;
 }
+

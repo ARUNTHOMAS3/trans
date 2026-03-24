@@ -154,33 +154,51 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
   Future<List<WarehouseModel>> getWarehouses({String? orgId}) async {
     try {
       AppLogger.debug('GET WAREHOUSES called', data: {'orgId': orgId}, module: 'purchases');
-      final queryParameters = {
+      final queryParameters = <String, dynamic>{
         if (orgId != null && orgId.isNotEmpty) 'org_id': orgId,
       };
-      final response = await _apiClient.get(
+      final outletsResponse = await _apiClient.get(
+        '/outlets',
+        queryParameters: queryParameters,
+      );
+
+      final outletsList = _normalizeList(outletsResponse.data);
+      final settingsWarehouses = outletsList
+          .whereType<Map<String, dynamic>>()
+          .where(
+            (row) =>
+                (row['location_type']?.toString().toLowerCase() == 'warehouse') &&
+                (row['is_active'] as bool? ?? true),
+          )
+          .map(WarehouseModel.fromJson)
+          .toList();
+
+      if (settingsWarehouses.isNotEmpty) {
+        return settingsWarehouses;
+      }
+
+      final legacyResponse = await _apiClient.get(
         ApiEndpoints.warehouses,
         queryParameters: queryParameters,
       );
 
-      // The response.data should already be the list because ApiClient standardizes it
-      final dynamic rawData = response.data;
-      final List<dynamic> list;
-
-      if (rawData is List) {
-        list = rawData;
-      } else if (rawData is Map && rawData['data'] is List) {
-        list = rawData['data'] as List;
-      } else {
-        list = [];
-      }
-
-      final mapped = list
-          .map((e) => WarehouseModel.fromJson(e as Map<String, dynamic>))
+      return _normalizeList(legacyResponse.data)
+          .whereType<Map<String, dynamic>>()
+          .map(WarehouseModel.fromJson)
           .toList();
-      return mapped;
     } catch (e, st) {
       AppLogger.error('GET WAREHOUSES error', error: e, stackTrace: st, module: 'purchases');
       return [];
     }
+  }
+
+  List<dynamic> _normalizeList(dynamic rawData) {
+    if (rawData is List) {
+      return rawData;
+    }
+    if (rawData is Map && rawData['data'] is List) {
+      return rawData['data'] as List;
+    }
+    return const [];
   }
 }

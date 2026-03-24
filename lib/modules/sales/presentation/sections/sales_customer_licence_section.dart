@@ -17,7 +17,10 @@ extension _LicenceSection on _SalesCustomerCreateScreenState {
                 Checkbox(
                   value: isDrugRegistered,
                   activeColor: AppTheme.primaryBlueDark,
-                  onChanged: (v) => _state(() => isDrugRegistered = v ?? false),
+                  onChanged: (v) {
+                    _state(() => isDrugRegistered = v ?? false);
+                    if (!(v ?? false)) clearDrugLicenceErrors();
+                  },
                 ),
                 const Text(
                   'This Customer Is Registered Drug Licence',
@@ -40,7 +43,10 @@ extension _LicenceSection on _SalesCustomerCreateScreenState {
                   value: drugLicenceType,
                   hint: 'Select licence type',
                   items: const ['Wholesale', 'Retail', 'Wholesale and Retail'],
-                  onChanged: (v) => _state(() => drugLicenceType = v),
+                  onChanged: (v) {
+                    _state(() => drugLicenceType = v);
+                    clearDrugLicenceErrorsForType(v);
+                  },
                 ),
               ),
             ),
@@ -189,8 +195,10 @@ extension _LicenceSection on _SalesCustomerCreateScreenState {
                 Checkbox(
                   value: isFssaiRegistered,
                   activeColor: AppTheme.primaryBlueDark,
-                  onChanged: (v) =>
-                      _state(() => isFssaiRegistered = v ?? false),
+                  onChanged: (v) {
+                    _state(() => isFssaiRegistered = v ?? false);
+                    if (!(v ?? false)) clearFssaiError();
+                  },
                 ),
                 const Text(
                   'This Customer Is Registered FSSAI License',
@@ -244,8 +252,10 @@ extension _LicenceSection on _SalesCustomerCreateScreenState {
                 Checkbox(
                   value: isMsmeRegistered,
                   activeColor: AppTheme.primaryBlueDark,
-                  onChanged: (v) =>
-                      _state(() => isMsmeRegistered = v ?? false),
+                  onChanged: (v) {
+                    _state(() => isMsmeRegistered = v ?? false);
+                    if (!(v ?? false)) clearMsmeError();
+                  },
                 ),
                 const Text(
                   'This Customer Is Registered MSME',

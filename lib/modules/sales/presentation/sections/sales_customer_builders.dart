@@ -39,7 +39,6 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
             controller: controller,
             hintText: hintText,
             keyboardType: TextInputType.phone,
-            showLeftBorder: false,
             borderRadius: const BorderRadius.only(
               topRight: Radius.circular(4),
               bottomRight: Radius.circular(4),
@@ -334,38 +333,9 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
   }
 
   Widget _buildPrefillBanner() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFFDBEAFE)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            const Icon(Icons.info_outline, size: 16, color: AppTheme.primaryBlueDark),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                "Prefill Customer details from the GST portal using the Customer's GSTIN.",
-                style: const TextStyle(fontSize: 12, color: Color(0xFF1D4ED8)),
-              ),
-            ),
-            InkWell(
-              onTap: _openGstinPrefillDialog,
-              child: const Text(
-                'Prefill >',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.primaryBlueDark,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return GstinPrefillBanner(
+      entityLabel: 'Customer',
+      onPrefill: _openGstinPrefillDialog,
     );
   }
 

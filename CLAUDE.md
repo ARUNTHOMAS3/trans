@@ -218,6 +218,19 @@ Never use `print()` in new or modified code.
 
 ---
 
+## Reusables — Check Before Creating
+
+Before writing any new shared widget, mixin, service, utility, or helper:
+
+1. **Check `REUSABLES.md`** at the project root — it catalogs every reusable component in `lib/shared/` and `lib/core/`.
+2. If a suitable reusable exists, use it. Do not duplicate it.
+3. If no match exists and you create something genuinely reusable, **add it to `REUSABLES.md`** immediately.
+4. **Tell the user** when you find an existing reusable they could use, including which one it is, or when you create a new one so they can decide whether to promote it.
+
+Key reusables to always check first: `FormDropdown<T>`, `CustomTextField`, `ZerpaiDatePicker`, `ZTooltip`, `GstinPrefillBanner`, `LicenceValidationMixin`, `ZerpaiLayout`, `ZButton`, `ZerpaiConfirmationDialog`, `AppTheme` tokens.
+
+---
+
 ## What NOT to Do
 
 - Do not suggest React, Vue, Next.js, Tailwind, or any web framework — this is a Flutter project
@@ -236,6 +249,7 @@ Never use `print()` in new or modified code.
 
 | Purpose | Path |
 |---------|------|
+| Reusable components catalog | `REUSABLES.md` |
 | Master PRD | `PRD/PRD.md` |
 | DB Schema | `PRD/prd_schema.md` |
 | UI Standards | `PRD/prd_ui.md` |

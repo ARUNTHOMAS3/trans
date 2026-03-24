@@ -3,19 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:intl/intl.dart';
-import 'package:zerpai_erp/shared/widgets/skeleton.dart';
-import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import '../controllers/sales_order_controller.dart';
+import '../../../shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 
 class SalesOrderOverviewScreen extends ConsumerWidget {
   final String? initialSearchQuery;
-
   const SalesOrderOverviewScreen({super.key, this.initialSearchQuery});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final salesAsync = ref.watch(salesOrderControllerProvider);
-    final query = initialSearchQuery?.trim().toLowerCase() ?? '';
 
     return ZerpaiLayout(
       pageTitle: 'Sales Orders',
@@ -23,6 +21,7 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
       enableBodyScroll: false,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.pushNamed(context, '/sales/orders/create'),
+        backgroundColor: const Color(0xFF2563EB),
         icon: const Icon(LucideIcons.plus, color: Colors.white),
         label: const Text(
           'New Sales Order',
@@ -30,21 +29,7 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
         ),
       ),
       child: salesAsync.when(
-        data: (sales) {
-          final filteredSales = query.isEmpty
-              ? sales
-              : sales.where((sale) {
-                  final searchableValues = <String>[
-                    sale.saleNumber,
-                    sale.reference ?? '',
-                    sale.status,
-                    sale.customer?.displayName ?? '',
-                  ];
-                  return searchableValues.any(
-                    (value) => value.toLowerCase().contains(query),
-                  );
-                }).toList();
-          return filteredSales.isEmpty
+        data: (sales) => sales.isEmpty
             ? Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -78,9 +63,9 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
                 ),
               )
             : ListView.builder(
-                itemCount: filteredSales.length,
+                itemCount: sales.length,
                 itemBuilder: (context, index) {
-                  final sale = filteredSales[index];
+                  final sale = sales[index];
                   return Card(
                     elevation: 0,
                     margin: const EdgeInsets.symmetric(
@@ -143,8 +128,7 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
                     ),
                   );
                 },
-                );
-        },
+              ),
         loading: () => const ListSkeleton(),
         error: (err, stack) => Center(child: Text('Error: $err')),
       ),
