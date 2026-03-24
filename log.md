@@ -7081,3 +7081,129 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - Purchase Order item autofill now resolves tax labels using the correct schema-backed lookup priority.
 - The tax dropdown now shows data instead of rendering an empty list when the selected product tax is a tax group.
 - Raw tax UUIDs are no longer used as the visible label in the row.
+
+## Purchase Receives Navigation Wiring (24/03/2026)
+
+### Goal
+- Added Purchase Receives to the Purchases navigation stack and connected list/create routes so the sidebar item behaves like a real module entry instead of a placeholder gap.
+
+### Reusables used
+- Reused `ZerpaiLayout` for the new Purchase Receives screens.
+- Reused `ZButton` for the primary action pattern on the connected screens.
+
+### Files added
+- Added `lib/modules/purchases/purchase_receives/models/purchases_purchase_receives_model.dart`
+- Added `lib/modules/purchases/purchase_receives/providers/purchases_purchase_receives_provider.dart`
+- Added `lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart`
+- Added `lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart`
+
+### Files updated
+- Updated `lib/core/routing/app_routes.dart`
+- Updated `lib/core/routing/app_router.dart`
+- Updated `lib/core/layout/zerpai_sidebar.dart`
+- Updated `lib/core/layout/zerpai_navbar.dart`
+
+### Wiring completed
+- Added `Purchase Receives` under `Purchases` in the sidebar, positioned after `Purchase Orders` and before `Bills`.
+- Added list route: `/purchases/purchase-receives`
+- Added create route: `/purchases/purchase-receives/create`
+- Connected the sidebar child create action to the create route.
+- Added Purchase Receives to the navbar search-category routing maps so it resolves like the other Purchases destinations.
+
+### Validation
+- `flutter analyze lib/modules/purchases/purchase_receives lib/core/routing/app_routes.dart lib/core/routing/app_router.dart lib/core/layout/zerpai_sidebar.dart lib/core/layout/zerpai_navbar.dart`
+
+### Result
+- Purchase Receives is now a connected Purchases destination in navigation.
+- The list screen and create route both load successfully within the current app shell.
+
+## Sales And Purchase Receives Runtime Navigation Fix (24/03/2026)
+
+### Root cause
+- The sales list UI and sales order overview still used `Navigator.pushNamed(...)` for create/detail navigation even though the app is routed through GoRouter.
+- This caused the runtime failure `Navigator.onGenerateRoute was null` when the sales create route was triggered.
+- The new Purchase Receives list screen used `Expanded` inside a shell that still allowed body scrolling, which produced unbounded-height `RenderFlex` assertions and the follow-on hit-test/layout failures.
+- The Purchase Receives create screen used `context.pop()` for its back action, which is unsafe when the screen is opened directly by URL and no previous route exists in the stack.
+
+### Files updated
+- Updated `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart`
+  - replaced `Navigator.pushNamed(...)` with `context.push(...)` for create actions
+- Updated `lib/modules/sales/presentation/sales_order_overview.dart`
+  - added GoRouter navigation import
+  - replaced `Navigator.pushNamed(...)` with `context.push(...)` for create and detail navigation
+- Updated `lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart`
+  - enabled shell-managed bounded body layout with `enableBodyScroll: false`
+- Updated `lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart`
+  - changed the back action from `context.pop()` to `context.go(AppRoutes.purchaseReceives)`
+
+### Validation
+- `flutter analyze lib/modules/sales/presentation/sections/sales_generic_list_ui.dart lib/modules/sales/presentation/sales_order_overview.dart lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart`
+
+### Result
+- Sales create/detail navigation now uses the app’s canonical GoRouter flow instead of legacy named Navigator routes.
+- Purchase Receives no longer depends on an unsafe pop-only back path.
+- The Purchase Receives list screen now uses bounded layout constraints, which removes the render overflow/assertion cascade caused by the initial shell setup.
+
+## Full Purchase Receives Module Port (24/03/2026)
+
+### Goal
+- Replaced the placeholder Purchase Receives shell with the actual module UI and flow from the imported `purchase_receives` source, while adapting it to the repo’s routing, reusable controls, and module structure.
+
+### Reusables used
+- Reused `ZerpaiLayout` for both the list and create screens.
+- Reused `ZButton` for the primary and secondary footer/header actions.
+- Reused `FormDropdown<T>` for vendor and purchase-order selection.
+- Reused `ZerpaiDatePicker` for the received-date field.
+- Reused `FileUploadButton` instead of adding a screen-local upload control.
+
+### Files added
+- Added `lib/modules/purchases/purchase_receives/repositories/purchases_purchase_receives_repository.dart`
+- Added `lib/modules/purchases/purchase_receives/repositories/purchases_purchase_receives_repository_impl.dart`
+
+### Files updated
+- Updated `lib/modules/purchases/purchase_receives/models/purchases_purchase_receives_model.dart`
+- Updated `lib/modules/purchases/purchase_receives/providers/purchases_purchase_receives_provider.dart`
+- Updated `lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart`
+- Updated `lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart`
+- Updated `lib/core/constants/api_endpoints.dart`
+
+### What changed
+- Replaced the empty placeholder model with a fuller Purchase Receive model that supports:
+  - list rows
+  - item lines
+  - purchase order linkage
+  - quantity totals
+  - timestamps
+- Replaced the empty future provider with a state-notifier flow that:
+  - fetches Purchase Receives from the API when available
+  - supports refresh
+  - supports create flow
+  - falls back to local-only state when the Purchase Receive API is unavailable
+- Replaced the basic list placeholder with a functional Purchase Receives list UI:
+  - view selector
+  - in-screen search
+  - configurable columns
+  - selection checkboxes
+  - table rendering for purchase receive rows
+  - local/API availability status banner
+- Replaced the create placeholder card with a full Purchase Receive create flow:
+  - vendor selection
+  - vendor-filtered purchase order selection
+  - received date using the shared date picker
+  - purchase order item population
+  - editable quantity-to-receive rows
+  - notes
+  - file attachment using the shared upload control
+  - draft/received save actions
+- Added `purchase-receives` API endpoint constant and repository wiring for the module.
+
+### Runtime behavior note
+- If the backend `purchase-receives` API is unavailable, new Purchase Receives are still stored in the module’s local state for the current session and the UI shows an explicit local-only status instead of silently pretending backend persistence exists.
+
+### Validation
+- `flutter analyze lib/modules/purchases/purchase_receives lib/core/constants/api_endpoints.dart`
+
+### Result
+- Purchase Receives is no longer just a navigation stub.
+- The module now has a real list screen and create flow connected to vendors and purchase orders.
+- The implementation is repo-aligned and uses existing shared controls instead of new duplicated widgets.

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
-    show FilteringTextInputFormatter, LengthLimitingTextInputFormatter, TextInputFormatter;
+    show FilteringTextInputFormatter, LengthLimitingTextInputFormatter;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -136,6 +136,9 @@ class _SettingsWarehouseCreatePageState
   final Set<String> _expandedBlocks = <String>{'Organization'};
 
   bool get _isEditing => widget.warehouseId != null;
+
+  // Label column width for the two-column row layout
+  static const double _labelWidth = 180.0;
 
   @override
   void initState() {
@@ -275,22 +278,17 @@ class _SettingsWarehouseCreatePageState
   @override
   Widget build(BuildContext context) {
     return ZerpaiLayout(
-      pageTitle: '',
-      useHorizontalPadding: false,
-      useTopPadding: false,
-      enableBodyScroll: false,
-      searchFocusNode: _searchFocusNode,
+      pageTitle: '', useHorizontalPadding: false, useTopPadding: false,
+      enableBodyScroll: false, searchFocusNode: _searchFocusNode,
       child: Container(
         color: AppTheme.bgLight,
         child: Column(
           children: [
             _buildTopBar(context),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [_buildSidebar(), Expanded(child: _buildBody())],
-              ),
-            ),
+            Expanded(child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [_buildSidebar(), Expanded(child: _buildBody())],
+            )),
           ],
         ),
       ),
@@ -308,69 +306,39 @@ class _SettingsWarehouseCreatePageState
           constraints: const BoxConstraints(maxWidth: 1560),
           child: Row(
             children: [
-              SizedBox(
-                width: 320,
-                child: Row(
-                  children: [
-                    InkWell(
-                      onTap: () => context.go(AppRoutes.settings),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        width: 44, height: 44,
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.borderLight)),
-                        child: const Icon(LucideIcons.chevronLeft, size: 20, color: AppTheme.textPrimary),
-                      ),
-                    ),
-                    const SizedBox(width: AppTheme.space12),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 48, height: 48,
-                            decoration: BoxDecoration(color: const Color(0xFFFFF3EE), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFFED7C3))),
-                            child: const Icon(LucideIcons.settings2, color: Color(0xFFF97316), size: 22),
-                          ),
-                          const SizedBox(width: AppTheme.space16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('All Settings', style: AppTheme.pageTitle),
-                                const SizedBox(height: AppTheme.space4),
-                                Text(_organizationName.isNotEmpty ? _organizationName : 'Your Organization',
-                                    style: AppTheme.bodyText, overflow: TextOverflow.ellipsis),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              SizedBox(width: 320, child: Row(children: [
+                InkWell(
+                  onTap: () => context.go(AppRoutes.settings),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(width: 44, height: 44,
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.borderLight)),
+                      child: const Icon(LucideIcons.chevronLeft, size: 20, color: AppTheme.textPrimary)),
                 ),
-              ),
+                const SizedBox(width: AppTheme.space12),
+                Expanded(child: Row(children: [
+                  Container(width: 48, height: 48,
+                      decoration: BoxDecoration(color: const Color(0xFFFFF3EE), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFFED7C3))),
+                      child: const Icon(LucideIcons.settings2, color: Color(0xFFF97316), size: 22)),
+                  const SizedBox(width: AppTheme.space16),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('All Settings', style: AppTheme.pageTitle),
+                    const SizedBox(height: AppTheme.space4),
+                    Text(_organizationName.isNotEmpty ? _organizationName : 'Your Organization',
+                        style: AppTheme.bodyText, overflow: TextOverflow.ellipsis),
+                  ])),
+                ])),
+              ])),
               const SizedBox(width: AppTheme.space24),
-              Expanded(
-                child: Center(
-                  child: SizedBox(
-                    width: 360, height: 42,
-                    child: SettingsSearchField(
-                      items: const <SettingsSearchItem>[],
-                      focusNode: _searchFocusNode,
-                      controller: _searchController,
-                      onQueryChanged: (_) {},
-                      onNoMatch: (q) => ZerpaiToast.info(context, 'No settings matched "$q"'),
-                    ),
-                  ),
-                ),
-              ),
+              Expanded(child: Center(child: SizedBox(width: 360, height: 42,
+                  child: SettingsSearchField(items: const <SettingsSearchItem>[], focusNode: _searchFocusNode,
+                      controller: _searchController, onQueryChanged: (_) {},
+                      onNoMatch: (q) => ZerpaiToast.info(context, 'No settings matched "$q"'))))),
               const SizedBox(width: AppTheme.space24),
               TextButton.icon(
                 onPressed: () => context.go(AppRoutes.settings),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.textPrimary, backgroundColor: AppTheme.bgLight,
-                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16, vertical: AppTheme.space12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
+                style: TextButton.styleFrom(foregroundColor: AppTheme.textPrimary, backgroundColor: AppTheme.bgLight,
+                    padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16, vertical: AppTheme.space12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 icon: const Icon(LucideIcons.x, size: 16, color: AppTheme.errorRed),
                 label: const Text('Close Settings'),
               ),
@@ -392,11 +360,9 @@ class _SettingsWarehouseCreatePageState
         padding: const EdgeInsets.fromLTRB(AppTheme.space12, AppTheme.space20, AppTheme.space12, AppTheme.space24),
         children: [
           for (final section in _navSections) ...[
-            Padding(
-              padding: const EdgeInsets.only(left: AppTheme.space4, bottom: AppTheme.space8),
-              child: Text(section.title.toUpperCase(),
-                  style: AppTheme.captionText.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
-            ),
+            Padding(padding: const EdgeInsets.only(left: AppTheme.space4, bottom: AppTheme.space8),
+                child: Text(section.title.toUpperCase(),
+                    style: AppTheme.captionText.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.textSecondary))),
             for (final block in section.blocks) _buildSidebarBlock(block, currentPath),
             const SizedBox(height: AppTheme.space12),
           ],
@@ -410,32 +376,23 @@ class _SettingsWarehouseCreatePageState
     final bool isExpanded = _expandedBlocks.contains(block.title) || hasActiveChild;
     return Container(
       margin: const EdgeInsets.only(bottom: AppTheme.space4),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: () => setState(() {
-              if (isExpanded) _expandedBlocks.remove(block.title);
-              else _expandedBlocks.add(block.title);
-            }),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppTheme.space8, vertical: AppTheme.space10),
-              child: Row(
-                children: [
-                  Icon(isExpanded ? LucideIcons.chevronDown : LucideIcons.chevronRight, size: 16, color: AppTheme.textSecondary),
-                  const SizedBox(width: AppTheme.space8),
-                  Expanded(child: Text(block.title, style: AppTheme.bodyText.copyWith(fontWeight: FontWeight.w600))),
-                ],
-              ),
-            ),
-          ),
-          if (isExpanded)
-            Padding(
-              padding: const EdgeInsets.only(left: AppTheme.space28, right: AppTheme.space8, bottom: AppTheme.space6),
-              child: Column(children: block.items.map((e) => _buildSidebarEntry(e, currentPath)).toList()),
-            ),
-        ],
-      ),
+      child: Column(children: [
+        InkWell(
+          onTap: () => setState(() {
+            if (isExpanded) _expandedBlocks.remove(block.title); else _expandedBlocks.add(block.title);
+          }),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(padding: const EdgeInsets.symmetric(horizontal: AppTheme.space8, vertical: AppTheme.space10),
+              child: Row(children: [
+                Icon(isExpanded ? LucideIcons.chevronDown : LucideIcons.chevronRight, size: 16, color: AppTheme.textSecondary),
+                const SizedBox(width: AppTheme.space8),
+                Expanded(child: Text(block.title, style: AppTheme.bodyText.copyWith(fontWeight: FontWeight.w600))),
+              ])),
+        ),
+        if (isExpanded)
+          Padding(padding: const EdgeInsets.only(left: AppTheme.space28, right: AppTheme.space8, bottom: AppTheme.space6),
+              child: Column(children: block.items.map((e) => _buildSidebarEntry(e, currentPath)).toList())),
+      ]),
     );
   }
 
@@ -453,12 +410,12 @@ class _SettingsWarehouseCreatePageState
       },
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: AppTheme.space4),
+        width: double.infinity, margin: const EdgeInsets.only(bottom: AppTheme.space4),
         padding: const EdgeInsets.symmetric(horizontal: AppTheme.space12, vertical: AppTheme.space10),
         decoration: BoxDecoration(color: isActive ? accentColor : Colors.transparent, borderRadius: BorderRadius.circular(10)),
-        child: Text(entry.label,
-            style: AppTheme.bodyText.copyWith(fontSize: 13, color: isActive ? Colors.white : AppTheme.textPrimary, fontWeight: isActive ? FontWeight.w600 : FontWeight.w400)),
+        child: Text(entry.label, style: AppTheme.bodyText.copyWith(
+            fontSize: 13, color: isActive ? Colors.white : AppTheme.textPrimary,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400)),
       ),
     );
   }
@@ -471,7 +428,7 @@ class _SettingsWarehouseCreatePageState
       padding: const EdgeInsets.all(AppTheme.space32),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
+          constraints: const BoxConstraints(maxWidth: 720),
           child: Form(
             key: _formKey,
             child: Column(
@@ -480,57 +437,60 @@ class _SettingsWarehouseCreatePageState
                 Text(_isEditing ? 'Edit Warehouse' : 'Add Warehouse',
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
                 const SizedBox(height: AppTheme.space24),
+
+                // ── Warehouse Details ──────────────────────────────────────
                 _buildSectionLabel('Warehouse Details'),
                 const SizedBox(height: AppTheme.space12),
                 _buildCard(children: [
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Expanded(flex: 3, child: _buildTextField(label: 'Warehouse name', required: true, controller: _nameCtrl, hint: 'e.g. Central Warehouse',
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Warehouse name is required' : null)),
-                    const SizedBox(width: AppTheme.space12),
-                    Expanded(flex: 2, child: _buildTextField(label: 'Warehouse code', controller: _warehouseCodeCtrl, hint: 'e.g. WH-01',
-                        inputFormatters: [LengthLimitingTextInputFormatter(20)])),
-                  ]),
-                  const SizedBox(height: AppTheme.space12),
-                  _buildLabel('Parent branch', required: true),
-                  const SizedBox(height: AppTheme.space6),
-                  FormDropdown<String>(
-                    items: _branches.map((b) => b.id).toList(),
-                    value: _parentBranchId,
-                    hint: 'Select parent branch',
-                    displayStringForValue: (id) => _branches.firstWhere((b) => b.id == id, orElse: () => _BranchOption(id: id, name: id)).name,
-                    errorText: _parentBranchError,
-                    onChanged: (v) => setState(() { _parentBranchId = v; _parentBranchError = null; }),
-                  ),
+                  _buildRow(label: 'Warehouse name', required: true,
+                      child: TextFormField(controller: _nameCtrl, decoration: _dec('e.g. Central Warehouse'),
+                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Warehouse name is required' : null)),
+                  _buildDivider(),
+                  _buildRow(label: 'Warehouse code',
+                      child: TextFormField(controller: _warehouseCodeCtrl, decoration: _dec('e.g. WH-01'),
+                          inputFormatters: [LengthLimitingTextInputFormatter(20)])),
+                  _buildDivider(),
+                  _buildRow(label: 'Parent branch', required: true,
+                      child: FormDropdown<String>(
+                        items: _branches.map((b) => b.id).toList(),
+                        value: _parentBranchId,
+                        hint: 'Select parent branch',
+                        displayStringForValue: (id) => _branches.firstWhere((b) => b.id == id, orElse: () => _BranchOption(id: id, name: id)).name,
+                        errorText: _parentBranchError,
+                        onChanged: (v) => setState(() { _parentBranchId = v; _parentBranchError = null; }),
+                      )),
                 ]),
+
                 const SizedBox(height: AppTheme.space20),
+
+                // ── Address ────────────────────────────────────────────────
                 _buildSectionLabel('Address'),
                 const SizedBox(height: AppTheme.space12),
                 _buildCard(children: [
-                  _buildTextField(label: 'Attention', controller: _attentionCtrl, hint: 'Attention'),
-                  const SizedBox(height: AppTheme.space12),
-                  _buildTextField(label: 'Street 1', controller: _streetCtrl, hint: 'Street 1'),
-                  const SizedBox(height: AppTheme.space12),
-                  _buildTextField(label: 'Street 2', controller: _street2Ctrl, hint: 'Street 2'),
-                  const SizedBox(height: AppTheme.space12),
-                  _buildTextField(label: 'City', controller: _cityCtrl, hint: 'City'),
-                  const SizedBox(height: AppTheme.space12),
-                  Row(children: [
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      _buildLabel('State / Union Territory'),
-                      const SizedBox(height: AppTheme.space6),
-                      FormDropdown<String>(items: _indianStates, value: _selectedState, hint: 'Select state',
-                          onChanged: (v) => setState(() => _selectedState = v)),
-                    ])),
-                    const SizedBox(width: AppTheme.space12),
-                    Expanded(child: _buildTextField(label: 'Pin Code', controller: _pincodeCtrl, hint: '560001',
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)])),
-                  ]),
-                  const SizedBox(height: AppTheme.space12),
-                  _buildLabel('Country'),
-                  const SizedBox(height: AppTheme.space6),
-                  _buildStaticDropdown('India'),
+                  _buildRow(label: 'Attention',
+                      child: TextFormField(controller: _attentionCtrl, decoration: _dec('Attention'))),
+                  _buildDivider(),
+                  _buildRow(label: 'Street 1',
+                      child: TextFormField(controller: _streetCtrl, decoration: _dec('Street 1'))),
+                  _buildDivider(),
+                  _buildRow(label: 'Street 2',
+                      child: TextFormField(controller: _street2Ctrl, decoration: _dec('Street 2'))),
+                  _buildDivider(),
+                  _buildRow(label: 'City',
+                      child: TextFormField(controller: _cityCtrl, decoration: _dec('City'))),
+                  _buildDivider(),
+                  _buildRow(label: 'State / Union Territory',
+                      child: FormDropdown<String>(items: _indianStates, value: _selectedState, hint: 'Select state',
+                          onChanged: (v) => setState(() => _selectedState = v))),
+                  _buildDivider(),
+                  _buildRow(label: 'Pin Code',
+                      child: TextFormField(controller: _pincodeCtrl, decoration: _dec('560001'),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)])),
+                  _buildDivider(),
+                  _buildRow(label: 'Country', child: _buildStaticField('India')),
                 ]),
+
                 const SizedBox(height: AppTheme.space32),
                 _buildActions(),
                 const SizedBox(height: AppTheme.space48),
@@ -546,36 +506,27 @@ class _SettingsWarehouseCreatePageState
 
   Widget _buildActions() {
     final accentColor = ref.watch(appBrandingProvider).accentColor;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        TextButton(
-          onPressed: _isSaving ? null : () => context.go(AppRoutes.settingsWarehouses),
-          style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
-          child: const Text('Cancel'),
-        ),
-        const SizedBox(width: AppTheme.space12),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _save,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: accentColor, foregroundColor: Colors.white,
+    return Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+      TextButton(onPressed: _isSaving ? null : () => context.go(AppRoutes.settingsWarehouses),
+          style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary), child: const Text('Cancel')),
+      const SizedBox(width: AppTheme.space12),
+      ElevatedButton(
+        onPressed: _isSaving ? null : _save,
+        style: ElevatedButton.styleFrom(backgroundColor: accentColor, foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: AppTheme.space24, vertical: AppTheme.space12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          child: _isSaving
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Text(_isEditing ? 'Save Changes' : 'Add Warehouse',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        ),
-      ],
-    );
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+        child: _isSaving
+            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            : Text(_isEditing ? 'Save Changes' : 'Add Warehouse',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      ),
+    ]);
   }
 
   // ─── Shared helpers ────────────────────────────────────────────────────────
 
   Widget _buildCard({required List<Widget> children}) {
     return Container(
-      padding: const EdgeInsets.all(AppTheme.space20),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.borderLight)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
     );
@@ -585,54 +536,42 @@ class _SettingsWarehouseCreatePageState
     return Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary, letterSpacing: 0.3));
   }
 
-  Widget _buildLabel(String label, {bool required = false}) {
-    return RichText(
-      text: TextSpan(
-        text: label,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textBody),
-        children: required ? const [TextSpan(text: ' *', style: TextStyle(color: AppTheme.errorRed))] : null,
+  Widget _buildRow({required String label, bool required = false, required Widget child}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.space20, vertical: AppTheme.space12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: _labelWidth,
+            child: RichText(
+              text: TextSpan(
+                text: label,
+                style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+                children: required ? const [TextSpan(text: ' *', style: TextStyle(color: AppTheme.errorRed))] : null,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppTheme.space16),
+          Expanded(child: child),
+        ],
       ),
     );
   }
 
-  Widget _buildStaticDropdown(String value) {
+  Widget _buildDivider() => const Divider(height: 1, indent: 0, endIndent: 0, color: AppTheme.borderLight);
+
+  Widget _buildStaticField(String value) {
     return Container(
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.space12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.borderLight)),
-      child: Row(children: [
-        Expanded(child: Text(value, style: const TextStyle(fontSize: 13, color: AppTheme.textBody))),
-        const Icon(LucideIcons.chevronDown, size: 14, color: AppTheme.textSecondary),
-      ]),
+      decoration: BoxDecoration(color: AppTheme.bgLight, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.borderLight)),
+      alignment: Alignment.centerLeft,
+      child: Text(value, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
     );
   }
 
-  Widget _buildTextField({
-    required String label,
-    bool required = false,
-    required TextEditingController controller,
-    String hint = '',
-    TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabel(label, required: required),
-        const SizedBox(height: AppTheme.space6),
-        TextFormField(
-          controller: controller,
-          decoration: _inputDecoration(hint),
-          keyboardType: keyboardType,
-          inputFormatters: inputFormatters,
-          validator: validator,
-        ),
-      ],
-    );
-  }
-
-  InputDecoration _inputDecoration(String hint) => InputDecoration(
+  InputDecoration _dec(String hint) => InputDecoration(
     hintText: hint,
     hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
     isDense: true,

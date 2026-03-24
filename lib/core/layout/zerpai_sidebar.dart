@@ -119,6 +119,11 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
         AppRoutes.purchaseOrders,
         AppRoutes.purchaseOrdersCreate,
       ),
+      _Child(
+        'Purchase Receives',
+        AppRoutes.purchaseReceives,
+        AppRoutes.purchaseReceivesCreate,
+      ),
       _Child('Bills', AppRoutes.bills, AppRoutes.billsCreate),
       _Child(
         'Recurring Bills',

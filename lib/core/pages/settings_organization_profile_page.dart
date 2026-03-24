@@ -102,7 +102,8 @@ class _SettingsOrganizationProfilePageState
               label: 'Branding',
               route: AppRoutes.settingsOrgBranding,
             ),
-            _ProfileNavEntry(label: 'Locations', route: AppRoutes.settingsLocations),
+            _ProfileNavEntry(label: 'Branches', route: AppRoutes.settingsBranches),
+            _ProfileNavEntry(label: 'Warehouses', route: AppRoutes.settingsWarehouses),
             _ProfileNavEntry(label: 'Approvals'),
             _ProfileNavEntry(label: 'Manage Subscription'),
           ],
@@ -1289,21 +1290,35 @@ class _SettingsOrganizationProfilePageState
                   ),
                   const SizedBox(height: AppTheme.space10),
                   Text(
-                    'Manage your business locations and warehouses from the Locations settings page.',
+                    'Manage your business branches and warehouses from the Branches and Warehouses settings pages.',
                     style: AppTheme.bodyText.copyWith(
                       color: AppTheme.textSecondary,
                       height: 1.5,
                     ),
                   ),
                   const SizedBox(height: AppTheme.space8),
-                  TextButton(
-                    onPressed: () => context.go(AppRoutes.settingsLocations),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text('Go to Locations'),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => context.go(AppRoutes.settingsBranches),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text('Go to Branches'),
+                      ),
+                      const SizedBox(width: AppTheme.space16),
+                      TextButton(
+                        onPressed: () => context.go(AppRoutes.settingsWarehouses),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text('Go to Warehouses'),
+                      ),
+                    ],
                   ),
                 ],
               ),

@@ -123,6 +123,9 @@ class AppRoutes {
   static const String purchaseOrders = '/purchases/purchase-orders';
   static const String purchaseOrdersCreate =
       '/purchases/purchase-orders/create';
+  static const String purchaseReceives = '/purchases/purchase-receives';
+  static const String purchaseReceivesCreate =
+      '/purchases/purchase-receives/create';
   static const String purchasesPurchaseOrders =
       '/purchases/purchase-orders'; // Legacy
   static const String purchasesPurchaseOrdersCreate =

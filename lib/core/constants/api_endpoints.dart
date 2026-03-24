@@ -14,6 +14,7 @@ class ApiEndpoints {
   static const String purchaseOrders = 'purchase-orders';
   static const String purchaseOrderNextNumber = 'purchase-orders/next-number';
   static const String purchaseOrderSettings = 'purchase-orders/settings';
+  static const String purchaseReceives = 'purchase-receives';
   static const String warehouses = 'warehouses';
   static const String bills = 'bills';
 

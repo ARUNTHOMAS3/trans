@@ -113,7 +113,8 @@ class _ZerpaiShellState extends ConsumerState<ZerpaiShell> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      ZerpaiSidebar(onNavigate: (route) => context.go(route)),
+                      if (!isSettingsRoute)
+                        ZerpaiSidebar(onNavigate: (route) => context.go(route)),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,

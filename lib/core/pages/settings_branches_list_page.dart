@@ -112,6 +112,21 @@ const List<_NavSection> _navSections = <_NavSection>[
 
 // ─── Model ────────────────────────────────────────────────────────────────────
 
+const List<Map<String, String>> _kBranchTypes = [
+  {'id': 'fofo', 'code': 'FOFO', 'label': 'Franchise Owned Franchise Operated'},
+  {'id': 'coco', 'code': 'COCO', 'label': 'Company Owned Company Operated'},
+  {'id': 'fico', 'code': 'FICO', 'label': 'Franchise Invested Company Operated'},
+  {'id': 'foco', 'code': 'FOCO', 'label': 'Franchise Owned Company Operated'},
+];
+
+const List<String> _kMonths = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+String _fmtDate(DateTime d) =>
+    '${d.day.toString().padLeft(2, '0')} ${_kMonths[d.month - 1]} ${d.year}';
+
 class _BranchRow {
   final String id;
   final String name;
@@ -122,6 +137,9 @@ class _BranchRow {
   final String country;
   final bool isActive;
   final bool isPrimary;
+  final String branchType;
+  final DateTime? subscriptionFrom;
+  final DateTime? subscriptionTo;
 
   const _BranchRow({
     required this.id,
@@ -133,6 +151,9 @@ class _BranchRow {
     required this.country,
     required this.isActive,
     required this.isPrimary,
+    required this.branchType,
+    this.subscriptionFrom,
+    this.subscriptionTo,
   });
 
   factory _BranchRow.fromJson(Map<String, dynamic> j) => _BranchRow(
@@ -145,6 +166,13 @@ class _BranchRow {
         country: (j['country'] ?? 'India').toString(),
         isActive: j['is_active'] as bool? ?? true,
         isPrimary: j['is_primary'] as bool? ?? false,
+        branchType: (j['branch_type'] ?? '').toString(),
+        subscriptionFrom: j['subscription_from'] != null
+            ? DateTime.tryParse(j['subscription_from'].toString())
+            : null,
+        subscriptionTo: j['subscription_to'] != null
+            ? DateTime.tryParse(j['subscription_to'].toString())
+            : null,
       );
 
   String get addressSummary {
@@ -154,6 +182,21 @@ class _BranchRow {
       if (country.isNotEmpty) country,
     ];
     return parts.join(', ');
+  }
+
+  String get branchTypeLabel {
+    if (branchType.isEmpty) return '';
+    return _kBranchTypes
+        .firstWhere((t) => t['id'] == branchType, orElse: () => {'code': branchType.toUpperCase()})['code']!;
+  }
+
+  String get subscriptionPeriod {
+    if (subscriptionFrom == null && subscriptionTo == null) return '';
+    if (subscriptionFrom != null && subscriptionTo != null) {
+      return '${_fmtDate(subscriptionFrom!)} – ${_fmtDate(subscriptionTo!)}';
+    }
+    if (subscriptionFrom != null) return 'From ${_fmtDate(subscriptionFrom!)}';
+    return 'Until ${_fmtDate(subscriptionTo!)}';
   }
 }
 
@@ -631,8 +674,9 @@ class _SettingsBranchesListPageState
           Expanded(flex: 3, child: Text('NAME', style: style)),
           Expanded(flex: 2, child: Text('BRANCH CODE', style: style)),
           Expanded(flex: 2, child: Text('GSTIN', style: style)),
-          Expanded(flex: 2, child: Text('DEFAULT TRANSACTION SERIES', style: style)),
+          Expanded(flex: 2, child: Text('BRANCH TYPE', style: style)),
           Expanded(flex: 2, child: Text('ADDRESS DETAILS', style: style)),
+          Expanded(flex: 3, child: Text('SUBSCRIPTION PERIOD', style: style)),
           SizedBox(width: 48),
         ],
       ),
@@ -725,23 +769,29 @@ class _SettingsBranchesListPageState
                       ),
                     ),
             ),
-            // Default Transaction Series
-            const Expanded(
+            // Branch Type
+            Expanded(
               flex: 2,
-              child: Text('—',
-                  style: TextStyle(
-                      fontSize: 13, color: AppTheme.textSecondary)),
+              child: branch.branchTypeLabel.isNotEmpty
+                  ? Text(branch.branchTypeLabel,
+                      style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w500))
+                  : const Text('—', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
             ),
             // Address
             Expanded(
               flex: 2,
               child: Text(
-                branch.addressSummary.isNotEmpty
-                    ? branch.addressSummary
-                    : '—',
-                style: const TextStyle(
-                    fontSize: 13, color: AppTheme.textBody),
+                branch.addressSummary.isNotEmpty ? branch.addressSummary : '—',
+                style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
               ),
+            ),
+            // Subscription Period
+            Expanded(
+              flex: 3,
+              child: branch.subscriptionPeriod.isNotEmpty
+                  ? Text(branch.subscriptionPeriod,
+                      style: const TextStyle(fontSize: 13, color: AppTheme.textBody))
+                  : const Text('—', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
             ),
             // Actions
             SizedBox(

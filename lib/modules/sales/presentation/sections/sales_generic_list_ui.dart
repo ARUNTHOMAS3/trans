@@ -110,7 +110,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           const SizedBox(width: 16),
           // Right side Green Button
           ElevatedButton(
-            onPressed: () => Navigator.pushNamed(context, widget.createRoute),
+            onPressed: () => context.push(widget.createRoute),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF22C55E), // Zerpai Green
               foregroundColor: Colors.white,
@@ -447,7 +447,7 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () => Navigator.pushNamed(context, widget.createRoute),
+            onPressed: () => context.push(widget.createRoute),
             icon: const Icon(LucideIcons.plus),
             label: Text('New ${widget.title}'),
           ),

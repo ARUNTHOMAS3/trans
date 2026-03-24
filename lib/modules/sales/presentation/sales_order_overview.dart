@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:intl/intl.dart';
@@ -20,7 +21,7 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
 
       enableBodyScroll: false,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.pushNamed(context, '/sales/orders/create'),
+        onPressed: () => context.push('/sales/orders/create'),
         backgroundColor: const Color(0xFF2563EB),
         icon: const Icon(LucideIcons.plus, color: Colors.white),
         label: const Text(
@@ -54,8 +55,7 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
-                      onPressed: () =>
-                          Navigator.pushNamed(context, '/sales/orders/create'),
+                      onPressed: () => context.push('/sales/orders/create'),
                       icon: const Icon(LucideIcons.plus),
                       label: const Text('Create Sales Order'),
                     ),
@@ -123,7 +123,7 @@ class SalesOrderOverviewScreen extends ConsumerWidget {
                         ],
                       ),
                       onTap: () {
-                        Navigator.pushNamed(context, '/sales/order/${sale.id}');
+                        context.push('/sales/order/${sale.id}');
                       },
                     ),
                   );

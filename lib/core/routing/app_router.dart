@@ -58,8 +58,6 @@ import 'package:zerpai_erp/modules/reports/presentation/reports_inventory_valuat
 import 'package:zerpai_erp/core/pages/settings_page.dart';
 import 'package:zerpai_erp/core/pages/settings_organization_profile_page.dart';
 import 'package:zerpai_erp/core/pages/settings_organization_branding_page.dart';
-import 'package:zerpai_erp/core/pages/settings_locations_page.dart';
-import 'package:zerpai_erp/core/pages/settings_locations_create_page.dart';
 import 'package:zerpai_erp/core/pages/settings_branches_list_page.dart';
 import 'package:zerpai_erp/core/pages/settings_branches_create_page.dart';
 import 'package:zerpai_erp/core/pages/settings_warehouses_list_page.dart';
@@ -70,6 +68,8 @@ import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vend
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_list.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_create.dart';
 
@@ -177,20 +177,6 @@ final GoRouter appRouter = GoRouter(
               path: 'settings/orgbranding',
               builder: (context, state) =>
                   const SettingsOrganizationBrandingPage(),
-            ),
-            GoRoute(
-              path: 'settings/locations',
-              builder: (context, state) => const SettingsLocationsPage(),
-            ),
-            GoRoute(
-              path: 'settings/locations/create',
-              builder: (context, state) => const SettingsLocationsCreatePage(),
-            ),
-            GoRoute(
-              path: 'settings/locations/:id/edit',
-              builder: (context, state) => SettingsLocationsCreatePage(
-                outletId: state.pathParameters['id'],
-              ),
             ),
             GoRoute(
               path: 'settings/branches',
@@ -725,6 +711,11 @@ final GoRouter appRouter = GoRouter(
               ),
             ),
             GoRoute(
+              path: 'purchases/purchase-receives',
+              builder: (context, state) =>
+                  const PurchasesPurchaseReceivesListScreen(),
+            ),
+            GoRoute(
               path: 'purchases/expenses',
               builder: (context, state) =>
                   const PlaceholderScreen(title: 'Expenses'),
@@ -750,6 +741,11 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/purchase-orders/create',
               builder: (context, state) => const PurchaseOrderCreateScreen(),
+            ),
+            GoRoute(
+              path: 'purchases/purchase-receives/create',
+              builder: (context, state) =>
+                  const PurchasesPurchaseReceivesCreateScreen(),
             ),
             GoRoute(
               path: 'documents',
