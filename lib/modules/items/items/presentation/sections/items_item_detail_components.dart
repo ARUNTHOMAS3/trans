@@ -84,13 +84,11 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
                   return InkWell(
                     onTap: () {
                       if (item.id != null) {
-                        context.goNamed(
-                          AppRoutes.itemsDetail,
-                          pathParameters: {'id': item.id!},
-                          queryParameters: _buildDetailQueryParameters(
-                            _tabsForItem(item),
-                          ),
-                        );
+                        final qp = _buildDetailQueryParameters(_tabsForItem(item));
+                        final query = qp.isNotEmpty
+                            ? '?${qp.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}'
+                            : '';
+                        context.go('/items/detail/${item.id!}$query');
                       } else {
                         ref
                             .read(itemsControllerProvider.notifier)
@@ -545,11 +543,7 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
             icon: const Icon(Icons.edit_outlined, size: 20),
             onPressed: () {
               if (item.id != null) {
-                context.goNamed(
-                  AppRoutes.itemsEdit,
-                  pathParameters: {'id': item.id!},
-                  extra: item,
-                );
+                context.go('/items/edit/${item.id!}', extra: item);
               } else {
                 context.pushNamed(AppRoutes.itemsCreate, extra: item);
               }

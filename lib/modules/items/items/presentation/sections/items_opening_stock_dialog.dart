@@ -1748,11 +1748,8 @@ class _OpeningStockDialogState extends ConsumerState<_OpeningStockDialog> {
       ...widget.initialQueryParameters,
       'tab': 'warehouses',
     };
-    context.goNamed(
-      AppRoutes.itemsDetail,
-      pathParameters: {'id': widget.itemId},
-      queryParameters: queryParameters,
-    );
+    final query = '?${queryParameters.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}';
+    context.go('/items/detail/${widget.itemId}$query');
   }
 }
 

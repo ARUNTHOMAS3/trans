@@ -172,13 +172,12 @@ class _SettingsWarehouseCreatePageState
             ? ((orgRes.data as Map<String, dynamic>)['name'] ?? user?.orgName ?? '').toString().trim()
             : user?.orgName ?? '';
       });
-      final res = await _apiClient.get('outlets', queryParameters: <String, dynamic>{'org_id': orgId});
+      final res = await _apiClient.get('branches', queryParameters: <String, dynamic>{'org_id': orgId});
       if (!mounted) return;
       if (res.success && res.data is List) {
         setState(() {
           _branches = (res.data as List)
               .whereType<Map<String, dynamic>>()
-              .where((o) => (o['location_type'] ?? 'business').toString() == 'business')
               .map((o) => _BranchOption(id: o['id'].toString(), name: o['name'].toString()))
               .toList();
         });
@@ -191,19 +190,19 @@ class _SettingsWarehouseCreatePageState
     try {
       final user = ref.read(authUserProvider);
       final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
-      final res = await _apiClient.get('outlets/${widget.warehouseId}', queryParameters: {'org_id': orgId});
+      final res = await _apiClient.get('warehouses-settings/${widget.warehouseId}', queryParameters: {'org_id': orgId});
       if (!mounted) return;
       if (res.success && res.data is Map<String, dynamic>) {
         final d = res.data as Map<String, dynamic>;
         _nameCtrl.text = (d['name'] ?? '').toString();
-        _warehouseCodeCtrl.text = (d['outlet_code'] ?? '').toString();
+        _warehouseCodeCtrl.text = (d['warehouse_code'] ?? '').toString();
         _attentionCtrl.text = (d['attention'] ?? '').toString();
-        _streetCtrl.text = (d['address'] ?? '').toString();
-        _street2Ctrl.text = (d['address2'] ?? '').toString();
+        _streetCtrl.text = (d['address_street_1'] ?? '').toString();
+        _street2Ctrl.text = (d['address_street_2'] ?? '').toString();
         _cityCtrl.text = (d['city'] ?? '').toString();
         _pincodeCtrl.text = (d['pincode'] ?? '').toString();
         final stateVal = (d['state'] ?? '').toString();
-        final parentId = d['parent_outlet_id']?.toString();
+        final parentId = d['branch_id']?.toString();
         setState(() {
           _selectedState = _indianStates.contains(stateVal) ? stateVal : null;
           if (parentId != null && parentId.isNotEmpty) _parentBranchId = parentId;
@@ -226,7 +225,7 @@ class _SettingsWarehouseCreatePageState
     try {
       final user = ref.read(authUserProvider);
       final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
-      final nameCheck = await ref.read(apiClientProvider).get('outlets', queryParameters: {'org_id': orgId});
+      final nameCheck = await ref.read(apiClientProvider).get('warehouses-settings', queryParameters: {'org_id': orgId});
       if (nameCheck.success && nameCheck.data is List) {
         final trimmed = _nameCtrl.text.trim().toLowerCase();
         final duplicate = (nameCheck.data as List).any((o) {
@@ -241,15 +240,14 @@ class _SettingsWarehouseCreatePageState
       }
       final body = <String, dynamic>{
         'org_id': orgId,
-        'location_type': 'warehouse',
         'name': _nameCtrl.text.trim(),
-        'outlet_code': _warehouseCodeCtrl.text.trim().isNotEmpty
+        'warehouse_code': _warehouseCodeCtrl.text.trim().isNotEmpty
             ? _warehouseCodeCtrl.text.trim().toUpperCase()
             : _nameCtrl.text.trim().toUpperCase().replaceAll(' ', '-'),
-        'parent_outlet_id': _parentBranchId,
+        'branch_id': _parentBranchId,
         'attention': _attentionCtrl.text.trim(),
-        'address': _streetCtrl.text.trim(),
-        'address2': _street2Ctrl.text.trim(),
+        'address_street_1': _streetCtrl.text.trim(),
+        'address_street_2': _street2Ctrl.text.trim(),
         'city': _cityCtrl.text.trim(),
         'state': _selectedState ?? '',
         'pincode': _pincodeCtrl.text.trim(),
@@ -257,8 +255,8 @@ class _SettingsWarehouseCreatePageState
       };
       final apiClient = ref.read(apiClientProvider);
       final res = _isEditing
-          ? await apiClient.put('outlets/${widget.warehouseId}', data: body)
-          : await apiClient.post('outlets', data: body);
+          ? await apiClient.put('warehouses-settings/${widget.warehouseId}', data: body)
+          : await apiClient.post('warehouses-settings', data: body);
       if (!mounted) return;
       if (res.success) {
         ZerpaiToast.success(context, _isEditing ? 'Warehouse updated successfully.' : 'Warehouse created successfully.');

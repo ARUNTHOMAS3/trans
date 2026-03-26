@@ -1,3 +1,125 @@
+## Items Navigation Fix + db:pull Schema TS Fixes (March 26, 2026)
+
+### Summary
+Fixed GoRouter assertion crash when clicking items in the list. Established `context.go('/path/$id')` as the canonical navigation pattern. Fixed recurring `db:pull` TypeScript errors in `backend/drizzle/schema.ts`.
+
+---
+
+### Flutter — GoRouter navigation (`context.go` everywhere)
+- **Root cause**: `context.goNamed(AppRoutes.itemsDetail, pathParameters: {'id': x})` throws assertion in GoRouter 17.x when parent route param `orgSystemId` is not provided explicitly
+- **Fix**: Replaced all `goNamed(..., pathParameters: {...})` calls with `context.go('/absolute/path/$id')`
+- Files changed:
+  - `lib/modules/items/items/presentation/report/items_report_overview.dart` — `_openDetail`
+  - `lib/modules/items/items/presentation/items_item_detail.dart` — `_syncDetailRoute`
+  - `lib/modules/items/items/presentation/sections/items_item_detail_components.dart` — related item tap + edit button
+  - `lib/modules/items/items/presentation/sections/items_item_detail_stock.dart` — opening stock dialog nav
+  - `lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart` — back nav after save
+
+### Backend — `backend/drizzle/schema.ts` post-`db:pull` TS fixes
+After every `npm run db:pull`, the generated schema has 5 known broken lines that must be manually patched:
+1. `priceLists.description` — `default(')` (unterminated string) → `default('')`
+2. `priceLists.details` — same fix
+3. `transactionalSequences.prefix` — same fix
+4. `transactionalSequences.suffix` — same fix
+5. `organization.systemId` — raw `nextval(...)` expression → wrapped as `sql\`(nextval(...))\``
+
+---
+
+## Warehouses Table Merge + Stock Tables Removal (March 26, 2026)
+
+### Summary
+Merged `settings_warehouses` and `warehouses` into a single `warehouses` table. Removed `product_warehouse_stocks` and `product_warehouse_stock_adjustments` tables in preparation for a new inventory stock calculation system. Commented out Adjust Physical Stock UI pending new implementation.
+
+---
+
+### DB schema — `backend/drizzle/schema.ts`
+- Removed `settingsWarehouses` table export
+- Replaced old `warehouses` definition with merged structure: added `branchId`, `pincode`, `country`; removed `zipCode`, `countryRegion`, `settingsWarehouseId`; made `orgId`, `isActive`, timestamps NOT NULL; added unique constraints `(orgId, warehouseCode)` and `(orgId, name)`; added FK `branchId → settingsBranches`
+- Removed `productWarehouseStocks` table export
+
+### Backend — `warehouses-settings.service.ts`
+- All queries changed from `settings_warehouses` → `warehouses` (findAll, findOne, create, update, remove)
+- Join to `settings_branches(id, name)` retained via `branch_id`
+
+### Backend — `products.service.ts`
+- `getProductWarehouseStocks` — removed `product_warehouse_stocks` and `outlets` queries; now returns warehouses list with zero stock (pending new stock logic)
+- `updateProductWarehouseStocks` — stubbed; returns warehouse list, no write to stock table
+- `adjustProductWarehousePhysicalStock` — stubbed; pending new implementation
+- `getQuickStats` — removed `product_warehouse_stocks` aggregation; returns zeros for stock fields
+
+### Flutter — `items_item_detail_stock.dart`
+- Commented out "Adjust Physical Stock" menu item in warehouse actions popup
+- Commented out `_openPhysicalStockAdjustmentDialog` method
+- Both marked with `TODO(inventory): re-enable once new physical stock adjustment logic is implemented`
+
+### SQL run in Supabase
+- `DROP TABLE product_warehouse_stock_adjustments CASCADE`
+- `DROP TABLE product_warehouse_stocks CASCADE`
+- `ALTER TABLE warehouses` — added `branch_id`, `pincode`, `country`; dropped `zip_code`, `country_region`, `settings_warehouse_id`; added constraints and indexes
+- `INSERT INTO warehouses ... SELECT FROM settings_warehouses ON CONFLICT DO UPDATE`
+- `DROP TABLE settings_warehouses CASCADE`
+
+---
+
+## Settings — Branches & Warehouses Split + Branch Create Enhancements (March 26, 2026)
+
+### Summary
+Replaced the old unified Locations module with separate Branches and Warehouses entities. Added several new features to the branch create/edit page and updated the branches list table.
+
+---
+
+### Router cleanup — `lib/core/routing/app_router.dart`
+- Removed 3 dead routes: `settings/locations`, `settings/locations/create`, `settings/locations/:id/edit`
+- Removed imports for `SettingsLocationsPage` and `SettingsLocationsCreatePage`
+- Remaining settings routes: `orgprofile`, `orgbranding`, `branches` (list + create + edit), `warehouses` (list + create + edit)
+
+---
+
+### Warehouses create page — `lib/core/pages/settings_warehouses_create_page.dart`
+- Full rewrite from stacked label-above-field layout to two-column `_buildRow` layout
+- Label column: `static const double _labelWidth = 180.0`
+- Helpers: `_buildRow`, `_buildDivider`, `_buildCard`, `_buildStaticField`, `_dec`
+- Sections: Warehouse Details (name required, code, parent branch dropdown with error), Address (attention, street 1, street 2, city, state dropdown, pincode, country static), Actions (Cancel + Save)
+
+---
+
+### Branches create page — `lib/core/pages/settings_branches_create_page.dart`
+
+**Branch Type section**
+- Added `_kBranchTypes` const list: FOFO, COCO, FICO, FOCO
+- `FormDropdown<String>` with sentinel `'__manage__'` item that intercepts `onChanged` to open `_showManageBranchTypesDialog()`
+- Dialog: two-column reference table (Model code | Full Form)
+- State: `_selectedBranchType`
+
+**Logo upload widget redesign**
+- Two-panel layout: `Expanded(flex:2)` upload zone + `Expanded(flex:3)` info panel
+- Upload zone supports three states: empty (pick file button), file picked (file name + remove), URL (text input)
+
+**Subscription section**
+- `ZerpaiDatePicker.show(context, initialDate:, targetKey:)` for From/To dates
+- `GestureDetector(key: _subFromKey/subToKey)` pattern for anchored calendar
+- State: `_subscriptionFrom`, `_subscriptionTo`, `_subFromKey`, `_subToKey`
+- Load/Save: parses and posts `subscription_from`, `subscription_to`
+
+**Location Access section**
+- `_buildLocationAccessSection()` — "Provide access to all users" checkbox toggles between all-users message and user table with Add User button
+- State: `_locationUsers`, `_provideAccessToAll`
+
+**Layout changes**
+- Left-aligned form: removed `Center` wrapper, bare `ConstrainedBox(maxWidth: 760)`
+- Restructured helpers: `_buildSectionRow`, `_buildCompactField`, `_buildGroupedCard`
+
+---
+
+### Branches list page — `lib/core/pages/settings_branches_list_page.dart`
+- `_BranchRow` extended with `branchType`, `subscriptionFrom`, `subscriptionTo`
+- `fromJson` parses `branch_type`, `subscription_from`, `subscription_to`
+- Computed getters: `branchTypeLabel` (4-letter code), `subscriptionPeriod` (formatted range)
+- Table header: replaced "DEFAULT TRANSACTION SERIES" with "BRANCH TYPE" (flex:2) + "SUBSCRIPTION PERIOD" (flex:3)
+- Table row: shows code or "—" / formatted period or "—"
+
+---
+
 ## Licence Validation Mixin + GSTIN Banner Extraction (March 24, 2026)
 
 ### Changes
@@ -7207,3 +7329,80 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - Purchase Receives is no longer just a navigation stub.
 - The module now has a real list screen and create flow connected to vendors and purchase orders.
 - The implementation is repo-aligned and uses existing shared controls instead of new duplicated widgets.
+
+## Branch Create Grouped Left Layout Fix (24/03/2026)
+
+### Root cause
+- The branch create page was still using the older per-field left-label row pattern.
+- The intended layout was the grouped pattern where the section label appears once on the left and the full field group sits on the right.
+
+### Files updated
+- Updated `lib/core/pages/settings_branches_create_page.dart`
+
+### What changed
+- Added grouped section helpers for:
+  - single left-side section labels
+  - grouped right-side cards
+  - stacked compact fields inside each group
+- Reworked the main branch form sections to use the grouped layout:
+  - Branch Details
+  - Branch Type
+  - Address
+  - GST Details
+  - Branch Logo
+  - Subscription
+  - Default Transaction Series
+- Flattened the GST block so it no longer nests the old field-row helper inside the new grouped section layout.
+
+### Verification
+- Confirmed `lib/core/pages/settings_organization_profile_page.dart` already points to:
+  - `Branches`
+  - `Warehouses`
+  - `Go to Branches`
+  - `Go to Warehouses`
+- `flutter analyze lib/core/pages/settings_branches_create_page.dart lib/core/pages/settings_organization_profile_page.dart`
+
+### Result
+- The branch create page now follows the grouped left-aligned section layout instead of repeating every field label in the left column.
+
+## Branch Create Compact Width Pass (24/03/2026)
+
+### Goal
+- Make the branch create form visually denser and less stretched on desktop after the grouped layout conversion.
+
+### Files updated
+- Updated `lib/core/pages/settings_branches_create_page.dart`
+
+### What changed
+- Reduced the form container max width from `720` to `680`
+- Added a fixed section content width so grouped cards no longer stretch across the entire available row
+- Reduced grouped card padding
+- Reduced compact field vertical spacing between label and input blocks
+
+### Validation
+- `flutter analyze lib/core/pages/settings_branches_create_page.dart`
+
+### Result
+- The branch edit/create form now renders as a tighter settings form instead of a wide stretched panel.
+
+## Branch Create Layout Aligned To Location Form (24/03/2026)
+
+### Goal
+- Match the branch create/edit page structure to the compact Zoho-style location form layout shown in the reference screenshot.
+
+### Files updated
+- Updated `lib/core/pages/settings_branches_create_page.dart`
+
+### What changed
+- Restored centered constrained form layout similar to the location settings screen
+- Changed section composition from split left/right section rows to stacked sections:
+  - section label on top
+  - padded white card below
+- Updated grouped-card helper usage so branch sections now visually match the location form pattern
+- Restored slightly roomier field spacing inside the compact cards to match the reference settings UI balance
+
+### Validation
+- `flutter analyze lib/core/pages/settings_branches_create_page.dart`
+
+### Result
+- The branch create/edit page now follows the same compact stacked settings layout style as the location page instead of the custom split section-row treatment.

@@ -140,9 +140,10 @@ class _WarehouseRow {
       _WarehouseRow(
         id: (j['id'] ?? '').toString(),
         name: (j['name'] ?? '').toString(),
-        warehouseCode: (j['outlet_code'] ?? '').toString(),
-        parentBranchName:
-            branchNames[(j['parent_outlet_id'] ?? '').toString()] ?? '—',
+        warehouseCode: (j['warehouse_code'] ?? '').toString(),
+        parentBranchName: (j['parent_branch_name'] ?? '').toString().isNotEmpty
+            ? (j['parent_branch_name'] ?? '').toString()
+            : '—',
         city: (j['city'] ?? '').toString(),
         state: (j['state'] ?? '').toString(),
         country: (j['country'] ?? 'India').toString(),
@@ -213,28 +214,17 @@ class _SettingsWarehousesListPageState
       }
 
       final res = await _apiClient.get(
-        'outlets',
+        'warehouses-settings',
         queryParameters: <String, dynamic>{'org_id': orgId},
       );
       if (!mounted) return;
       final List<dynamic> all =
           res.success && res.data is List ? res.data as List<dynamic> : [];
 
-      // Build branch name lookup
-      final branchNames = <String, String>{};
-      for (final item in all.whereType<Map<String, dynamic>>()) {
-        if ((item['location_type'] ?? 'business').toString() == 'business') {
-          branchNames[(item['id'] ?? '').toString()] =
-              (item['name'] ?? '').toString();
-        }
-      }
-
       setState(() {
         _warehouses = all
             .whereType<Map<String, dynamic>>()
-            .where((j) =>
-                (j['location_type'] ?? '').toString() == 'warehouse')
-            .map((j) => _WarehouseRow.fromJson(j, branchNames))
+            .map((j) => _WarehouseRow.fromJson(j, const {}))
             .toList();
         _isLoading = false;
       });

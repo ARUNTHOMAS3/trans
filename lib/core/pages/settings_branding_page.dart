@@ -44,7 +44,8 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
               label: 'Branding',
               route: AppRoutes.settingsOrgBranding,
             ),
-            _BrandingNavEntry(label: 'Locations', badge: 'New'),
+            _BrandingNavEntry(label: 'Branches', route: AppRoutes.settingsBranches),
+            _BrandingNavEntry(label: 'Warehouses', route: AppRoutes.settingsWarehouses),
             _BrandingNavEntry(label: 'Approvals'),
             _BrandingNavEntry(label: 'Manage Subscription'),
           ],
@@ -635,24 +636,6 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
                 ),
               ),
             ),
-            if (entry.badge != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.space6,
-                  vertical: AppTheme.space2,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.errorRed,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  entry.badge!,
-                  style: AppTheme.captionText.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -1487,9 +1470,8 @@ class _BrandingNavBlock {
 class _BrandingNavEntry {
   final String label;
   final String? route;
-  final String? badge;
 
-  const _BrandingNavEntry({required this.label, this.route, this.badge});
+  const _BrandingNavEntry({required this.label, this.route});
 }
 
 // ---------------------------------------------------------------------------

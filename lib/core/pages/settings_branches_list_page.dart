@@ -254,10 +254,9 @@ class _SettingsBranchesListPageState
       }
 
       final res = await _apiClient.get(
-        'outlets',
+        'branches',
         queryParameters: <String, dynamic>{
           'org_id': orgId,
-          'location_type': 'business',
         },
       );
       if (!mounted) return;

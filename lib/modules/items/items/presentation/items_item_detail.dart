@@ -264,11 +264,11 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
 
   void _syncDetailRoute(List<_ItemDetailTab> tabs) {
     if (!mounted || widget.itemId == null) return;
-    context.goNamed(
-      AppRoutes.itemsDetail,
-      pathParameters: {'id': widget.itemId!},
-      queryParameters: _buildDetailQueryParameters(tabs),
-    );
+    final queryParams = _buildDetailQueryParameters(tabs);
+    final query = queryParams.isNotEmpty
+        ? '?${queryParams.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}'
+        : '';
+    context.go('/items/detail/${widget.itemId!}$query');
   }
 
   void _setSelectedTabIndex(int index, List<_ItemDetailTab> tabs) {

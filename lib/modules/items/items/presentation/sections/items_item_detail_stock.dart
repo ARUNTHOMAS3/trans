@@ -2401,9 +2401,11 @@ extension _ItemDetailStock on _ItemDetailScreenState {
           case 'opening-stock':
             _openOpeningStockDialog(item, warehouses);
             break;
-          case 'adjust-physical-stock':
-            _openPhysicalStockAdjustmentDialog(item, warehouses);
-            break;
+          // TODO(inventory): re-enable adjust-physical-stock case once
+          // new inventory stock calculation logic is implemented.
+          // case 'adjust-physical-stock':
+          //   _openPhysicalStockAdjustmentDialog(item, warehouses);
+          //   break;
         }
       },
       itemBuilder: (_) => [
@@ -2420,19 +2422,21 @@ extension _ItemDetailStock on _ItemDetailScreenState {
             ),
           ),
         ),
-        PopupMenuItem(
-          value: 'adjust-physical-stock',
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Text(
-            'Adjust Physical Stock',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-        ),
+        // TODO(inventory): re-enable Adjust Physical Stock menu item once
+        // new physical stock adjustment logic is implemented.
+        // PopupMenuItem(
+        //   value: 'adjust-physical-stock',
+        //   height: 44,
+        //   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        //   child: Text(
+        //     'Adjust Physical Stock',
+        //     style: const TextStyle(
+        //       fontSize: 14,
+        //       fontWeight: FontWeight.w600,
+        //       color: AppTheme.textPrimary,
+        //     ),
+        //   ),
+        // ),
       ],
       child: Container(
         width: 32,
@@ -2457,47 +2461,40 @@ extension _ItemDetailStock on _ItemDetailScreenState {
   ) async {
     if (!mounted || item.id == null) return;
     final id = item.id!;
-    context.goNamed(
-      AppRoutes.itemsOpeningStock,
-      pathParameters: {'id': id},
-      queryParameters: const {'tab': 'warehouses'},
-    );
+    context.go('/items/detail/$id/opening-stock?tab=warehouses');
   }
 
-  Future<void> _openPhysicalStockAdjustmentDialog(
-    Item item,
-    List<WarehouseStockRow> warehouses,
-  ) async {
-    if (item.id == null) return;
-
-    final result = await showDialog<bool>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.12),
-      builder: (_) => Dialog(
-        backgroundColor: Colors.white,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Container(
-          width: 620,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: _PhysicalStockAdjustmentDialog(
-            itemId: item.id!,
-            warehouses: warehouses,
-          ),
-        ),
-      ),
-    );
-
-    if (result == true && mounted) {
-      ref.invalidate(itemWarehouseStocksProvider(item.id!));
-      await ref
-          .read(itemsControllerProvider.notifier)
-          .fetchQuickStats(item.id!);
-    }
-  }
+  // TODO(inventory): re-enable once new physical stock adjustment logic is implemented.
+  // Future<void> _openPhysicalStockAdjustmentDialog(
+  //   Item item,
+  //   List<WarehouseStockRow> warehouses,
+  // ) async {
+  //   if (item.id == null) return;
+  //   final result = await showDialog<bool>(
+  //     context: context,
+  //     barrierColor: Colors.black.withValues(alpha: 0.12),
+  //     builder: (_) => Dialog(
+  //       backgroundColor: Colors.white,
+  //       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+  //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  //       child: Container(
+  //         width: 620,
+  //         decoration: BoxDecoration(
+  //           color: Colors.white,
+  //           borderRadius: BorderRadius.circular(12),
+  //         ),
+  //         child: _PhysicalStockAdjustmentDialog(
+  //           itemId: item.id!,
+  //           warehouses: warehouses,
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  //   if (result == true && mounted) {
+  //     ref.invalidate(itemWarehouseStocksProvider(item.id!));
+  //     await ref.read(itemsControllerProvider.notifier).fetchQuickStats(item.id!);
+  //   }
+  // }
 
   // Moved to _ItemDetailScreenState
 }

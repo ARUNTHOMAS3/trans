@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
-import 'package:zerpai_erp/modules/items/items/presentation/items_item_detail.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 
@@ -458,12 +457,7 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
     );
 
     if (item.id != null) {
-      context.goNamed(AppRoutes.itemsDetail, pathParameters: {'id': item.id!});
-    } else {
-      // Fallback if no ID is available
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: item.id)),
-      );
+      context.go('/items/detail/${item.id!}');
     }
   }
 

@@ -277,18 +277,18 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
     try {
       final user = ref.read(authUserProvider);
       final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
-      final res = await _apiClient.get('outlets/${widget.branchId}', queryParameters: {'org_id': orgId});
+      final res = await _apiClient.get('branches/${widget.branchId}', queryParameters: {'org_id': orgId});
       if (!mounted) return;
       if (res.success && res.data is Map<String, dynamic>) {
         final d = res.data as Map<String, dynamic>;
         _nameCtrl.text = (d['name'] ?? '').toString();
-        _branchCodeCtrl.text = (d['outlet_code'] ?? '').toString();
+        _branchCodeCtrl.text = (d['branch_code'] ?? '').toString();
         _emailCtrl.text = (d['email'] ?? '').toString();
         _phoneCtrl.text = _normalizeIndiaPhone((d['phone'] ?? '').toString());
         _websiteCtrl.text = (d['website'] ?? '').toString();
         _attentionCtrl.text = (d['attention'] ?? '').toString();
-        _streetCtrl.text = (d['address'] ?? '').toString();
-        _street2Ctrl.text = (d['address2'] ?? '').toString();
+        _streetCtrl.text = (d['address_street_1'] ?? '').toString();
+        _street2Ctrl.text = (d['address_street_2'] ?? '').toString();
         _cityCtrl.text = (d['city'] ?? '').toString();
         _pincodeCtrl.text = (d['pincode'] ?? '').toString();
         final stateVal = (d['state'] ?? '').toString();
@@ -336,7 +336,7 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
     try {
       final user = ref.read(authUserProvider);
       final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
-      final nameCheck = await ref.read(apiClientProvider).get('outlets', queryParameters: {'org_id': orgId});
+      final nameCheck = await ref.read(apiClientProvider).get('branches', queryParameters: {'org_id': orgId});
       if (nameCheck.success && nameCheck.data is List) {
         final trimmed = _nameCtrl.text.trim().toLowerCase();
         final duplicate = (nameCheck.data as List).any((o) {
@@ -354,14 +354,14 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
         if (url != null) _logoUrl = url;
       }
       final body = <String, dynamic>{
-        'org_id': orgId, 'location_type': 'business',
+        'org_id': orgId,
         'name': _nameCtrl.text.trim(),
-        'outlet_code': _branchCodeCtrl.text.trim().isNotEmpty
+        'branch_code': _branchCodeCtrl.text.trim().isNotEmpty
             ? _branchCodeCtrl.text.trim().toUpperCase()
             : _nameCtrl.text.trim().toUpperCase().replaceAll(' ', '-'),
         'email': _emailCtrl.text.trim(), 'phone': _phoneCtrl.text.trim(),
         'website': _websiteCtrl.text.trim(), 'attention': _attentionCtrl.text.trim(),
-        'address': _streetCtrl.text.trim(), 'address2': _street2Ctrl.text.trim(),
+        'address_street_1': _streetCtrl.text.trim(), 'address_street_2': _street2Ctrl.text.trim(),
         'city': _cityCtrl.text.trim(), 'state': _selectedState ?? '',
         'pincode': _pincodeCtrl.text.trim(), 'country': 'India',
         if (_selectedBranchType != null) 'branch_type': _selectedBranchType,
@@ -383,8 +383,8 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
       };
       final apiClient = ref.read(apiClientProvider);
       final res = _isEditing
-          ? await apiClient.put('outlets/${widget.branchId}', data: body)
-          : await apiClient.post('outlets', data: body);
+          ? await apiClient.put('branches/${widget.branchId}', data: body)
+          : await apiClient.post('branches', data: body);
       if (!mounted) return;
       if (res.success) {
         ZerpaiToast.success(context, _isEditing ? 'Branch updated successfully.' : 'Branch created successfully.');
@@ -552,8 +552,9 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
     if (_isLoading) return const Center(child: CircularProgressIndicator());
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space32),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720),
+      child: Center(
+        child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
         child: Form(
             key: _formKey,
             child: Column(
@@ -564,161 +565,255 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
                 const SizedBox(height: AppTheme.space24),
 
                 // ── Branch Details ─────────────────────────────────────────
-                _buildSectionLabel('Branch Details'),
-                const SizedBox(height: AppTheme.space12),
-                _buildCard(children: [
-                  _buildRow(label: 'Branch name', required: true,
-                      child: TextFormField(controller: _nameCtrl, decoration: _dec('e.g. Head Office, Mumbai Branch'),
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Branch name is required' : null)),
-                  _buildDivider(),
-                  _buildRow(label: 'Branch code',
-                      child: TextFormField(controller: _branchCodeCtrl, decoration: _dec('e.g. MUM-01'),
-                          inputFormatters: [LengthLimitingTextInputFormatter(20)])),
-                  _buildDivider(),
-                  _buildRow(label: 'Email',
-                      child: TextFormField(controller: _emailCtrl, decoration: _dec('branch@example.com'), keyboardType: TextInputType.emailAddress)),
-                  _buildDivider(),
-                  _buildRow(label: 'Phone',
-                      child: TextFormField(controller: _phoneCtrl, decoration: _dec('+91 XXXXXXXXXX'),
-                          inputFormatters: [_IndiaPhoneFormatter()], keyboardType: TextInputType.phone)),
-                  _buildDivider(),
-                  _buildRow(label: 'Website',
-                      child: TextFormField(controller: _websiteCtrl, decoration: _dec('https://example.com'), keyboardType: TextInputType.url)),
-                ]),
+                _buildSectionRow(label: 'Branch Details', child: _buildGroupedCard(children: [
+                  _buildCompactField(
+                    label: 'Branch name',
+                    required: true,
+                    child: TextFormField(
+                      controller: _nameCtrl,
+                      decoration: _dec('e.g. Head Office, Mumbai Branch'),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Branch name is required'
+                          : null,
+                    ),
+                  ),
+                  _buildCompactField(
+                    label: 'Branch code',
+                    child: TextFormField(
+                      controller: _branchCodeCtrl,
+                      decoration: _dec('e.g. MUM-01'),
+                      inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                    ),
+                  ),
+                  _buildCompactField(
+                    label: 'Email',
+                    child: TextFormField(
+                      controller: _emailCtrl,
+                      decoration: _dec('branch@example.com'),
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                  ),
+                  _buildCompactField(
+                    label: 'Phone',
+                    child: TextFormField(
+                      controller: _phoneCtrl,
+                      decoration: _dec('+91 XXXXXXXXXX'),
+                      inputFormatters: [_IndiaPhoneFormatter()],
+                      keyboardType: TextInputType.phone,
+                    ),
+                  ),
+                  _buildCompactField(
+                    label: 'Website',
+                    child: TextFormField(
+                      controller: _websiteCtrl,
+                      decoration: _dec('https://example.com'),
+                      keyboardType: TextInputType.url,
+                    ),
+                  ),
+                ])),
 
                 const SizedBox(height: AppTheme.space20),
 
                 // ── Branch Type ────────────────────────────────────────────
-                _buildSectionLabel('Branch Type'),
-                const SizedBox(height: AppTheme.space12),
-                _buildCard(children: [
-                  _buildRow(label: 'Branch type',
-                      child: FormDropdown<String>(
-                        items: [..._kBranchTypes.map((t) => t['id']!), '__manage__'],
-                        value: _selectedBranchType,
-                        hint: 'Select branch type',
-                        displayStringForValue: (id) {
-                          if (id == '__manage__') return 'Manage Branch Types';
-                          final match = _kBranchTypes.firstWhere((t) => t['id'] == id, orElse: () => {'code': id.toUpperCase(), 'label': ''});
-                          return '${match['code']} — ${match['label']}';
-                        },
-                        onChanged: (v) {
-                          if (v == '__manage__') { _showManageBranchTypesDialog(); return; }
-                          setState(() => _selectedBranchType = v);
-                        },
-                      )),
-                ]),
+                _buildSectionRow(label: 'Branch Type', child: _buildGroupedCard(children: [
+                  _buildCompactField(
+                    label: 'Branch type',
+                    child: FormDropdown<String>(
+                      items: [..._kBranchTypes.map((t) => t['id']!), '__manage__'],
+                      value: _selectedBranchType,
+                      hint: 'Select branch type',
+                      displayStringForValue: (id) {
+                        if (id == '__manage__') return 'Manage Branch Types';
+                        final match = _kBranchTypes.firstWhere(
+                          (t) => t['id'] == id,
+                          orElse: () => {'code': id.toUpperCase(), 'label': ''},
+                        );
+                        return '${match['code']} — ${match['label']}';
+                      },
+                      onChanged: (v) {
+                        if (v == '__manage__') {
+                          _showManageBranchTypesDialog();
+                          return;
+                        }
+                        setState(() => _selectedBranchType = v);
+                      },
+                    ),
+                  ),
+                ])),
 
                 const SizedBox(height: AppTheme.space20),
 
                 // ── Address ────────────────────────────────────────────────
-                _buildSectionLabel('Address'),
-                const SizedBox(height: AppTheme.space12),
-                _buildCard(children: [
-                  _buildRow(label: 'Attention',
-                      child: TextFormField(controller: _attentionCtrl, decoration: _dec('Attention'))),
-                  _buildDivider(),
-                  _buildRow(label: 'Street 1',
-                      child: TextFormField(controller: _streetCtrl, decoration: _dec('Street 1'))),
-                  _buildDivider(),
-                  _buildRow(label: 'Street 2',
-                      child: TextFormField(controller: _street2Ctrl, decoration: _dec('Street 2'))),
-                  _buildDivider(),
-                  _buildRow(label: 'City',
-                      child: TextFormField(controller: _cityCtrl, decoration: _dec('City'))),
-                  _buildDivider(),
-                  _buildRow(label: 'State / Union Territory',
-                      child: FormDropdown<String>(items: _indianStates, value: _selectedState, hint: 'Select state',
-                          onChanged: (v) => setState(() => _selectedState = v))),
-                  _buildDivider(),
-                  _buildRow(label: 'Pin Code',
-                      child: TextFormField(controller: _pincodeCtrl, decoration: _dec('560001'),
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)])),
-                  _buildDivider(),
-                  _buildRow(label: 'Country', child: _buildStaticField('India')),
-                ]),
+                _buildSectionRow(label: 'Address', child: _buildGroupedCard(children: [
+                  _buildCompactField(
+                    label: 'Attention',
+                    child: TextFormField(
+                      controller: _attentionCtrl,
+                      decoration: _dec('Attention'),
+                    ),
+                  ),
+                  _buildCompactField(
+                    label: 'Street 1',
+                    child: TextFormField(
+                      controller: _streetCtrl,
+                      decoration: _dec('Street 1'),
+                    ),
+                  ),
+                  _buildCompactField(
+                    label: 'Street 2',
+                    child: TextFormField(
+                      controller: _street2Ctrl,
+                      decoration: _dec('Street 2'),
+                    ),
+                  ),
+                  _buildCompactField(
+                    label: 'City',
+                    child: TextFormField(
+                      controller: _cityCtrl,
+                      decoration: _dec('City'),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildCompactField(
+                          label: 'State / Union Territory',
+                          child: FormDropdown<String>(
+                            items: _indianStates,
+                            value: _selectedState,
+                            hint: 'Select state',
+                            onChanged: (v) => setState(() => _selectedState = v),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.space12),
+                      Expanded(
+                        child: _buildCompactField(
+                          label: 'Pin Code',
+                          child: TextFormField(
+                            controller: _pincodeCtrl,
+                            decoration: _dec('560001'),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(6),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  _buildCompactField(
+                    label: 'Country',
+                    child: _buildStaticField('India'),
+                  ),
+                ])),
 
                 const SizedBox(height: AppTheme.space20),
 
                 // ── GST Details ────────────────────────────────────────────
-                _buildSectionLabel('GST Details'),
-                const SizedBox(height: AppTheme.space12),
-                _buildCard(children: [_buildGstinField()]),
+                _buildSectionRow(
+                  label: 'GST Details',
+                  child: _buildGroupedCard(children: [_buildGstinField()]),
+                ),
 
                 const SizedBox(height: AppTheme.space20),
 
                 // ── Branch Logo ────────────────────────────────────────────
-                _buildSectionLabel('Branch Logo'),
-                const SizedBox(height: AppTheme.space12),
-                _buildCard(children: [
-                  _buildRow(label: 'Logo',
-                      child: FormDropdown<String>(
-                        value: _logoOption, items: const ['same', 'upload'],
-                        displayStringForValue: (v) => v == 'same' ? 'Same as organization logo' : 'Upload a new logo',
-                        onChanged: (v) => setState(() => _logoOption = v ?? 'same'),
-                      )),
-                  if (_logoOption == 'upload') ...[
-                    _buildDivider(),
-                    _buildRow(label: 'Upload', child: _buildLogoUpload()),
-                  ],
-                ]),
+                _buildSectionRow(label: 'Branch Logo', child: _buildGroupedCard(children: [
+                  _buildCompactField(
+                    label: 'Logo',
+                    child: FormDropdown<String>(
+                      value: _logoOption,
+                      items: const ['same', 'upload'],
+                      displayStringForValue: (v) => v == 'same'
+                          ? 'Same as organization logo'
+                          : 'Upload a new logo',
+                      onChanged: (v) => setState(() => _logoOption = v ?? 'same'),
+                    ),
+                  ),
+                  if (_logoOption == 'upload')
+                    _buildCompactField(
+                      label: 'Upload',
+                      child: _buildLogoUpload(),
+                    ),
+                ])),
 
                 const SizedBox(height: AppTheme.space20),
 
                 // ── Subscription ───────────────────────────────────────────
-                _buildSectionLabel('Subscription'),
-                const SizedBox(height: AppTheme.space12),
-                _buildCard(children: [
-                  _buildRow(
-                    label: 'From date',
-                    child: GestureDetector(
-                      key: _subFromKey,
-                      onTap: () async {
-                        final picked = await ZerpaiDatePicker.show(
-                          context,
-                          initialDate: _subscriptionFrom ?? DateTime.now(),
-                          targetKey: _subFromKey,
-                        );
-                        if (picked != null) setState(() => _subscriptionFrom = picked);
-                      },
-                      child: _buildDateField(_subscriptionFrom, 'Select start date'),
-                    ),
+                _buildSectionRow(label: 'Subscription', child: _buildGroupedCard(children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildCompactField(
+                          label: 'From date',
+                          child: GestureDetector(
+                            key: _subFromKey,
+                            onTap: () async {
+                              final picked = await ZerpaiDatePicker.show(
+                                context,
+                                initialDate: _subscriptionFrom ?? DateTime.now(),
+                                targetKey: _subFromKey,
+                              );
+                              if (picked != null) {
+                                setState(() => _subscriptionFrom = picked);
+                              }
+                            },
+                            child: _buildDateField(
+                              _subscriptionFrom,
+                              'Select start date',
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.space12),
+                      Expanded(
+                        child: _buildCompactField(
+                          label: 'To date',
+                          child: GestureDetector(
+                            key: _subToKey,
+                            onTap: () async {
+                              final picked = await ZerpaiDatePicker.show(
+                                context,
+                                initialDate: _subscriptionTo ?? DateTime.now(),
+                                firstDate: _subscriptionFrom,
+                                targetKey: _subToKey,
+                              );
+                              if (picked != null) {
+                                setState(() => _subscriptionTo = picked);
+                              }
+                            },
+                            child: _buildDateField(
+                              _subscriptionTo,
+                              'Select end date',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  _buildDivider(),
-                  _buildRow(
-                    label: 'To date',
-                    child: GestureDetector(
-                      key: _subToKey,
-                      onTap: () async {
-                        final picked = await ZerpaiDatePicker.show(
-                          context,
-                          initialDate: _subscriptionTo ?? DateTime.now(),
-                          firstDate: _subscriptionFrom,
-                          targetKey: _subToKey,
-                        );
-                        if (picked != null) setState(() => _subscriptionTo = picked);
-                      },
-                      child: _buildDateField(_subscriptionTo, 'Select end date'),
-                    ),
-                  ),
-                ]),
+                ])),
 
                 if (_transactionSeries.isNotEmpty) ...[
                   const SizedBox(height: AppTheme.space20),
-                  _buildSectionLabel('Default Transaction Series'),
-                  const SizedBox(height: AppTheme.space12),
-                  _buildCard(children: [
-                    _buildRow(label: 'Default series',
-                        child: FormDropdown<String>(
-                          items: _transactionSeries.map((s) => s.id).toList(),
-                          value: _selectedDefaultSeriesId,
-                          hint: 'Select default series',
-                          displayStringForValue: (id) => _transactionSeries
-                              .firstWhere((s) => s.id == id, orElse: () => _SeriesOption(id: id, name: id)).name,
-                          onChanged: (v) => setState(() => _selectedDefaultSeriesId = v),
-                        )),
-                  ]),
+                  _buildSectionRow(label: 'Default Transaction Series', child: _buildGroupedCard(children: [
+                    _buildCompactField(
+                      label: 'Default series',
+                      child: FormDropdown<String>(
+                        items: _transactionSeries.map((s) => s.id).toList(),
+                        value: _selectedDefaultSeriesId,
+                        hint: 'Select default series',
+                        displayStringForValue: (id) => _transactionSeries
+                            .firstWhere(
+                              (s) => s.id == id,
+                              orElse: () => _SeriesOption(id: id, name: id),
+                            )
+                            .name,
+                        onChanged: (v) => setState(() => _selectedDefaultSeriesId = v),
+                      ),
+                    ),
+                  ])),
                 ],
 
                 const SizedBox(height: AppTheme.space20),
@@ -733,6 +828,7 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
             ),
           ),
         ),
+      ),
     );
   }
 
@@ -741,32 +837,73 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
   Widget _buildGstinField() {
     final hasGstin = _gstinData != null;
     if (!hasGstin) {
-      return _buildRow(label: 'GSTIN',
+      return _buildCompactField(
+        label: 'GSTIN',
+        child: Align(
+          alignment: Alignment.centerLeft,
           child: OutlinedButton.icon(
             onPressed: _showGstinDialog,
             icon: const Icon(LucideIcons.plus, size: 14),
             label: const Text('Add GSTIN'),
             style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.textPrimary, side: const BorderSide(color: AppTheme.borderLight),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))),
-          ));
+              foregroundColor: AppTheme.textPrimary,
+              side: const BorderSide(color: AppTheme.borderLight),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ),
+        ),
+      );
     }
-    return _buildRow(label: 'GSTIN', child: Row(children: [
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppTheme.space12, vertical: AppTheme.space8),
-        decoration: BoxDecoration(color: AppTheme.bgLight, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppTheme.borderLight)),
-        child: Text(_gstinData!.gstin, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary, letterSpacing: 0.5)),
-      ),
-      if (_gstinData!.registrationType != null) ...[
-        const SizedBox(width: AppTheme.space12),
-        Expanded(child: Text(
-          _kGstRegistrationTypes.firstWhere((t) => t['id'] == _gstinData!.registrationType, orElse: () => {'label': ''})['label'] ?? '',
-          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
-      ] else const Spacer(),
-      TextButton(onPressed: _showGstinDialog, child: const Text('Edit')),
-      TextButton(onPressed: () => setState(() => _gstinData = null),
-          style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed), child: const Text('Remove')),
-    ]));
+    return _buildCompactField(
+      label: 'GSTIN',
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.space12,
+            vertical: AppTheme.space8,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.bgLight,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppTheme.borderLight),
+          ),
+          child: Text(
+            _gstinData!.gstin,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        if (_gstinData!.registrationType != null) ...[
+          const SizedBox(width: AppTheme.space12),
+          Expanded(
+            child: Text(
+              _kGstRegistrationTypes.firstWhere(
+                    (t) => t['id'] == _gstinData!.registrationType,
+                    orElse: () => {'label': ''},
+                  )['label'] ??
+                  '',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+        ] else
+          const Spacer(),
+        TextButton(onPressed: _showGstinDialog, child: const Text('Edit')),
+        TextButton(
+          onPressed: () => setState(() => _gstinData = null),
+          style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
+          child: const Text('Remove'),
+        ),
+      ]),
+    );
   }
 
   void _showGstinDialog() {
@@ -1180,6 +1317,7 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
 
   Widget _buildCard({required List<Widget> children}) {
     return Container(
+      padding: const EdgeInsets.all(AppTheme.space20),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.borderLight)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
     );
@@ -1187,6 +1325,52 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
 
   Widget _buildSectionLabel(String label) {
     return Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary, letterSpacing: 0.3));
+  }
+
+  Widget _buildSectionRow({required String label, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionLabel(label),
+        const SizedBox(height: AppTheme.space12),
+        child,
+      ],
+    );
+  }
+
+  Widget _buildGroupedCard({required List<Widget> children}) {
+    return _buildCard(children: children);
+  }
+
+  Widget _buildCompactField({
+    required String label,
+    bool required = false,
+    required Widget child,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.space16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            text: TextSpan(
+              text: label,
+              style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+              children: required
+                  ? const [
+                      TextSpan(
+                        text: ' *',
+                        style: TextStyle(color: AppTheme.errorRed),
+                      ),
+                    ]
+                  : null,
+            ),
+          ),
+          const SizedBox(height: AppTheme.space6),
+          child,
+        ],
+      ),
+    );
   }
 
   Widget _buildRow({required String label, bool required = false, required Widget child}) {
