@@ -159,7 +159,7 @@ class _BranchRow {
   factory _BranchRow.fromJson(Map<String, dynamic> j) => _BranchRow(
         id: (j['id'] ?? '').toString(),
         name: (j['name'] ?? '').toString(),
-        outletCode: (j['outlet_code'] ?? '').toString(),
+        outletCode: (j['branch_code'] ?? j['outlet_code'] ?? '').toString(),
         gstin: (j['gstin'] ?? '').toString(),
         city: (j['city'] ?? '').toString(),
         state: (j['state'] ?? '').toString(),
@@ -186,8 +186,9 @@ class _BranchRow {
 
   String get branchTypeLabel {
     if (branchType.isEmpty) return '';
+    final normalized = branchType.toLowerCase();
     return _kBranchTypes
-        .firstWhere((t) => t['id'] == branchType, orElse: () => {'code': branchType.toUpperCase()})['code']!;
+        .firstWhere((t) => t['id'] == normalized, orElse: () => {'code': branchType.toUpperCase()})['code']!;
   }
 
   String get subscriptionPeriod {

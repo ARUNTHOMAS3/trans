@@ -8,6 +8,43 @@ import { BranchesService } from "./branches.service";
 export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
 
+  @Get("business-types")
+  async findBusinessTypes(@Query("org_id") orgId: string) {
+    if (!orgId) {
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: "org_id is required",
+      };
+    }
+    try {
+      return await this.branchesService.findBusinessTypes(orgId);
+    } catch (error: any) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
+  @Post("business-types")
+  async createBusinessType(@Body() body: any) {
+    if (!body?.org_id || !body?.business_type || !body?.description) {
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: "org_id, business_type, and description are required",
+      };
+    }
+    try {
+      const data = await this.branchesService.createBusinessType(body);
+      return { data, message: "Business type created successfully" };
+    } catch (error: any) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
   @Get()
   async findAll(@Query("org_id") orgId: string) {
     if (!orgId) return { statusCode: HttpStatus.BAD_REQUEST, message: "org_id is required" };

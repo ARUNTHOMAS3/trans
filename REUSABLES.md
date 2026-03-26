@@ -12,7 +12,9 @@
 | Widget | File | Description |
 |--------|------|-------------|
 | `ZerpaiLayout` | `zerpai_layout.dart` | Master page layout: header with title/actions, scrollable body, footer, shortcut + guard handling |
-| `FormRow` | `form_row.dart` | Label + input layout helper — pairs left-aligned label with right-side child; supports required marker and helper text |
+| `ZerpaiFormRow` | `form_row.dart` | **Horizontal Form Layout** row — 200 px label on left, field on right. Standard ERP "label-left / property-sheet" form pattern. Use inside `ZerpaiFormCard`. Params: `label`, `required`, `crossAxisAlignment`, `child`, `labelWidth`. |
+| `ZerpaiFormCard` | `form_row.dart` | White bordered card container for horizontal form rows. Wrap `ZerpaiFormRow` children + `kZerpaiFormDivider` separators inside this. |
+| `kZerpaiFormDivider` | `form_row.dart` | Const hairline divider (`height: 1`, `AppTheme.borderLight`) — place between rows inside a `ZerpaiFormCard`. |
 | `SharedFieldLayout` | `inputs/shared_field_layout.dart` | Responsive form field wrapper (horizontal on wide screens, vertical on narrow) with label, tooltip, helper text |
 | `KeyboardScrollable` | `keyboard_scrollable.dart` | Enables arrow keys, Page Up/Down, Home/End for scroll on nested ScrollViews |
 | `PlaceholderScreen` | `placeholder_screen.dart` | Under-construction screen for unimplemented modules |

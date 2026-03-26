@@ -1,3 +1,131 @@
+## Warehouses Create Page + Schema Audit (March 26, 2026)
+
+### Summary
+Converted the warehouse create page to the same branch-style settings layout, forced the visible page surfaces to pure white, and audited whether the current branch and warehouse tables actually persist all data collected by their forms.
+
+---
+
+### Flutter — Warehouse create page layout (`lib/core/pages/settings_warehouses_create_page.dart`)
+- Reworked the warehouse page to use the same composition as the branch create page:
+  - left-aligned narrow form body
+  - plain white form container
+  - `ZerpaiFormRow` field layout
+  - sticky bottom action bar with `Save` and `Cancel`
+- Removed the older tabular card-section helper pattern from the warehouse create screen.
+- Updated the warehouse address block to align with the branch-page form style:
+  - `City` + `Pin code` on one row
+  - `India` as a static field
+  - `State / Union territory` as the final dropdown row
+- Validation:
+  - `dart analyze E:\zerpai-new\lib\core\pages\settings_warehouses_create_page.dart`
+  - Result: no issues found
+
+### Flutter — Pure white surface fix (`lib/core/pages/settings_warehouses_create_page.dart`)
+- Replaced the warehouse page shell background from `AppTheme.bgLight` to `Colors.white`.
+- Updated the `Close Settings` button background to explicit white so it no longer inherits the tinted surface.
+- This was done to comply with the repo rule that visible floating/surface treatments should render as pure white rather than theme-tinted off-white.
+
+### Data audit — Branches vs Warehouses persistence
+- Audited the active frontend payloads against:
+  - `backend/src/modules/branches/branches.service.ts`
+  - `backend/src/modules/warehouses-settings/warehouses-settings.service.ts`
+  - `backend/drizzle/schema.ts`
+  - `current schema.txt`
+- Conclusion:
+  - `warehouses` is effectively complete for the current warehouse create form payload.
+  - `settings_branches` is **not** complete for the current branch create form payload.
+- Branch fields currently collected in the UI but not stored end-to-end include:
+  - `fax`
+  - `is_child_location`
+  - `parent_branch_id`
+  - `primary_contact_id`
+  - GST detail fields beyond base GSTIN/type
+  - transaction-series linkage fields
+  - branch access / `location_users`
+- Noted schema drift:
+  - generated Drizzle branch schema still shows the old hardcoded branch-type check
+  - newer migration `supabase/migrations/1013_settings_branch_types.sql` removes that constraint and introduces `settings_branch_types`
+- Net result:
+  - warehouse save path is acceptable for the current UI
+  - branch save path is incomplete relative to the current UI
+
+---
+
+## Branches Create Page — Width Alignment + Business Type UI Pass (March 26, 2026)
+
+### Summary
+Adjusted the branch create page so the logo upload card and branch access card render at the same wider width, replaced remaining visible location wording with branch wording, switched the business type dropdown to the shared manage-footer pattern, and repaired a parser break in the page after layout edits.
+
+---
+
+### Flutter — Branch page UI (`lib/core/pages/settings_branches_create_page.dart`)
+- Replaced visible branch-page copy from location terms to branch terms in the edited areas:
+  - `Location access` → `Branch access`
+  - `This is a child location` → `This is a child branch`
+  - `Upload your location logo` → `Upload your branch logo`
+- Replaced the built-in tooltip in the branch access section with the existing shared `ZTooltip` reusable.
+- Fixed the real width issue for the logo upload card and branch access card by breaking both sections out of the default narrow form-field column and giving them the same explicit wide layout treatment.
+- Kept the main branch form itself on the existing compact settings layout while only widening the two special sections that were meant to visually span further.
+
+### Flutter — Business type dropdown + dialog
+- Replaced the fake `Manage Business Types` selectable dropdown row with the actual `FormDropdown<T>` settings footer pattern, matching how category management is triggered elsewhere.
+- Restyled the business type manage dialog to follow the same top-centered manage-modal shell pattern used by the category-management flow.
+- Added a top-right `+ New Business Type` action and inline add form in the dialog shell.
+- Business-type persistence work was started but not completed in this pass; the live saved-to-table flow is not yet finished and should not be treated as done.
+
+### Flutter — Parser repair
+- Rewrote `_buildLocationAccessContent()` after a bracket/nesting break caused a Dart parser error near the business type dialog section.
+- Validation:
+  - `dart analyze E:\zerpai-new\lib\core\pages\settings_branches_create_page.dart`
+  - Result: no issues found
+
+---
+
+## Branches Create Page — GST Dialog style matched to Chart of Accounts (March 26, 2026)
+
+### Summary
+Updated GST Details dialog to match the Create Account modal style from Chart of Accounts.
+
+---
+
+### Flutter — GST dialog style (`_showGstinDialog`)
+- `Dialog.alignment: Alignment.topCenter` + `insetPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 20)` — top-centered like Create Account
+- `borderRadius: BorderRadius.circular(8)` (was 12)
+- Header: `Container` with `border: Border(bottom: BorderSide(color: AppTheme.borderColor))`, title `fontSize: 18, fontWeight: bold`, X icon `size: 20, color: AppTheme.errorRed`
+- Form content: `padding: EdgeInsets.symmetric(horizontal: space24, vertical: space16)` (no inner card)
+- Footer: `Container` with `border: Border(top: BorderSide(color: AppTheme.borderColor))`, `padding: horizontal: space24, vertical: space16`
+- Save button: `padding: horizontal: space24, vertical: space12`, `borderRadius: space4`
+- Cancel button: `ElevatedButton` with `backgroundColor: AppTheme.bgDisabled`, `side: BorderSide(color: AppTheme.borderColor)`, same padding/radius
+
+---
+
+## Branches Create Page — GST Dialog + Layout Overhaul (March 26, 2026)
+
+### Summary
+Overhauled `settings_branches_create_page.dart`: left-aligned 620px form layout, sticky bottom action bar, GST dialog wired to Sandbox API with taxpayer info dialog.
+
+---
+
+### Flutter — Form layout (`_buildBody`)
+- Removed `Center` wrapper; form now `Align(topLeft) + SizedBox(width: 620)` inside `SingleChildScrollView`
+- Background changed from `AppTheme.bgLight` → `Colors.white`
+- Removed all `kZerpaiFormDivider` lines from main form body
+- Main form card changed from bordered `ZerpaiFormCard` → plain `Container(color: Colors.white)`
+- **Sticky bottom bar**: restructured to `Form → Column → [Expanded(SingleChildScrollView), Container(sticky bar)]`
+- Save/Cancel buttons: left-aligned (`MainAxisAlignment.start`), label "Save" (not "Add Branch"), green filled + outlined cancel
+
+### Flutter — GST Dialog (`_showGstinDialog`)
+- **"Get Taxpayer details" link** wired to `fetchTaxpayer()` — was previously a stub toast
+- **Auto-fetch**: GSTIN field `onChanged` triggers `fetchTaxpayer()` when length reaches 15
+- **Loading state**: link shows spinner + "Fetching..." text while `isFetchingTaxpayer` is true
+- **Form auto-fill**: on success, fills `legalName`, `tradeName`, `registrationType`, `registeredOn` from Sandbox API response
+- **Taxpayer Info Dialog**: shown after successful fetch with `alignment: Alignment.topCenter, insetPadding: EdgeInsets.zero`; displays GSTIN, Company Name, Date of Registration, GSTIN/UIN Status, Taxpayer Type, State Jurisdiction, Constitution of Business, Business Trade Name
+- API endpoint: `GET /gst/taxpayer-details?gstin=` → `{gstin, legalName, tradeName, registrationType, registeredOn (dd-MM-yyyy), status, constitutionOfBusiness, stateJurisdiction}`
+- `_tdRow` added as state class method (label/value pair widget used in taxpayer info dialog)
+- `isFetchingTaxpayer` moved outside `StatefulBuilder`'s builder lambda so it persists across rebuilds
+
+---
+
 ## Items Navigation Fix + db:pull Schema TS Fixes (March 26, 2026)
 
 ### Summary

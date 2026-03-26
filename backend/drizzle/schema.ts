@@ -545,10 +545,10 @@ export const salesOrders = pgTable("sales_orders", {
 export const priceLists = pgTable("price_lists", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 255 }).notNull(),
-	description: text().default(''),
+	description: text().default('),
 	currency: varchar({ length: 20 }).default('INR'),
 	pricingScheme: varchar("pricing_scheme", { length: 50 }).notNull(),
-	details: text().default(''),
+	details: text().default('),
 	roundOffPreference: varchar("round_off_preference", { length: 50 }).default('never_mind'),
 	status: varchar({ length: 20 }).default('active'),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
@@ -764,12 +764,12 @@ export const accountsReportingTags = pgTable("accounts_reporting_tags", {
 export const transactionalSequences = pgTable("transactional_sequences", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	module: varchar({ length: 50 }).notNull(),
-	prefix: varchar({ length: 20 }).default('').notNull(),
+	prefix: varchar({ length: 20 }).default(').notNull(),
 	nextNumber: integer("next_number").default(1).notNull(),
 	padding: integer().default(6).notNull(),
 	isActive: boolean("is_active").default(true),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	suffix: varchar({ length: 20 }).default(''),
+	suffix: varchar({ length: 20 }).default('),
 	outletId: uuid("outlet_id"),
 	isAuto: boolean("is_auto").default(true),
 }, (table) => [
@@ -1915,7 +1915,7 @@ export const organization = pgTable("organization", {
 	companyIdValue: varchar("company_id_value", { length: 100 }),
 	paymentStubAddress: text("payment_stub_address"),
 	hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false).notNull(),
-	systemId: varchar("system_id", { length: 20 }).default(sql`(nextval('organization_system_id_seq'::regclass))`).notNull(),
+	systemId: varchar("system_id", { length: 20 }).default((nextval(\'organization_system_id_seq').notNull(),
 }, (table) => [
 	uniqueIndex("organization_system_id_key").using("btree", table.systemId.asc().nullsLast().op("text_ops")),
 	foreignKey({

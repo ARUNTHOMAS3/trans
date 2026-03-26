@@ -12,6 +12,7 @@ import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/form_row.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 const String _kDevOrgId = '00000000-0000-0000-0000-000000000002';
@@ -136,9 +137,6 @@ class _SettingsWarehouseCreatePageState
   final Set<String> _expandedBlocks = <String>{'Organization'};
 
   bool get _isEditing => widget.warehouseId != null;
-
-  // Label column width for the two-column row layout
-  static const double _labelWidth = 180.0;
 
   @override
   void initState() {
@@ -279,7 +277,7 @@ class _SettingsWarehouseCreatePageState
       pageTitle: '', useHorizontalPadding: false, useTopPadding: false,
       enableBodyScroll: false, searchFocusNode: _searchFocusNode,
       child: Container(
-        color: AppTheme.bgLight,
+        color: Colors.white,
         child: Column(
           children: [
             _buildTopBar(context),
@@ -334,7 +332,7 @@ class _SettingsWarehouseCreatePageState
               const SizedBox(width: AppTheme.space24),
               TextButton.icon(
                 onPressed: () => context.go(AppRoutes.settings),
-                style: TextButton.styleFrom(foregroundColor: AppTheme.textPrimary, backgroundColor: AppTheme.bgLight,
+                style: TextButton.styleFrom(foregroundColor: AppTheme.textPrimary, backgroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16, vertical: AppTheme.space12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 icon: const Icon(LucideIcons.x, size: 16, color: AppTheme.errorRed),
@@ -422,80 +420,154 @@ class _SettingsWarehouseCreatePageState
 
   Widget _buildBody() {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.space32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_isEditing ? 'Edit Warehouse' : 'Add Warehouse',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-                const SizedBox(height: AppTheme.space24),
-
-                // ── Warehouse Details ──────────────────────────────────────
-                _buildSectionLabel('Warehouse Details'),
-                const SizedBox(height: AppTheme.space12),
-                _buildCard(children: [
-                  _buildRow(label: 'Warehouse name', required: true,
-                      child: TextFormField(controller: _nameCtrl, decoration: _dec('e.g. Central Warehouse'),
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Warehouse name is required' : null)),
-                  _buildDivider(),
-                  _buildRow(label: 'Warehouse code',
-                      child: TextFormField(controller: _warehouseCodeCtrl, decoration: _dec('e.g. WH-01'),
-                          inputFormatters: [LengthLimitingTextInputFormatter(20)])),
-                  _buildDivider(),
-                  _buildRow(label: 'Parent branch', required: true,
-                      child: FormDropdown<String>(
-                        items: _branches.map((b) => b.id).toList(),
-                        value: _parentBranchId,
-                        hint: 'Select parent branch',
-                        displayStringForValue: (id) => _branches.firstWhere((b) => b.id == id, orElse: () => _BranchOption(id: id, name: id)).name,
-                        errorText: _parentBranchError,
-                        onChanged: (v) => setState(() { _parentBranchId = v; _parentBranchError = null; }),
-                      )),
-                ]),
-
-                const SizedBox(height: AppTheme.space20),
-
-                // ── Address ────────────────────────────────────────────────
-                _buildSectionLabel('Address'),
-                const SizedBox(height: AppTheme.space12),
-                _buildCard(children: [
-                  _buildRow(label: 'Attention',
-                      child: TextFormField(controller: _attentionCtrl, decoration: _dec('Attention'))),
-                  _buildDivider(),
-                  _buildRow(label: 'Street 1',
-                      child: TextFormField(controller: _streetCtrl, decoration: _dec('Street 1'))),
-                  _buildDivider(),
-                  _buildRow(label: 'Street 2',
-                      child: TextFormField(controller: _street2Ctrl, decoration: _dec('Street 2'))),
-                  _buildDivider(),
-                  _buildRow(label: 'City',
-                      child: TextFormField(controller: _cityCtrl, decoration: _dec('City'))),
-                  _buildDivider(),
-                  _buildRow(label: 'State / Union Territory',
-                      child: FormDropdown<String>(items: _indianStates, value: _selectedState, hint: 'Select state',
-                          onChanged: (v) => setState(() => _selectedState = v))),
-                  _buildDivider(),
-                  _buildRow(label: 'Pin Code',
-                      child: TextFormField(controller: _pincodeCtrl, decoration: _dec('560001'),
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)])),
-                  _buildDivider(),
-                  _buildRow(label: 'Country', child: _buildStaticField('India')),
-                ]),
-
-                const SizedBox(height: AppTheme.space32),
-                _buildActions(),
-                const SizedBox(height: AppTheme.space48),
-              ],
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppTheme.space32),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 620,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isEditing ? 'Edit Warehouse' : 'Add Warehouse',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.space24),
+                      Container(
+                        color: Colors.white,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ZerpaiFormRow(
+                              label: 'Warehouse name',
+                              required: true,
+                              child: TextFormField(
+                                controller: _nameCtrl,
+                                decoration: _dec('e.g. Central Warehouse'),
+                                validator: (v) => (v == null || v.trim().isEmpty)
+                                    ? 'Warehouse name is required'
+                                    : null,
+                              ),
+                            ),
+                            ZerpaiFormRow(
+                              label: 'Warehouse code',
+                              child: TextFormField(
+                                controller: _warehouseCodeCtrl,
+                                decoration: _dec('e.g. WH-01'),
+                                inputFormatters: [
+                                  LengthLimitingTextInputFormatter(20),
+                                ],
+                              ),
+                            ),
+                            ZerpaiFormRow(
+                              label: 'Parent branch',
+                              required: true,
+                              child: FormDropdown<String>(
+                                items: _branches.map((b) => b.id).toList(),
+                                value: _parentBranchId,
+                                hint: 'Select parent branch',
+                                displayStringForValue: (id) => _branches
+                                    .firstWhere(
+                                      (b) => b.id == id,
+                                      orElse: () => _BranchOption(id: id, name: id),
+                                    )
+                                    .name,
+                                errorText: _parentBranchError,
+                                onChanged: (v) => setState(() {
+                                  _parentBranchId = v;
+                                  _parentBranchError = null;
+                                }),
+                              ),
+                            ),
+                            ZerpaiFormRow(
+                              label: 'Address',
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  TextFormField(
+                                    controller: _attentionCtrl,
+                                    decoration: _dec('Attention'),
+                                  ),
+                                  const SizedBox(height: AppTheme.space8),
+                                  TextFormField(
+                                    controller: _streetCtrl,
+                                    decoration: _dec('Street 1'),
+                                  ),
+                                  const SizedBox(height: AppTheme.space8),
+                                  TextFormField(
+                                    controller: _street2Ctrl,
+                                    decoration: _dec('Street 2'),
+                                  ),
+                                  const SizedBox(height: AppTheme.space8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _cityCtrl,
+                                          decoration: _dec('City'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: AppTheme.space8),
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _pincodeCtrl,
+                                          decoration: _dec('Pin code'),
+                                          keyboardType: TextInputType.number,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                            LengthLimitingTextInputFormatter(6),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: AppTheme.space8),
+                                  _buildStaticField('India'),
+                                  const SizedBox(height: AppTheme.space8),
+                                  FormDropdown<String>(
+                                    items: _indianStates,
+                                    value: _selectedState,
+                                    hint: 'Select state / Union territory',
+                                    onChanged: (v) =>
+                                        setState(() => _selectedState = v),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
+          Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: AppTheme.borderLight)),
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.space32,
+              vertical: AppTheme.space16,
+            ),
+            child: _buildActions(),
+          ),
+        ],
       ),
     );
   }
@@ -504,9 +576,7 @@ class _SettingsWarehouseCreatePageState
 
   Widget _buildActions() {
     final accentColor = ref.watch(appBrandingProvider).accentColor;
-    return Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-      TextButton(onPressed: _isSaving ? null : () => context.go(AppRoutes.settingsWarehouses),
-          style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary), child: const Text('Cancel')),
+    return Row(mainAxisAlignment: MainAxisAlignment.start, children: [
       const SizedBox(width: AppTheme.space12),
       ElevatedButton(
         onPressed: _isSaving ? null : _save,
@@ -515,50 +585,23 @@ class _SettingsWarehouseCreatePageState
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
         child: _isSaving
             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-            : Text(_isEditing ? 'Save Changes' : 'Add Warehouse',
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            : const Text('Save',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      ),
+      const SizedBox(width: AppTheme.space12),
+      OutlinedButton(
+        onPressed: _isSaving ? null : () => context.go(AppRoutes.settingsWarehouses),
+        style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.textSecondary,
+            side: const BorderSide(color: AppTheme.borderLight),
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.space24, vertical: AppTheme.space12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+        child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
       ),
     ]);
   }
 
   // ─── Shared helpers ────────────────────────────────────────────────────────
-
-  Widget _buildCard({required List<Widget> children}) {
-    return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.borderLight)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
-    );
-  }
-
-  Widget _buildSectionLabel(String label) {
-    return Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary, letterSpacing: 0.3));
-  }
-
-  Widget _buildRow({required String label, bool required = false, required Widget child}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.space20, vertical: AppTheme.space12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: _labelWidth,
-            child: RichText(
-              text: TextSpan(
-                text: label,
-                style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
-                children: required ? const [TextSpan(text: ' *', style: TextStyle(color: AppTheme.errorRed))] : null,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppTheme.space16),
-          Expanded(child: child),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDivider() => const Divider(height: 1, indent: 0, endIndent: 0, color: AppTheme.borderLight);
-
   Widget _buildStaticField(String value) {
     return Container(
       height: 36,
