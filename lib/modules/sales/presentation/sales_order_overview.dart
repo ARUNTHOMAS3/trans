@@ -2557,7 +2557,7 @@ class _Header extends StatelessWidget {
       child: SizedBox(
         width: width,
         child: Padding(
-          padding: EdgeInsets.only(right: alignRight ? 0 : 12),
+          padding: const EdgeInsets.only(right: 12),
           child: Row(
             mainAxisAlignment: alignRight
                 ? MainAxisAlignment.end
@@ -2615,7 +2615,7 @@ class _Cell extends StatelessWidget {
     return SizedBox(
       width: width,
       child: Padding(
-        padding: EdgeInsets.only(right: alignRight ? 0 : 12),
+        padding: const EdgeInsets.only(right: 12),
         child: Align(
           alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
           child: child,
