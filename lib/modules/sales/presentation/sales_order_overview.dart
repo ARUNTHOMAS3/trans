@@ -3406,6 +3406,68 @@ class _SalesOrderCustomizeColumnsDialogState
     _columns = widget.columns.map((column) => column.copy()).toList();
   }
 
+  Widget _buildColumnTile(
+    _SalesOrderColumnConfig column, {
+    required Key key,
+    bool showDragHandle = true,
+  }) {
+    return Container(
+      key: key,
+      height: 38,
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F9FC),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 10),
+          if (showDragHandle)
+            ReorderableDragStartListener(
+              index: _columns.indexOf(column),
+              child: const Icon(
+                LucideIcons.gripVertical,
+                size: 14,
+                color: AppTheme.textMuted,
+              ),
+            )
+          else
+            const Icon(
+              LucideIcons.gripVertical,
+              size: 14,
+              color: AppTheme.borderLight,
+            ),
+          const SizedBox(width: 8),
+          if (column.locked)
+            const Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: Icon(
+                LucideIcons.lock,
+                size: 14,
+                color: AppTheme.textMuted,
+              ),
+            )
+          else
+            Checkbox(
+              value: column.visible,
+              onChanged: (value) =>
+                  setState(() => column.visible = value ?? false),
+              activeColor: AppTheme.primaryBlue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          Expanded(
+            child: Text(
+              column.label,
+              style: AppTheme.bodyText.copyWith(fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _columns.where((column) {
@@ -3481,62 +3543,64 @@ class _SalesOrderCustomizeColumnsDialogState
               ),
             ),
             Expanded(
-              child: Scrollbar(
-                thumbVisibility: true,
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: filtered.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final column = filtered[index];
-                    return Container(
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7F9FC),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        children: [
-                          const SizedBox(width: 10),
-                          const Icon(
-                            LucideIcons.gripVertical,
-                            size: 14,
-                            color: AppTheme.textMuted,
+              child: _searchQuery.trim().isEmpty
+                  ? ReorderableListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: _columns.length,
+                      onReorder: (oldIndex, newIndex) {
+                        setState(() {
+                          if (newIndex > oldIndex) newIndex -= 1;
+                          final item = _columns.removeAt(oldIndex);
+                          _columns.insert(newIndex, item);
+                        });
+                      },
+                      proxyDecorator: (child, index, animation) {
+                        return Material(
+                          color: Colors.transparent,
+                          child: AnimatedBuilder(
+                            animation: animation,
+                            builder: (context, child) {
+                              return Transform.scale(
+                                scale: 1.02,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(4),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.12),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: child,
                           ),
-                          const SizedBox(width: 8),
-                          if (column.locked)
-                            const Padding(
-                              padding: EdgeInsets.only(right: 12),
-                              child: Icon(
-                                LucideIcons.lock,
-                                size: 14,
-                                color: AppTheme.textMuted,
-                              ),
-                            )
-                          else
-                            Checkbox(
-                              value: column.visible,
-                              onChanged: (value) => setState(
-                                () => column.visible = value ?? false,
-                              ),
-                              activeColor: AppTheme.primaryBlue,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                            ),
-                          Expanded(
-                            child: Text(
-                              column.label,
-                              style: AppTheme.bodyText.copyWith(fontSize: 13),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
+                        );
+                      },
+                      itemBuilder: (context, index) {
+                        final column = _columns[index];
+                        return _buildColumnTile(column, key: ValueKey(column.key));
+                      },
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: filtered.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final column = filtered[index];
+                        return _buildColumnTile(
+                          column,
+                          key: ValueKey(column.key),
+                          showDragHandle: false,
+                        );
+                      },
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
