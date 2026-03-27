@@ -165,7 +165,8 @@ class _SalesOrderOverviewScreenState
     extends ConsumerState<SalesOrderOverviewScreen> {
   late final TextEditingController _searchController;
   late final FocusNode _searchFocusNode;
-  late final ScrollController _horizScrollCtrl;
+  late final ScrollController _bodyScrollCtrl;
+  late final ScrollController _headerScrollCtrl;
   String _searchQuery = '';
   _SalesOrderView _activeView = _salesOrderViews.first;
   _SalesOrderSortField _activeSortField = _SalesOrderSortField.salesOrderNumber;
@@ -184,7 +185,14 @@ class _SalesOrderOverviewScreenState
   void initState() {
     super.initState();
     _columnConfigs = _defaultColumnConfigs();
-    _horizScrollCtrl = ScrollController();
+    _bodyScrollCtrl = ScrollController();
+    _headerScrollCtrl = ScrollController();
+    _bodyScrollCtrl.addListener(() {
+      if (_headerScrollCtrl.hasClients &&
+          _bodyScrollCtrl.offset != _headerScrollCtrl.offset) {
+        _headerScrollCtrl.jumpTo(_bodyScrollCtrl.offset);
+      }
+    });
     _searchController = TextEditingController(
       text: widget.initialSearchQuery ?? '',
     );
@@ -200,7 +208,8 @@ class _SalesOrderOverviewScreenState
 
   @override
   void dispose() {
-    _horizScrollCtrl.dispose();
+    _bodyScrollCtrl.dispose();
+    _headerScrollCtrl.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -1139,7 +1148,7 @@ class _SalesOrderOverviewScreenState
                 SizedBox(
                   height: 44,
                   child: SingleChildScrollView(
-                    controller: _horizScrollCtrl,
+                    controller: _headerScrollCtrl,
                     scrollDirection: Axis.horizontal,
                     physics: const NeverScrollableScrollPhysics(),
                     child: SizedBox(
@@ -1169,9 +1178,10 @@ class _SalesOrderOverviewScreenState
                 // Body — vertical list inside horizontal scroll
                 Expanded(
                   child: Scrollbar(
+                    controller: _bodyScrollCtrl,
                     thumbVisibility: true,
                     child: SingleChildScrollView(
-                      controller: _horizScrollCtrl,
+                      controller: _bodyScrollCtrl,
                       scrollDirection: Axis.horizontal,
                       child: SizedBox(
                         width: _tableWidth,
