@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../shared/widgets/skeleton.dart';
 import '../../../../../shared/widgets/zerpai_layout.dart';
 import '../../../../../shared/widgets/z_button.dart';
 import '../providers/purchases_purchase_orders_provider.dart';
@@ -37,7 +38,7 @@ class PurchaseOrderOverviewScreen extends ConsumerWidget {
           Expanded(
             child: purchaseOrdersAsync.when(
               data: (orders) => _buildOrdersTable(orders),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const TableSkeleton(),
               error: (error, _) => _buildErrorWidget(error.toString()),
             ),
           ),

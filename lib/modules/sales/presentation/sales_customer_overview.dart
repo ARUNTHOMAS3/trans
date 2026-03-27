@@ -90,7 +90,7 @@ class _SalesCustomerOverviewScreenState
             ],
           );
         },
-        loading: () => const DetailSkeleton(),
+        loading: () => const CustomerDetailSkeleton(),
         error: (err, stack) => Center(child: Text('Error: $err')),
       ),
     );

@@ -82,7 +82,7 @@
 
 | Widget | File | Description |
 |--------|------|-------------|
-| `Skeleton` / `FormSkeleton` / `TableSkeleton` / `ListSkeleton` / `CardSkeleton` / `DetailSkeleton` / `ErrorPlaceholder` | `skeleton.dart` | Shimmer loading placeholders in various layouts |
+| `Skeleton` / `FormSkeleton` / `TableSkeleton` / `ListSkeleton` / `CardSkeleton` / `DetailSkeleton` / `DetailContentSkeleton` / `DocumentDetailSkeleton` / `SalesOrderDetailSkeleton` / `ErrorPlaceholder` | `skeleton.dart` | Shimmer loading placeholders in various layouts — `SalesOrderDetailSkeleton` matches the sales order detail pane (action bar → banner → tabs → status → document card) |
 | `ZerpaiBuilders.buildErrorAlert()` | `inputs/zerpai_builders.dart` | Styled error banner with close button |
 | `ZerpaiBuilders.parseErrorMessage()` | `inputs/zerpai_builders.dart` | Context-aware error string translation (duplicates, associations, subcategories) |
 

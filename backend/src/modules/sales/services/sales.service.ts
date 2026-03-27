@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from "@nestjs/common";
+import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
 import { SupabaseService } from "../../supabase/supabase.service";
 
 @Injectable()
@@ -191,6 +191,163 @@ export class SalesService {
         await client.from('sales_orders').delete().eq('id', order.id);
         throw itemsError;
       }
+    }
+
+    return order;
+  }
+
+  async updateSalesOrder(id: string, body: any, orgId: string) {
+    const client = this.supabaseService.getClient();
+
+    // Verify order exists
+    const { data: existing, error: fetchError } = await client
+      .from('sales_orders')
+      .select('id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existing) throw new NotFoundException(`Sales order ${id} not found`);
+
+    const {
+      customerId,
+      saleNumber,
+      reference,
+      saleDate,
+      expectedShipmentDate,
+      paymentTerms,
+      deliveryMethod,
+      salesperson,
+      status,
+      shippingCharges,
+      adjustment,
+      customerNotes,
+      termsAndConditions,
+      subTotal,
+      taxTotal,
+      total,
+      items = [],
+    } = body;
+
+    // Resolve tax IDs (same logic as create)
+    const taxIdSet = [...new Set((items as any[]).map((i) => i.taxId).filter(Boolean))];
+    const taxResolutionMap = new Map<string, { tax_id: string | null; tax_rate: number }>();
+
+    if (taxIdSet.length > 0) {
+      const { data: assocTaxes } = await client
+        .from('associate_taxes')
+        .select('id, tax_rate')
+        .in('id', taxIdSet);
+
+      for (const t of assocTaxes ?? []) {
+        taxResolutionMap.set(t.id, { tax_id: t.id, tax_rate: Number(t.tax_rate) });
+      }
+
+      const unresolved = taxIdSet.filter((id) => !taxResolutionMap.has(id));
+      if (unresolved.length > 0) {
+        const { data: groups } = await client
+          .from('tax_groups')
+          .select('id, tax_rate')
+          .in('id', unresolved);
+        for (const g of groups ?? []) {
+          taxResolutionMap.set(g.id, { tax_id: null, tax_rate: Number(g.tax_rate) });
+        }
+      }
+    }
+
+    let computedSubTotal = 0;
+    let computedDiscountTotal = 0;
+    let computedTotalQuantity = 0;
+    let computedTaxTotal = 0;
+
+    const processedItems = (items as any[]).map((item, index) => {
+      const qty = Number(item.quantity) || 0;
+      const rate = Number(item.rate) || 0;
+      const discountValue = Number(item.discount) || 0;
+      const discountType: string = item.discountType || '%';
+
+      const base = qty * rate;
+      const discountAmount =
+        discountType === 'value' ? discountValue : base * (discountValue / 100);
+      const lineAmount = base - discountAmount;
+
+      const taxResolved = item.taxId
+        ? (taxResolutionMap.get(item.taxId) ?? { tax_id: null, tax_rate: 0 })
+        : { tax_id: null, tax_rate: 0 };
+      const lineTaxAmount = lineAmount * (taxResolved.tax_rate / 100);
+
+      computedSubTotal += lineAmount;
+      computedDiscountTotal += discountAmount;
+      computedTotalQuantity += qty;
+      computedTaxTotal += lineTaxAmount;
+
+      return {
+        org_id: orgId,
+        sales_order_id: id,
+        line_no: index + 1,
+        product_id: item.itemId,
+        description: item.description ?? null,
+        quantity: qty,
+        rate,
+        discount_type: discountType,
+        discount_value: discountValue,
+        discount_amount: discountAmount,
+        tax_id: taxResolved.tax_id,
+        tax_rate: taxResolved.tax_rate,
+        tax_amount: lineTaxAmount,
+        amount: lineAmount,
+      };
+    });
+
+    const finalSubTotal = Number(subTotal) || computedSubTotal;
+    const finalTaxTotal = Number(taxTotal) || computedTaxTotal;
+    const finalShipping = Number(shippingCharges) || 0;
+    const finalAdjustment = Number(adjustment) || 0;
+    const finalTotal =
+      Number(total) || finalSubTotal + finalTaxTotal + finalShipping + finalAdjustment;
+
+    // Update the order header
+    const { data: order, error: updateError } = await client
+      .from('sales_orders')
+      .update({
+        customer_id: customerId,
+        sale_number: saleNumber || null,
+        reference: reference || null,
+        sale_date: saleDate || null,
+        expected_shipment_date: expectedShipmentDate || null,
+        payment_term_id: paymentTerms || null,
+        delivery_method: deliveryMethod || null,
+        salesperson_name: salesperson || null,
+        status: status || 'Draft',
+        sub_total: finalSubTotal,
+        tax_total: finalTaxTotal,
+        discount_total: computedDiscountTotal,
+        shipping_charges: finalShipping,
+        adjustment: finalAdjustment,
+        total_quantity: computedTotalQuantity,
+        total: finalTotal,
+        customer_notes: customerNotes || null,
+        terms_and_conditions: termsAndConditions || null,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // Replace all line items: delete existing, insert new
+    const { error: deleteError } = await client
+      .from('sales_order_items')
+      .delete()
+      .eq('sales_order_id', id);
+
+    if (deleteError) throw deleteError;
+
+    if (processedItems.length > 0) {
+      const { error: itemsError } = await client
+        .from('sales_order_items')
+        .insert(processedItems);
+
+      if (itemsError) throw itemsError;
     }
 
     return order;

@@ -1,6 +1,23 @@
+### Dev- Rahul
+
+<!-- LOG RULES START -->
+
+### Zerpai Log Maintenance Rules
+
+1. **Initialize/Locate**: If `log.md` exists in the root, read it first. If not, create it.
+2. **Dev Attribution**: Always ensure the very first line of the file is `### Dev- Rahul`.
+3. **Structure**: Maintain a numbered list of features (e.g., `## 7. Feature Name`). Include a high-level description and bullet points for logic.
+4. **File Categorization (CRITICAL)**: You MUST split the changed files into two distinct lists: 'Frontend Files' (`lib/...`) and 'Backend Files' (`backend/...`).
+5. **Append Only**: Never delete previous entries. Always add new changes at the **bottom** of the file using `cat >> log.md <<'EOF'`.
+6. **Timestamps**: Every batch of changes must end with: `Timestamp of Log Update: [Date] - [Time] (IST)`.
+7. **Engineer-to-Engineer**: Write with technical depth, explaining 'why' architectural choices were made.
+8. **Method**: Use bash heredoc append only: `cat >> e:/zerpai-new/log.md <<'EOF'` ... `EOF`. NEVER use `printf` with full-file rewrite. NEVER use the Edit tool on this file.
+<!-- LOG RULES END -->
+
 ## Global Architectural Refactor: Reusable ERP Components (March 27, 2026)
 
 ### Summary
+
 Established a "Gold Standard" for ERP module architecture by extracting common UI patterns into global reusable components. Refactored the Items module to serve as the reference implementation, ensuring UI consistency and reducing boilerplate across all future modules.
 
 ---
@@ -8,11 +25,13 @@ Established a "Gold Standard" for ERP module architecture by extracting common U
 ## Sales Orders — Reusable Component Alignment (March 27, 2026)
 
 ### Summary
+
 Aligned the Sales Orders overview screen with the shared ERP building blocks so the module follows the same reusable structure established for other list/detail workflows.
 
 ---
 
 ### Flutter — Sales order overview (`lib/modules/sales/presentation/sales_order_overview.dart`)
+
 - Replaced the top list search input with the shared `ZSearchField`.
 - Switched the list shell to use `ZDataTableShell` as the bordered table container while preserving the Sales Orders specific horizontal-scroll and selection behavior.
 - Replaced amount rendering in the table with `ZCurrencyDisplay` for standardized currency presentation.
@@ -25,12 +44,14 @@ Aligned the Sales Orders overview screen with the shared ERP building blocks so 
 - Kept `DetailSkeleton` as the loading state for the order detail panel.
 
 ### Shared Reusables Updated
+
 - `lib/shared/widgets/inputs/z_search_field.dart`
   - Added support for external `controller`, `focusNode`, and `initialValue` so the reusable can be used in stateful module screens like Sales Orders without duplicating search input code.
 - `lib/shared/widgets/z_data_table_shell.dart`
   - Added optional `body` support so advanced table screens can reuse the shell with scrollable list content, not only static row arrays.
 
 ### Validation
+
 - `dart analyze E:\zerpai-new\lib\shared\widgets\inputs\z_search_field.dart`
 - `dart analyze E:\zerpai-new\lib\shared\widgets\z_data_table_shell.dart`
 - `dart analyze E:\zerpai-new\lib\modules\sales\presentation\sales_order_overview.dart`
@@ -39,6 +60,7 @@ Aligned the Sales Orders overview screen with the shared ERP building blocks so 
 ---
 
 ### Reusable Components — `lib/shared/`
+
 - **`LookupUtils` (`lib/shared/utils/lookup_utils.dart`)**: Created a centralized utility for mapping database IDs to display names (e.g., resolving Category ID to "Pharmaceuticals").
 - **`ZDataTableShell` Family (`lib/shared/widgets/z_data_table_shell.dart`)**:
   - `ZDataTableShell`: Standardized bordered container for all ERP module lists.
@@ -50,6 +72,7 @@ Aligned the Sales Orders overview screen with the shared ERP building blocks so 
 - **`ZCurrencyDisplay` (`lib/shared/widgets/z_currency_display.dart`)**: Centralized currency formatting with proper symbol (₹) rendering and decimal precision control.
 
 ### Flutter — Items Module Refactor
+
 - **`ItemListScreen` (`lib/modules/items/items/presentation/items_item_list.dart`)**:
   - Completely replaced hardcoded table logic with `ZDataTableShell` and its child components.
   - Migrated local popup menu to the global `ZRowActions` widget.
@@ -60,6 +83,7 @@ Aligned the Sales Orders overview screen with the shared ERP building blocks so 
   - Implemented `LookupUtils.getNameById` for resolving Units, Categories, Manufacturers, Brands, Accounts, and Tax Rates in the overview section.
 
 ### Documentation
+
 - **`REUSABLES.md`**: Updated with full documentation, usage examples, and file paths for all newly created shared components to guide other developers.
 
 ---
@@ -67,11 +91,13 @@ Aligned the Sales Orders overview screen with the shared ERP building blocks so 
 ## Sales Orders & Items — Sorting, Tooltips, And Real Display Data (March 27, 2026)
 
 ### Summary
+
 Refined the Sales Orders list interactions and removed raw UUID leakage from the Items detail screen so the frontend shows real business-facing values instead of internal IDs.
 
 ---
 
 ### Flutter — Sales order overview (`lib/modules/sales/presentation/sales_order_overview.dart`)
+
 - Added sorting for all visible Sales Order table columns.
 - Clicking a column header or its sort icon now toggles ascending / descending.
 - Updated active sort styling so the selected column label is blue and the icon reflects actual direction (`up` / `down`) instead of a generic sort marker.
@@ -82,27 +108,31 @@ Refined the Sales Orders list interactions and removed raw UUID leakage from the
   - `Shipped` / `Pending`
 
 ### Flutter — Item detail real-data cleanup (`lib/modules/items/items/presentation/items_item_detail.dart`)
+
 - Stopped showing raw UUIDs for unresolved lookup fields in the item detail overview.
 - Updated tax label resolution to search both `taxRates` and `taxGroups`, so intra-state and inter-state tax names display correctly when available.
 
 ### Shared Utility — `LookupUtils` (`lib/shared/utils/lookup_utils.dart`)
+
 - Changed `LookupUtils.getNameById()` so lookup misses now return the provided fallback instead of leaking the raw ID into the UI.
 - This ensures missing frontend lookups show safe display values such as `N/A` rather than backend UUIDs.
 
 ### Validation
+
 - `dart analyze E:\zerpai-new\lib\modules\sales\presentation\sales_order_overview.dart`
 - `dart analyze E:\zerpai-new\lib\shared\utils\lookup_utils.dart E:\zerpai-new\lib\modules\items\items\presentation\items_item_detail.dart`
 - Result: no issues found
 
 ---
 
-
 ### Summary
+
 Updated the Sales Orders list view to match the Zoho reference more closely by adding the left header sliders menu, a real Customize Columns dialog, selectable rows, the bulk action toolbar that appears when multiple orders are selected, the exact overflow actions, and a real Bulk Update dialog.
 
 ---
 
 ### Flutter — Sales order overview (`lib/modules/sales/presentation/sales_order_overview.dart`)
+
 - Added real row selection state with per-row checkboxes and header select-all behavior.
 - Replaced the static left-side sliders icon with a functional white popup menu containing:
   - `Customize Columns`
@@ -139,6 +169,7 @@ Updated the Sales Orders list view to match the Zoho reference more closely by a
 - Kept popup/menu/dialog floating surfaces explicitly pure white to follow project UI rules.
 
 ### Validation
+
 - `dart format E:\zerpai-new\lib\modules\sales\presentation\sales_order_overview.dart`
 - `dart analyze E:\zerpai-new\lib\modules\sales\presentation\sales_order_overview.dart`
 - Result: no issues found
@@ -148,11 +179,13 @@ Updated the Sales Orders list view to match the Zoho reference more closely by a
 ## Sales Orders — Real Organization Logo In PDF Preview (March 27, 2026)
 
 ### Summary
+
 Updated the Sales Order detail PDF preview to use the real uploaded organization logo from Organization Profile / Branding instead of the hardcoded `LOGO / LETTERHEAD` placeholder.
 
 ---
 
 ### Flutter — Sales order PDF preview (`lib/modules/sales/presentation/sales_order_overview.dart`)
+
 - Added `orgSettingsProvider` usage inside the sales order detail workspace.
 - Read the saved organization `logoUrl` from the shared org settings model.
 - Replaced the placeholder header block in the PDF preview with the real uploaded organization logo when available.
@@ -160,6 +193,7 @@ Updated the Sales Order detail PDF preview to use the real uploaded organization
 - Kept a safe fallback: if no logo is configured or the image fails to load, the old `LOGO / LETTERHEAD` placeholder still renders.
 
 ### Validation
+
 - `dart analyze E:\zerpai-new\lib\modules\sales\presentation\sales_order_overview.dart`
 - Result: no issues found
 
@@ -168,9 +202,11 @@ Updated the Sales Order detail PDF preview to use the real uploaded organization
 ## Sales Orders — Bug Fixes: Backend Column Name & Flutter Loading Crash (March 27, 2026)
 
 ### Backend — `backend/src/modules/sales/services/sales.service.ts`
+
 - **Fix**: Changed `product:products(id, name, sku)` → `product:products(id, product_name, sku)` in `getSalesOrderById`. Resolved `column products_2.name does not exist` Supabase error when opening a sales order detail.
 
 ### Flutter — `lib/modules/sales/presentation/sales_document_detail.dart`
+
 - **Fix**: Added `enableBodyScroll: false` to the `loading` branch `ZerpaiLayout`. Resolved `RenderFlex children have non-zero flex but incoming height constraints are unbounded` crash in `DocumentDetailSkeleton` during data fetch.
 
 ---
@@ -178,26 +214,32 @@ Updated the Sales Order detail PDF preview to use the real uploaded organization
 ## Sales Orders — PDF Detail View, Deep Linking & Actions Menu (March 27, 2026)
 
 ### Summary
+
 Completed the Sales Orders module: added a Zoho-style PDF detail view, fixed deep-linking, rebuilt the document detail screen from scratch, added a "..." actions menu to the overview toolbar, and wired the backend `GET /sales/:id` endpoint.
 
 ---
 
 ### Toast Migration (background agent — completed)
+
 - Replaced all 216 raw `ScaffoldMessenger`/`SnackBar` usages with `ZerpaiToast` across 41 files. Final file was `items_pricelist_pricelist_overview.dart` (6 usages). Zero raw SnackBar calls remain in application code.
 
 ### Backend — `backend/src/modules/sales/`
+
 - **`services/sales.service.ts`** — Added `getSalesOrderById(id)`: fetches a single sales order with full customer address fields and `sales_order_items` joined with `products(id, name, sku)`.
 - **`controllers/sales.controller.ts`** — Added `@Get(':id')` route; moved to **bottom** of controller (after all named static routes) so `/sales/search` is not shadowed by the dynamic segment. Imports `Param` from `@nestjs/common`.
 
 ### Flutter — Models
+
 - **`lib/modules/sales/models/sales_order_item_model.dart`** — `itemTotal` now falls back to `json['amount']` so the DB column `amount` (stored by backend) maps correctly.
 
 ### Flutter — Overview (`lib/modules/sales/presentation/sales_order_overview.dart`)
+
 - Fixed navigation bug: row tap was pushing `/sales/order/:id` (singular), corrected to `/sales/orders/:id`.
 - Added `_ActionsMenu` widget (MenuAnchor): **Sort By** submenu (Date, Sales Order#, Customer Name, Amount), **Export** submenu (Export Sales Orders / Export Current View), **Import Sales Orders**, **Preferences**, **Manage Custom Fields**, **Refresh List** (functional).
 - Added `_MenuLabel` helper widget for consistent menu item widths.
 
 ### Flutter — Detail Screen (`lib/modules/sales/presentation/sales_document_detail.dart`)
+
 - Complete rewrite as Zoho-style PDF view.
 - Added `salesOrderDetailProvider` (`FutureProvider.family`) for per-order caching.
 - **`_ActionBar`**: Edit, Send Email, PDF/Print, Convert to Invoice, Create ▾ (Invoice/Package/Shipment/Delivery Challan), ... (Delete/Clone/Mark as Sent), Back button.
@@ -206,15 +248,16 @@ Completed the Sales Orders module: added a Zoho-style PDF detail view, fixed dee
 - **`_MoreInformation`**: Salesperson, Payment Terms, Delivery Method, Reference#, Customer Notes, Terms & Conditions.
 - Item names resolved from `item.productName` (joined `products` table) with fallback to `description`.
 
-
 ## Warehouses Create Page + Schema Audit (March 26, 2026)
 
 ### Summary
+
 Converted the warehouse create page to the same branch-style settings layout, forced the visible page surfaces to pure white, and audited whether the current branch and warehouse tables actually persist all data collected by their forms.
 
 ---
 
 ### Flutter — Warehouse create page layout (`lib/core/pages/settings_warehouses_create_page.dart`)
+
 - Reworked the warehouse page to use the same composition as the branch create page:
   - left-aligned narrow form body
   - plain white form container
@@ -230,11 +273,13 @@ Converted the warehouse create page to the same branch-style settings layout, fo
   - Result: no issues found
 
 ### Flutter — Pure white surface fix (`lib/core/pages/settings_warehouses_create_page.dart`)
+
 - Replaced the warehouse page shell background from `AppTheme.bgLight` to `Colors.white`.
 - Updated the `Close Settings` button background to explicit white so it no longer inherits the tinted surface.
 - This was done to comply with the repo rule that visible floating/surface treatments should render as pure white rather than theme-tinted off-white.
 
 ### Data audit — Branches vs Warehouses persistence
+
 - Audited the active frontend payloads against:
   - `backend/src/modules/branches/branches.service.ts`
   - `backend/src/modules/warehouses-settings/warehouses-settings.service.ts`
@@ -263,11 +308,13 @@ Converted the warehouse create page to the same branch-style settings layout, fo
 ## Branches Create Page — Width Alignment + Business Type UI Pass (March 26, 2026)
 
 ### Summary
+
 Adjusted the branch create page so the logo upload card and branch access card render at the same wider width, replaced remaining visible location wording with branch wording, switched the business type dropdown to the shared manage-footer pattern, and repaired a parser break in the page after layout edits.
 
 ---
 
 ### Flutter — Branch page UI (`lib/core/pages/settings_branches_create_page.dart`)
+
 - Replaced visible branch-page copy from location terms to branch terms in the edited areas:
   - `Location access` → `Branch access`
   - `This is a child location` → `This is a child branch`
@@ -277,12 +324,14 @@ Adjusted the branch create page so the logo upload card and branch access card r
 - Kept the main branch form itself on the existing compact settings layout while only widening the two special sections that were meant to visually span further.
 
 ### Flutter — Business type dropdown + dialog
+
 - Replaced the fake `Manage Business Types` selectable dropdown row with the actual `FormDropdown<T>` settings footer pattern, matching how category management is triggered elsewhere.
 - Restyled the business type manage dialog to follow the same top-centered manage-modal shell pattern used by the category-management flow.
 - Added a top-right `+ New Business Type` action and inline add form in the dialog shell.
 - Business-type persistence work was started but not completed in this pass; the live saved-to-table flow is not yet finished and should not be treated as done.
 
 ### Flutter — Parser repair
+
 - Rewrote `_buildLocationAccessContent()` after a bracket/nesting break caused a Dart parser error near the business type dialog section.
 - Validation:
   - `dart analyze E:\zerpai-new\lib\core\pages\settings_branches_create_page.dart`
@@ -293,11 +342,13 @@ Adjusted the branch create page so the logo upload card and branch access card r
 ## Branches Create Page — GST Dialog style matched to Chart of Accounts (March 26, 2026)
 
 ### Summary
+
 Updated GST Details dialog to match the Create Account modal style from Chart of Accounts.
 
 ---
 
 ### Flutter — GST dialog style (`_showGstinDialog`)
+
 - `Dialog.alignment: Alignment.topCenter` + `insetPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 20)` — top-centered like Create Account
 - `borderRadius: BorderRadius.circular(8)` (was 12)
 - Header: `Container` with `border: Border(bottom: BorderSide(color: AppTheme.borderColor))`, title `fontSize: 18, fontWeight: bold`, X icon `size: 20, color: AppTheme.errorRed`
@@ -311,11 +362,13 @@ Updated GST Details dialog to match the Create Account modal style from Chart of
 ## Branches Create Page — GST Dialog + Layout Overhaul (March 26, 2026)
 
 ### Summary
+
 Overhauled `settings_branches_create_page.dart`: left-aligned 620px form layout, sticky bottom action bar, GST dialog wired to Sandbox API with taxpayer info dialog.
 
 ---
 
 ### Flutter — Form layout (`_buildBody`)
+
 - Removed `Center` wrapper; form now `Align(topLeft) + SizedBox(width: 620)` inside `SingleChildScrollView`
 - Background changed from `AppTheme.bgLight` → `Colors.white`
 - Removed all `kZerpaiFormDivider` lines from main form body
@@ -324,6 +377,7 @@ Overhauled `settings_branches_create_page.dart`: left-aligned 620px form layout,
 - Save/Cancel buttons: left-aligned (`MainAxisAlignment.start`), label "Save" (not "Add Branch"), green filled + outlined cancel
 
 ### Flutter — GST Dialog (`_showGstinDialog`)
+
 - **"Get Taxpayer details" link** wired to `fetchTaxpayer()` — was previously a stub toast
 - **Auto-fetch**: GSTIN field `onChanged` triggers `fetchTaxpayer()` when length reaches 15
 - **Loading state**: link shows spinner + "Fetching..." text while `isFetchingTaxpayer` is true
@@ -338,11 +392,13 @@ Overhauled `settings_branches_create_page.dart`: left-aligned 620px form layout,
 ## Items Navigation Fix + db:pull Schema TS Fixes (March 26, 2026)
 
 ### Summary
+
 Fixed GoRouter assertion crash when clicking items in the list. Established `context.go('/path/$id')` as the canonical navigation pattern. Fixed recurring `db:pull` TypeScript errors in `backend/drizzle/schema.ts`.
 
 ---
 
 ### Flutter — GoRouter navigation (`context.go` everywhere)
+
 - **Root cause**: `context.goNamed(AppRoutes.itemsDetail, pathParameters: {'id': x})` throws assertion in GoRouter 17.x when parent route param `orgSystemId` is not provided explicitly
 - **Fix**: Replaced all `goNamed(..., pathParameters: {...})` calls with `context.go('/absolute/path/$id')`
 - Files changed:
@@ -353,7 +409,9 @@ Fixed GoRouter assertion crash when clicking items in the list. Established `con
   - `lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart` — back nav after save
 
 ### Backend — `backend/drizzle/schema.ts` post-`db:pull` TS fixes
+
 After every `npm run db:pull`, the generated schema has 5 known broken lines that must be manually patched:
+
 1. `priceLists.description` — `default(')` (unterminated string) → `default('')`
 2. `priceLists.details` — same fix
 3. `transactionalSequences.prefix` — same fix
@@ -365,31 +423,37 @@ After every `npm run db:pull`, the generated schema has 5 known broken lines tha
 ## Warehouses Table Merge + Stock Tables Removal (March 26, 2026)
 
 ### Summary
+
 Merged `settings_warehouses` and `warehouses` into a single `warehouses` table. Removed `product_warehouse_stocks` and `product_warehouse_stock_adjustments` tables in preparation for a new inventory stock calculation system. Commented out Adjust Physical Stock UI pending new implementation.
 
 ---
 
 ### DB schema — `backend/drizzle/schema.ts`
+
 - Removed `settingsWarehouses` table export
 - Replaced old `warehouses` definition with merged structure: added `branchId`, `pincode`, `country`; removed `zipCode`, `countryRegion`, `settingsWarehouseId`; made `orgId`, `isActive`, timestamps NOT NULL; added unique constraints `(orgId, warehouseCode)` and `(orgId, name)`; added FK `branchId → settingsBranches`
 - Removed `productWarehouseStocks` table export
 
 ### Backend — `warehouses-settings.service.ts`
+
 - All queries changed from `settings_warehouses` → `warehouses` (findAll, findOne, create, update, remove)
 - Join to `settings_branches(id, name)` retained via `branch_id`
 
 ### Backend — `products.service.ts`
+
 - `getProductWarehouseStocks` — removed `product_warehouse_stocks` and `outlets` queries; now returns warehouses list with zero stock (pending new stock logic)
 - `updateProductWarehouseStocks` — stubbed; returns warehouse list, no write to stock table
 - `adjustProductWarehousePhysicalStock` — stubbed; pending new implementation
 - `getQuickStats` — removed `product_warehouse_stocks` aggregation; returns zeros for stock fields
 
 ### Flutter — `items_item_detail_stock.dart`
+
 - Commented out "Adjust Physical Stock" menu item in warehouse actions popup
 - Commented out `_openPhysicalStockAdjustmentDialog` method
 - Both marked with `TODO(inventory): re-enable once new physical stock adjustment logic is implemented`
 
 ### SQL run in Supabase
+
 - `DROP TABLE product_warehouse_stock_adjustments CASCADE`
 - `DROP TABLE product_warehouse_stocks CASCADE`
 - `ALTER TABLE warehouses` — added `branch_id`, `pincode`, `country`; dropped `zip_code`, `country_region`, `settings_warehouse_id`; added constraints and indexes
@@ -401,11 +465,13 @@ Merged `settings_warehouses` and `warehouses` into a single `warehouses` table. 
 ## Settings — Branches & Warehouses Split + Branch Create Enhancements (March 26, 2026)
 
 ### Summary
+
 Replaced the old unified Locations module with separate Branches and Warehouses entities. Added several new features to the branch create/edit page and updated the branches list table.
 
 ---
 
 ### Router cleanup — `lib/core/routing/app_router.dart`
+
 - Removed 3 dead routes: `settings/locations`, `settings/locations/create`, `settings/locations/:id/edit`
 - Removed imports for `SettingsLocationsPage` and `SettingsLocationsCreatePage`
 - Remaining settings routes: `orgprofile`, `orgbranding`, `branches` (list + create + edit), `warehouses` (list + create + edit)
@@ -413,6 +479,7 @@ Replaced the old unified Locations module with separate Branches and Warehouses 
 ---
 
 ### Warehouses create page — `lib/core/pages/settings_warehouses_create_page.dart`
+
 - Full rewrite from stacked label-above-field layout to two-column `_buildRow` layout
 - Label column: `static const double _labelWidth = 180.0`
 - Helpers: `_buildRow`, `_buildDivider`, `_buildCard`, `_buildStaticField`, `_dec`
@@ -423,32 +490,38 @@ Replaced the old unified Locations module with separate Branches and Warehouses 
 ### Branches create page — `lib/core/pages/settings_branches_create_page.dart`
 
 **Branch Type section**
+
 - Added `_kBranchTypes` const list: FOFO, COCO, FICO, FOCO
 - `FormDropdown<String>` with sentinel `'__manage__'` item that intercepts `onChanged` to open `_showManageBranchTypesDialog()`
 - Dialog: two-column reference table (Model code | Full Form)
 - State: `_selectedBranchType`
 
 **Logo upload widget redesign**
+
 - Two-panel layout: `Expanded(flex:2)` upload zone + `Expanded(flex:3)` info panel
 - Upload zone supports three states: empty (pick file button), file picked (file name + remove), URL (text input)
 
 **Subscription section**
+
 - `ZerpaiDatePicker.show(context, initialDate:, targetKey:)` for From/To dates
 - `GestureDetector(key: _subFromKey/subToKey)` pattern for anchored calendar
 - State: `_subscriptionFrom`, `_subscriptionTo`, `_subFromKey`, `_subToKey`
 - Load/Save: parses and posts `subscription_from`, `subscription_to`
 
 **Location Access section**
+
 - `_buildLocationAccessSection()` — "Provide access to all users" checkbox toggles between all-users message and user table with Add User button
 - State: `_locationUsers`, `_provideAccessToAll`
 
 **Layout changes**
+
 - Left-aligned form: removed `Center` wrapper, bare `ConstrainedBox(maxWidth: 760)`
 - Restructured helpers: `_buildSectionRow`, `_buildCompactField`, `_buildGroupedCard`
 
 ---
 
 ### Branches list page — `lib/core/pages/settings_branches_list_page.dart`
+
 - `_BranchRow` extended with `branchType`, `subscriptionFrom`, `subscriptionTo`
 - `fromJson` parses `branch_type`, `subscription_from`, `subscription_to`
 - Computed getters: `branchTypeLabel` (4-letter code), `subscriptionPeriod` (formatted range)
@@ -460,13 +533,16 @@ Replaced the old unified Locations module with separate Branches and Warehouses 
 ## Licence Validation Mixin + GSTIN Banner Extraction (March 24, 2026)
 
 ### Changes
+
 Extracted duplicated licence-field validation and GSTIN prefill banner into shared reusables used by both vendor and customer create screens.
 
 **New files**
+
 - `lib/shared/mixins/licence_validation_mixin.dart` — `LicenceValidationMixin<W extends StatefulWidget>` mixin. Provides on-blur, context-aware validation for drug licence (20/21/20B/21B), FSSAI, and MSME fields. Abstract getters satisfied by existing field declarations; only `msmeCtrl` and (for vendor) `isMsmeRegistered` need explicit `@override` getters.
 - `lib/shared/widgets/inputs/gstin_prefill_banner.dart` — `GstinPrefillBanner` stateless widget. Params: `entityLabel`, `onPrefill`.
 
 **Customer (`sales_customer_create.dart` + section files)**
+
 - Added `with LicenceValidationMixin<SalesCustomerCreateScreen>`
 - Removed 6 duplicate error field declarations (now owned by mixin)
 - Replaced 6 `addListener` calls with `initLicenceValidation()`
@@ -476,14 +552,17 @@ Extracted duplicated licence-field validation and GSTIN prefill banner into shar
 - Licence section checkbox/type handlers updated to call mixin clear helpers
 
 **Vendor (`purchases_vendors_vendor_create.dart` + section files)**
+
 - Same changes as customer above
 - Extra `@override bool get isMsmeRegistered => _isMsmeRegistered` because vendor uses prefixed field name
 - `_buildPrefillBanner()` replaced with `GstinPrefillBanner(entityLabel: 'Vendor', onPrefill: ...)`
 
 **Fix: `conflicting_generic_interfaces`**
+
 - Changed mixin declaration from `on State` to `on State<W>` (generic) to avoid Dart's type conflict when `ConsumerState<T>` provides `State<T>` while `on State` resolved to `State<StatefulWidget>`
 
 **New docs**
+
 - `REUSABLES.md` — project-root catalog of all shared widgets, mixins, services, constants, and theme tokens
 - `CLAUDE.md` — added "Reusables — Check Before Creating" rule and added `REUSABLES.md` to Key Reference Files
 
@@ -492,10 +571,13 @@ Extracted duplicated licence-field validation and GSTIN prefill banner into shar
 ## Vendor License Section — FileUploadButton Migration (March 24, 2026)
 
 ### Problem
-Vendor create page (`purchases_vendors_vendor_create.dart`) had a hand-rolled license attachment implementation: 6 LayerLinks, OverlayEntry, _activeLicenseField, `_pickLicenseDocument()`, `_removeLicenseDocument()`, `_getLicenseFilesList()`, `_getLicenseLink()`, `_toggleLicenseOverlay()`, `_showLicenseOverlay()`, `_removeLicenseOverlay()` — identical to the old customer page before it was refactored.
+
+Vendor create page (`purchases_vendors_vendor_create.dart`) had a hand-rolled license attachment implementation: 6 LayerLinks, OverlayEntry, \_activeLicenseField, `_pickLicenseDocument()`, `_removeLicenseDocument()`, `_getLicenseFilesList()`, `_getLicenseLink()`, `_toggleLicenseOverlay()`, `_showLicenseOverlay()`, `_removeLicenseOverlay()` — identical to the old customer page before it was refactored.
 
 ### Fix
+
 Replaced all 6 `_buildLicenseAttachmentIcon(files, field)` calls in `purchases_vendors_license_section.dart` with `FileUploadButton`:
+
 ```dart
 FileUploadButton(
   files: drugLicense20BDocs,
@@ -503,9 +585,11 @@ FileUploadButton(
   onFilesChanged: (updated) => _state(() => drugLicense20BDocs = updated),
 ),
 ```
+
 Repeated for: drugLicense20, drugLicense21, drugLicense20B, drugLicense21B, fssai, msme.
 
 ### Deleted from purchases_vendors_vendor_create.dart
+
 - 6× LayerLink fields (drugLicense20Link … msmeLink)
 - `OverlayEntry? _licenseOverlayEntry` + `String? _activeLicenseField`
 - `_removeLicenseOverlay()` call in dispose()
@@ -513,24 +597,29 @@ Repeated for: drugLicense20, drugLicense21, drugLicense20B, drugLicense21B, fssa
 - `_getLicenseLink()`, `_toggleLicenseOverlay()`, `_showLicenseOverlay()`, `_removeLicenseOverlay()`
 
 ### Deleted from purchases_vendors_license_section.dart
+
 - `_buildLicenseAttachmentIcon()` method
 - `_buildLicenseOverlay()` method
 
 ### Colors fixed in license_section.dart
+
 - `Color(0xFF2563EB)` → `AppTheme.primaryBlueDark`
 - `Color(0xFF374151)` → `AppTheme.textBody`
 
 ### Imports added to vendor_create.dart
+
 - `package:zerpai_erp/core/theme/app_theme.dart`
 - `package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart`
 
 ## Path Normalization — core/widgets Migration (March 24, 2026)
 
 ### Stale doc references fixed
+
 - `.amazonq/rules/PRD.md:185` — `lib/core/widgets/` → `lib/shared/widgets/` (was pointing to forbidden folder)
 - `repowiki/en/content/Frontend Development/Core Infrastructure.md:56` — `core/router/app_router.dart` → `core/routing/app_router.dart` (missing "ing" in folder name)
 
 ### settings_search_field.dart migrated
+
 - Moved: `lib/core/widgets/settings_search_field.dart` → `lib/shared/widgets/settings_search_field.dart`
 - Updated 6 import sites in `lib/core/pages/`:
   - `settings_page.dart`
@@ -545,12 +634,15 @@ Repeated for: drugLicense20, drugLicense21, drugLicense20B, drugLicense21B, fssa
 ## FileUploadButton — Badge Design Correction (March 24, 2026)
 
 ### Problem
+
 Badge was rendered as a small corner overlay on top-right of the upload icon (notification-badge style), causing wrong visual appearance.
 
 ### Fix
+
 `Positioned(top: 0, right: -10)` with a small 18px-high pill → `Positioned(left: 40, top: 0)` with a full-height pill sitting inline to the RIGHT of the upload icon.
 
 ### Correct design
+
 - Badge is a blue pill (`AppTheme.infoBlue`) sitting **8 px to the right** of the 32 px upload icon (`left: 40` = 32 + 8)
 - Same height as the upload button (`widget.height`)
 - Contains paperclip icon + file count in white text
@@ -558,14 +650,17 @@ Badge was rendered as a small corner overlay on top-right of the upload icon (no
 - Renders outside 32 px layout footprint via `Stack(clipBehavior: Clip.none)` — no layout shift
 
 ### File changed
+
 - `lib/shared/widgets/inputs/file_upload_button.dart`
 
 ## FileUploadButton — Global Shared Widget (March 24, 2026)
 
 ### New file created
+
 - `lib/shared/widgets/inputs/file_upload_button.dart` — self-contained upload button with file badge and overlay popup
 
 ### Widget API
+
 ```dart
 FileUploadButton(
   files: myFileList,
@@ -577,6 +672,7 @@ FileUploadButton(
 ```
 
 ### Design
+
 - Always 32 px wide in layout — badge floats via `Stack(clipBehavior: Clip.none)` + `Positioned` so it never causes overflow
 - Badge appears top-right as a small pill (paperclip icon + count), clicking opens the file list overlay
 - Upload icon always visible; clicking picks files via FilePicker
@@ -585,50 +681,61 @@ FileUploadButton(
 - Fixes "RIGHT OVERFLOW BY 20 PIXELS" error seen in screenshot
 
 ### Infrastructure removed from sales_customer_create.dart
+
 - Deleted: 6× `LayerLink` fields (`_drug20Link`, etc.), `OverlayEntry _licenseOverlayEntry`, `String? _activeLicenseField`
 - Deleted: `_getLicenseLink()`, `_getLicenseFilesList()`, `_toggleLicenseOverlay()`, `_removeLicenseOverlay()`
 - Deleted: `_pickLicenseDocument()`, `_removeLicenseDocument()`
 - Removed `_licenseOverlayEntry?.remove()` from `dispose()`
 
 ### Cleaned up from section/builder files
+
 - `sales_customer_licence_section.dart`: `_buildLicenseAttachmentIcon()` and `_buildLicenseOverlay()` removed
 - `sales_customer_builders.dart`: `_FileItemWidget` class removed (equivalent now lives inside `file_upload_button.dart`)
 
 ### Usage wired up (sales_customer_licence_section.dart)
+
 - All 6 attachment spots updated: `drugLicense20`, `drugLicense21`, `drugLicense20B`, `drugLicense21B`, `fssai`, `msme`
 
 ### log.md rule codified
+
 - Strict append-only rule: new entries prepend at top, never modify existing content, never use size-limited reads
 - Rule saved to memory: `feedback_log_updates.md`
 
 ## Diagnostic Fixes — Warnings & Errors (March 24, 2026)
 
 ### sales_order_create.dart — Undefined named parameters removed
+
 - `itemHeight: 56` removed from `FormDropdown` (param does not exist)
 - `hideBorderDefault: true` removed from 6× `FormDropdown`/`CustomTextField` calls (param does not exist in either widget)
 - `padding: EdgeInsets.only(left: 12, right: 0)` removed from `CustomTextField` (param does not exist)
 - `suffixSeparator: true` removed from `CustomTextField` (param does not exist)
 
 ### purchases_bills_create.dart — Cleanup
+
 - `_dialogDateField` method deleted (unused element warning)
 - Previously deleted: `_buildHorizontalField`, `_dialogTextField` (both unused)
 
 ### sales_customer_create.dart
+
 - `_salutationWidth` and `_primaryContactWidth` fields deleted (unused field warnings)
 
 ### sales_customer_overview.dart
+
 - Unused import `app_router.dart` removed
 
 ### sales_customer_builders.dart
+
 - Unnecessary null comparison `paymentTerms != null &&` and `!` removed (field is non-nullable `String`)
 
 ### Widget deprecation fixes
+
 - `advanced_customer_search_dialog.dart`: `withOpacity(0.15)` → `withValues(alpha: 0.15)`
 - `custom_date_picker.dart`: `withOpacity(0.1)` → `withValues(alpha: 0.1)`
 - `sales_order_preferences_dialog.dart`: `Radio.groupValue`/`onChanged` → wrapped in `RadioGroup<bool>`
 - `settings_locations_create_page.dart`: `Radio.groupValue`/`onChanged` → wrapped in `RadioGroup<String>`
 
 ### Hardcoded colors — AppTheme token replacement (background agent)
+
 - Applied to: `sales_order_preferences_dialog.dart`, `advanced_customer_search_dialog.dart`, `sales_order_item_row.dart`, and all `sales_customer_*` section files
 - Mapping: `0xFF374151`→`AppTheme.textBody`, `0xFF6B7280`→`AppTheme.textSecondary`, `0xFF9CA3AF`→`AppTheme.textMuted`, `0xFF2563EB`→`AppTheme.primaryBlueDark`, `0xFF3B82F6`→`AppTheme.infoBlue`, `0xFF4B5563`→`AppTheme.textSubtle`, etc.
 - Rule saved to memory: never use inline `Color(0xFFxxxxxx)` — always use AppTheme tokens
@@ -636,16 +743,19 @@ FileUploadButton(
 ## Widget Layer Cleanup — 24/03/2026
 
 ### Goal
+
 - Standardize reusable Flutter widgets on `lib/shared/widgets/...`
 - Remove duplicated legacy copies from `lib/core/widgets/...`
 - Keep `lib/core/` focused on app infrastructure and settings-only UI
 
 ### Imports migrated
+
 - `lib/modules/sales/presentation/sales_order_create.dart`
 - `lib/modules/sales/presentation/sales_customer_create.dart`
 - `lib/modules/items/composite_items/presentation/items_composite_items_composite_creation.dart`
 
 ### Legacy files removed
+
 - `lib/core/widgets/common/keyboard_scrollable.dart`
 - `lib/core/widgets/common/skeleton.dart`
 - `lib/core/widgets/common/z_button.dart`
@@ -669,16 +779,19 @@ FileUploadButton(
 - `lib/core/widgets/forms/zerpai_radio_group.dart`
 
 ### Intentional keep
+
 - `lib/core/widgets/settings_search_field.dart`
   - remains in `core` because it is settings-specific UI, not a general reusable ERP widget
 
 ### Compatibility fixes added to shared widgets
+
 - `lib/shared/widgets/inputs/custom_text_field.dart`
   - restored support for `fillColor`, `hideBorderDefault`, `padding`, `suffixSeparator`
 - `lib/shared/widgets/inputs/dropdown_input.dart`
   - restored support for `hideBorderDefault` and `itemHeight`
 
 ### Validation
+
 - First `flutter analyze` run failed after the import migration
   - cause: shared widget APIs did not yet expose all parameters used by migrated sales screens
 - Fixed by extending the shared widget API instead of restoring deleted `core/widgets`
@@ -689,21 +802,25 @@ FileUploadButton(
   - transaction-lock provider tests intentionally emit `AppLogger.error(...)` output while still passing
 
 ### Canonical rule adopted
+
 - `lib/core/` = routing, theme, layout, infrastructure, settings-only support widgets
 - `lib/shared/widgets/` = reusable UI widgets, inputs, dialogs, buttons, shells, helpers
 
 ## Core/Shared Consolidation Pass 2 — 24/03/2026
 
 ### Goal
+
 - Continue the `core` vs `shared` cleanup outside the widget-input layer
 - Remove dead duplicate sidebar files
 - Standardize feature/shared-layer `ApiClient` imports onto the shared wrapper while keeping the implementation in `lib/core/services/api_client.dart`
 
 ### Dead duplicate files removed
+
 - `lib/shared/widgets/sidebar/zerpai_sidebar.dart`
 - `lib/shared/widgets/sidebar/zerpai_sidebar_item.dart`
 
 ### Import standardization
+
 - Switched non-core callers from `package:zerpai_erp/core/services/api_client.dart` to `package:zerpai_erp/shared/services/api_client.dart`
 - Applied to:
   - `lib/shared/services/lookup_service.dart`
@@ -734,6 +851,7 @@ FileUploadButton(
   - `lib/modules/sales/services/sales_order_api_service.dart`
 
 ### Dependency rule used
+
 - `core` keeps the real implementation:
   - `lib/core/services/api_client.dart`
 - `shared` exposes the re-export wrapper for non-core consumers:
@@ -741,6 +859,7 @@ FileUploadButton(
 - `core` pages and `core` services were intentionally left on direct `core/services/api_client.dart` imports to avoid reversing the dependency direction.
 
 ### Validation
+
 - `flutter analyze` → `No issues found!`
 - `flutter test` → `All 49 tests passed!`
 - Note:
@@ -751,6 +870,7 @@ FileUploadButton(
 ### Files integrated from co-dev (Althaf) into lib/modules/sales/
 
 **Sections (part files for sales_customer_create.dart)**
+
 - `sections/sales_customer_licence_section.dart` — Drug licence (20/20B/21/21B), FSSAI, MSME registration with file attachment overlays
 - `sections/sales_customer_address_section.dart` — Billing/shipping address with state dropdown
 - `sections/sales_customer_bank_section.dart` — Bank account details
@@ -761,6 +881,7 @@ FileUploadButton(
 - (+ 16 additional section part files)
 
 **Widgets**
+
 - `widgets/advanced_customer_search_dialog.dart` — Advanced search dialog with package import fix
 - `widgets/bulk_items_dialog.dart` — Bulk item selection dialog
 - `widgets/custom_date_picker.dart` — Custom date picker widget
@@ -768,6 +889,7 @@ FileUploadButton(
 - `widgets/sales_order_preferences_dialog.dart` — Order preferences dialog
 
 ### Parent screen updates (sales_customer_create.dart)
+
 - Added imports: `app_logger.dart`, `manage_payment_terms_dialog.dart`, `lookups_api_service.dart`, `z_tooltip.dart`
 - Added `_loadCountries()` call in `initState`
 - Added dispose for `_licenseOverlayEntry` and 6 new `FocusNode` fields
@@ -782,6 +904,7 @@ FileUploadButton(
 - Replaced 3× `debugPrint` with `AppLogger.error`
 
 ### PRD compliance fixes applied
+
 - `sales_customer_builders.dart`: 2× `Tooltip` → `ZTooltip`, 1× `debugPrint` → `AppLogger.error`
 - `sales_customer_helpers.dart`: 1× `debugPrint` → `AppLogger.error`
 - `sales_customer_licence_section.dart`: 1× `Tooltip` → `ZTooltip`
@@ -793,6 +916,7 @@ FileUploadButton(
 ### Files integrated from co-dev (Althaf) into lib/modules/purchases/
 
 **Purchase Orders**
+
 - `purchase_orders/models/purchases_purchase_orders_order_model.dart` — PurchaseOrder, PurchaseOrderItem, WarehouseModel
 - `purchase_orders/notifiers/purchase_order_notifier.dart` — PurchaseOrderState + PurchaseOrderNotifier (Riverpod StateNotifier)
 - `purchase_orders/providers/purchases_purchase_orders_provider.dart` — purchaseOrdersProvider, warehousesProvider, poNextNumberProvider
@@ -801,6 +925,7 @@ FileUploadButton(
 - `purchase_orders/presentation/purchases_purchase_orders_order_overview.dart` — PO list screen
 
 **Vendors**
+
 - `vendors/models/purchases_vendors_vendor_model.dart` — Vendor model (GST, drug license, FSSAI, MSME, bank details)
 - `vendors/providers/vendor_provider.dart` — VendorState + VendorNotifier
 - `vendors/repositories/` — abstract + Dio impl
@@ -809,6 +934,7 @@ FileUploadButton(
 - `vendors/presentation/sections/` — builders, primary info, other details, address, contacts, bank, license, remarks, helpers, dialogs
 
 **Bills**
+
 - `bills/models/purchases_bills_bill_model.dart` — PurchasesBill + PurchasesBillLineItem
 - `bills/providers/purchases_bills_provider.dart` — BillsState + BillsNotifier
 - `bills/repositories/purchases_bills_repository.dart` — abstract + Dio impl
@@ -816,14 +942,17 @@ FileUploadButton(
 - `bills/presentation/purchases_bills_create.dart` — bill creation screen
 
 **Shared: item_details_sidebar.dart**
+
 - Created `lib/modules/items/items/presentation/widgets/item_details_sidebar.dart`
 - `itemDetailsSidebarProvider = StateProvider<Item?>` — set before opening endDrawer
 - `ItemDetailsSidebar` — 3-tab drawer (Item Details, Stock Locations, Transactions) using AppTheme tokens
 
 **ZerpaiLayout updated**
+
 - Added `endDrawer: Widget?` parameter — passed through to Scaffold
 
 **Router updated (app_router.dart)**
+
 - `purchases/vendors` → `PurchasesVendorsVendorListScreen`
 - `purchases/vendors/create` → `PurchasesVendorsVendorCreateScreen`
 - `purchases/purchase-orders` → `PurchaseOrderOverviewScreen`
@@ -832,6 +961,7 @@ FileUploadButton(
 - `purchases/bills/create` → `PurchasesBillCreateScreen`
 
 ### Standards compliance fixes applied during integration
+
 - Replaced all `print()`/`debugPrint()` (36 calls across 7 files) with `AppLogger.error/warning/info/debug`
 - Replaced Flutter `Tooltip` (4 files) with `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart`
 - Added `initialSearchQuery: String?` param to `PurchasesVendorsVendorListScreen` and `PurchaseOrderOverviewScreen` for deep-link support (per CLAUDE.md)
@@ -842,15 +972,18 @@ FileUploadButton(
 ## Settings: Locations — Fixes & Validations (March 23, 2026)
 
 ### Backend: outlets.service.ts — switched to two-query merge pattern
+
 - Removed PostgREST FK hint approach (caused empty results due to ambiguous FK constraints)
 - Now does two separate queries: `settings_outlets` + `settings_locations`, merged in code via Map
 - `findAll`, `findOne`, `create`, `update`, `remove` all updated
 
 ### Frontend: settings_locations_create_page.dart
+
 - Parent dropdown now filters out child locations (locations with a `parent_outlet_id`) — child items cannot have another child
 - Added duplicate name check before save: fetches all org outlets, compares case-insensitively, shows red snackbar if duplicate found (excludes self when editing)
 
 ### Database
+
 - `ALTER TABLE public.settings_outlets ADD CONSTRAINT settings_outlets_org_name_unique UNIQUE (org_id, name);`
 - Backfill SQL: inserted default `settings_locations` rows for orphaned `settings_outlets` with `location_type = 'business'`
 - Updated test warehouse rows: `UPDATE settings_locations SET location_type = 'warehouse' WHERE outlet_id IN (SELECT id FROM settings_outlets WHERE name = 'test ware house');`
@@ -859,11 +992,13 @@ FileUploadButton(
 ## Settings: Locations — Rename outlets → settings_outlets (March 23, 2026)
 
 ### Database: outlets table renamed to settings_outlets
+
 - `ALTER TABLE public.outlets RENAME TO settings_outlets;`
 - FK constraints from other tables automatically follow the rename (Postgres tracks by OID)
 - Optional cosmetic renames: index `idx_outlets_org_id → idx_settings_outlets_org_id`, constraint `outlets_pkey → settings_outlets_pkey`, `outlets_org_id_fkey → settings_outlets_org_id_fkey`
 
 ### Backend: outlets.service.ts — updated all table references
+
 - All `.from("outlets")` replaced with `.from("settings_outlets")`
 - FK hint in `SETTINGS_SELECT` unchanged: `settings_locations!settings_locations_outlet_id_fkey` lives on `settings_locations`, not on the renamed table, so no change needed there
 
@@ -874,12 +1009,14 @@ FileUploadButton(
 **Problem:** Previous version queried from `settings_locations` as primary table. Existing outlets had no `settings_locations` rows → list showed "No locations yet".
 
 **Root cause of FK ambiguity:** `settings_locations` has TWO FKs pointing at `outlets`:
+
 - `outlet_id -> outlets.id` (the join we want)
 - `parent_outlet_id -> outlets.id` (the parent-child relationship)
 
 PostgREST cannot determine which FK to use when embedding `settings_locations` from `outlets` without a hint.
 
 **Fix:**
+
 - Query from `outlets` (primary) so all outlets appear even without a `settings_locations` row
 - Use FK constraint hint in select: `settings_locations!settings_locations_outlet_id_fkey(...)` to resolve ambiguity
 - Defined `SETTINGS_SELECT` constant at top of file for the join string
@@ -889,6 +1026,7 @@ PostgREST cannot determine which FK to use when embedding `settings_locations` f
 ## Settings: Locations — Backend Table Fix & Location Access Checkbox (March 22, 2026)
 
 ### Backend: outlets.service.ts — restructured to use correct tables
+
 - `outlets` table only holds: name, outlet_code, gstin, email, phone, address, city, state, country, pincode, is_active
 - `settings_locations` table holds: location_type, parent_outlet_id, logo_url, is_primary
 - `create`: inserts into `outlets` first, then inserts into `settings_locations`
@@ -898,13 +1036,16 @@ PostgREST cannot determine which FK to use when embedding `settings_locations` f
 - Root cause of child items not showing: `parent_outlet_id` was being written to `outlets` (column doesn't exist); now correctly written to `settings_locations`
 
 ### Flutter: settings_locations_create_page.dart — Location Access checkbox
+
 - Added `_provideAccessToAll` boolean state (default: `true`)
 - Header of Location Access section now shows "Provide access to all users" checkbox on the right
 - When checked: card shows a single info row ("All users in your organization have access to this location.")
 - When unchecked: shows the existing user/role table with Add User button
+
 ## Settings: Locations — Transaction Series Universal Dropdown & Input Fixes (March 22, 2026)
 
 ### Flutter: TransactionSeriesDropdown — new universal widget
+
 - Created `lib/shared/widgets/inputs/transaction_series_dropdown.dart`
 - Reusable overlay dropdown matching Zoho's design: search field → "Default Transaction Series" (accent-colored pinned row) → user series list → "+ Add Transaction Series" footer
 - Uses same `LayerLink` + `CompositedTransformFollower` + `OverlayEntry` pattern as `FormDropdown`
@@ -914,6 +1055,7 @@ PostgREST cannot determine which FK to use when embedding `settings_locations` f
 - `TransactionSeriesOption.defaultSeries` const with `id: 'default'`
 
 ### Flutter: settings_locations_create_page.dart — Transaction Series section rewritten
+
 - Removed `_buildSeriesMultiSelect()`, `_buildDefaultSeriesSelect()`, `_showTransactionSeriesPickerDialog()`, `_buildSeriesPickerItem()` (all replaced)
 - `_buildTransactionSeriesSection()` now uses two `TransactionSeriesDropdown` instances:
   - `multiSelect: true` for "Transaction Number Series"
@@ -921,6 +1063,7 @@ PostgREST cannot determine which FK to use when embedding `settings_locations` f
 - `onAddTap: _showCreateSeriesDialog` wires the footer to the existing create dialog
 
 ### Flutter: Input formatters
+
 - Pin Code: `FilteringTextInputFormatter.digitsOnly` + `LengthLimitingTextInputFormatter(6)` — hard cap at 6 digits
 - Phone & Fax: `FilteringTextInputFormatter.allow(RegExp(r'[\d\s\+\-\(\)]'))` — blocks alphabetic input
 - Series dialog Starting Number: `FilteringTextInputFormatter.digitsOnly`
@@ -929,30 +1072,36 @@ PostgREST cannot determine which FK to use when embedding `settings_locations` f
 ## Settings: Locations — Backend Modules, Input Validation & Series Picker (March 22, 2026)
 
 ### Backend: GST taxpayer lookup
+
 - Created `backend/src/modules/gst/gst.controller.ts`: `GET /gst/taxpayer-details?gstin=` returns legalName, tradeName, registeredOn, registrationType from Sandbox API
 - Created `backend/src/modules/gst/gst.module.ts` and registered `GstModule` in `app.module.ts`
 
 ### Backend: Transaction Series CRUD
+
 - Created `backend/src/modules/transaction-series/` with full CRUD: `GET/POST/PATCH/DELETE /transaction-series`
 - Table `settings_transaction_series` (id, org_id, name, modules jsonb, created_at, updated_at) created in Supabase
 - Registered `TransactionSeriesModule` in `app.module.ts`
 
 ### Backend: Accounts endpoint fix
+
 - Flutter `_loadAccounts()` was calling `/accounts?org_id=` (404); fixed to `/accountant?orgId=` (existing endpoint)
 - Field name mapping fixed: `user_account_name`/`system_account_name` instead of `name`/`account_name`
 - Expense type filter normalises to lowercase+underscore to match DB values (`Expense` → `expense`, etc.)
 
 ### Flutter: "Get Taxpayer details" link in GSTIN dialog
+
 - Added inline link next to GSTIN input that calls `GET /gst/taxpayer-details?gstin=` and autofills Legal Name, Trade Name, GST Registered On, Registration Type
 - Shows spinner while fetching; shows red error text on failure
 
 ### Flutter: Input validation / formatters
+
 - Pin Code: `FilteringTextInputFormatter.digitsOnly` + `LengthLimitingTextInputFormatter(6)` — hard cap at 6 digits
 - Phone & Fax: `FilteringTextInputFormatter.allow(RegExp(r'[\d\s\+\-\(\)]'))` — blocks alphabets
 - Series dialog Starting Number columns: `FilteringTextInputFormatter.digitsOnly`
 - `_buildTextField` now accepts optional `inputFormatters` parameter
 
 ### Flutter: Transaction Series picker — "Default Transaction Series"
+
 - Fixed: option was only shown when `_transactionSeries.isNotEmpty`; now always rendered as first highlighted item
 - Uses hardcoded `_SeriesOption(id: 'default', name: 'Default Transaction Series')` — no longer tied to `_transactionSeries.first`
 - Filtered by search (hidden only if search text doesn't match "default transaction series")
@@ -960,22 +1109,27 @@ PostgREST cannot determine which FK to use when embedding `settings_locations` f
 ## Settings: Locations Create/Edit — Full Feature Pass (March 22, 2026)
 
 ### Edit prefill fix
+
 - `lib/core/pages/settings_locations_create_page.dart`: `_loadExisting()` now passes `org_id` as a query param so the API returns data; all state variables (`_locationType`, `_selectedState`, `_parentOutletId`, `_isChildLocation`, `_logoUrl`, `_logoOption`, `_selectedSeriesId`, `_selectedDefaultSeriesId`) are now set inside `setState()` so the form actually reflects the loaded values
 
 ### Street 2 field
+
 - Added `_street2Ctrl` TextEditingController; inserted "Street 2" input between Street 1 and City in `_buildAddressSection()`; wired through dispose, `_loadExisting()` (`address2`), and save body
 
 ### Transaction Number Series section (Business locations only)
+
 - Added `_SeriesOption` data class
 - Added `_loadTransactionSeries()` calling `GET /transaction-series`; invoked in `initState()`
 - Added `_buildTransactionSeriesSection()`: two `FormDropdown<_SeriesOption>` — "Transaction Number Series" + "Default Transaction Number Series" — shown only when `_locationType == 'business'`
 - Save body includes `transaction_series_id` and `default_transaction_series_id`
 
 ### Location Access section (all location types)
+
 - Added `_locationUsers` list state; added `_buildLocationAccessSection()`: user count badge, scrollable user+role table with avatar rows, "Add User" button (toast placeholder)
 - Both Transaction Series and Location Access sections inserted in `_buildBody()` after `_buildBottomFields()`
 
 ### Form validation
+
 - GSTIN: 15-char format regex (`^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$`)
 - Email: standard email regex
 - Pin Code: exactly 6 digits
@@ -987,28 +1141,33 @@ PostgREST cannot determine which FK to use when embedding `settings_locations` f
 ## Settings: Locations List — Hover Menu, Delete Guard, Associate Contacts (March 22, 2026)
 
 ### Hover chevron menu
+
 - `lib/core/pages/settings_locations_page.dart`: added `_hoveredOutletId` string field; `_buildTableRow` wrapped in `MouseRegion` with `onEnter`/`onExit`; row background tints to `AppTheme.bgLight` on hover; `PopupMenuButton` icon switches via `AnimatedSwitcher` — `LucideIcons.chevronDown` (accentColor) on hover, `LucideIcons.moreHorizontal` (gray) otherwise
 
 ### Delete with transaction guard
+
 - `_confirmDelete`: calls `GET /outlets/:id/usage` first; if `has_transactions == true` shows `ZerpaiToast.error('This location cannot be deleted as it is associated with transactions. You can however mark the location as inactive.')` and returns early; otherwise shows confirmation dialog then `DELETE /outlets/:id?org_id=$orgId`
 
 ### Green checkmark removal
+
 - Removed the green checkmark `Container` from the actions column of each location row
 
 ### Associate Contacts dialog (Business locations)
+
 - Added `_ContactOption` data class
 - `_showAssociateContactsDialog()`: loads customers via `GET /customers` and vendors via `GET /vendors` in parallel; shows dialog with two `FormDropdown<_ContactOption>` pickers; saves via `PATCH /outlets/:id/contacts`
 - `_onMenuSelected`: `associate_contacts` case wired to `_showAssociateContactsDialog`
 
 ---
 
-
 ## Settings Sidebar: Collapse-on-Entry Fix (March 22, 2026)
 
 ### Root cause
+
 `_autoCollapseForSettings()` was only called from `didChangeDependencies`. Route changes are driven by the parent `ZerpaiShell` (which uses `GoRouterState.of(context)`), causing the sidebar's `build()` to run but NOT `didChangeDependencies` — so the collapse logic never triggered on navigation.
 
 ### Fix
+
 - `lib/core/layout/zerpai_sidebar.dart`: also call `_autoCollapseForSettings()` at the top of `build()`, ensuring it runs on every rebuild regardless of how the rebuild was triggered
 
 ---
@@ -1016,11 +1175,14 @@ PostgREST cannot determine which FK to use when embedding `settings_locations` f
 ## Branding: Hardcoded Blue Button Sweep (March 22, 2026)
 
 ### Blue button overrides removed (28 files, agent pass)
+
 Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlue`, `AppTheme.primaryBlueDark`, `Color(0xFF2563EB)`, `Color(0xFF1A73E8)`, `Color(0xFF1B8EF1)` from `ElevatedButton`, `TextButton`, `OutlinedButton`, and `FloatingActionButton` across: items create/detail/list, pricelist create/edit/overview, composite items, sales orders, sales customers, purchases vendors, accountant chart-of-accounts, transaction locking, manual/recurring journals, audit logs apply filter, sync manager, categories dialog, navbar install-app button
+
 - `lib/shared/widgets/z_button.dart`: removed hardcoded `Color(0xFF1B8EF1)` from `ZButton.primary` — was causing all `ZButton.primary` usages to be blue regardless of theme
 - `lib/core/widgets/common/z_button.dart`: same fix on the duplicate
 
 ### Reports/audit selection state (agent in progress)
+
 - Replacing `AppTheme.primaryBlue/primaryBlueDark` used as selection indicators (card borders, selected text/icon colors) in `reports_audit_logs_screen.dart`, `reports_center_screen.dart`, `reports_reports_overview.dart` with `ref.watch(appBrandingProvider).accentColor`
 
 ---
@@ -1028,18 +1190,23 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 ## Branding: Full Accent Color Propagation Pass 2 (March 22, 2026)
 
 ### `AppTheme.themedWith()` extended
+
 - Now propagates accent color to: `CheckboxTheme` (fill + white check), `RadioTheme` (fill), `SwitchTheme` (thumb + track), `TextButtonTheme` (foreground), `OutlinedButtonTheme` (foreground + border) — all button/input types now use the selected accent color with zero per-widget code
 
 ### Navbar "+" quick-add button
+
 - `lib/core/layout/zerpai_navbar.dart`: replaced hardcoded `AppTheme.successGreen` with `ref.watch(appBrandingProvider).accentColor`
 
 ### Sidebar floating submenu active row
+
 - `lib/core/layout/zerpai_sidebar.dart`: removed `static const _activeGreen`; `_FloatingChildRow` now accepts `accentColor` parameter passed from `ZerpaiSidebarItem.accentColor`
 
 ### OutlinedButton hardcoded override
+
 - `lib/modules/accountant/manual_journals/presentation/manual_journal_create_screen.dart`: removed `foregroundColor` + `side` overrides — covered by `OutlinedButtonTheme`
 
 ### Remaining ElevatedButton/TextButton overrides cleared
+
 - `lib/core/widgets/forms/manage_list_dialog.dart`, `manage_reorder_terms_dialog.dart`, `manage_simple_list_dialog.dart`: removed `backgroundColor: const Color(0xFF22C55E)`
 - `lib/modules/items/pricelist/presentation/items_pricelist_pricelist_overview.dart`: removed `foregroundColor: AppTheme.successGreen` from `TextButton.styleFrom()`
 
@@ -1048,16 +1215,20 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 ## Settings & Branding: Accent Color Global Propagation (March 22, 2026)
 
 ### Settings sidebar — Taxes & Compliance separation
+
 - `lib/core/pages/settings_page.dart`: moved "Taxes & Compliance" block into its own `_SettingsColumn` so it renders as a separate card instead of stacked under "Users & Roles"
 
 ### Settings sidebar collapse behaviour
+
 - `lib/core/layout/zerpai_sidebar.dart`: default `_isCollapsed` changed from `true` to `false` (all non-settings pages now start expanded); added `_preSettingsCollapsed` to save and restore user's sidebar state when entering/leaving settings — settings page auto-collapses on entry and restores previous state on exit
 
 ### Accent color applied to settings sidebar active items & Save buttons
+
 - `lib/core/pages/settings_organization_branding_page.dart`: `_buildSidebarEntry` active highlight and Save button now use `ref.watch(appBrandingProvider).accentColor` instead of hardcoded `AppTheme.accentGreen` / `AppTheme.successGreen`
 - `lib/core/pages/settings_organization_profile_page.dart`: same fix for sidebar active item, Save button, Switch thumb, and dropdown selected item text color; added `app_branding_provider` import
 
 ### Global ElevatedButton accent color
+
 - Removed hardcoded `backgroundColor: AppTheme.accentGreen/successGreen` overrides from all `ElevatedButton.styleFrom(...)` calls across modules — lets `AppTheme.themedWith(accentColor)` theme propagate the selected accent color to all Save/Create/Update buttons app-wide (~69 occurrences across items, inventory, sales, accountant, purchases modules)
 
 ---
@@ -1065,9 +1236,11 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 ## Branding: Accent Swatches Rectangular + Code Cleanup (March 22, 2026)
 
 ### Revert swatches to rectangular
+
 - `lib/core/pages/settings_organization_branding_page.dart`: accent swatches reverted from circular (44x44 `BoxShape.circle`) back to rectangular (80x52, `BorderRadius.circular(10)`) with label text inside; "Pick" custom swatch shows rainbow circle icon + text on white background
 
 ### Code cleanup (simplify pass)
+
 - **`lib/core/theme/app_theme.dart`**: `lightTheme` converted from a getter (rebuilt on every call) to `static final ThemeData lightTheme` backed by private `_buildLightTheme()` — eliminates repeated full theme reconstruction on every `ZerpaiApp` rebuild
 - **Unified swatch widgets**: extracted `_buildSwatchShell()` helper replacing ~80 lines of duplicated `AnimatedContainer` + `BoxShadow` + `Stack` + check-icon logic shared between `_buildAccentSwatch` and `_buildCustomColorSwatch`
 - **Deduplicated `SweepGradient`**: extracted `static const _kRainbowGradient` replacing two identical inline definitions
@@ -1080,28 +1253,34 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 ## Branding: App-Wide Persistence & Flash Fix (March 22, 2026)
 
 ### App-wide branding initialization
+
 - `lib/core/layout/zerpai_shell.dart`: converted to `ConsumerStatefulWidget`; `initState` reads current `orgSettingsProvider` value immediately and calls `appBrandingProvider.notifier.apply()` so branding is applied on first frame; `ref.listen` handles future refreshes
 - `lib/core/providers/app_branding_provider.dart`: `AppBrandingNotifier` now accepts initial `BrandingSettings` in constructor; `apply()` also persists accent color + theme mode to Hive `config` box; `loadCachedBranding()` reads from Hive synchronously at provider init — eliminates flash of default colors on page load
 - `lib/core/models/org_settings_model.dart`: added `accentColor` and `themeMode` fields; parsed from `GET /lookups/org/:orgId` response
 
 ### Branding page: fixed Save/Cancel bottom bar
+
 - `lib/core/pages/settings_organization_branding_page.dart`: added `_isSaving` state, `_saveBranding()` method (POST `/lookups/org/$orgId/branding`), and fixed sticky bottom bar (Divider + Save + Cancel) matching profile page layout; also loads saved accent color and theme mode from API on init
 
 ### Backend & DB
+
 - `backend/src/modules/lookups/global-lookups.controller.ts`: `GET /lookups/org/:orgId` now merges `settings_branding` row (accent_color, theme_mode, keep_branding) into org profile response; added `GET /lookups/org/:orgId/branding` and `POST /lookups/org/:orgId/branding` endpoints
 - `supabase/migrations/1011_settings_branding.sql`: created `settings_branding` table with RLS + grants for service_role, authenticated, anon
 
 ## Settings: Branding Page (March 22, 2026)
 
 ### New page: `lib/core/pages/settings_organization_branding_page.dart`
+
 - Route: `AppRoutes.settingsOrgBranding = '/settings/orgbranding'`
 - GoRoute added to `app_router.dart` at `settings/orgbranding`
 - Wired in both `settings_page.dart` and `settings_organization_profile_page.dart`
 
 ### Page sections (modelled after Zoho Books branding reference)
+
 1. **Organization Logo** — fetches `logo_url` from `GET /lookups/org/:orgId`; upload and remove
 2. **Appearance** — Dark Pane / Light Pane selector with mini mockup cards (local state)
 3. **Accent Color** — five color swatches: Green, Blue, Purple, Red, Orange (local state)
+
 - Info banner notes appearance/accent server sync is coming soon
 
 ---
@@ -1109,17 +1288,20 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 ## Toast Size Fix & Sidebar Default Collapse (March 22, 2026)
 
 ### Toast widget: oversized width and height fixed
+
 - `Expanded` → `Flexible` in the toast Row so the toast auto-sizes to content width (no longer stretches to 420px for short messages)
 - Added `maxLines: 3` + `TextOverflow.ellipsis` so long error messages (e.g. full DioException) don't make the toast very tall
 - Removed redundant `Align(centerLeft)` wrapper around text
 
 ### Sidebar: default collapsed on all pages
+
 - Changed `static bool _isCollapsed = false` → `true` in `ZerpaiSidebarState`
 - Removed the "restore to expanded on leave-settings" block in `_autoCollapseForSettings()` — the sidebar now stays collapsed across all route transitions by default
 
 ## Navbar Org Name & GoRouter Home Fix (March 21, 2026)
 
 ### GoRouter: `path: ''` crash fixed
+
 - GoRouter 17.1.0 disallows empty `path` — home child route changed to `path: 'home'`
 - `AppRoutes.home` changed from `'/'` → `'/home'`
 - `initialLocation` changed to `'/$_kDevOrgSystemId/home'`
@@ -1127,6 +1309,7 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 - Added redirect on `/:orgSystemId` parent to forward bare `/$orgId` → `/$orgId/home`
 
 ### Org name in navbar dropdown
+
 - `orgSettingsProvider` previously returned `null` when `user.orgId` was empty (no-auth mode)
 - Fixed by applying same `_kDevOrgId = '00000000-0000-0000-0000-000000000002'` fallback
 - Provider now always fetches org data in dev mode; navbar org switcher shows real DB org name
@@ -1137,11 +1320,13 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 ## Settings: Org Profile — DB-Backed Dropdowns & URL Org Prefix (March 21, 2026)
 
 ### Corrected DB table (organization, not settings_profile)
+
 - Profile columns live directly on `organization` table (added via ALTER TABLE)
 - Removed erroneous `settingsProfile` Drizzle table definition from `backend/src/db/schema.ts`
 - `backend/migrations/add_org_profile_columns.sql` is now documentation-only
 
 ### Backend endpoints simplified (`global-lookups.controller.ts`)
+
 - `GET /lookups/org/:orgId` — selects all profile columns directly from `organization` table
 - `POST /lookups/org/:orgId/save` — single `.update()` on `organization`
 - `POST /lookups/org/:orgId/logo` — `update({ logo_url })` on `organization`
@@ -1150,6 +1335,7 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 - Added `GET /lookups/company-id-labels` — returns `label[]` from `company_id_labels` table ordered by `sort_order`
 
 ### Flutter: static arrays replaced with API calls (`settings_organization_profile_page.dart`)
+
 - Removed 3 static const `List<String>`: `_industryOptions`, `_timeZoneOptions`, `_companyIdOptions`
 - Added instance variables (default empty): `_industryOptions`, `_timeZoneOptions`, `_companyIdOptions`
 - Added `Map<String, String> _countryIdByName` to map country name → UUID for timezone filtering
@@ -1158,6 +1344,7 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 - Added `_fetchTimezones([String? countryId])` method — re-fetches timezone list, clears selection if stale
 
 ### Flutter: GoRouter org-prefix URL structure (`app_router.dart`)
+
 - Added `const String _kDevOrgSystemId = '0000000000'` (TODO(auth) for removal)
 - Global `redirect` callback auto-prepends org system_id to any path lacking a 10-digit prefix
 - All existing `context.go(AppRoutes.xxx)` calls continue to work unchanged
@@ -1165,10 +1352,12 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 - Sidebar/navbar `currentPath` comparisons strip org prefix via `.replaceFirst(RegExp(r'^/\d{10}'), '')`
 
 ### Dev-mode org ID fallback (`settings_organization_profile_page.dart`)
+
 - Added `const String _kDevOrgId = '00000000-0000-0000-0000-000000000002'` with TODO(auth) comment
 - `_loadProfile()` and `_saveProfile()` use fallback UUID when `user?.orgId` is empty
 
 ### Pending SQL (not yet migrated)
+
 - `industries`, `timezones`, `company_id_labels` lookup tables (seed data ready)
 - `organization.system_id VARCHAR(10)` column + sequence + BEFORE INSERT trigger
 
@@ -1177,11 +1366,13 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 ## Settings: Org Profile — DB-Backed Dropdowns & URL Org Prefix (March 21, 2026)
 
 ### Corrected DB table (organization, not settings_profile)
+
 - Profile columns live directly on `organization` table (added via ALTER TABLE)
 - Removed erroneous `settingsProfile` Drizzle table definition from `backend/src/db/schema.ts`
 - `backend/migrations/add_org_profile_columns.sql` is now documentation-only
 
 ### Backend endpoints simplified (`global-lookups.controller.ts`)
+
 - `GET /lookups/org/:orgId` — selects all profile columns directly from `organization` table
 - `POST /lookups/org/:orgId/save` — single `.update()` on `organization`
 - `POST /lookups/org/:orgId/logo` — `update({ logo_url })` on `organization`
@@ -1190,6 +1381,7 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 - Added `GET /lookups/company-id-labels` — returns `label[]` from `company_id_labels` table ordered by `sort_order`
 
 ### Flutter: static arrays replaced with API calls (`settings_organization_profile_page.dart`)
+
 - Removed 3 static const `List<String>`: `_industryOptions`, `_timeZoneOptions`, `_companyIdOptions`
 - Added instance variables (default empty): `_industryOptions`, `_timeZoneOptions`, `_companyIdOptions`
 - Added `Map<String, String> _countryIdByName` to map country name → UUID for timezone filtering
@@ -1198,6 +1390,7 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 - Added `_fetchTimezones([String? countryId])` method — re-fetches timezone list, clears selection if stale
 
 ### Flutter: GoRouter org-prefix URL structure (`app_router.dart`)
+
 - Added `const String _kDevOrgSystemId = '0000000000'` (TODO(auth) for removal)
 - Global `redirect` callback auto-prepends org system_id to any path lacking a 10-digit prefix
 - All existing `context.go(AppRoutes.xxx)` calls continue to work unchanged
@@ -1205,10 +1398,12 @@ Removed `backgroundColor`/`foregroundColor` overrides using `AppTheme.primaryBlu
 - Sidebar/navbar `currentPath` comparisons strip org prefix via `.replaceFirst(RegExp(r'^/\d{10}'), '')`
 
 ### Dev-mode org ID fallback (`settings_organization_profile_page.dart`)
+
 - Added `const String _kDevOrgId = '00000000-0000-0000-0000-000000000002'` with TODO(auth) comment
 - `_loadProfile()` and `_saveProfile()` use fallback UUID when `user?.orgId` is empty
 
 ### Pending SQL (not yet migrated)
+
 - `industries`, `timezones`, `company_id_labels` lookup tables (seed data ready)
 - `organization.system_id VARCHAR(10)` column + sequence + BEFORE INSERT trigger
 
@@ -1226,12 +1421,14 @@ This log summarizes all major changes, features added, and bug fixes implemented
 ## Settings: Org Profile — settings_profile Table (March 21, 2026)
 
 ### New `settings_profile` DB table
+
 - Profile settings moved out of `organization` into a dedicated `settings_profile` table
 - `org_id UUID PK` — 1:1 FK → `organization.id ON DELETE CASCADE`
 - SQL: `backend/migrations/add_org_profile_columns.sql` (CREATE TABLE IF NOT EXISTS)
 - Drizzle: `settingsProfile` table appended to `backend/src/db/schema.ts`
 
 ### Backend endpoints updated (`global-lookups.controller.ts`)
+
 - `GET /lookups/org/:orgId` — joins `organization` + `settings_profile` via `maybeSingle()`, returns merged object
 - `POST /lookups/org/:orgId/save` — updates `organization.name` separately, upserts all profile fields into `settings_profile` (conflict on `org_id`)
 - `POST /lookups/org/:orgId/logo` — upserts `logo_url` into `settings_profile`
@@ -1241,15 +1438,18 @@ This log summarizes all major changes, features added, and bug fixes implemented
 ## Settings: Org Profile — Form Validation & Save Fix (March 21, 2026)
 
 ### Form validation
+
 - Wrapped page body in `Form(key: _formKey)` — required for field-level validation
 - Organization Name `TextFormField` now has a `validator` → inline error if blank
 - Base Currency and Fiscal Year validated manually in `_saveProfile` with `ZerpaiToast.error`
 
 ### Save button UX
+
 - `_isSaving` state added — button shows `CircularProgressIndicator` while saving, disabled during request
 - `finally` block resets `_isSaving` on both success and error
 
 ### orgId fallback fix
+
 - `_saveProfile` now resolves orgId as: `user?.orgId` (if non-empty) → `_organizationId` (loaded from API during `_loadProfile`)
 - Eliminates "No organization context" toast when `authUserProvider` returns empty orgId in dev
 
@@ -1258,14 +1458,17 @@ This log summarizes all major changes, features added, and bug fixes implemented
 ## Settings: Org Profile — Timezone-Aware Date Samples, Time Formats & Global Org Provider (March 21, 2026)
 
 ### Date format dropdown — timezone-aware samples
+
 - `_buildGroupedDateFormatDropdown()` now parses the GMT offset from `_selectedTimeZone` (e.g. `(GMT +5:30)`) using a regex
 - Sample date/time is computed as `DateTime.now().toUtc().add(offset)` so it always reflects the correct local time for the chosen zone
 - `DateTime.now()` is called fresh on each render (not cached at build time)
 
 ### Date & time format group added
+
 - New `date & time` group in `_dateFormatGroups` with 6 patterns: `dd MMM yyyy, hh:mm a`, `dd MMM yyyy, HH:mm`, `dd-MM-yyyy HH:mm`, `MM-dd-yyyy hh:mm a`, `yyyy-MM-dd HH:mm`, `EEE, dd MMM yyyy HH:mm`
 
 ### Org settings propagation — centralized provider
+
 - New `OrgSettings` model: `lib/core/models/org_settings_model.dart`
 - New `orgSettingsProvider` (`FutureProvider.autoDispose`): `lib/core/providers/org_settings_provider.dart`
   - Fetches `GET /lookups/org/:orgId` on auth
@@ -1281,20 +1484,24 @@ This log summarizes all major changes, features added, and bug fixes implemented
 
 ## Settings: Bug Fixes — Logo Preview, Placeholder & Sidebar Notifier (March 21, 2026)
 
-### _DashedBorderPainter — static constants fix
+### \_DashedBorderPainter — static constants fix
+
 - Moved `dashWidth`, `dashSpace`, `strokeWidth` from optional constructor params to private static constants (`_dashWidth`, `_dashSpace`, `_strokeWidth`)
 - Updated all internal `paint()` references to use the prefixed names
 - Eliminates the three `unused_element_parameter` warnings
 
 ### Organization Name field — placeholder fix
+
 - `_organizationName` default changed from `'Your Organization'` to `''`
 - Fallback in `_loadProfile` cleaned up — no more literal string fallback
 - Added `hintText: 'Your organization name'` to the `TextFormField`
 
 ### Logo upload — web compression guard
+
 - Added `!kIsWeb` check before calling `FlutterImageCompress.compressWithList` (throws `UnimplementedError` on Flutter Web)
 
 ### Sidebar collapsedNotifier — build-phase fix
+
 - Moved `ZerpaiSidebar.collapsedNotifier.value = _isCollapsed` into `addPostFrameCallback` inside `didChangeDependencies`
 - Prevents `setState() called during build` assertion when the shell mounts for the first time
 
@@ -1305,12 +1512,14 @@ This log summarizes all major changes, features added, and bug fixes implemented
 ## Settings: Logo Upload Validation & Date Format Dropdown Refactor (March 21, 2026)
 
 ### Logo upload — validation enforced (frontend + backend)
+
 - **1 MB hard limit**: `_pickLogo()` now checks raw bytes before compression; shows `ZerpaiToast.error` if exceeded
 - **Compression target updated**: `minWidth`/`minHeight` changed from 480 → 240 px (matching preferred 240 × 240 @ 72 DPI)
 - **Supported types**: `allowedExtensions: [jpg, jpeg, png, gif, bmp, webp]` in FilePicker; gif/bmp skip compression (unsupported by `flutter_image_compress`)
 - **Backend** already validates extension allowlist and 1 MB server-side in `POST /lookups/org/:orgId/logo`
 
 ### Date format dropdown — migrated to FormDropdown
+
 - Replaced `DropdownButtonFormField` in `_buildGroupedDateFormatDropdown()` with `FormDropdown<String>`
 - Group headers (`short` / `medium` / `long`) rendered via `itemBuilder` as non-selectable labels
 - Each row shows pattern left + live sample date `[ 21 Mar 2026 ]` right
@@ -1321,6 +1530,7 @@ This log summarizes all major changes, features added, and bug fixes implemented
 ## Settings: Sidebar Auto-Collapse on Settings Routes (March 21, 2026)
 
 ### Sidebar collapses by default when entering settings
+
 - Modified `_ZerpaiSidebarState` in `lib/core/layout/zerpai_sidebar.dart`
 - Added `_autoCollapseForSettings()` called from `didChangeDependencies`
 - Tracks `_wasOnSettingsRoute` (static bool) — collapses sidebar only on first entry into `/settings` or `/settings/*`
@@ -1332,15 +1542,18 @@ This log summarizes all major changes, features added, and bug fixes implemented
 ## Global Rules: ZTooltip, FormDropdown & Deep-Linking (March 21, 2026)
 
 ### ZTooltip — compact tooltips globally enforced
+
 - Replaced inline `Tooltip` in settings page with `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart`
 - `ZTooltip` updated: `maxWidth` param (default 220 px), default icon → `LucideIcons.helpCircle`
 - **Rule added to:** `CLAUDE.md`, `AGENTS.md`, `.agent/ARCHITECTURE.md`, `PRD/prd_ui.md`
 
 ### FormDropdown — only allowed dropdown for form inputs
+
 - **Rule added to:** `CLAUDE.md`, `AGENTS.md`, `.agent/ARCHITECTURE.md`, `PRD/prd_ui.md`
 - `DropdownButtonFormField` is banned project-wide
 
 ### Deep-linking
+
 - **Rule added to:** `CLAUDE.md`, `AGENTS.md`, `.agent/ARCHITECTURE.md`, `PRD/prd_ui.md`
 - Every screen/sub-screen/tab must have a named GoRouter route. No `Navigator.push`.
 
@@ -1349,28 +1562,33 @@ This log summarizes all major changes, features added, and bug fixes implemented
 ## Settings: Organization Profile — Dropdowns, Tooltips & Logo Upload (March 21, 2026)
 
 ### Tooltip system
+
 - Replaced all inline Flutter `Tooltip` widgets in `settings_organization_profile_page.dart` with `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart`
 - `ZTooltip` now accepts a `maxWidth` param (default 220 px) so text wraps compactly instead of stretching into a single long line
 - Default icon updated from `Icons.info_outline` to `LucideIcons.helpCircle`
 - Rule added to `CLAUDE.md`: always use `ZTooltip`, never raw `Tooltip`; text must be ≤2 short sentences
 
 ### Dropdown standardisation
+
 - Replaced all `DropdownButtonFormField` usages in the settings page with `FormDropdown<String>` (searchable overlay from `lib/shared/widgets/inputs/dropdown_input.dart`)
 - Rule added to `CLAUDE.md`: `FormDropdown<T>` is the only allowed dropdown for form inputs project-wide
 - Removed "Organization Language" and "Communication Languages" fields per design decision
 
 ### Logo upload wired
+
 - `file_picker` → `flutter_image_compress` (added to `pubspec.yaml`) → base64 → `POST /lookups/org/:orgId/logo` → Cloudflare R2
 - Preview shown inline; Remove button clears the selection
 - Logo uploaded before profile save in `_saveProfile()`
 
 ### Profile save wired to backend
+
 - New `POST /lookups/org/:orgId/save` endpoint saves all profile fields
 - New `GET /lookups/org/:orgId` returns all new profile columns
 - SQL migration: `backend/migrations/add_org_profile_columns.sql` — adds 11 columns (`industry`, `logo_url`, `base_currency`, `fiscal_year`, `timezone`, `date_format`, `date_separator`, `company_id_label`, `company_id_value`, `payment_stub_address`, `has_separate_payment_stub_address`) to the `organization` table
 - Drizzle schema (`backend/src/db/schema.ts`) updated to match actual DB table name `organization` and new columns
 
 ### Other field updates
+
 - Fiscal Year dropdown: expanded to all 12 month-start options
 - Date Format dropdown: grouped (short / medium / long) with live sample dates via `intl.DateFormat`
 - Company ID options: ACN, BN, CN, CPR, CVR, DIW, KT, ORG, SEC, CRN, Company ID
@@ -6618,9 +6836,11 @@ Fixed the runtime permission error that appeared when product detail tried to ov
 ---
 
 ## Sprint: Deep Linking — Global Implementation
+
 **Date:** 2026-03-19
 
 ### Changes
+
 1. **`lib/main.dart`** — Added `usePathUrlStrategy()` as the very first call in `main()`.  
    Removes the `#` from web URLs: `/#/items/create` → `/items/create`.  
    Import: `package:flutter_web_plugins/url_strategy.dart` (Flutter SDK, no extra pubspec entry needed).
@@ -6638,7 +6858,9 @@ Fixed the runtime permission error that appeared when product detail tried to ov
    SHA-256 fingerprint must be replaced with the release keystore fingerprint before going to production.
 
 ### Deep Link Coverage
+
 All existing routes already support deep linking via GoRouter path/query params:
+
 - `/items/detail/:id` — item detail by ID
 - `/items/edit/:id` — edit item (fetches from API when `extra` is null)
 - `/sales/customers/:id` — customer overview
@@ -6649,6 +6871,7 @@ All existing routes already support deep linking via GoRouter path/query params:
 No route changes required — GoRouter path parameters already cover every screen.
 
 ### What "to finish" for Android App Links
+
 1. Get SHA-256 of release keystore: `keytool -list -v -keystore release.keystore`
 2. Paste fingerprint into `web/.well-known/assetlinks.json`
 3. Serve the file at `https://app.zerpai.com/.well-known/assetlinks.json` (Content-Type: `application/json`)
@@ -6656,50 +6879,63 @@ No route changes required — GoRouter path parameters already cover every scree
 ---
 
 ## Sprint: Opening Stock Deep Link Fix
+
 **Date:** 2026-03-19
 
 ### Problem
+
 The Batch-wise Opening Stock screen was opened via `showDialog` with a manually embedded `ZerpaiSidebar` inside the dialog body. This caused two issues:
+
 1. No URL change — the browser stayed on `/items/detail/:id?tab=warehouses`, making deep linking impossible
 2. Double sidebar — when converted to a route, the dialog's own sidebar rendered on top of the `ZerpaiShell` sidebar
 
 ### Changes
 
 **`lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart`**
+
 - Added public `ItemsOpeningStockScreen` wrapper at the top of the part file
 - Screen self-fetches item via `itemDetailByIdProvider(itemId)` and warehouses via `itemWarehouseStocksProvider(itemId)`
 - No sidebar or Scaffold — renders only the content panel (`_OpeningStockDialog`) since `ZerpaiShell` provides the shell
 
 **`lib/modules/items/items/presentation/sections/items_stock_providers.dart`**
+
 - Added `itemDetailByIdProvider` — `FutureProvider.family<Item?, String>` for fetching a single item by ID
 - Required for route-based screens that must self-fetch (deep link entry point)
 
 **`lib/core/routing/app_routes.dart`**
+
 - Added `itemsOpeningStock = '/items/detail/:id/opening-stock'`
 
 **`lib/core/routing/app_router.dart`**
+
 - Added `opening-stock` as a child route of `itemsDetail`
 - Result: full URL `/items/detail/:id/opening-stock` with proper GoRouter nesting
 
 **`lib/modules/items/items/presentation/sections/items_item_detail_stock.dart`**
+
 - Replaced `showDialog(...)` in `_openOpeningStockDialog` with `context.push('/items/detail/$id/opening-stock')`
 - Removed now-unused `_resolveOpeningStockMode` helper (mode logic moved into `ItemsOpeningStockScreen`)
 - Provider invalidation on return handled via `.then()` after `await context.push(...)`
 
 **`lib/modules/items/items/presentation/items_item_detail.dart`**
+
 - Removed unused `import 'package:zerpai_erp/core/layout/zerpai_sidebar.dart'`
 
 ### Result
+
 - URL changes to `/items/detail/:id/opening-stock` when screen opens
 - Browser back button returns to the item detail warehouses tab
 - Single sidebar (from shell)
 - Direct deep link to opening stock works — screen self-fetches all required data
 
 ## Sprint: Global Toast Visual Standardization
+
 **Date:** 2026-03-19
 
 ### Problem
+
 The app had two toast systems with inconsistent visuals:
+
 1. `ZerpaiToast` was used widely across items and accountant flows
 2. `ZerpaiBuilders.showSuccessToast` rendered an older success-only toast with a different appearance
 
@@ -6708,54 +6944,66 @@ This caused inconsistent success/error feedback across modules.
 ### Changes
 
 **`lib/shared/utils/zerpai_toast.dart`**
+
 - Standardized success toasts to the pale green, top-centered compact style
 - Standardized error toasts to the matching pale red style
 - Kept info toasts on the same shared component
 - Slightly increased icon-chip size and aligned the entrance animation to a top toast feel
 
 **`lib/shared/widgets/inputs/zerpai_builders.dart`**
+
 - Replaced the legacy custom success toast overlay with a direct call to `ZerpaiToast.success(...)`
 - Removed the older duplicate `_ToastWidget` implementation
 
 ### Result
+
 - Success toasts are green globally
 - Failure/error toasts are red globally
 - Accountant module and shared management dialogs now use the same toast presentation
 - One shared toast source controls the app-wide behavior
 
 ## Sprint: Unsaved Changes Leave Guard
+
 **Date:** 2026-03-19
 
 ### Problem
+
 Users could leave edit flows with unsaved values and lose data silently. The confirmation behavior was inconsistent and not aligned with the accountant confirmation pattern.
 
 ### Changes
 
 **`lib/shared/widgets/dialogs/unsaved_changes_dialog.dart`**
+
 - Added a shared leave-page confirmation dialog with a white surface, warning icon, and accountant-style action layout
 
 **`lib/shared/widgets/unsaved_changes_guard.dart`**
+
 - Added a reusable unsaved-changes guard built on `PopScope`
 - Uses the shared leave-page dialog before allowing route pop/back navigation
 
 **`lib/shared/widgets/shortcut_handler.dart`**
+
 - Replaced the old generic discard alert with the shared leave-page dialog
 
 **`lib/shared/widgets/zerpai_layout.dart`**
+
 - Wrapped layout pages in the shared unsaved-changes guard
 - Any screen that already provides `isDirty` now gets the leave confirmation for back/pop flows automatically
 
 **`lib/modules/items/items/presentation/items_item_create.dart`**
+
 - Added dirty-state tracking to item create/edit
 - Wrapped the form in `Form(onChanged: ...)`
 - Cancel navigation now asks before discarding unsaved item changes
 - Dirty state resets after successful save and after initial hydration
 
 **`lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart`**
+
 - Added unsaved-change detection for opening stock
 - Header close, cancel, and browser back/pop now ask before leaving when batch/stock inputs were changed
 
 ### Result
+
 - Unsaved-change confirmation now uses one shared modal pattern
 - Accountant pages that already mark `isDirty` benefit automatically via the layout wrapper
 - Item create/edit and opening stock now block accidental exit until users confirm discard
@@ -6763,108 +7011,133 @@ Users could leave edit flows with unsaved values and lose data silently. The con
 ### Rollout Expansion
 
 **`lib/modules/sales/presentation/sales_order_create.dart`**
+
 - Added dirty-state tracking to the sales order create flow
 - Cancel/back now uses the shared leave-page confirmation
 
 **`lib/modules/sales/presentation/sales_invoice_create.dart`**
+
 - Added dirty-state tracking to invoice creation
 - Cancel/back now asks before discarding unsaved invoice changes
 
 **`lib/modules/sales/presentation/sales_payment_create.dart`**
+
 - Added dirty-state tracking to payment creation
 - Cancel/back now asks before discarding unsaved payment changes
 
 **`lib/modules/sales/presentation/sales_quotation_create.dart`**
+
 - Added dirty-state tracking to quotation creation
 - Cancel/back now asks before discarding unsaved quotation changes
 
 **`lib/modules/sales/presentation/sales_credit_note_create.dart`**
+
 - Added dirty-state tracking to credit note creation
 - Cancel/back now asks before discarding unsaved credit note changes
 
 **`lib/modules/sales/presentation/sales_retainer_invoice_create.dart`**
+
 - Added dirty-state tracking to retainer invoice creation
 - Cancel/back now asks before discarding unsaved retainer invoice changes
 
 **`lib/modules/sales/presentation/sales_delivery_challan_create.dart`**
+
 - Added dirty-state tracking to delivery challan creation
 - Cancel/back now asks before discarding unsaved delivery challan changes
 
 **`lib/modules/items/pricelist/presentation/items_pricelist_create.dart`**
+
 - Added dirty-state tracking to price list creation
 - Cancel/back now asks before discarding unsaved price list changes
 
 **`lib/modules/items/pricelist/presentation/items_pricelist_edit.dart`**
+
 - Added dirty-state tracking to price list editing
 - Cancel/back now asks before discarding unsaved price list changes
 
 **`lib/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_creation.dart`**
+
 - Added listener-based dirty-state tracking for assembly creation
 - Cancel now asks before discarding unsaved assembly changes even though the save flow is still placeholder-only
 
 ## Sprint: Item Detail Bootstrap Noise Reduction
+
 **Date:** 2026-03-19
 
 ### Problem
+
 Item detail and opening stock screens were still instantiating the shared `ItemsController`, which automatically loaded the full lookup bootstrap and all price lists. That produced a large burst of unrelated network traffic such as manufacturers, brands, vendors, reorder terms, contents, strengths, and price lists while users were only viewing warehouse stock or opening stock flows.
 
 ### Changes
 
 **`lib/modules/items/items/controllers/items_controller.dart`**
+
 - Removed automatic lookup bootstrap loading from controller initialization
 - Removed automatic global price-list loading from controller initialization
 - The controller now boots only the item and composite-item lists by default
 - Create/edit flows continue to load lookup masters explicitly where they are actually needed
 
 **`backend/src/modules/products/products.service.ts`**
+
 - Reduced repeated optional `outlets` lookup warning spam to a one-time warning
 - Warehouse stock fallback behavior remains unchanged: if `public.outlets` is unavailable, warehouse names are still used safely
 
 ### Result
+
 - Item detail and opening stock screens stop triggering unnecessary lookup/bootstrap requests
 - Network noise and red failed lookup rows are reduced on warehouse-focused flows
 - The optional outlets fallback warning remains visible once for diagnosis without flooding the console
 
 ## Sprint: Font Fallback And Dev Log Cleanup
+
 **Date:** 2026-03-19
 
 ### Problem
+
 Console output still included route-diagnostic chatter, debug-level repository/controller logs, and Flutter web font fallback warnings for unsupported glyphs.
 
 ### Changes
 
 **`lib/core/theme/app_theme.dart`**
+
 - Expanded the shared font fallback stack with broader system and emoji fallbacks after the bundled Noto families
 - Kept the existing explicit Noto asset chain intact and added runtime coverage for glyphs not handled by the bundled subset
 
 **`lib/core/routing/app_router.dart`**
+
 - Disabled GoRouter diagnostic logging for normal development sessions
 
 **`lib/core/logging/app_logger.dart`**
+
 - Made debug-level application logs opt-in through `--dart-define=ZERPAI_VERBOSE_LOGS=true`
 - Raised the default logger threshold to `info`
 - Limited debug, API request/response, cache, and performance logs to verbose sessions only
 
 ### Result
+
 - Normal development output is quieter and easier to scan
 - GoRouter route traces no longer flood the console
 - Existing info, warning, and error logs remain available
 - Font fallback coverage is broader on web and desktop without adding another large font asset bundle
 
 **`lib/main.dart`**
+
 - Added a web-only debug bootstrap guard for the `flutter/keyevent` channel buffer
 - Allowed early keyevent overflow warnings to be discarded before the framework listener attaches
 - Scoped the change to debug assertions so release behavior remains unchanged
 
 ## Sprint: Opening Stock Quantity Rules Alignment
+
 **Date:** 2026-03-19
 
 ### Problem
+
 The batch and serial opening-stock footer logic was using the entered detailed quantity as both the amount already added and the amount still remaining to add. The save path was also persisting the opening-stock helper value instead of the batch or serial total for tracked items.
 
 ### Changes
 
 **`lib/modules/items/items/presentation/sections/items_opening_stock_dialog.dart`**
+
 - Separated the opening-stock target quantity from the detailed batch/serial quantity total
 - Added remaining-quantity logic:
   - `Quantity To Be Added = max(opening stock - detailed qty, 0)`
@@ -6875,34 +7148,41 @@ The batch and serial opening-stock footer logic was using the entered detailed q
 - Kept the simple non-batch, non-serial stock path unchanged
 
 ### Result
+
 - The footer now reflects the correct batch/serial conditions
 - Mismatch warnings now represent the real gap between the target quantity and the detailed entered quantity
 - Save behavior now aligns with the batch/serial total that the user actually entered
 
 ## Sprint: Shared Leave Dialog Top-Center Alignment
+
 **Date:** 2026-03-19
 
 ### Changes
 
 **`lib/shared/widgets/dialogs/unsaved_changes_dialog.dart`**
+
 - Repositioned the shared unsaved-changes dialog from the default centered alert placement to a top-center aligned presentation
 - Added safe top spacing and a max-width constraint while keeping the existing dialog content and action behavior unchanged
 - Reduced the top offset further so the dialog sits closer to the header/toast zone instead of upper-middle
 - Replaced `AlertDialog` with a top-aligned `Dialog` so Material's default centering no longer overrides the shared placement
 
 ### Result
+
 - All screens using the shared leave-confirmation dialog now open it near the top center of the viewport instead of the middle
 
 ## Sprint: Shared Global Confirmation Dialog
+
 **Date:** 2026-03-20
 
 ### Changes
 
 **`lib/shared/widgets/dialogs/zerpai_confirmation_dialog.dart`**
+
 - Added a shared top-centered confirmation dialog component for global destructive and warning confirmations
 - Centralized white dialog surface, warning/danger accent styling, and shared button layout
 
 **`lib/shared/widgets/dialogs/unsaved_changes_dialog.dart`**
+
 - Switched the leave-confirmation flow to reuse the shared confirmation dialog instead of maintaining a separate dialog implementation
 
 **`lib/modules/accountant/presentation/accountant_chart_of_accounts_overview.dart`**
@@ -6913,31 +7193,37 @@ The batch and serial opening-stock footer logic was using the entered detailed q
 **`lib/modules/accountant/manual_journals/presentation/widgets/manual_journals_list_panel.dart`**
 **`lib/modules/accountant/recurring_journals/presentation/widgets/recurring_journals_detail_panel.dart`**
 **`lib/modules/accountant/recurring_journals/presentation/widgets/recurring_journals_list_panel.dart`**
+
 - Replaced accountant-specific delete dialogs with the shared global confirmation dialog
 - Kept contextual delete copy per screen while standardizing placement and visual treatment
 
 ### Result
+
 - Delete confirmations and unsaved-change confirmations now use the same global shared dialog shell
 - Accountant delete dialogs are now top-centered, visually consistent, and globally reusable
 
 ## Sprint: Shared Saved And Deleted Toast Semantics
+
 **Date:** 2026-03-20
 
 ### Changes
 
 **`lib/shared/utils/zerpai_toast.dart`**
+
 - Added global semantic toast helpers for saved and deleted success states
 - Kept the existing shared top-centered toast surface while centralizing saved/deleted wording
 
 **`lib/modules/accountant/presentation/accountant_chart_of_accounts_overview.dart`**
 **`lib/modules/accountant/manual_journals/presentation/widgets/manual_journals_list_panel.dart`**
 **`lib/modules/accountant/recurring_journals/presentation/widgets/recurring_journals_list_panel.dart`**
+
 - Switched delete success messages to the shared global deleted-toast helper instead of hardcoded module-local success strings
 
 ### Result
+
 - Saved and deleted success messages can now be invoked through the global toast utility instead of being rephrased ad hoc per screen
 - Removed the stale unused `isAdding` local from `manage_categories_dialog.dart` after the shared saved-toast rollout; remaining listed diagnostics are informational `TODO` markers rather than build-blocking errors.
-2026-03-21
+  2026-03-21
 - Reconnected stale pre-refactor imports in sales order create/overview to the current module paths.
 - Added shared `getSalespersons` and `syncSalespersons` wrappers in `LookupsApiService` for the migrated sales order flow.
 - Normalized stale sales order item code handling to the current `Item.hsnCode` field.
@@ -6951,6 +7237,7 @@ The batch and serial opening-stock footer logic was using the entered detailed q
 ## Settings: Organization Profile Page Completion (March 21, 2026)
 
 ### Problem
+
 The `/settings/orgprofile` page crashed on every load with "Unable to load organization profile — Exception: Unable to resolve organization context". The `_loadProfile()` method unconditionally required an authenticated user with a non-empty `orgId`, but auth is disabled in the current dev/pre-production build, so `authUserProvider` always returns `null`.
 
 Additionally, the page had a layout crash (`RenderFlex children have non-zero flex but incoming height constraints are unbounded`) because `ZerpaiLayout` defaulted to wrapping the child in a `SingleChildScrollView`, making the inner `Column + Expanded` receive unbounded height.
@@ -6958,6 +7245,7 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 ### Changes
 
 **`lib/core/pages/settings_organization_profile_page.dart`**
+
 - Fixed `enableBodyScroll: false` on `ZerpaiLayout` to prevent the unbounded-height `Expanded` crash.
 - Refactored `_loadProfile()` to gracefully handle null user context:
   - When user is authenticated with a valid `orgId`, the org-profile API call is included as before.
@@ -6966,6 +7254,7 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 - Fixed null-safety errors on lines 330–331: `user.fullName` and `user.email` now use `user?.fullName ?? ''` and `user?.email ?? ''`.
 
 ### Result
+
 - The settings organization profile page loads correctly in dev mode (auth disabled) and in production (auth enabled).
 - The layout renders without `Expanded`/unbounded-height assertion errors.
 - Currencies and countries dropdowns populate from real API data; org-specific fields are populated when auth context is available and show editable defaults otherwise.
@@ -6973,22 +7262,26 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 ## Settings: Sidebar Default Restore & Partial Lookup Resilience (March 21, 2026)
 
 ### Sidebar behavior
+
 - Fixed `lib/core/layout/zerpai_sidebar.dart` so the sidebar auto-collapses only inside `/settings` routes.
 - When leaving settings, the shell now restores the normal expanded default instead of leaking the collapsed state into regular pages.
 
 ### Organization profile loading resilience
+
 - Refactored `_loadProfile()` in `lib/core/pages/settings_organization_profile_page.dart` to fetch lookups with per-request fallback instead of failing the whole page on the first network error.
 - `currencies`, `countries`, `industries`, `timezones`, and `company-id-labels` now degrade to empty option lists if an individual request fails.
 - The profile page now keeps rendering with editable defaults even when one or more lookup endpoints are temporarily unavailable.
 - Also hydrated `logo_url`, `payment_stub_address`, and `has_separate_payment_stub_address` from the org payload during load.
 
 ### Result
+
 - Non-settings pages return to the expected expanded-sidebar default.
 - The settings organization profile page no longer collapses into a full-screen error card just because one lookup request fails.
 
 ## Settings: Org Profile Save And Lookup Access Hardening (March 21, 2026)
 
 ### Lookup access
+
 - Added `SELECT` grants in `supabase/migrations/1009_profile page.sql` for:
   - `public.industries`
   - `public.timezones`
@@ -6996,6 +7289,7 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 - This unblocks the shared settings org-profile lookup endpoints from failing with table permission errors in environments not using full service-role bypass.
 
 ### Org profile save flow
+
 - Fixed `lib/core/pages/settings_organization_profile_page.dart` to read the current org schema key `base_currency` instead of the stale `currency` field.
 - Widened the timezone dropdown menu so long timezone labels no longer render in a cramped/truncated overlay.
 - Changed org-profile save to send a JSON-encoded payload explicitly.
@@ -7003,15 +7297,18 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 - Replaced the raw exception dump toast with a user-facing save failure message.
 
 ### Backend response normalization
+
 - Updated `backend/src/modules/lookups/global-lookups.controller.ts` so `POST /lookups/org/:orgId/save` responds with `200 OK` instead of `201 Created`, matching update semantics and reducing ambiguity for the web client.
 
 ### Result
+
 - Org-profile lookup tables are permission-ready once the migration is applied.
 - The settings profile page now aligns with the current organization schema and is more resilient against false-negative web save failures.
 
 ## Settings: Organization State Dropdown (March 21, 2026)
 
 ### Changes
+
 - Added a real `State` dropdown to `lib/core/pages/settings_organization_profile_page.dart`.
 - The org profile now fetches states from the shared `/lookups/states` endpoint using the selected country ID.
 - Defaulted the organization location to `India` when no country value is stored on the organization row, so the India-based org profile can resolve state options immediately.
@@ -7019,56 +7316,67 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 - Restored the selected state from the existing `organization.state_id` value during profile load.
 
 ### Lookup compatibility
+
 - Updated `backend/src/modules/lookups/global-lookups.controller.ts` so `/lookups/states` works with both schema variants:
   - `states.country_id`
   - `states.state_id`
 - This keeps the settings page compatible with the live DB even if the foreign-key column name differs across environments.
 
 ### Result
+
 - Organization profile now uses the real Indian states master instead of a missing screen-local state field.
 - The selected state is loaded from and saved back to `organization.state_id`.
 
 ## Settings: Organization System ID And Shared Logo Identity (March 21, 2026)
 
 ### Database
+
 - Added additive migration `supabase/migrations/1010_add_organization_system_id.sql`.
 - Introduced a real `organization.system_id` user-facing numeric identifier, separate from the UUID primary key.
 - Backfilled existing organization rows and added a sequence-backed default plus uniqueness for future inserts.
 
 ### Backend
+
 - Extended `GET /lookups/org/:orgId` to return `system_id` alongside the existing org profile fields.
 - Updated backend organization schema definitions to include `system_id`.
 
 ### Flutter settings profile
+
 - `lib/core/pages/settings_organization_profile_page.dart` now stores and displays the real `system_id` after `Organization Profile` instead of showing the UUID placeholder.
 - The profile page invalidates `orgSettingsProvider` after logo upload and save so shared shell UI refreshes immediately.
 
 ### Shared navbar identity
+
 - `lib/core/layout/zerpai_navbar.dart` now uses the DB-backed organization logo for the top-right circular avatar.
 - When no logo exists, the avatar falls back to the organization initial instead of a generic person icon.
 - The shell route-prefix stripping logic was widened from fixed 10-digit IDs to `10..20` digit numeric IDs in preparation for real org system IDs in URLs.
 
 ### Result
+
 - Organization identity is now DB-backed across both the settings profile and the shared navbar shell.
 - The org profile header shows a real business-facing system ID instead of the internal UUID.
 
 ## Settings: Signed Organization Logo Rendering (March 21, 2026)
 
 ### Backend
+
 - Updated `backend/src/modules/lookups/global-lookups.controller.ts` to resolve `organization.logo_url` through `R2StorageService.getPresignedUrl(...)` before returning org settings.
 - `POST /lookups/org/:orgId/logo` now returns the resolved browser-ready logo URL instead of the raw storage key.
 
 ### Flutter
+
 - Updated `lib/core/layout/zerpai_navbar.dart` to render the org avatar with `Image.network(...)` plus an error fallback to the organization initial.
 - Updated `lib/core/pages/settings_organization_profile_page.dart` so the logo preview no longer breaks with a raw decode error surface when the image cannot be rendered; it now shows a clean fallback state instead.
 
 ### Result
+
 - The settings profile logo preview and the top-right circular org avatar now consume a usable image URL instead of the raw R2 object key.
 - Invalid or expired image URLs no longer leave a blank avatar circle.
 
 ## Shell: Route-Aware Global Search And Settings Search Separation (March 22, 2026)
 
 ### Changes
+
 - Updated `lib/core/layout/zerpai_navbar.dart` so the top shell search no longer appears on `/settings` routes.
 - The shared shell search now infers its default category from the current route instead of always defaulting to `Items`.
 - Added route-aware search category groupings so the dropdown prioritizes the active module family:
@@ -7078,12 +7386,14 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 - The search placeholder now follows the current module context, for example `Search in Sales Orders ( / )` or `Search in Vendors ( / )`.
 
 ### Result
+
 - Settings pages only show the dedicated settings search control and no longer duplicate the shell-wide module search.
 - On non-settings pages, the top search is now module-aware by default and better aligned with the user’s current working context.
 
 ## Docs: Sidebar Module Map Refresh (March 22, 2026)
 
 ### Changes
+
 - Updated the canonical sidebar module documentation in:
   - `PRD/PRD.md`
   - `.amazonq/rules/PRD.md`
@@ -7109,11 +7419,13 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
   - `Documents` / `Audit Logs` sidebar destinations vs dedicated module roots not yet present
 
 ### Result
+
 - The main PRD, folder-structure guide, onboarding docs, and memory-bank summaries now describe the same module/sub-module map as the live product sidebar.
 
 ## Shell Search: `?q=` Hydration Across Overview Screens (March 22, 2026)
 
 ### Changes
+
 - Extended `lib/core/routing/app_router.dart` so route query `?q=` is forwarded into overview screens that previously ignored the shell search handoff.
 - Updated `lib/modules/items/items/presentation/sections/report/items_report_overview.dart` and `lib/modules/items/items/presentation/sections/report/items_report_body.dart` to initialize the items search box and trigger the existing item search flow from the route query.
 - Updated `lib/modules/items/pricelist/presentation/items_pricelist_pricelist_overview.dart` so price lists hydrate the incoming query into the existing price-list filter provider.
@@ -7123,21 +7435,25 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 - Updated `lib/modules/sales/presentation/sales_generic_list.dart` so shared sales list screens apply the incoming query consistently across customers, invoices, payments, e-way bills, payment links, and related entities.
 
 ### Result
+
 - The shell-wide route-aware search no longer stops at navigation for these overview screens; the `?q=` value now hydrates into the local table/provider state.
 - Users can launch module search from the shared navbar and land on a pre-filtered screen instead of an unfiltered overview.
 
 ## Settings Shell: Remove Global Navbar On Settings Routes (March 22, 2026)
 
 ### Changes
+
 - Updated `lib/core/layout/zerpai_shell.dart` so `/settings` and nested `/settings/...` routes keep the main sidebar but no longer render the shared top navbar.
 - Settings pages now rely only on their dedicated internal settings header and search surface.
 
 ### Result
+
 - The settings experience now matches the intended layout: sidebar on the left, settings-specific top area only, and no duplicate shell navbar above it.
 
 ## Shell Search: `?q=` Hydration Expansion Across Remaining Overview Screens (March 22, 2026)
 
 ### Changes
+
 - Extended `lib/core/routing/app_router.dart` so route query `?q=` is consistently forwarded into the remaining routed overview screens that still dropped the shell search handoff.
 - Updated `lib/modules/reports/presentation/reports_audit_logs_screen.dart` so audit logs initialize and refresh from the incoming route search query before loading logs.
 - Updated `lib/modules/accountant/presentation/accountant_chart_of_accounts_overview.dart` so chart of accounts hydrates the incoming query into the existing provider-backed `searchQuery` state.
@@ -7146,22 +7462,26 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 - Updated `lib/modules/items/composite_items/presentation/items_composite_items_composite_listview.dart` so composite items now filter by the incoming query across existing fields like product name, SKU, type, and HSN code.
 
 ### Result
+
 - The shell-wide route-aware search now hydrates across the remaining accountant, audit-log, and composite-item overview flows instead of only navigating to them.
 - Direct links and browser refresh preserve the active `?q=` context for these screens in the same way as the earlier sales, purchases, items, and price-list work.
 
 ## Toast UI: Vertically Center Single-Line Messages Against Icon (March 22, 2026)
 
 ### Changes
+
 - Updated `lib/shared/utils/zerpai_toast.dart` so the shared toast row uses centered vertical alignment instead of top alignment.
 - Wrapped the message text in a left-aligned container while keeping the icon and close affordance vertically centered.
 
 ### Result
+
 - Single-line toast messages now sit visually centered against the icon instead of hugging the top edge.
 - Multi-line toast messages still remain left-aligned and readable, but the shared toast layout now looks balanced in both cases.
 
 ## Search Shortcut: `/` Focuses Shared Search Fields, With Settings Kept Local (March 22, 2026)
 
 ### Changes
+
 - Updated `lib/shared/widgets/zerpai_layout.dart` to introduce a shared search-focus registry inside the layout shortcut scope so page-level search bars can register themselves and respond to `/` without per-screen keyboard patches.
 - Updated `lib/shared/widgets/inputs/custom_text_field.dart` so real search fields automatically register with the shared layout shortcut scope when their hint or label is search-related.
 - Updated `lib/core/layout/zerpai_navbar.dart` and `lib/core/layout/zerpai_shell.dart` so the shell-wide navbar search becomes the fallback `/` target on non-settings routes that do not expose a page-level search field.
@@ -7169,6 +7489,7 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 - Tightened `lib/core/pages/settings_organization_profile_page.dart` search submission so settings search only resolves settings-page entries instead of jumping out to normal module overview pages.
 
 ### Result
+
 - Pressing `/` now focuses the active search bar across the app more consistently.
 - On normal module pages, page-level search fields take priority and the shell navbar search remains the fallback.
 - On settings pages, `/` stays inside the settings search experience and no longer leaks into non-settings module navigation.
@@ -7176,60 +7497,72 @@ Additionally, the page had a layout crash (`RenderFlex children have non-zero fl
 ## Settings Search: Grouped Typeahead Overlay For Settings-Only Content (March 22, 2026)
 
 ### Changes
+
 - Added `lib/core/widgets/settings_search_field.dart` as a shared grouped typeahead search control for settings pages.
 - Updated `lib/core/pages/settings_page.dart` to replace the plain settings search input with the grouped overlay search and keep results scoped to settings-related entries only.
 - Updated `lib/core/pages/settings_organization_profile_page.dart` to use the same grouped settings search, including in-page profile field targets such as Organization Name, Base Currency, Fiscal Year, Time Zone, Date Format, Company ID, and Additional Fields.
 - Wired org-profile field search results to scroll the page to the relevant section instead of behaving like a plain text filter.
 
 ### Result
+
 - Settings search now behaves like a real settings command palette: typing shows grouped settings suggestions in a white overlay below the field.
 - Selecting a result either opens the matching settings destination or jumps to the relevant field on the current settings page.
 - The settings search experience is now separate from global module search and stays scoped to settings content.
-2026-03-22
+  2026-03-22
 - Canonicalized shell routes from the temporary dev org prefix to the real loaded `organization.system_id`, so URLs like `/:orgSystemId/settings/orgprofile` now switch to the same numeric org ID shown in the org profile header while preserving the rest of the path and query.
 - Fixed the settings search dropdown build-time sizing bug in `lib/core/widgets/settings_search_field.dart` by removing the unsafe render-size read during build and deriving overlay width from safe `LayoutBuilder` constraints instead.
 - Updated the governance docs, PRD files, agent rules, and skill references so any new database table created specifically for the global settings system must start with the `settings_` prefix.
 - Added the same `settings_` table-prefix rule to the repository Claude and Gemini instruction files so all agent guidance now enforces the same settings schema naming convention.
+
 ## Locations Settings: Add/Edit Form — Business vs Warehouse Diff (March 22, 2026)
 
 ### What changed
+
 Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inventory's Business vs Warehouse Only Location field differences.
 
 ### Business Location (new fields)
+
 - **Logo** row: static "Same as Organization Logo" dropdown (Business only)
 - **"This is a Child Location"** checkbox: when checked, reveals a **Parent Location** dropdown populated from `/outlets` API (excluding self in edit mode)
 - **GSTIN**: now required for Business (was optional for both)
 - **Primary Contact**: required for Business, optional for Warehouse
 
 ### Warehouse Only Location (new behaviour)
+
 - **Parent Location**: always required (no checkbox — warehouse always needs a parent)
 - Logo hidden, GSTIN hidden
 - Primary Contact remains optional
 
 ### Address section (both types)
+
 - Separated **Attention** and **Street** into two distinct fields (previously merged as "Street / Attention")
 - Added **Fax Number** field (alongside Phone)
 - **Phone + Fax** rendered as a side-by-side row
 
 ### DB / backend
+
 - `outlets` table created via migration `1012_settings_locations.sql`
 - `settings_locations` table created in same migration (stores `location_type`, `is_primary`, `parent_outlet_id`, `logo_url` per outlet)
 - Drizzle schema updated (`backend/src/database/schema.ts`) with `locationTypeEnum` + `settingsLocations` table
 
 ### Validation
+
 - Parent location validated manually in `_save()` (not via `FormDropdown.validator` — `FormDropdown` uses `errorText` instead); `_parentError` state cleared on selection
 
 ---
+
 ## Locations Create/Edit Page: Sidebar + Logo Upload Wired (March 22, 2026)
 
 ### What changed
 
 #### `lib/core/pages/settings_locations_create_page.dart`
+
 - **Full layout restructure**: create/edit page now has the same two-panel layout as all other settings sub-pages — full settings top bar (All Settings title, org name, search field, Close Settings) + 240px collapsible sidebar + scrollable form content
 - **Sidebar always visible**: `/settings/locations/create` and `/settings/locations/:id/edit` both resolve to Locations being highlighted in the sidebar (path prefix matching: any path starting with `/settings/locations` maps to the Locations nav entry)
 - **Logo upload wired**: replaced no-op `onTap: () {}` with `FilePicker.platform.pickFiles()` (jpg/jpeg/png/gif/bmp, max 1MB). On Save, `StorageService().uploadLocationLogo()` uploads to R2 under `outlet-logos/` prefix; the returned URL is included in the outlet body as `logo_url`. Upload area shows file name + check icon after picking, or "Logo uploaded — tap to change" when editing an existing location with a saved logo.
 
 #### `lib/shared/services/storage_service.dart`
+
 - Added `uploadLocationLogo(PlatformFile file)` public method — uploads to R2 with `outlet-logos/` prefix using the existing `_uploadToR2` private core
 
 ---
@@ -7239,6 +7572,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 ## Settings Locations: Validation, Hover Menu, Delete Guard (March 22, 2026)
 
 ### Form validation (`settings_locations_create_page.dart`)
+
 - **GSTIN**: required for Business + regex `^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$` (15-char format)
 - **Primary Contact**: required for Business + email format validation; optional for Warehouse but still validated if filled
 - **Pin Code**: optional but must be exactly 6 digits if provided
@@ -7246,12 +7580,14 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - **Website URL**: optional but must start with `http://` or `https://`
 
 ### Hover action menu (`settings_locations_page.dart`)
+
 - Added `_hoveredOutletId` state to track which row is hovered
 - Wrapped each `_buildTableRow` in `MouseRegion` with `onEnter`/`onExit` → sets `_hoveredOutletId`
 - Row background tints to `AppTheme.bgLight` on hover
 - `PopupMenuButton` icon switches from `LucideIcons.moreHorizontal` (gray, always) to `LucideIcons.chevronDown` (accent color) on hover via `AnimatedSwitcher`
 
 ### Delete guard (`settings_locations_page.dart`)
+
 - `_confirmDelete()` now calls `GET /outlets/:id/usage?org_id=` before showing confirmation
 - If `has_transactions == true`: shows `ZerpaiToast.error` — "This location cannot be deleted as it is associated with transactions. You can however mark the location as inactive." — and aborts
 - If usage check endpoint is unavailable (404/error): silently proceeds so the delete API's own FK constraint error surfaces via `res.message`
@@ -7259,6 +7595,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 ## Settings: Locations — Phone validation, Associate GSTIN dialog, Parent-child tree (March 22, 2026)
 
 ### Flutter: settings_locations_create_page.dart — India phone field
+
 - Added `_IndiaPhoneFormatter` (custom `TextInputFormatter`) that always enforces `+91 ` prefix — user cannot delete it
 - Only digits allowed after prefix; max 10 digits (10-digit Indian mobile standard)
 - `_phoneCtrl` initialized with `+91 ` in `initState`
@@ -7267,6 +7604,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - On save: `replaceFirst(RegExp(r'^\+91\s*$'), '')` sends empty string when field has no digits
 
 ### Flutter: settings_locations_page.dart — Associate GSTIN dialog (full Zoho design)
+
 - Replaced simple single-field dialog with full Zoho-matching dialog
 - Two association modes (radio toggle using `_RadioOption` — avoids deprecated `Radio.groupValue`):
   - **Add New GSTIN & Associate**: GSTIN field + "Get Taxpayer details" lookup + Registration Type dropdown + Legal Name + Trade Name + GST Registered On + Reverse Charge checkbox + Import/Export checkbox + Digital Services checkbox
@@ -7275,6 +7613,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - Added top-level helpers: `_kGstRegTypes`, `_gstDialogInput()`, `_gstDialogRow()`, `_RadioOption`, `_TreeLinePainter`
 
 ### Flutter: settings_locations_page.dart — Parent-child tree view
+
 - Added `parentOutletId` field to `_OutletRow` model (parsed from `parent_outlet_id` in JSON)
 - `_buildTreeRows()` groups children under their parent in display order
 - `_buildTableRow()` accepts `isChild`, `isLastChild`, `hasChildren` params
@@ -7284,10 +7623,12 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 ## Service Canonicalization Pass (24/03/2026)
 
 ### Canonical direction applied
+
 - Kept app shell/layout infrastructure in `lib/core/...`.
 - Standardized cross-feature runtime services onto `lib/shared/services/...` for non-core feature code and repositories.
 
 ### Imports normalized to shared services
+
 - Moved feature imports to shared service entry points in:
   - `lib/modules/items/composite_items/presentation/items_composite_items_composite_creation.dart`
   - `lib/modules/sales/presentation/sales_customer_create.dart`
@@ -7305,6 +7646,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
   - `lib/modules/sales/repositories/sales_orders_repository.dart`
 
 ### Shared service contracts upgraded
+
 - Updated `lib/shared/services/lookup_service.dart` so `countriesProvider` exposes `id` and `statesProvider` returns named state maps (`id`, `name`, `code`) instead of plain strings.
 - Updated `lib/shared/services/storage_service.dart` to carry the richer shared contract:
   - `uploadLicenseDocument(...)`
@@ -7313,6 +7655,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - Updated `lib/modules/purchases/vendors/presentation/sections/purchases_vendors_address_section.dart` to consume the normalized state-map provider shape.
 
 ### Dead core duplicates removed
+
 - Deleted:
   - `lib/core/services/lookup_service.dart`
   - `lib/core/services/recent_history_service.dart`
@@ -7321,6 +7664,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
   - `lib/core/services/sync/sync_service.dart`
 
 ### Validation
+
 - `flutter analyze` passed with no issues.
 - `flutter test` passed: 49 tests.
 - Test output still includes expected `AppLogger.error` lines from transaction-lock failure-path tests; suite result is green.
@@ -7328,6 +7672,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 ## Documentation Canonical Structure Alignment (24/03/2026)
 
 ### Canonical rule locked
+
 - `lib/core/` = app infrastructure only.
 - `lib/core/layout/` = shell/navigation infrastructure only.
 - `lib/shared/widgets/` = reusable UI widgets, dialogs, page wrappers, and responsive UI primitives.
@@ -7336,6 +7681,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - `lib/core/widgets/` is no longer documented as the reusable widget home.
 
 ### Documentation sets updated
+
 - Updated top-level governance and agent docs:
   - `AGENTS.md`
   - `CLAUDE.md`
@@ -7359,6 +7705,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
   - `docs/RECOVERY_COMPLETE.md`
 
 ### Result
+
 - The active docs no longer contradict each other on reusable widget placement.
 - The docs now consistently describe `core` as infrastructure, `shared` as reusable UI/services, and `modules` as feature code.
 - Secondary documentation no longer points to the old `lib/core/router/app_router.dart` or `lib/core/layout/zerpai_layout.dart` paths.
@@ -7366,9 +7713,11 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 ## Database Schema Snapshot Sync (24/03/2026)
 
 ### Source applied
+
 - Treated `current schema.txt` as the latest live schema dump and regenerated the PRD schema snapshot from it.
 
 ### Files updated
+
 - Regenerated `PRD/prd_schema.md` with:
   - fresh 2026-03-24 source metadata
   - authoritative inventory of 74 base tables
@@ -7381,6 +7730,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - Updated `repowiki/en/content/Data Management/Database Schema & Design.md` to state that `PRD/prd_schema.md` is the authoritative live table inventory.
 
 ### Result
+
 - PRD schema docs now match the current DB dump in `current schema.txt`.
 - The settings table set documented in the repo now includes the live `settings_branding`, `settings_outlets`, and `settings_transaction_series` tables in addition to `settings_locations`.
 - Schema-aware docs now point back to a single authoritative snapshot instead of relying on older migration-only descriptions.
@@ -7388,6 +7738,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 ## Root Database Knowledge File Expansion (24/03/2026)
 
 ### Goal
+
 - Upgraded `DB_SCHEMA_AWARENESS.md` from a business-summary file into a comprehensive root knowledge file that now covers:
   - what each table is
   - why it exists
@@ -7395,6 +7746,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
   - the full live column inventory for every base table
 
 ### Source usage
+
 - Used `current schema.txt` as the live DDL source for all base tables.
 - Reused existing project-aware narrative context already present in `DB_SCHEMA_AWARENESS.md`.
 - Cross-checked the repo’s data-model intent against:
@@ -7402,6 +7754,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
   - `backend/drizzle/relations.ts`
 
 ### What changed
+
 - Corrected the root file metadata from 79 tables to 74 live base tables.
 - Kept the table-by-table narrative/business explanations in the main body.
 - Added **Appendix A — Full Column Inventory** to `DB_SCHEMA_AWARENESS.md`, generated from the live schema dump.
@@ -7412,12 +7765,14 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
   - table-level PK/FK constraints
 
 ### Result
+
 - `DB_SCHEMA_AWARENESS.md` is now the comprehensive root knowledge file for the live DB shape plus business meaning.
 - Developers can use the main body for intent and the appendix for exact column-level awareness without switching back to the raw DDL for normal schema reading.
 
 ## Flutter Deprecation Cleanup (24/03/2026)
 
 ### Files updated
+
 - Updated `lib/modules/sales/presentation/sales_order_create.dart`:
   - replaced deprecated `Color.withOpacity(...)` calls with `Color.withValues(alpha: ...)`
 - Updated `lib/modules/sales/presentation/widgets/sales_order_preferences_dialog.dart`:
@@ -7425,19 +7780,23 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
   - preserved the existing auto-generate vs manual selection behavior
 
 ### Validation
+
 - `flutter analyze lib/modules/sales/presentation/sales_order_create.dart`
 - `flutter analyze lib/modules/sales/presentation/widgets/sales_order_preferences_dialog.dart`
 
 ### Result
+
 - The targeted sales-order deprecation warnings were removed without changing screen behavior.
 - The sales-order preferences dialog now follows the current Flutter radio-group pattern.
 
 ## Purchase Order Warehouse Data Wiring (24/03/2026)
 
 ### Goal
+
 - Connected the Purchase Order warehouse dropdown to schema-backed location data instead of leaving it dependent on an empty legacy path.
 
 ### Files updated
+
 - Updated `lib/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart`:
   - added the standard auth-free dev org fallback for warehouse loading
 - Updated `lib/modules/purchases/purchase_orders/repositories/purchases_purchase_orders_order_repository_impl.dart`:
@@ -7449,27 +7808,32 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
   - mapped `address`, `country`, and `pincode` from the settings schema into the warehouse display model
 
 ### Schema/source alignment
+
 - This change now prefers the live settings location masters exposed by the `outlets` module, which is backed by:
   - `settings_outlets`
   - `settings_locations`
 - That matches the current schema-aware settings/location system better than relying only on the older `warehouses` table.
 
 ### Validation
+
 - `flutter analyze lib/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart lib/modules/purchases/purchase_orders/repositories/purchases_purchase_orders_order_repository_impl.dart lib/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`
 
 ### Result
+
 - The Purchase Order delivery-address warehouse selector now pulls from the DB-backed settings/outlets warehouse records for the current org.
 - If settings-backed warehouse rows are missing, the screen still falls back to the legacy warehouse lookup instead of breaking.
 
 ## Reusables Governance Rule Update (24/03/2026)
 
 ### Files updated
+
 - Updated `AGENTS.md`
 - Updated `CLAUDE.md`
 - Updated `PRD/PRD.md`
 - Updated `PRD/prd_ui.md`
 
 ### Rule added/aligned
+
 - `REUSABLES.md` is now an explicit mandatory pre-check before creating any new shared widget, mixin, service, utility, helper, or reusable UI pattern.
 - Existing reusables must be used instead of duplicated.
 - Newly created reusables must be added to `REUSABLES.md` after creation.
@@ -7477,53 +7841,64 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - The always-check shortlist is now aligned across the governance docs: `FormDropdown<T>`, `CustomTextField`, `ZerpaiDatePicker`, `ZTooltip`, `GstinPrefillBanner`, `LicenceValidationMixin`, `ZerpaiLayout`, `ZButton`, `ZerpaiConfirmationDialog`, and `AppTheme` tokens.
 
 ### Notes
+
 - Per request, `REUSABLES.md` itself was not modified in this pass.
 
 ## Purchase Order Shared Date Picker Adoption (24/03/2026)
 
 ### Reusable used
+
 - Reused `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart` for the Purchase Order date fields instead of keeping raw text-entry date inputs.
 
 ### Files updated
+
 - Updated `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`:
   - replaced the Purchase Order `Date` field with the shared anchored date picker
   - replaced the `Delivery Date` field with the shared anchored date picker
   - added controller sync so the text fields always reflect `PurchaseOrderState.orderDate` and `expectedDeliveryDate`
 
 ### Validation
+
 - `flutter analyze lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`
 
 ### Result
+
 - The Purchase Order create form now uses the standard reusable date picker for both visible date inputs.
 - The screen remains aligned with the repo rule to use `ZerpaiDatePicker` wherever the shared pattern is suitable.
 
 ## Purchase Order Item Menu Anchor Fix (24/03/2026)
 
 ### Root cause
+
 - The Purchase Order item row had two different three-dots triggers pointing at the same `LayerLink`:
   - the inline item-details menu trigger
   - the far-right row actions trigger
 - Because both targets shared one anchor, the custom overlay menu could attach to the wrong trigger location, making the action menu appear visually misplaced.
 
 ### Files updated
+
 - Updated `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`:
   - split the shared menu anchor into separate links for the inline item-details trigger and the far-right row-actions trigger
   - preserved the existing item menu behavior while making each trigger open from its own correct location
 
 ### Validation
+
 - `flutter analyze lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`
 
 ### Result
+
 - The item action menu now opens relative to the trigger that was actually clicked instead of drifting because of an anchor collision.
 
 ## Purchase Order Tax Resolution Fix (24/03/2026)
 
 ### Root cause
+
 - Product tax assignment in the live schema can point to a tax group, but Purchase Order autofill only searched the plain `taxRates` lookup list.
 - When that lookup missed, the notifier fell back to showing the raw tax UUID in the row label.
 - The tax popover also read only `taxRates`, so rows backed by `taxGroups` produced an empty dropdown body.
 
 ### Files updated
+
 - Updated `lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart`:
   - added schema-aware tax resolution for purchase items
   - now resolves `intraStateTaxId` against `taxGroups` first, then `taxRates`
@@ -7534,9 +7909,11 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
   - deduplicated the merged list by tax ID before rendering the dropdown
 
 ### Validation
+
 - `flutter analyze lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart`
 
 ### Result
+
 - Purchase Order item autofill now resolves tax labels using the correct schema-backed lookup priority.
 - The tax dropdown now shows data instead of rendering an empty list when the selected product tax is a tax group.
 - Raw tax UUIDs are no longer used as the visible label in the row.
@@ -7544,25 +7921,30 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 ## Purchase Receives Navigation Wiring (24/03/2026)
 
 ### Goal
+
 - Added Purchase Receives to the Purchases navigation stack and connected list/create routes so the sidebar item behaves like a real module entry instead of a placeholder gap.
 
 ### Reusables used
+
 - Reused `ZerpaiLayout` for the new Purchase Receives screens.
 - Reused `ZButton` for the primary action pattern on the connected screens.
 
 ### Files added
+
 - Added `lib/modules/purchases/purchase_receives/models/purchases_purchase_receives_model.dart`
 - Added `lib/modules/purchases/purchase_receives/providers/purchases_purchase_receives_provider.dart`
 - Added `lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart`
 - Added `lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart`
 
 ### Files updated
+
 - Updated `lib/core/routing/app_routes.dart`
 - Updated `lib/core/routing/app_router.dart`
 - Updated `lib/core/layout/zerpai_sidebar.dart`
 - Updated `lib/core/layout/zerpai_navbar.dart`
 
 ### Wiring completed
+
 - Added `Purchase Receives` under `Purchases` in the sidebar, positioned after `Purchase Orders` and before `Bills`.
 - Added list route: `/purchases/purchase-receives`
 - Added create route: `/purchases/purchase-receives/create`
@@ -7570,21 +7952,25 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - Added Purchase Receives to the navbar search-category routing maps so it resolves like the other Purchases destinations.
 
 ### Validation
+
 - `flutter analyze lib/modules/purchases/purchase_receives lib/core/routing/app_routes.dart lib/core/routing/app_router.dart lib/core/layout/zerpai_sidebar.dart lib/core/layout/zerpai_navbar.dart`
 
 ### Result
+
 - Purchase Receives is now a connected Purchases destination in navigation.
 - The list screen and create route both load successfully within the current app shell.
 
 ## Sales And Purchase Receives Runtime Navigation Fix (24/03/2026)
 
 ### Root cause
+
 - The sales list UI and sales order overview still used `Navigator.pushNamed(...)` for create/detail navigation even though the app is routed through GoRouter.
 - This caused the runtime failure `Navigator.onGenerateRoute was null` when the sales create route was triggered.
 - The new Purchase Receives list screen used `Expanded` inside a shell that still allowed body scrolling, which produced unbounded-height `RenderFlex` assertions and the follow-on hit-test/layout failures.
 - The Purchase Receives create screen used `context.pop()` for its back action, which is unsafe when the screen is opened directly by URL and no previous route exists in the stack.
 
 ### Files updated
+
 - Updated `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart`
   - replaced `Navigator.pushNamed(...)` with `context.push(...)` for create actions
 - Updated `lib/modules/sales/presentation/sales_order_overview.dart`
@@ -7596,9 +7982,11 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
   - changed the back action from `context.pop()` to `context.go(AppRoutes.purchaseReceives)`
 
 ### Validation
+
 - `flutter analyze lib/modules/sales/presentation/sections/sales_generic_list_ui.dart lib/modules/sales/presentation/sales_order_overview.dart lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart`
 
 ### Result
+
 - Sales create/detail navigation now uses the app’s canonical GoRouter flow instead of legacy named Navigator routes.
 - Purchase Receives no longer depends on an unsafe pop-only back path.
 - The Purchase Receives list screen now uses bounded layout constraints, which removes the render overflow/assertion cascade caused by the initial shell setup.
@@ -7606,9 +7994,11 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 ## Full Purchase Receives Module Port (24/03/2026)
 
 ### Goal
+
 - Replaced the placeholder Purchase Receives shell with the actual module UI and flow from the imported `purchase_receives` source, while adapting it to the repo’s routing, reusable controls, and module structure.
 
 ### Reusables used
+
 - Reused `ZerpaiLayout` for both the list and create screens.
 - Reused `ZButton` for the primary and secondary footer/header actions.
 - Reused `FormDropdown<T>` for vendor and purchase-order selection.
@@ -7616,10 +8006,12 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - Reused `FileUploadButton` instead of adding a screen-local upload control.
 
 ### Files added
+
 - Added `lib/modules/purchases/purchase_receives/repositories/purchases_purchase_receives_repository.dart`
 - Added `lib/modules/purchases/purchase_receives/repositories/purchases_purchase_receives_repository_impl.dart`
 
 ### Files updated
+
 - Updated `lib/modules/purchases/purchase_receives/models/purchases_purchase_receives_model.dart`
 - Updated `lib/modules/purchases/purchase_receives/providers/purchases_purchase_receives_provider.dart`
 - Updated `lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart`
@@ -7627,6 +8019,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - Updated `lib/core/constants/api_endpoints.dart`
 
 ### What changed
+
 - Replaced the empty placeholder model with a fuller Purchase Receive model that supports:
   - list rows
   - item lines
@@ -7657,12 +8050,15 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - Added `purchase-receives` API endpoint constant and repository wiring for the module.
 
 ### Runtime behavior note
+
 - If the backend `purchase-receives` API is unavailable, new Purchase Receives are still stored in the module’s local state for the current session and the UI shows an explicit local-only status instead of silently pretending backend persistence exists.
 
 ### Validation
+
 - `flutter analyze lib/modules/purchases/purchase_receives lib/core/constants/api_endpoints.dart`
 
 ### Result
+
 - Purchase Receives is no longer just a navigation stub.
 - The module now has a real list screen and create flow connected to vendors and purchase orders.
 - The implementation is repo-aligned and uses existing shared controls instead of new duplicated widgets.
@@ -7670,13 +8066,16 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 ## Branch Create Grouped Left Layout Fix (24/03/2026)
 
 ### Root cause
+
 - The branch create page was still using the older per-field left-label row pattern.
 - The intended layout was the grouped pattern where the section label appears once on the left and the full field group sits on the right.
 
 ### Files updated
+
 - Updated `lib/core/pages/settings_branches_create_page.dart`
 
 ### What changed
+
 - Added grouped section helpers for:
   - single left-side section labels
   - grouped right-side cards
@@ -7692,6 +8091,7 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - Flattened the GST block so it no longer nests the old field-row helper inside the new grouped section layout.
 
 ### Verification
+
 - Confirmed `lib/core/pages/settings_organization_profile_page.dart` already points to:
   - `Branches`
   - `Warehouses`
@@ -7700,37 +8100,46 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - `flutter analyze lib/core/pages/settings_branches_create_page.dart lib/core/pages/settings_organization_profile_page.dart`
 
 ### Result
+
 - The branch create page now follows the grouped left-aligned section layout instead of repeating every field label in the left column.
 
 ## Branch Create Compact Width Pass (24/03/2026)
 
 ### Goal
+
 - Make the branch create form visually denser and less stretched on desktop after the grouped layout conversion.
 
 ### Files updated
+
 - Updated `lib/core/pages/settings_branches_create_page.dart`
 
 ### What changed
+
 - Reduced the form container max width from `720` to `680`
 - Added a fixed section content width so grouped cards no longer stretch across the entire available row
 - Reduced grouped card padding
 - Reduced compact field vertical spacing between label and input blocks
 
 ### Validation
+
 - `flutter analyze lib/core/pages/settings_branches_create_page.dart`
 
 ### Result
+
 - The branch edit/create form now renders as a tighter settings form instead of a wide stretched panel.
 
 ## Branch Create Layout Aligned To Location Form (24/03/2026)
 
 ### Goal
+
 - Match the branch create/edit page structure to the compact Zoho-style location form layout shown in the reference screenshot.
 
 ### Files updated
+
 - Updated `lib/core/pages/settings_branches_create_page.dart`
 
 ### What changed
+
 - Restored centered constrained form layout similar to the location settings screen
 - Changed section composition from split left/right section rows to stacked sections:
   - section label on top
@@ -7739,34 +8148,42 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 - Restored slightly roomier field spacing inside the compact cards to match the reference settings UI balance
 
 ### Validation
+
 - `flutter analyze lib/core/pages/settings_branches_create_page.dart`
 
 ### Result
+
 - The branch create/edit page now follows the same compact stacked settings layout style as the location page instead of the custom split section-row treatment.
 
 ## Items + Sales Order Tax & Account Fixes (March 27, 2026)
 
 ### Summary
+
 Two separate fixes applied in one session.
 
 ### 1. Inventory Account Dropdown — Items Create/Edit
+
 **Problem:** The Inventory Account dropdown on the Items create/edit page showed all accounts (every type), and had no default selection on new items.
 
 **Fix:**
+
 - `backend/src/modules/products/products.service.ts` → `getAccounts()`: added `.eq("account_type", "Stock")` filter — only Stock-type accounts (Finished Goods, Inventory Asset, Work In Progress) are returned.
 - `backend/src/modules/lookups/lookups.controller.ts` → `searchLookups` (type `accountant`): added `.eq("account_type", "Stock")` so live search is consistent.
 - `lib/modules/items/items/presentation/items_item_create.dart`: added `_defaultInventoryAccountName = 'Inventory Asset'` constant and wired it into `_applyOperationalDefaultsIfMissing()` via `inventoryAccountId ??= defaultInventoryAccountId` — auto-selects "Inventory Asset" on new item creation only.
 
 ### 2. Sales Order Item Table — Tax Dropdown
+
 **Problem:** TAX dropdown in the Sales Order item table showed "No results found" because it only sourced from `taxRates` (associate_taxes / inter-state). The tax groups from `tax_groups` (intra-state) were excluded. Also, when a product was selected, `row.taxId` was never auto-filled.
 
 **Fix (`lib/modules/sales/presentation/sales_order_create.dart`):**
+
 - Combined `[...itemsState.taxGroups, ...itemsState.taxRates]` so both intra-state tax groups and inter-state associate taxes appear in the dropdown.
 - On product selection: `row.taxId ??= p.intraStateTaxId ?? p.interStateTaxId` — auto-fills the tax from the product's tax configuration (intra-state preferred).
 
 ## Sales Order Create — Backend Rewrite & Toast Migration (March 27, 2026)
 
 ### Sales Order Service Rewrite
+
 - Rewrote `createSalesOrder` in `backend/src/modules/sales/services/sales.service.ts` to use actual DB schema columns
 - Maps `paymentTerms` UUID → `payment_term_id`, `salesperson` → `salesperson_name`
 - Computes `sub_total`, `tax_total`, `discount_total`, `total_quantity`, `total` from line items
@@ -7774,32 +8191,39 @@ Two separate fixes applied in one session.
 - Added **compensating delete**: if items insert fails, the header is deleted to keep DB clean (prevents duplicate sale_number on retry)
 
 ### Tax Group FK Resolution
+
 - `sales_order_items.tax_id` FK references `associate_taxes`, but UI sends `tax_groups` UUIDs
 - Service now does 2-step lookup: checks `associate_taxes` first → falls back to `tax_groups` for rate
 - Tax group IDs stored with `tax_id: null` (no FK violation) but correct `tax_rate` and `tax_amount` are computed
 
 ### Flutter Model Updates
+
 - `SalesOrderItem` model: added `discountType` field (default `'%'`), propagated through `fromJson`/`toJson`
 - `_saveSalesOrder` now passes `taxId` and `discountType` from each row to `SalesOrderItem`
 
 ### Toast Migration
+
 - Replaced all raw `ScaffoldMessenger`/`SnackBar` usages (216 occurrences, 41 files) with `ZerpaiToast`
 - Updated `error_handler.dart` to delegate `showErrorSnackBar`/`showSuccessSnackBar`/`showWarningSnackBar` to `ZerpaiToast`
 
 ### Pending
+
 - Run seed migration `backend/migrations/seed_stock_accounts.sql` in Supabase SQL editor (adds Finished Goods, Work In Progress stock accounts)
 
 ## Sales Orders — Shared Reusable Mapping Applied (March 27, 2026)
 
 ### Goal
+
 - Align the Sales Orders module with the repo's shared ERP primitives instead of maintaining screen-local list, search, amount, and form patterns.
 
 ### Files updated
+
 - Updated `lib/modules/sales/presentation/sales_order_overview.dart`
 - Updated `lib/shared/widgets/inputs/z_search_field.dart`
 - Updated `lib/shared/widgets/z_data_table_shell.dart`
 
 ### What changed
+
 - Replaced the Sales Orders toolbar search input with shared `ZSearchField`
 - Replaced the Customize Columns dialog search field with shared `ZSearchField`
 - Refactored the Sales Orders table shell to use shared `ZDataTableShell` while preserving the module-specific header and scrollable body
@@ -7813,6 +8237,7 @@ Two separate fixes applied in one session.
 - Added unsaved-change protection to the New Custom View dialog via `showUnsavedChangesDialog()`
 
 ### Shared reusable extensions
+
 - `ZSearchField` now supports:
   - external `controller`
   - external `focusNode`
@@ -7821,20 +8246,24 @@ Two separate fixes applied in one session.
 - `ZDataTableShell` now supports a custom `body` widget in addition to row lists, allowing shared table framing to be reused for more complex list screens like Sales Orders
 
 ### Validation
+
 - `dart format lib/shared/widgets/inputs/z_search_field.dart`
 - `dart format lib/shared/widgets/z_data_table_shell.dart`
 - `dart format lib/modules/sales/presentation/sales_order_overview.dart`
 - `dart analyze lib/shared/widgets/inputs/z_search_field.dart lib/shared/widgets/z_data_table_shell.dart lib/modules/sales/presentation/sales_order_overview.dart`
 
 ### Result
+
 - Sales Orders now uses the shared search, table-shell, amount-display, and form-dialog primitives expected by the repo, while retaining its module-specific list interactions, bulk actions, column controls, and detail workspace behavior.
 
 ## Sales Orders — Real Edit Flow & Router Fix (March 27, 2026)
 
 ### Goal
+
 - Make the Sales Order detail `Edit` action open a true edit workflow instead of reusing the create flow incorrectly, and fix the GoRouter crash seen when clicking edit from the detail panel.
 
 ### Files updated
+
 - Updated `lib/core/routing/app_routes.dart`
 - Updated `lib/core/routing/app_router.dart`
 - Updated `lib/modules/sales/presentation/sales_order_overview.dart`
@@ -7843,6 +8272,7 @@ Two separate fixes applied in one session.
 - Updated `lib/modules/sales/services/sales_order_api_service.dart`
 
 ### What changed
+
 - Added a dedicated Sales Order edit route: `/sales/orders/:id/edit`
 - Updated detail-toolbar `Edit` to navigate into the edit route with the current order passed through `extra`
 - Reworked edit navigation to use a full-path router push based on the live browser path after a GoRouter context/state error was reported during edit clicks
@@ -7858,6 +8288,7 @@ Two separate fixes applied in one session.
 - Added `updateSalesOrder(...)` to the Sales Order API service and controller
 
 ### Validation
+
 - `dart format lib/core/routing/app_routes.dart`
 - `dart format lib/core/routing/app_router.dart`
 - `dart format lib/modules/sales/presentation/sales_order_overview.dart`
@@ -7867,4 +8298,149 @@ Two separate fixes applied in one session.
 - `dart analyze lib/core/routing/app_routes.dart lib/core/routing/app_router.dart lib/modules/sales/presentation/sales_order_overview.dart lib/modules/sales/presentation/sales_order_create.dart lib/modules/sales/controllers/sales_order_controller.dart lib/modules/sales/services/sales_order_api_service.dart`
 
 ### Result
+
 - Sales Orders now has a real edit/update path, and the edit button no longer depends on the failing route-state lookup path that triggered the GoRouter red screen.
+
+## 3. Zerpai ERP Global Sync & Component Overhaul
+
+### Description
+
+A major architectural synchronization and feature implementation phase focusing on unifying the design language, enabling robust deep-linking, and formalizing the 'premium' look and feel of the platform through a set of high-quality shared components.
+
+### Implementation Details
+
+- **Architecture**: Transitioned Sales and Purchase modules from volatile `extra` object route states to stable, ID-based resource lookups. This prevents "red screen" crashes on browser refresh and enables direct URL access to specific orders.
+- **UI System**: Implemented a new tier of 'Z' components (`ZButton`, `ZSearchField`, `ZCurrencyDisplay`, `ZDataTableShell`, `ZRowActions`). These components centralize design tokens (borders, shadows, padding) and enforce the "Pure White Surface" rule.
+- **Settings & Master Data**:
+  - Created dedicated management screens for **Branches** and **Warehouses**.
+  - Integrated **GSTIN Auto-Fetching Service** in the backend, allowing users to pre-fill legal/trade names directly from the GST network.
+  - Formalized **Transaction Series** management, allowing per-location overrides of numbering prefixes and starting sequences.
+- **Responsive Layout**: Validated `ZerpaiLayout` metrics across all new screens, ensuring consistent sidebar-aware content overflow and shell wrapping.
+- **Backend**: Synchronized Drizzle ORM schema with the core PostgreSQL structure. Added seed migrations for critical accounting stock links (Inventory Integration).
+
+### Frontend Files
+
+- `lib/core/pages/settings_locations_create_page.dart`
+- `lib/core/pages/settings_locations_page.dart`
+- `lib/core/pages/settings_branches_create_page.dart`
+- `lib/core/pages/settings_branches_list_page.dart`
+- `lib/core/pages/settings_warehouses_create_page.dart`
+- `lib/core/pages/settings_warehouses_list_page.dart`
+- `lib/core/routing/app_router.dart`
+- `lib/core/routing/app_routes.dart`
+- `lib/shared/widgets/z_button.dart`
+- `lib/shared/widgets/inputs/z_search_field.dart`
+- `lib/shared/widgets/z_currency_display.dart`
+- `lib/shared/widgets/z_data_table_shell.dart`
+- `lib/shared/widgets/z_row_actions.dart`
+- `lib/modules/sales/presentation/sales_order_create.dart`
+- `lib/modules/sales/presentation/sales_order_overview.dart`
+- `lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart`
+
+### Backend Files
+
+- `backend/drizzle/schema.ts`
+- `backend/drizzle/relations.ts`
+- `backend/src/modules/gst/gst.service.ts`
+- `backend/src/modules/transaction-series/transaction-series.service.ts`
+- `backend/migrations/seed_stock_accounts.sql`
+- `backend/src/app.module.ts`
+
+Timestamp of Log Update: 2026-03-27 - 17:26 (IST)
+
+## Sales Orders — Skeleton Shimmers, Update Bug Fix & Column Spacing (March 27, 2026)
+
+### Summary
+
+Three distinct improvements: (1) added layout-matched shimmer skeletons for sales-related screens, (2) fixed a 404 bug on sales order updates by adding the missing PUT endpoint, (3) fixed discount not persisting after update due to a JSON field name mismatch, and (4) added breathing room between table columns.
+
+---
+
+### Frontend Files
+
+- **`lib/shared/widgets/skeleton.dart`**
+  - Added `SalesOrderTableSkeleton`: toolbar row + table header with 10 column stubs (Date, SO#, Reference#, Customer, Status, Invoiced, Payment, Packed, Shipped, Amount) + 10 shimmer data rows.
+  - Added `SalesOrderListSkeleton`: 360px narrow panel — header + search bar + 10 shimmer list items (icon + customer name + SO#·date + status + amount).
+  - Added `CustomerDetailSkeleton`: 280px left mini-list + right detail panel (action bar + 5 tab stubs + content rows).
+  - Added `ReportTableSkeleton`: filters row + 4-column table header + 8 shimmer data rows.
+  - Fixed type error: list literals for `Skeleton.width` must use `double` literals (e.g. `60.0` not `60`).
+
+- **`lib/modules/sales/presentation/sales_order_overview.dart`**
+  - Replaced generic `ListSkeleton()` with `SalesOrderTableSkeleton()` during full-table load.
+  - Added 12px right padding inside `_Cell` widget so columns don't crowd each other when scrolling horizontally.
+  - Added 12px right padding inside `_Header` widget (same pattern wrapping the `Row`).
+  - Increased default column widths for badge columns: Invoiced 110→130, Payment 110→130, Packed 110→120, Shipped 110→120, Amount 140→150.
+
+- **`lib/modules/sales/presentation/sales_customer_overview.dart`** (approx.)
+  - Replaced `DetailSkeleton()` loading state with `CustomerDetailSkeleton()` for layout-accurate loading.
+
+- **`lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart`**
+  - Replaced `CircularProgressIndicator` loading state with `TableSkeleton()`.
+
+- **`lib/modules/sales/models/sales_order_item_model.dart`**
+  - Fixed `fromJson` to read `discount_value` (actual DB column) with fallback to `discount`:
+    `discount: (json['discount_value'] ?? json['discount'] ?? 0.0).toDouble()`
+  - Root cause: DB stores `discount_value`, `fromJson` only checked `json['discount']` — always yielded 0 after update.
+
+---
+
+### Backend Files
+
+- **`backend/src/modules/sales/controllers/sales.controller.ts`**
+  - Added `Put` to NestJS imports.
+  - Added `@Put(':id')` endpoint (positioned before `@Get(':id')` to avoid NestJS route-order conflicts):
+    ```typescript
+    @Put(':id')
+    async updateSalesOrder(@Param('id') id: string, @Body() body: any, @Headers('x-org-id') orgId: string) {
+      return this.salesService.updateSalesOrder(id, body, orgId || '00000000-0000-0000-0000-000000000000');
+    }
+    ```
+
+- **`backend/src/modules/sales/services/sales.service.ts`**
+  - Added `NotFoundException` to imports.
+  - Implemented `updateSalesOrder(id, body, orgId)`:
+    - Verifies order exists (throws `NotFoundException` if not).
+    - Resolves tax IDs via `associate_taxes` → `tax_groups` fallback (same logic as create).
+    - Computes per-line amounts, discounts, tax amounts, and order-level totals.
+    - Updates `sales_orders` header row.
+    - Deletes all existing `sales_order_items` for the order, then re-inserts with fresh values (replace-all pattern).
+
+---
+
+Timestamp of Log Update: March 27, 2026 - (IST)
+
+## Sales Orders — Horizontal Scroll Fix & Log Rules Update (March 27, 2026)
+
+### Summary
+Fixed the horizontal scroll on the sales orders table (scrollbar was painting over the table as a yellow-black debug stripe overlay). Also updated log.md maintenance rules to append-at-bottom instead of prepend-at-top.
+
+---
+
+### Frontend Files
+
+- **`lib/modules/sales/presentation/sales_order_overview.dart`**
+  - Removed `ZDataTableShell` usage from `_table()` — replaced with a plain bordered `Container` so the scroll architecture could be fully controlled.
+  - New layout: `Container(border) > Column(fixed header + Divider + Expanded(Scrollbar > SingleChildScrollView(horizontal) > SizedBox(tableWidth) > ListView))`.
+  - Header is mirrored via its own `SingleChildScrollView` bound to `_horizScrollCtrl` with `NeverScrollableScrollPhysics` — it follows the body scroll position without allowing independent user scroll on the header.
+  - Body `Scrollbar` sits **inside** the bordered container so it renders within the table boundary, not as an overlay on top of it.
+  - Removed now-unused `import z_data_table_shell.dart`.
+  - Added `ScrollController _horizScrollCtrl` field, initialized in `initState`, disposed in `dispose`.
+
+---
+
+### No Backend Changes
+
+Timestamp of Log Update: March 27, 2026 - (IST)
+
+## 4. Sales Order Table Layout Fix & Optimization
+
+### Frontend Files
+
+- **lib/modules/sales/presentation/sales_order_overview.dart**
+  - Fixed **RenderFlex overflow (28px)** in the data table body row caused by unaligned horizontal padding.
+  - Removed padding: horizontal: 14 from the body row Container to ensure it perfectly aligns with the header row (which has zero padding on the root Row).
+  - This preserves the column alignment across the custom dual-SVP (SingleChildScrollView) architecture used for synchronized horizontal scrolling.
+
+### No Backend Changes
+
+Timestamp of Log Update: March 27, 2026 - 18:42 (IST)

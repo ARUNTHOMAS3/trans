@@ -39,7 +39,7 @@ class SalesOrderItem {
       description: json['description'],
       quantity: (json['quantity'] ?? 0.0).toDouble(),
       rate: (json['rate'] ?? 0.0).toDouble(),
-      discount: (json['discount'] ?? 0.0).toDouble(),
+      discount: (json['discount_value'] ?? json['discount'] ?? 0.0).toDouble(),
       discountType: json['discount_type'] ?? json['discountType'] ?? '%',
       taxId: json['tax_id'] ?? json['taxId'],
       taxAmount: (json['tax_amount'] ?? json['taxAmount'] ?? 0.0).toDouble(),

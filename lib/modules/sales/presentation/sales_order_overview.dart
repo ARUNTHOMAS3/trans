@@ -15,7 +15,6 @@ import 'package:zerpai_erp/shared/widgets/form_row.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/z_currency_display.dart';
-import 'package:zerpai_erp/shared/widgets/z_data_table_shell.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 
@@ -166,6 +165,7 @@ class _SalesOrderOverviewScreenState
     extends ConsumerState<SalesOrderOverviewScreen> {
   late final TextEditingController _searchController;
   late final FocusNode _searchFocusNode;
+  late final ScrollController _horizScrollCtrl;
   String _searchQuery = '';
   _SalesOrderView _activeView = _salesOrderViews.first;
   _SalesOrderSortField _activeSortField = _SalesOrderSortField.salesOrderNumber;
@@ -184,6 +184,7 @@ class _SalesOrderOverviewScreenState
   void initState() {
     super.initState();
     _columnConfigs = _defaultColumnConfigs();
+    _horizScrollCtrl = ScrollController();
     _searchController = TextEditingController(
       text: widget.initialSearchQuery ?? '',
     );
@@ -199,6 +200,7 @@ class _SalesOrderOverviewScreenState
 
   @override
   void dispose() {
+    _horizScrollCtrl.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -261,31 +263,31 @@ class _SalesOrderOverviewScreenState
       _SalesOrderColumnConfig(
         key: _SalesOrderColumnKey.invoiced,
         label: 'Invoiced',
-        width: 110,
+        width: 130,
         visible: true,
       ),
       _SalesOrderColumnConfig(
         key: _SalesOrderColumnKey.payment,
         label: 'Payment',
-        width: 110,
+        width: 130,
         visible: true,
       ),
       _SalesOrderColumnConfig(
         key: _SalesOrderColumnKey.packed,
         label: 'Packed',
-        width: 110,
+        width: 120,
         visible: true,
       ),
       _SalesOrderColumnConfig(
         key: _SalesOrderColumnKey.shipped,
         label: 'Shipped',
-        width: 110,
+        width: 120,
         visible: true,
       ),
       _SalesOrderColumnConfig(
         key: _SalesOrderColumnKey.amount,
         label: 'Amount',
-        width: 140,
+        width: 150,
         locked: true,
         visible: true,
       ),
@@ -351,7 +353,7 @@ class _SalesOrderOverviewScreenState
       useTopPadding: false,
       searchFocusNode: _searchFocusNode,
       child: salesAsync.when(
-        loading: () => const ListSkeleton(),
+        loading: () => const SalesOrderTableSkeleton(),
         error: (error, _) => _message(
           icon: LucideIcons.alertCircle,
           title: 'Unable to load sales orders',
@@ -890,8 +892,7 @@ class _SalesOrderOverviewScreenState
   Widget _detailPane(String orderId, SalesOrder? summary) {
     final detailAsync = ref.watch(_salesOrderDetailProvider(orderId));
     return detailAsync.when(
-      loading: () =>
-          const Padding(padding: EdgeInsets.all(24), child: DetailSkeleton()),
+      loading: () => const SalesOrderDetailSkeleton(),
       error: (error, _) => _message(
         icon: LucideIcons.alertTriangle,
         title: 'Unable to load order details',
@@ -1125,77 +1126,98 @@ class _SalesOrderOverviewScreenState
         if (_selectedSaleIds.isNotEmpty) _selectionToolbar(),
         const SizedBox(height: 8),
         Expanded(
-          child: ZDataTableShell(
-            header: SizedBox(
-              height: 44,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: _tableWidth,
-                  child: Row(
-                    children: [
-                      SizedBox(width: 28, child: _headerMenuButton()),
-                      SizedBox(
-                        width: 30,
-                        child: Checkbox(
-                          value: allSelected,
-                          onChanged: (value) =>
-                              _toggleSelectAll(sales, value ?? false),
-                          activeColor: AppTheme.primaryBlueDark,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(3),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor,
+              borderRadius: BorderRadius.circular(AppTheme.space8),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Fixed header — scrolls horizontally with the body
+                SizedBox(
+                  height: 44,
+                  child: SingleChildScrollView(
+                    controller: _horizScrollCtrl,
+                    scrollDirection: Axis.horizontal,
+                    physics: const NeverScrollableScrollPhysics(),
+                    child: SizedBox(
+                      width: _tableWidth,
+                      child: Row(
+                        children: [
+                          SizedBox(width: 28, child: _headerMenuButton()),
+                          SizedBox(
+                            width: 30,
+                            child: Checkbox(
+                              value: allSelected,
+                              onChanged: (value) =>
+                                  _toggleSelectAll(sales, value ?? false),
+                              activeColor: AppTheme.primaryBlueDark,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
                           ),
-                        ),
+                          ..._visibleColumns.map(_buildHeaderForColumn),
+                        ],
                       ),
-                      ..._visibleColumns.map(_buildHeaderForColumn),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-            body: ListView.separated(
-              itemCount: sales.length,
-              separatorBuilder: (context, index) =>
-                  const Divider(height: 1, color: AppTheme.borderLight),
-              itemBuilder: (context, index) {
-                final sale = sales[index];
-                return InkWell(
-                  onTap: () => context.go('/sales/orders/${sale.id}'),
-                  hoverColor: AppTheme.selectionActiveBg,
-                  child: Container(
-                    height: _clipText ? 46 : 56,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                const Divider(height: 1, color: AppTheme.borderColor),
+                // Body — vertical list inside horizontal scroll
+                Expanded(
+                  child: Scrollbar(
+                    controller: _horizScrollCtrl,
+                    thumbVisibility: true,
                     child: SingleChildScrollView(
+                      controller: _horizScrollCtrl,
                       scrollDirection: Axis.horizontal,
                       child: SizedBox(
                         width: _tableWidth,
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 28),
-                            SizedBox(
-                              width: 30,
-                              child: Checkbox(
-                                value: _selectedSaleIds.contains(sale.id),
-                                onChanged: (value) => _toggleSaleSelection(
-                                  sale.id,
-                                  value ?? false,
-                                ),
-                                activeColor: AppTheme.primaryBlueDark,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(3),
+                        child: ListView.separated(
+                          itemCount: sales.length,
+                          separatorBuilder: (context, index) =>
+                              const Divider(height: 1, color: AppTheme.borderLight),
+                          itemBuilder: (context, index) {
+                            final sale = sales[index];
+                            return InkWell(
+                              onTap: () => context.go('/sales/orders/${sale.id}'),
+                              hoverColor: AppTheme.selectionActiveBg,
+                              child: Container(
+                                height: _clipText ? 46 : 56,
+                                child: Row(
+                                  children: [
+                                    const SizedBox(width: 28),
+                                    SizedBox(
+                                      width: 30,
+                                      child: Checkbox(
+                                        value: _selectedSaleIds.contains(sale.id),
+                                        onChanged: (value) => _toggleSaleSelection(
+                                          sale.id,
+                                          value ?? false,
+                                        ),
+                                        activeColor: AppTheme.primaryBlueDark,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                      ),
+                                    ),
+                                    ..._visibleColumns.map(
+                                      (column) => _buildCellForColumn(column, sale),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                            ..._visibleColumns.map(
-                              (column) => _buildCellForColumn(column, sale),
-                            ),
-                          ],
+                            );
+                          },
                         ),
                       ),
                     ),
                   ),
-                );
-              },
+                ),
+              ],
             ),
           ),
         ),
@@ -2525,40 +2547,43 @@ class _Header extends StatelessWidget {
       onTap: onTap,
       child: SizedBox(
         width: width,
-        child: Row(
-          mainAxisAlignment: alignRight
-              ? MainAxisAlignment.end
-              : MainAxisAlignment.start,
-          children: [
-            Flexible(
-              child: Text(
-                label,
-                style: AppTheme.metaHelper.copyWith(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
-                  color: sorted ? AppTheme.primaryBlue : AppTheme.textSecondary,
+        child: Padding(
+          padding: EdgeInsets.only(right: alignRight ? 0 : 12),
+          child: Row(
+            mainAxisAlignment: alignRight
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            children: [
+              Flexible(
+                child: Text(
+                  label,
+                  style: AppTheme.metaHelper.copyWith(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                    color: sorted ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            if (sorted) ...[
-              const SizedBox(width: 4),
-              Icon(
-                ascending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
-                size: 12,
-                color: AppTheme.primaryBlue,
-              ),
-            ] else ...[
-              const SizedBox(width: 4),
-              const Icon(
-                LucideIcons.arrowUpDown,
-                size: 12,
-                color: AppTheme.textDisabled,
-              ),
+              if (sorted) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  ascending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+                  size: 12,
+                  color: AppTheme.primaryBlue,
+                ),
+              ] else ...[
+                const SizedBox(width: 4),
+                const Icon(
+                  LucideIcons.arrowUpDown,
+                  size: 12,
+                  color: AppTheme.textDisabled,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -2580,9 +2605,12 @@ class _Cell extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
-      child: Align(
-        alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
-        child: child,
+      child: Padding(
+        padding: EdgeInsets.only(right: alignRight ? 0 : 12),
+        child: Align(
+          alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
+          child: child,
+        ),
       ),
     );
   }
