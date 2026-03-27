@@ -1177,9 +1177,11 @@ class _SalesOrderOverviewScreenState
                 const Divider(height: 1, color: AppTheme.borderColor),
                 // Body — vertical list inside horizontal scroll
                 Expanded(
-                  child: Scrollbar(
+                  child: RawScrollbar(
                     controller: _bodyScrollCtrl,
                     thumbVisibility: true,
+                    thickness: 6,
+                    radius: const Radius.circular(3),
                     child: SingleChildScrollView(
                       controller: _bodyScrollCtrl,
                       scrollDirection: Axis.horizontal,
