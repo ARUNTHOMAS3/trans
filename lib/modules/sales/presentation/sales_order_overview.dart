@@ -1169,7 +1169,6 @@ class _SalesOrderOverviewScreenState
                 // Body — vertical list inside horizontal scroll
                 Expanded(
                   child: Scrollbar(
-                    controller: _horizScrollCtrl,
                     thumbVisibility: true,
                     child: SingleChildScrollView(
                       controller: _horizScrollCtrl,
