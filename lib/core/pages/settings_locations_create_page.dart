@@ -615,12 +615,7 @@ class _SettingsLocationsCreatePageState
         });
         if (duplicate) {
           setState(() => _isSaving = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('A location with this name already exists.'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          ZerpaiToast.error(context, 'A location with this name already exists.');
           return;
         }
       }

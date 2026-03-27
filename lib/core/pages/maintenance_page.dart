@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 class MaintenancePage extends StatelessWidget {
   final String? message;
@@ -116,12 +117,7 @@ class MaintenancePage extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: () {
                       // In a real implementation, this would check if maintenance is complete
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Checking system status...'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
+                      ZerpaiToast.info(context, 'Checking system status...');
                     },
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 16),

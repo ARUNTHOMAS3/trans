@@ -9,6 +9,7 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'items_composite_filters.dart';
 import 'items_composite_filter_dropdown.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 class CompositeItemsListScreen extends ConsumerStatefulWidget {
   final String? initialItemId;
@@ -169,7 +170,6 @@ class _CompositeItemsListScreenState
           _BulkButton(
             label: 'Mark as Active',
             onTap: () async {
-              final messenger = ScaffoldMessenger.of(context);
               final count = await ref
                   .read(itemsControllerProvider.notifier)
                   .updateCompositeItemsBulk(_selectedIds, {'is_active': true});
@@ -177,20 +177,10 @@ class _CompositeItemsListScreenState
               if (!mounted) return;
 
               if (count > 0) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('$count items marked as active'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                ZerpaiToast.success(context, '$count items marked as active');
                 setState(() => _selectedIds.clear());
               } else {
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Failed to update items'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                ZerpaiToast.error(context, 'Failed to update items');
               }
             },
           ),
@@ -198,7 +188,6 @@ class _CompositeItemsListScreenState
           _BulkButton(
             label: 'Mark as Inactive',
             onTap: () async {
-              final messenger = ScaffoldMessenger.of(context);
               final count = await ref
                   .read(itemsControllerProvider.notifier)
                   .updateCompositeItemsBulk(_selectedIds, {'is_active': false});
@@ -206,20 +195,10 @@ class _CompositeItemsListScreenState
               if (!mounted) return;
 
               if (count > 0) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('$count items marked as inactive'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                ZerpaiToast.success(context, '$count items marked as inactive');
                 setState(() => _selectedIds.clear());
               } else {
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Failed to update items'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                ZerpaiToast.error(context, 'Failed to update items');
               }
             },
           ),
@@ -227,7 +206,6 @@ class _CompositeItemsListScreenState
           _BulkButton(
             label: 'Mark as Returnable',
             onTap: () async {
-              final messenger = ScaffoldMessenger.of(context);
               final count = await ref
                   .read(itemsControllerProvider.notifier)
                   .updateCompositeItemsBulk(_selectedIds, {
@@ -237,20 +215,10 @@ class _CompositeItemsListScreenState
               if (!mounted) return;
 
               if (count > 0) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('$count items marked as returnable'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                ZerpaiToast.success(context, '$count items marked as returnable');
                 setState(() => _selectedIds.clear());
               } else {
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Failed to update items'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                ZerpaiToast.error(context, 'Failed to update items');
               }
             },
           ),
@@ -258,7 +226,6 @@ class _CompositeItemsListScreenState
           _BulkButton(
             label: 'Enable Bin location',
             onTap: () async {
-              final messenger = ScaffoldMessenger.of(context);
               final count = await ref
                   .read(itemsControllerProvider.notifier)
                   .updateCompositeItemsBulk(_selectedIds, {
@@ -268,20 +235,10 @@ class _CompositeItemsListScreenState
               if (!mounted) return;
 
               if (count > 0) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('Bin location enabled for $count items'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                ZerpaiToast.success(context, 'Bin location enabled for $count items');
                 setState(() => _selectedIds.clear());
               } else {
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Failed to update items'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                ZerpaiToast.error(context, 'Failed to update items');
               }
             },
           ),
@@ -289,7 +246,6 @@ class _CompositeItemsListScreenState
           _BulkButton(
             label: 'Disable Bin location',
             onTap: () async {
-              final messenger = ScaffoldMessenger.of(context);
               final count = await ref
                   .read(itemsControllerProvider.notifier)
                   .updateCompositeItemsBulk(_selectedIds, {
@@ -299,20 +255,10 @@ class _CompositeItemsListScreenState
               if (!mounted) return;
 
               if (count > 0) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('Bin location disabled for $count items'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                ZerpaiToast.success(context, 'Bin location disabled for $count items');
                 setState(() => _selectedIds.clear());
               } else {
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Failed to update items'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                ZerpaiToast.error(context, 'Failed to update items');
               }
             },
           ),
@@ -323,7 +269,6 @@ class _CompositeItemsListScreenState
             padding: EdgeInsets.zero,
             onSelected: (value) async {
               if (value == 'delete') {
-                final messenger = ScaffoldMessenger.of(context);
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
@@ -355,20 +300,10 @@ class _CompositeItemsListScreenState
                   if (!mounted) return;
 
                   if (count > 0) {
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('$count items deleted'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
+                    ZerpaiToast.success(context, '$count items deleted');
                     setState(() => _selectedIds.clear());
                   } else {
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Failed to delete items'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
+                    ZerpaiToast.error(context, 'Failed to delete items');
                   }
                 }
               }

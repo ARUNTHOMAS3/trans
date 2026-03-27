@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/lookup_utils.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_search_field.dart';
+import 'package:zerpai_erp/shared/widgets/z_button.dart';
+import 'package:zerpai_erp/shared/widgets/z_currency_display.dart';
+import 'package:zerpai_erp/shared/widgets/z_data_table_shell.dart';
+import 'package:zerpai_erp/shared/widgets/z_row_actions.dart';
 
 import '../controllers/items_controller.dart';
 import '../controllers/items_state.dart';
@@ -13,187 +23,151 @@ class ItemListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final itemsState = ref.watch(itemsControllerProvider);
+    final notifier = ref.read(itemsControllerProvider.notifier);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.4,
-        title: const Text(
-          "Items",
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1F1F1F),
-          ),
-        ),
+        title: Text('Items', style: AppTheme.pageTitle),
         actions: [
-          _searchBar(),
-          const SizedBox(width: 12),
-          _newItemButton(context),
-          const SizedBox(width: 20),
+          ZSearchField(
+            hintText: 'Search by name, SKU, category...',
+            onChanged: (q) => notifier.performSearch(q),
+          ),
+          const SizedBox(width: AppTheme.space12),
+          ZButton.primary(
+            label: 'New Item',
+            icon: LucideIcons.plus,
+            onPressed: () => context.pushNamed(AppRoutes.itemsCreate),
+          ),
+          const SizedBox(width: AppTheme.space20),
         ],
       ),
-
       body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: _buildItemsTable(context, itemsState),
-      ),
-    );
-  }
-
-  // -------------------------------
-  // SEARCH BAR (zerpai style)
-  // -------------------------------
-  Widget _searchBar() {
-    return Container(
-      width: 300,
-      height: 40,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xffd5d5d5)),
-      ),
-      child: const TextField(
-        decoration: InputDecoration(
-          hintText: "Search by name, SKU, category...",
-          prefixIcon: Icon(Icons.search, size: 20),
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(AppTheme.space20),
+        child: _ItemsTable(
+          state: itemsState,
+          onDeleteItem: (item) => _confirmDelete(context, ref, item),
         ),
       ),
     );
   }
 
-  // -------------------------------
-  // NEW ITEM BUTTON
-  // -------------------------------
-  Widget _newItemButton(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: () => context.pushNamed(AppRoutes.itemsCreate),
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      ),
-      icon: const Icon(Icons.add, size: 18),
-      label: const Text(
-        "New Item",
-        style: TextStyle(fontWeight: FontWeight.w600),
-      ),
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    Item item,
+  ) async {
+    final confirmed = await showZerpaiConfirmationDialog(
+      context,
+      title: 'Delete Item',
+      message: 'Delete "${item.productName}"? This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: ZerpaiConfirmationVariant.danger,
     );
-  }
+    if (!confirmed) return;
 
-  // -------------------------------
-  // ITEMS TABLE
-  // -------------------------------
-  Widget _buildItemsTable(BuildContext context, ItemsState state) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xffe3e3e3)),
-      ),
-      child: Column(
-        children: [
-          _buildTableer(),
-          const Divider(height: 1),
-          ...state.items.map((item) => _tableRow(context, item, state)),
-        ],
-      ),
-    );
-  }
-
-  // -------------------------------
-  // TABLE ER
-  // -------------------------------
-  Widget _buildTableer() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
-        children: const [
-          Expanded(flex: 4, child: Text("Item Name", style: _erStyle)),
-          Expanded(flex: 2, child: Text("SKU", style: _erStyle)),
-          Expanded(flex: 2, child: Text("Category", style: _erStyle)),
-          Expanded(flex: 2, child: Text("MRP", style: _erStyle)),
-          SizedBox(width: 40),
-        ],
-      ),
-    );
-  }
-
-  // -------------------------------
-  // TABLE ROWS
-  // -------------------------------
-  Widget _tableRow(BuildContext context, Item item, ItemsState state) {
-    return InkWell(
-      onTap: () {
-        // item details page
-        // context.go("/items/${item.id}");
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 4,
-              child: Text(
-                item.productName,
-                style: const TextStyle(fontSize: 15, color: Color(0xFF1F1F1F)),
-              ),
-            ),
-            Expanded(flex: 2, child: Text(item.sku ?? "-", style: _rowStyle)),
-            Expanded(
-              flex: 2,
-              child: Text(
-                _getCategoryName(state.categories, item.categoryId),
-                style: _rowStyle,
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.currency_rupee,
-                    size: 16,
-                    color: Color(0xff2E2E2E),
-                  ),
-                  Text(
-                    item.mrp?.toStringAsFixed(2) ?? "0.00",
-                    style: _rowStyle,
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.more_vert, size: 20),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _getCategoryName(List<Map<String, dynamic>> categories, String? id) {
-    if (id == null || id.isEmpty) return "-";
     try {
-      final cat = categories.firstWhere((c) => c['id'] == id);
-      return cat['name'] ?? id;
-    } catch (_) {
-      return id;
+      await ref
+          .read(itemsControllerProvider.notifier)
+          .deleteItem(item.id ?? '');
+    } catch (e) {
+      AppLogger.error('Delete item failed', module: 'items', error: e);
     }
   }
 }
 
-// -------------------------------
-// TEXT STYLES
-// -------------------------------
-const _erStyle = TextStyle(
-  fontSize: 13,
-  fontWeight: FontWeight.w600,
-  color: Color(0xff666666),
-);
+// ---------------------------------------------------------------------------
+// TABLE IMPLEMENTATION
+// ---------------------------------------------------------------------------
 
-const _rowStyle = TextStyle(fontSize: 14, color: Color(0xff2E2E2E));
+class _ItemsTable extends StatelessWidget {
+  final ItemsState state;
+  final Future<void> Function(Item) onDeleteItem;
+
+  const _ItemsTable({
+    required this.state,
+    required this.onDeleteItem,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ZDataTableShell(
+      header: const ZTableHeader(
+        children: [
+          ZTableCell(flex: 4, child: Text('Item Name')),
+          ZTableCell(flex: 2, child: Text('SKU')),
+          ZTableCell(flex: 2, child: Text('Category')),
+          ZTableCell(flex: 2, child: Text('MRP')),
+          SizedBox(width: 40),
+        ],
+      ),
+      rows: state.items
+          .map(
+            (item) => _ItemRow(
+              item: item,
+              categories: state.categories,
+              onTap: () => context.pushNamed(
+                AppRoutes.itemsDetail,
+                pathParameters: {'id': item.id ?? ''},
+              ),
+              onDelete: () => onDeleteItem(item),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _ItemRow extends StatelessWidget {
+  final Item item;
+  final List<Map<String, dynamic>> categories;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  const _ItemRow({
+    required this.item,
+    required this.categories,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ZTableRowLayout(
+      onTap: onTap,
+      children: [
+        ZTableCell(
+          flex: 4,
+          child: Text(item.productName, style: AppTheme.tableCell),
+        ),
+        ZTableCell(
+          flex: 2,
+          child: Text(item.sku ?? '-', style: AppTheme.tableCell),
+        ),
+        ZTableCell(
+          flex: 2,
+          child: Text(
+            LookupUtils.getNameById(categories, item.categoryId),
+            style: AppTheme.tableCell,
+          ),
+        ),
+        ZTableCell(
+          flex: 2,
+          child: ZCurrencyDisplay(
+            amount: item.mrp ?? 0,
+            style: AppTheme.tableCell,
+          ),
+        ),
+        ZRowActions(
+          onEdit: () => context.pushNamed(
+            AppRoutes.itemsEdit,
+            pathParameters: {'id': item.id ?? ''},
+          ),
+          onDelete: onDelete,
+          // onDuplicate: () => ... (backlog)
+        ),
+      ],
+    );
+  }
+}

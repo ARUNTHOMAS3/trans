@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/print_template.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 class TemplateEditor extends ConsumerStatefulWidget {
   final PrintTemplate? template;
@@ -372,9 +373,7 @@ class _TemplateEditorState extends ConsumerState<TemplateEditor> {
                           icon: Icon(Icons.copy),
                           onPressed: () {
                             // Copy to clipboard functionality would go here
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Copied: $variable')),
-                            );
+                            ZerpaiToast.info(context, 'Copied: $variable');
                           },
                         ),
                       ),

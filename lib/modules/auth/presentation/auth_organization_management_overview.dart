@@ -76,22 +76,16 @@ class _OrganizationManagementPageState
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load organizations: $e')),
-      );
+      ZerpaiToast.error(context, 'Failed to load organizations: $e');
     }
   }
 
   void _showAddOrgDialog() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Add organization functionality coming soon')),
-    );
+    ZerpaiToast.info(context, 'Add organization functionality coming soon');
   }
 
   void _showEditOrgDialog(Organization org) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Edit organization functionality coming soon')),
-    );
+    ZerpaiToast.info(context, 'Edit organization functionality coming soon');
   }
 
   Future<void> _deleteOrg(Organization org) async {

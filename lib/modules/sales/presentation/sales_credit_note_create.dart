@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:intl/intl.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
@@ -24,7 +25,21 @@ import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 class SalesCreditNoteCreateScreen extends ConsumerStatefulWidget {
-  const SalesCreditNoteCreateScreen({super.key});
+  /// Deep-link support: pre-select a customer by ID.
+  final String? initialCustomerId;
+
+  /// Deep-link support: associate with a specific invoice.
+  final String? fromInvoiceId;
+
+  /// Deep-link support: clone an existing credit note by ID.
+  final String? cloneId;
+
+  const SalesCreditNoteCreateScreen({
+    super.key,
+    this.initialCustomerId,
+    this.fromInvoiceId,
+    this.cloneId,
+  });
 
   @override
   ConsumerState<SalesCreditNoteCreateScreen> createState() =>
@@ -620,9 +635,7 @@ class _SalesCreditNoteCreateScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ZerpaiToast.error(context, 'Error: $e');
       }
     }
   }

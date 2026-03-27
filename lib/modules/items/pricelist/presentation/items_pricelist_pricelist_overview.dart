@@ -13,6 +13,7 @@ import '../providers/pricelist_provider.dart';
 import '../../../../shared/services/recent_history_service.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../core/constants/app_colors.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 /// Price Lists Screen - Inventory → Items → Price Lists
 class PriceListOverviewScreen extends ConsumerStatefulWidget {
@@ -60,12 +61,7 @@ class _PriceListOverviewScreenState
         .bulkDeletePriceLists(ids);
     setState(() => _selectedIds.clear());
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${ids.length} price lists deleted'),
-          backgroundColor: AppTheme.errorRedDark,
-        ),
-      );
+      ZerpaiToast.error(context, '${ids.length} price lists deleted');
     }
   }
 
@@ -76,12 +72,7 @@ class _PriceListOverviewScreenState
         .bulkActivatePriceLists(ids);
     setState(() => _selectedIds.clear());
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Price lists activated'),
-          backgroundColor: AppTheme.successGreen,
-        ),
-      );
+      ZerpaiToast.success(context, 'Price lists activated');
     }
   }
 
@@ -92,12 +83,7 @@ class _PriceListOverviewScreenState
         .bulkDeactivatePriceLists(ids);
     setState(() => _selectedIds.clear());
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Price lists deactivated'),
-          backgroundColor: AppTheme.successGreen,
-        ),
-      );
+      ZerpaiToast.success(context, 'Price lists deactivated');
     }
   }
 
@@ -116,12 +102,7 @@ class _PriceListOverviewScreenState
         ): () async {
           final result = await context.push(AppRoutes.priceListsCreate);
           if (result == true && context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Price list created successfully'),
-                backgroundColor: AppTheme.successGreen,
-              ),
-            );
+            ZerpaiToast.success(context, 'Price list created successfully');
           }
         },
         const SingleActivator(LogicalKeyboardKey.escape): () {
@@ -291,12 +272,7 @@ class _PriceListOverviewScreenState
               onPressed: () async {
                 final result = await context.push(AppRoutes.priceListsCreate);
                 if (result == true && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Price list created successfully'),
-                      backgroundColor: AppTheme.successGreen,
-                    ),
-                  );
+                  ZerpaiToast.success(context, 'Price list created successfully');
                 }
               },
               icon: const Icon(Icons.add, size: 18),
@@ -1095,12 +1071,7 @@ class _PriceListOverviewScreenState
           extra: priceList,
         );
         if (result == true && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Price list updated successfully'),
-              backgroundColor: AppTheme.successGreen,
-            ),
-          );
+          ZerpaiToast.success(context, 'Price list updated successfully');
         }
         break;
       case 'clone':
@@ -1109,12 +1080,7 @@ class _PriceListOverviewScreenState
           extra: priceList,
         );
         if (result == true && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Price list cloned successfully'),
-              backgroundColor: AppTheme.successGreen,
-            ),
-          );
+          ZerpaiToast.success(context, 'Price list cloned successfully');
         }
         break;
       case 'deactivate':
@@ -1189,14 +1155,7 @@ class _PriceListOverviewScreenState
                     .read(priceListNotifierProvider.notifier)
                     .deactivatePriceList(priceList.id);
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Price list "${priceList.name}" deactivated',
-                      ),
-                      backgroundColor: AppTheme.successGreen,
-                    ),
-                  );
+                  ZerpaiToast.success(context, 'Price list "${priceList.name}" deactivated');
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -1257,12 +1216,7 @@ class _PriceListOverviewScreenState
                     .read(priceListNotifierProvider.notifier)
                     .updatePriceList(priceList.copyWith(status: 'active'));
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Price list "${priceList.name}" activated'),
-                      backgroundColor: AppTheme.successGreen,
-                    ),
-                  );
+                  ZerpaiToast.success(context, 'Price list "${priceList.name}" activated');
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -1336,12 +1290,7 @@ class _PriceListOverviewScreenState
                     .read(priceListNotifierProvider.notifier)
                     .deletePriceList(priceList.id);
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Price list "${priceList.name}" deleted'),
-                      backgroundColor: AppTheme.errorRedDark,
-                    ),
-                  );
+                  ZerpaiToast.error(context, 'Price list "${priceList.name}" deleted');
                 }
               },
               style: ElevatedButton.styleFrom(

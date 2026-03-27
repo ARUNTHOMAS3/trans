@@ -92,12 +92,7 @@ extension _SalesGenericListColumns on _SalesGenericListScreenState {
     _state(() {
       _columnsResized = false;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Column preferences saved!'),
-        duration: Duration(seconds: 1),
-      ),
-    );
+    ZerpaiToast.success(context, 'Column preferences saved!');
   }
 
   void _resetColumnPreferences() {

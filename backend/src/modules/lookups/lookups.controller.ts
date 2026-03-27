@@ -112,6 +112,10 @@ export class LookupsController {
       queryBuilder = queryBuilder.ilike(config.field, searchPattern);
     }
 
+    if (type === "accountant") {
+      queryBuilder = queryBuilder.eq("account_type", "Stock");
+    }
+
     const { data, error } = await queryBuilder
       .eq(
         type === "price-lists" ? "status" : "is_active",

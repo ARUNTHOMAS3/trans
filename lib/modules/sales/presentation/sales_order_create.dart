@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
@@ -42,7 +43,22 @@ const _kBg = Color(0xFFF9FAFB);
 const _kWhite = Colors.white;
 
 class SalesOrderCreateScreen extends ConsumerStatefulWidget {
-  const SalesOrderCreateScreen({super.key});
+  final SalesOrder? initialOrder;
+  final String? initialOrderId;
+
+  /// Deep-link support: pre-select a customer by ID.
+  final String? initialCustomerId;
+
+  /// Deep-link support: clone an existing sales order by ID.
+  final String? cloneId;
+
+  const SalesOrderCreateScreen({
+    super.key,
+    this.initialOrder,
+    this.initialOrderId,
+    this.initialCustomerId,
+    this.cloneId,
+  });
 
   @override
   ConsumerState<SalesOrderCreateScreen> createState() =>
@@ -82,6 +98,7 @@ class _SalesOrderCreateScreenState
   double _roundOff = 0.0;
   String _tdsTcsType = 'TDS';
   String? _selectedTdsId;
+  List<Map<String, dynamic>> _tdsList = [];
 
   bool _showBulkUpdateToolbar = false;
   List<Map<String, dynamic>> _paymentTermsList = [];
@@ -121,6 +138,23 @@ class _SalesOrderCreateScreenState
   bool _isAutoGenerateSO = true;
   String _soPrefix = 'SO-';
   String _soNextNumber = '00028';
+  bool _isHydratingInitialOrder = false;
+
+  bool get _isEditMode =>
+      widget.initialOrder != null ||
+      (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty);
+
+  String? get _editingOrderId {
+    final directId = widget.initialOrder?.id;
+    if (directId != null && directId.isNotEmpty) {
+      return directId;
+    }
+    final routeId = widget.initialOrderId;
+    if (routeId != null && routeId.isNotEmpty) {
+      return routeId;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -141,9 +175,81 @@ class _SalesOrderCreateScreenState
     shippingCtrl.addListener(_calculateTotals);
     adjustmentCtrl.addListener(_calculateTotals);
 
-    _addItemRow();
+    if (widget.initialOrder != null) {
+      _hydrateFromInitialOrder(widget.initialOrder!);
+    } else if (widget.initialOrderId != null &&
+        widget.initialOrderId!.isNotEmpty) {
+      _loadInitialOrder(widget.initialOrderId!);
+    } else {
+      rows.add(_createItemRow());
+    }
     _loadPaymentTerms();
     _loadSalespersons();
+    _loadTdsList();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(itemsControllerProvider.notifier).loadLookupData();
+    });
+  }
+
+  Future<void> _loadInitialOrder(String orderId) async {
+    setState(() => _isHydratingInitialOrder = true);
+    try {
+      final order = await ref
+          .read(salesOrderApiServiceProvider)
+          .getSalesOrderById(orderId);
+      if (!mounted) return;
+      setState(() {
+        rows.clear();
+        _hydrateFromInitialOrder(order);
+        _isHydratingInitialOrder = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        if (rows.isEmpty) {
+          rows.add(_createItemRow());
+        }
+        _isHydratingInitialOrder = false;
+      });
+      ZerpaiToast.error(context, 'Failed to load sales order: $e');
+    }
+  }
+
+  void _hydrateFromInitialOrder(SalesOrder order) {
+    _selectedCustomerId = order.customerId;
+    _selectedCustomer = order.customer;
+    salesOrderNumberCtrl.text = order.saleNumber;
+    referenceCtrl.text = order.reference ?? '';
+    notesCtrl.text = order.customerNotes ?? '';
+    termsCtrl.text = order.termsAndConditions ?? '';
+    shippingCtrl.text = order.shippingCharges.toStringAsFixed(2);
+    adjustmentCtrl.text = order.adjustment.toStringAsFixed(2);
+    salesOrderDate = order.saleDate;
+    expectedShipmentDate = order.expectedShipmentDate;
+    paymentTerms = order.paymentTerms;
+    deliveryMethod = order.deliveryMethod;
+    salesperson = order.salesperson;
+
+    final initialItems = order.items ?? const <SalesOrderItem>[];
+    if (initialItems.isEmpty) {
+      rows.add(_createItemRow());
+    } else {
+      rows.addAll(initialItems.map(_createItemRowFromOrderItem));
+    }
+
+    taxTotal = order.taxTotal;
+    subTotal = order.subTotal;
+    total = order.total;
+  }
+
+  Future<void> _loadTdsList() async {
+    try {
+      final lookupsService = LookupsApiService();
+      final rates = await lookupsService.getTdsRates();
+      if (mounted) setState(() => _tdsList = rates);
+    } catch (e) {
+      debugPrint('Error loading TDS rates: $e');
+    }
   }
 
   Future<void> _loadSalespersons() async {
@@ -245,6 +351,66 @@ class _SalesOrderCreateScreenState
         }
       });
     }
+  }
+
+  SalesOrderItemRow _createItemRow({
+    String quantity = '1',
+    String rate = '0',
+    String discount = '0',
+    String fQty = '0',
+    String mrp = '0',
+    String description = '',
+    String itemId = '',
+    Item? item,
+    String discountType = '%',
+    String? taxId,
+  }) {
+    final row = SalesOrderItemRow(
+      quantityCtrl: TextEditingController(text: quantity),
+      rateCtrl: TextEditingController(text: rate),
+      discountCtrl: TextEditingController(text: discount),
+      fQtyCtrl: TextEditingController(text: fQty),
+      mrpCtrl: TextEditingController(text: mrp),
+      descriptionCtrl: TextEditingController(text: description),
+      itemId: itemId,
+      item: item,
+      discountType: discountType,
+      taxId: taxId,
+    );
+
+    void onAnyChange() {
+      final customers = ref.read(salesCustomersProvider).asData?.value ?? [];
+      if (customers.isNotEmpty && _selectedCustomerId != null) {
+        final customer = customers.firstWhere(
+          (c) => c.id == _selectedCustomerId,
+          orElse: () => customers.first,
+        );
+        final priceLists =
+            ref.read(filteredPriceListsProvider).asData?.value ?? [];
+        _updateRowRate(row, customer, priceLists);
+      }
+      _calculateTotals();
+    }
+
+    row.quantityCtrl.addListener(onAnyChange);
+    row.rateCtrl.addListener(_calculateTotals);
+    row.discountCtrl.addListener(_calculateTotals);
+    row.fQtyCtrl.addListener(_calculateTotals);
+    row.mrpCtrl.addListener(_calculateTotals);
+    return row;
+  }
+
+  SalesOrderItemRow _createItemRowFromOrderItem(SalesOrderItem item) {
+    return _createItemRow(
+      quantity: item.quantity.toString(),
+      rate: item.rate.toString(),
+      discount: item.discount.toString(),
+      description: item.description ?? '',
+      itemId: item.itemId,
+      item: item.item,
+      discountType: item.discountType == 'value' ? 'Value' : item.discountType,
+      taxId: item.taxId,
+    );
   }
 
   void _showManageSalespersonsDialog() {
@@ -384,7 +550,10 @@ class _SalesOrderCreateScreenState
       final api = ref.read(salesOrderApiServiceProvider);
       final customer = await api.getCustomerById(customerId);
       final currencies = await ref.read(currenciesProvider(null).future);
-      final currencyLabel = _resolveCurrencyLabel(customer.currencyId, currencies);
+      final currencyLabel = _resolveCurrencyLabel(
+        customer.currencyId,
+        currencies,
+      );
       if (!mounted) return;
 
       setState(() {
@@ -393,9 +562,7 @@ class _SalesOrderCreateScreenState
       _showCustomerDetailsSidebar(customer, currencyLabel: currencyLabel);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load customer details: $e')),
-      );
+      ZerpaiToast.error(context, 'Failed to load customer details: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoadingCustomerDetails = false);
@@ -443,34 +610,7 @@ class _SalesOrderCreateScreenState
   }
 
   void _addItemRow() {
-    final row = SalesOrderItemRow(
-      quantityCtrl: TextEditingController(text: '1'),
-      rateCtrl: TextEditingController(text: '0'),
-      discountCtrl: TextEditingController(text: '0'),
-      fQtyCtrl: TextEditingController(text: '0'),
-      mrpCtrl: TextEditingController(text: '0'),
-      descriptionCtrl: TextEditingController(),
-    );
-
-    void onAnyChange() {
-      final customers = ref.read(salesCustomersProvider).asData?.value ?? [];
-      final customer = customers.firstWhere(
-        (c) => c.id == _selectedCustomerId,
-        orElse: () => customers.first,
-      );
-      final priceLists =
-          ref.read(filteredPriceListsProvider).asData?.value ?? [];
-      _updateRowRate(row, customer, priceLists);
-      _calculateTotals();
-    }
-
-    row.quantityCtrl.addListener(onAnyChange);
-    row.rateCtrl.addListener(_calculateTotals);
-    row.discountCtrl.addListener(_calculateTotals);
-    row.fQtyCtrl.addListener(_calculateTotals);
-    row.mrpCtrl.addListener(_calculateTotals);
-
-    setState(() => rows.add(row));
+    setState(() => rows.add(_createItemRow()));
   }
 
   void _updateRowRate(
@@ -544,8 +684,15 @@ class _SalesOrderCreateScreenState
     final priceListsAsync = ref.watch(filteredPriceListsProvider);
     final currenciesAsync = ref.watch(currenciesProvider(null));
 
+    if (_isHydratingInitialOrder) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: DetailContentSkeleton(),
+      );
+    }
+
     return ZerpaiLayout(
-      pageTitle: 'New Sales Order',
+      pageTitle: _isEditMode ? 'Edit Sales Order' : 'New Sales Order',
       actions: [
         IconButton(
           icon: const Icon(
@@ -1205,7 +1352,8 @@ class _SalesOrderCreateScreenState
     if (products == null) return const SizedBox();
 
     final itemsState = ref.watch(itemsControllerProvider);
-    final taxRates = itemsState.taxRates;
+    // Only GST groups (GST0, GST5, GST12… — intra-state combined rates)
+    final taxRates = itemsState.taxGroups;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1724,6 +1872,9 @@ class _SalesOrderCreateScreenState
                                                 row.mrpCtrl.text = (p.mrp ?? 0)
                                                     .toString();
                                               }
+                                              row.taxId ??=
+                                                  p.intraStateTaxId ??
+                                                  p.interStateTaxId;
                                             });
                                             _calculateTotals();
                                           },
@@ -1759,6 +1910,11 @@ class _SalesOrderCreateScreenState
                                   ),
                               contentCase: ContentCase.none,
                               textAlign: TextAlign.right,
+                              onTap: () =>
+                                  row.quantityCtrl.selection = TextSelection(
+                                    baseOffset: 0,
+                                    extentOffset: row.quantityCtrl.text.length,
+                                  ),
                               onChanged: (_) => _calculateTotals(),
                             ),
                             if (_showAvailableStock &&
@@ -1855,6 +2011,11 @@ class _SalesOrderCreateScreenState
                                   ),
                               contentCase: ContentCase.none,
                               textAlign: TextAlign.right,
+                              onTap: () =>
+                                  row.rateCtrl.selection = TextSelection(
+                                    baseOffset: 0,
+                                    extentOffset: row.rateCtrl.text.length,
+                                  ),
                               onChanged: (_) => _calculateTotals(),
                             ),
                             if (row.itemId.isNotEmpty) ...[
@@ -1913,6 +2074,11 @@ class _SalesOrderCreateScreenState
                           padding: const EdgeInsets.only(left: 12, right: 0),
                           suffixSeparator: true,
                           suffixWidget: _buildDiscountTypeSelector(row),
+                          onTap: () =>
+                              row.discountCtrl.selection = TextSelection(
+                                baseOffset: 0,
+                                extentOffset: row.discountCtrl.text.length,
+                              ),
                           onChanged: (_) => _calculateTotals(),
                         ),
                       ),
@@ -3017,8 +3183,13 @@ class _SalesOrderCreateScreenState
             child: FormDropdown<String>(
               value: _selectedTdsId,
               hint: 'Select a Tax',
-              items: const [],
-              displayStringForValue: (v) => v,
+              items: _tdsList.map((t) => t['id'] as String).toList(),
+              displayStringForValue: (id) =>
+                  _tdsList.firstWhere(
+                        (t) => t['id'] == id,
+                        orElse: () => {'tax_name': id},
+                      )['tax_name']
+                      as String,
               onChanged: (v) => setState(() => _selectedTdsId = v),
             ),
           ),
@@ -3101,7 +3272,7 @@ class _SalesOrderCreateScreenState
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
-            child: const Text('Save as Draft'),
+            child: Text(_isEditMode ? 'Update Draft' : 'Save as Draft'),
           ),
           const SizedBox(width: 12),
           // Split Button: Save and Send
@@ -3115,11 +3286,13 @@ class _SalesOrderCreateScreenState
               mainAxisSize: MainAxisSize.min,
               children: [
                 InkWell(
-                  onTap: () => _saveSalesOrder(status: 'sent'),
-                  child: const Padding(
+                  onTap: () => _saveSalesOrder(
+                    status: widget.initialOrder?.status ?? 'sent',
+                  ),
+                  child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      'Save and Send',
+                      _isEditMode ? 'Update' : 'Save and Send',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -3224,12 +3397,14 @@ class _SalesOrderCreateScreenState
             quantity: double.tryParse(r.quantityCtrl.text) ?? 0,
             rate: double.tryParse(r.rateCtrl.text) ?? 0,
             discount: double.tryParse(r.discountCtrl.text) ?? 0,
+            discountType: r.discountType == 'Value' ? 'value' : '%',
+            taxId: r.taxId,
           ),
         )
         .toList();
 
     final order = SalesOrder(
-      id: '',
+      id: _editingOrderId ?? '',
       customerId: _selectedCustomerId!,
       saleNumber: salesOrderNumberCtrl.text,
       reference: referenceCtrl.text,
@@ -3248,13 +3423,21 @@ class _SalesOrderCreateScreenState
       adjustment: double.tryParse(adjustmentCtrl.text) ?? 0,
       total: total,
       customerNotes: notesCtrl.text,
+      termsAndConditions: termsCtrl.text,
     );
 
     try {
-      await ref
-          .read(salesOrderControllerProvider.notifier)
-          .createSalesOrder(order);
+      final controller = ref.read(salesOrderControllerProvider.notifier);
+      if (_isEditMode && _editingOrderId != null) {
+        await controller.updateSalesOrder(_editingOrderId!, order);
+      } else {
+        await controller.createSalesOrder(order);
+      }
       if (mounted) {
+        ZerpaiToast.success(
+          context,
+          _isEditMode ? 'Sales order updated' : 'Sales order created',
+        );
         if (context.canPop()) {
           context.pop();
         } else {
@@ -3263,9 +3446,7 @@ class _SalesOrderCreateScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ZerpaiToast.error(context, 'Error: $e');
       }
     }
   }
@@ -3400,7 +3581,9 @@ class _SalesOrderCreateScreenState
           style: TextStyle(
             fontSize: 13,
             fontWeight: showHighlight ? FontWeight.w600 : FontWeight.w500,
-            color: showHighlight ? Colors.white : _kBodyText.withValues(alpha: 0.8),
+            color: showHighlight
+                ? Colors.white
+                : _kBodyText.withValues(alpha: 0.8),
           ),
         ),
       ),
@@ -4286,9 +4469,7 @@ class _SalesOrderCreateScreenState
       if (_activeHsnRow == row) return;
     }
 
-    final hsnCtrl = TextEditingController(
-      text: row.item?.hsnCode ?? '',
-    );
+    final hsnCtrl = TextEditingController(text: row.item?.hsnCode ?? '');
     _activeHsnRow = row;
 
     _hsnOverlay = OverlayEntry(
@@ -5854,9 +6035,7 @@ class _CustomerDetailsSidebarState extends State<_CustomerDetailsSidebar> {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isActive
-                  ? const Color(0xFF2563EB)
-                  : Colors.transparent,
+              color: isActive ? const Color(0xFF2563EB) : Colors.transparent,
               width: 2,
             ),
           ),
@@ -5873,10 +6052,7 @@ class _CustomerDetailsSidebarState extends State<_CustomerDetailsSidebar> {
     );
   }
 
-  Widget _detailRow({
-    required String label,
-    required Widget value,
-  }) {
+  Widget _detailRow({required String label, required Widget value}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
@@ -5886,10 +6062,7 @@ class _CustomerDetailsSidebarState extends State<_CustomerDetailsSidebar> {
             width: 165,
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF64748B),
-              ),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
           ),
           Expanded(child: value),
@@ -6023,7 +6196,10 @@ class _CustomerDetailsSidebarState extends State<_CustomerDetailsSidebar> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'No contact persons found for this customer.',
-                        style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     )
                   : Column(
@@ -6034,13 +6210,17 @@ class _CustomerDetailsSidebarState extends State<_CustomerDetailsSidebar> {
                             (entry) => Container(
                               width: double.infinity,
                               margin: EdgeInsets.only(
-                                bottom: entry.key == contacts.length - 1 ? 0 : 10,
+                                bottom: entry.key == contacts.length - 1
+                                    ? 0
+                                    : 10,
                               ),
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -6053,7 +6233,9 @@ class _CustomerDetailsSidebarState extends State<_CustomerDetailsSidebar> {
                                       color: Color(0xFF0F172A),
                                     ),
                                   ),
-                                  if ((entry.value.email ?? '').trim().isNotEmpty) ...[
+                                  if ((entry.value.email ?? '')
+                                      .trim()
+                                      .isNotEmpty) ...[
                                     const SizedBox(height: 6),
                                     Text(
                                       entry.value.email!.trim(),
@@ -6063,11 +6245,17 @@ class _CustomerDetailsSidebarState extends State<_CustomerDetailsSidebar> {
                                       ),
                                     ),
                                   ],
-                                  if ((entry.value.mobilePhone ?? '').trim().isNotEmpty ||
-                                      (entry.value.workPhone ?? '').trim().isNotEmpty) ...[
+                                  if ((entry.value.mobilePhone ?? '')
+                                          .trim()
+                                          .isNotEmpty ||
+                                      (entry.value.workPhone ?? '')
+                                          .trim()
+                                          .isNotEmpty) ...[
                                     const SizedBox(height: 4),
                                     Text(
-                                      (entry.value.mobilePhone ?? '').trim().isNotEmpty
+                                      (entry.value.mobilePhone ?? '')
+                                              .trim()
+                                              .isNotEmpty
                                           ? entry.value.mobilePhone!.trim()
                                           : entry.value.workPhone!.trim(),
                                       style: const TextStyle(
@@ -6429,10 +6617,7 @@ class _CustomerDetailsSidebarState extends State<_CustomerDetailsSidebar> {
     return const Center(
       child: Text(
         'No activity found.',
-        style: TextStyle(
-          fontSize: 14,
-          color: Color(0xFF64748B),
-        ),
+        style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
       ),
     );
   }
@@ -6443,7 +6628,9 @@ class _CustomerDetailsSidebarState extends State<_CustomerDetailsSidebar> {
     final customerCode = (c.customerNumber ?? '').isNotEmpty
         ? c.customerNumber!
         : c.displayName;
-    final customerName = c.displayName.isNotEmpty ? c.displayName : customerCode;
+    final customerName = c.displayName.isNotEmpty
+        ? c.displayName
+        : customerCode;
     final initial = c.displayName.isNotEmpty
         ? c.displayName[0].toUpperCase()
         : 'C';
@@ -6594,7 +6781,9 @@ class _CustomerDetailsSidebarState extends State<_CustomerDetailsSidebar> {
           ),
           const Divider(height: 1, color: Color(0xFFE5E7EB)),
           Expanded(
-            child: _activeTabIndex == 0 ? _buildDetailsTab() : _buildActivityTab(),
+            child: _activeTabIndex == 0
+                ? _buildDetailsTab()
+                : _buildActivityTab(),
           ),
         ],
       ),
@@ -6909,4 +7098,3 @@ class TooltipShapeBorder extends ShapeBorder {
   @override
   ShapeBorder scale(double t) => this;
 }
-

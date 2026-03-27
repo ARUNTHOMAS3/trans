@@ -1,3 +1,212 @@
+## Global Architectural Refactor: Reusable ERP Components (March 27, 2026)
+
+### Summary
+Established a "Gold Standard" for ERP module architecture by extracting common UI patterns into global reusable components. Refactored the Items module to serve as the reference implementation, ensuring UI consistency and reducing boilerplate across all future modules.
+
+---
+
+## Sales Orders — Reusable Component Alignment (March 27, 2026)
+
+### Summary
+Aligned the Sales Orders overview screen with the shared ERP building blocks so the module follows the same reusable structure established for other list/detail workflows.
+
+---
+
+### Flutter — Sales order overview (`lib/modules/sales/presentation/sales_order_overview.dart`)
+- Replaced the top list search input with the shared `ZSearchField`.
+- Switched the list shell to use `ZDataTableShell` as the bordered table container while preserving the Sales Orders specific horizontal-scroll and selection behavior.
+- Replaced amount rendering in the table with `ZCurrencyDisplay` for standardized currency presentation.
+- Added a real **New Custom View** dialog using:
+  - `ZerpaiFormCard`
+  - `ZerpaiFormRow`
+  - `FormDropdown<T>`
+  - `ZerpaiRadioGroup<T>`
+- Wired the custom-view dialog close/cancel flow to `showUnsavedChangesDialog()` so unsaved view criteria are not silently discarded.
+- Kept `DetailSkeleton` as the loading state for the order detail panel.
+
+### Shared Reusables Updated
+- `lib/shared/widgets/inputs/z_search_field.dart`
+  - Added support for external `controller`, `focusNode`, and `initialValue` so the reusable can be used in stateful module screens like Sales Orders without duplicating search input code.
+- `lib/shared/widgets/z_data_table_shell.dart`
+  - Added optional `body` support so advanced table screens can reuse the shell with scrollable list content, not only static row arrays.
+
+### Validation
+- `dart analyze E:\zerpai-new\lib\shared\widgets\inputs\z_search_field.dart`
+- `dart analyze E:\zerpai-new\lib\shared\widgets\z_data_table_shell.dart`
+- `dart analyze E:\zerpai-new\lib\modules\sales\presentation\sales_order_overview.dart`
+- Result: no issues found
+
+---
+
+### Reusable Components — `lib/shared/`
+- **`LookupUtils` (`lib/shared/utils/lookup_utils.dart`)**: Created a centralized utility for mapping database IDs to display names (e.g., resolving Category ID to "Pharmaceuticals").
+- **`ZDataTableShell` Family (`lib/shared/widgets/z_data_table_shell.dart`)**:
+  - `ZDataTableShell`: Standardized bordered container for all ERP module lists.
+  - `ZTableHeader`: Consistent header row styling and padding.
+  - `ZTableRowLayout`: Reusable, clickable row wrapper with standard ERP vertical/horizontal spacing.
+  - `ZTableCell`: Flex-based cell wrapper to ensure perfect column alignment between header and rows.
+- **`ZRowActions` (`lib/shared/widgets/z_row_actions.dart`)**: Standardized vertical ellipsis (⋮) menu for row-level operations (Edit, Duplicate, Delete) with built-in styling and divider support.
+- **`ZSearchField` (`lib/shared/widgets/inputs/z_search_field.dart`)**: Unified search input component with focus-aware borders, built-in "clear" (X) logic, and standard ERP icon treatment.
+- **`ZCurrencyDisplay` (`lib/shared/widgets/z_currency_display.dart`)**: Centralized currency formatting with proper symbol (₹) rendering and decimal precision control.
+
+### Flutter — Items Module Refactor
+- **`ItemListScreen` (`lib/modules/items/items/presentation/items_item_list.dart`)**:
+  - Completely replaced hardcoded table logic with `ZDataTableShell` and its child components.
+  - Migrated local popup menu to the global `ZRowActions` widget.
+  - Integrated `ZSearchField` and `ZCurrencyDisplay`.
+  - Wired the `deleteItem` action with `showZerpaiConfirmationDialog` using a clean callback chain from the `ConsumerWidget`.
+  - Eliminated all hardcoded hex colors and spacing, replacing them with `AppTheme` tokens.
+- **`ItemDetailScreen` (`lib/modules/items/items/presentation/items_item_detail.dart`)**:
+  - Implemented `LookupUtils.getNameById` for resolving Units, Categories, Manufacturers, Brands, Accounts, and Tax Rates in the overview section.
+
+### Documentation
+- **`REUSABLES.md`**: Updated with full documentation, usage examples, and file paths for all newly created shared components to guide other developers.
+
+---
+
+## Sales Orders & Items — Sorting, Tooltips, And Real Display Data (March 27, 2026)
+
+### Summary
+Refined the Sales Orders list interactions and removed raw UUID leakage from the Items detail screen so the frontend shows real business-facing values instead of internal IDs.
+
+---
+
+### Flutter — Sales order overview (`lib/modules/sales/presentation/sales_order_overview.dart`)
+- Added sorting for all visible Sales Order table columns.
+- Clicking a column header or its sort icon now toggles ascending / descending.
+- Updated active sort styling so the selected column label is blue and the icon reflects actual direction (`up` / `down`) instead of a generic sort marker.
+- Added hover tooltips for table status indicators using the shared `ZTooltip` reusable:
+  - `Invoiced` / `Not Invoiced`
+  - `Paid` / `Unpaid`
+  - `Packed` / `Not Packed`
+  - `Shipped` / `Pending`
+
+### Flutter — Item detail real-data cleanup (`lib/modules/items/items/presentation/items_item_detail.dart`)
+- Stopped showing raw UUIDs for unresolved lookup fields in the item detail overview.
+- Updated tax label resolution to search both `taxRates` and `taxGroups`, so intra-state and inter-state tax names display correctly when available.
+
+### Shared Utility — `LookupUtils` (`lib/shared/utils/lookup_utils.dart`)
+- Changed `LookupUtils.getNameById()` so lookup misses now return the provided fallback instead of leaking the raw ID into the UI.
+- This ensures missing frontend lookups show safe display values such as `N/A` rather than backend UUIDs.
+
+### Validation
+- `dart analyze E:\zerpai-new\lib\modules\sales\presentation\sales_order_overview.dart`
+- `dart analyze E:\zerpai-new\lib\shared\utils\lookup_utils.dart E:\zerpai-new\lib\modules\items\items\presentation\items_item_detail.dart`
+- Result: no issues found
+
+---
+
+
+### Summary
+Updated the Sales Orders list view to match the Zoho reference more closely by adding the left header sliders menu, a real Customize Columns dialog, selectable rows, the bulk action toolbar that appears when multiple orders are selected, the exact overflow actions, and a real Bulk Update dialog.
+
+---
+
+### Flutter — Sales order overview (`lib/modules/sales/presentation/sales_order_overview.dart`)
+- Added real row selection state with per-row checkboxes and header select-all behavior.
+- Replaced the static left-side sliders icon with a functional white popup menu containing:
+  - `Customize Columns`
+  - `Clip Text`
+- Added a Sales Orders specific Customize Columns dialog with:
+  - selected count header (`x of 18 Selected`)
+  - search field
+  - scrollable column list
+  - lock indicators for fixed columns
+  - Save / Cancel actions
+- Introduced 18 configurable Sales Order columns, with the default visible set matching the current list screenshot pattern.
+- Rebuilt the table header and row rendering so visible columns are driven from saved in-screen column state instead of a fixed hardcoded row.
+- Added the multi-select bulk action bar with:
+  - `Bulk Update`
+  - PDF / Print / Email icon actions
+  - `Mark shipment as fulfilled`
+  - `Backorder`
+  - `Dropship`
+  - `Generate picklist`
+  - overflow actions
+  - selected-count chip and clear action
+- Replaced the bulk overflow placeholder with the Zoho-style actions:
+  - `Create Quick Shipments`
+  - `Merge Sales Orders`
+  - `Bulk Cancel Items`
+  - `Bulk reopen canceled items`
+  - `Delete`
+- Replaced the `Bulk Update` placeholder with a real dialog containing:
+  - title bar and close action
+  - searchable field dropdown
+  - freeform update input
+  - Update / Cancel actions
+- Wired the bulk actions to real in-app behavior via `ZerpaiToast` feedback.
+- Kept popup/menu/dialog floating surfaces explicitly pure white to follow project UI rules.
+
+### Validation
+- `dart format E:\zerpai-new\lib\modules\sales\presentation\sales_order_overview.dart`
+- `dart analyze E:\zerpai-new\lib\modules\sales\presentation\sales_order_overview.dart`
+- Result: no issues found
+
+---
+
+## Sales Orders — Real Organization Logo In PDF Preview (March 27, 2026)
+
+### Summary
+Updated the Sales Order detail PDF preview to use the real uploaded organization logo from Organization Profile / Branding instead of the hardcoded `LOGO / LETTERHEAD` placeholder.
+
+---
+
+### Flutter — Sales order PDF preview (`lib/modules/sales/presentation/sales_order_overview.dart`)
+- Added `orgSettingsProvider` usage inside the sales order detail workspace.
+- Read the saved organization `logoUrl` from the shared org settings model.
+- Replaced the placeholder header block in the PDF preview with the real uploaded organization logo when available.
+- Wrapped the rendered logo in a white bordered container so it matches the document surface instead of showing as a dark placeholder slab.
+- Kept a safe fallback: if no logo is configured or the image fails to load, the old `LOGO / LETTERHEAD` placeholder still renders.
+
+### Validation
+- `dart analyze E:\zerpai-new\lib\modules\sales\presentation\sales_order_overview.dart`
+- Result: no issues found
+
+---
+
+## Sales Orders — Bug Fixes: Backend Column Name & Flutter Loading Crash (March 27, 2026)
+
+### Backend — `backend/src/modules/sales/services/sales.service.ts`
+- **Fix**: Changed `product:products(id, name, sku)` → `product:products(id, product_name, sku)` in `getSalesOrderById`. Resolved `column products_2.name does not exist` Supabase error when opening a sales order detail.
+
+### Flutter — `lib/modules/sales/presentation/sales_document_detail.dart`
+- **Fix**: Added `enableBodyScroll: false` to the `loading` branch `ZerpaiLayout`. Resolved `RenderFlex children have non-zero flex but incoming height constraints are unbounded` crash in `DocumentDetailSkeleton` during data fetch.
+
+---
+
+## Sales Orders — PDF Detail View, Deep Linking & Actions Menu (March 27, 2026)
+
+### Summary
+Completed the Sales Orders module: added a Zoho-style PDF detail view, fixed deep-linking, rebuilt the document detail screen from scratch, added a "..." actions menu to the overview toolbar, and wired the backend `GET /sales/:id` endpoint.
+
+---
+
+### Toast Migration (background agent — completed)
+- Replaced all 216 raw `ScaffoldMessenger`/`SnackBar` usages with `ZerpaiToast` across 41 files. Final file was `items_pricelist_pricelist_overview.dart` (6 usages). Zero raw SnackBar calls remain in application code.
+
+### Backend — `backend/src/modules/sales/`
+- **`services/sales.service.ts`** — Added `getSalesOrderById(id)`: fetches a single sales order with full customer address fields and `sales_order_items` joined with `products(id, name, sku)`.
+- **`controllers/sales.controller.ts`** — Added `@Get(':id')` route; moved to **bottom** of controller (after all named static routes) so `/sales/search` is not shadowed by the dynamic segment. Imports `Param` from `@nestjs/common`.
+
+### Flutter — Models
+- **`lib/modules/sales/models/sales_order_item_model.dart`** — `itemTotal` now falls back to `json['amount']` so the DB column `amount` (stored by backend) maps correctly.
+
+### Flutter — Overview (`lib/modules/sales/presentation/sales_order_overview.dart`)
+- Fixed navigation bug: row tap was pushing `/sales/order/:id` (singular), corrected to `/sales/orders/:id`.
+- Added `_ActionsMenu` widget (MenuAnchor): **Sort By** submenu (Date, Sales Order#, Customer Name, Amount), **Export** submenu (Export Sales Orders / Export Current View), **Import Sales Orders**, **Preferences**, **Manage Custom Fields**, **Refresh List** (functional).
+- Added `_MenuLabel` helper widget for consistent menu item widths.
+
+### Flutter — Detail Screen (`lib/modules/sales/presentation/sales_document_detail.dart`)
+- Complete rewrite as Zoho-style PDF view.
+- Added `salesOrderDetailProvider` (`FutureProvider.family`) for per-order caching.
+- **`_ActionBar`**: Edit, Send Email, PDF/Print, Convert to Invoice, Create ▾ (Invoice/Package/Shipment/Delivery Challan), ... (Delete/Clone/Mark as Sent), Back button.
+- **`_StatusBar`**: Invoice Status / Shipment / Order Status inline chips.
+- **`_PdfDocument`**: White document card with shadow — org header (placeholder), "SALES ORDER" title + SO#, Bill To / Ship To addresses, order meta (date, reference, shipment date, payment terms), dark-header items table (`_ItemsTable`), totals block (`_TotalsBlock`: Sub Total → Discount → Shipping → Tax → Adjustment → **Total**), Authorized Signature line.
+- **`_MoreInformation`**: Salesperson, Payment Terms, Delivery Method, Reference#, Customer Notes, Terms & Conditions.
+- Item names resolved from `item.productName` (joined `products` table) with fallback to `description`.
+
+
 ## Warehouses Create Page + Schema Audit (March 26, 2026)
 
 ### Summary
@@ -7534,3 +7743,128 @@ Updated `lib/core/pages/settings_locations_create_page.dart` to match Zoho Inven
 
 ### Result
 - The branch create/edit page now follows the same compact stacked settings layout style as the location page instead of the custom split section-row treatment.
+
+## Items + Sales Order Tax & Account Fixes (March 27, 2026)
+
+### Summary
+Two separate fixes applied in one session.
+
+### 1. Inventory Account Dropdown — Items Create/Edit
+**Problem:** The Inventory Account dropdown on the Items create/edit page showed all accounts (every type), and had no default selection on new items.
+
+**Fix:**
+- `backend/src/modules/products/products.service.ts` → `getAccounts()`: added `.eq("account_type", "Stock")` filter — only Stock-type accounts (Finished Goods, Inventory Asset, Work In Progress) are returned.
+- `backend/src/modules/lookups/lookups.controller.ts` → `searchLookups` (type `accountant`): added `.eq("account_type", "Stock")` so live search is consistent.
+- `lib/modules/items/items/presentation/items_item_create.dart`: added `_defaultInventoryAccountName = 'Inventory Asset'` constant and wired it into `_applyOperationalDefaultsIfMissing()` via `inventoryAccountId ??= defaultInventoryAccountId` — auto-selects "Inventory Asset" on new item creation only.
+
+### 2. Sales Order Item Table — Tax Dropdown
+**Problem:** TAX dropdown in the Sales Order item table showed "No results found" because it only sourced from `taxRates` (associate_taxes / inter-state). The tax groups from `tax_groups` (intra-state) were excluded. Also, when a product was selected, `row.taxId` was never auto-filled.
+
+**Fix (`lib/modules/sales/presentation/sales_order_create.dart`):**
+- Combined `[...itemsState.taxGroups, ...itemsState.taxRates]` so both intra-state tax groups and inter-state associate taxes appear in the dropdown.
+- On product selection: `row.taxId ??= p.intraStateTaxId ?? p.interStateTaxId` — auto-fills the tax from the product's tax configuration (intra-state preferred).
+
+## Sales Order Create — Backend Rewrite & Toast Migration (March 27, 2026)
+
+### Sales Order Service Rewrite
+- Rewrote `createSalesOrder` in `backend/src/modules/sales/services/sales.service.ts` to use actual DB schema columns
+- Maps `paymentTerms` UUID → `payment_term_id`, `salesperson` → `salesperson_name`
+- Computes `sub_total`, `tax_total`, `discount_total`, `total_quantity`, `total` from line items
+- Inserts line items into `sales_order_items` with correct columns: `product_id`, `quantity`, `rate`, `discount_value`, `discount_amount`, `discount_type`, `tax_id`, `tax_rate`, `tax_amount`, `amount`, `line_no`
+- Added **compensating delete**: if items insert fails, the header is deleted to keep DB clean (prevents duplicate sale_number on retry)
+
+### Tax Group FK Resolution
+- `sales_order_items.tax_id` FK references `associate_taxes`, but UI sends `tax_groups` UUIDs
+- Service now does 2-step lookup: checks `associate_taxes` first → falls back to `tax_groups` for rate
+- Tax group IDs stored with `tax_id: null` (no FK violation) but correct `tax_rate` and `tax_amount` are computed
+
+### Flutter Model Updates
+- `SalesOrderItem` model: added `discountType` field (default `'%'`), propagated through `fromJson`/`toJson`
+- `_saveSalesOrder` now passes `taxId` and `discountType` from each row to `SalesOrderItem`
+
+### Toast Migration
+- Replaced all raw `ScaffoldMessenger`/`SnackBar` usages (216 occurrences, 41 files) with `ZerpaiToast`
+- Updated `error_handler.dart` to delegate `showErrorSnackBar`/`showSuccessSnackBar`/`showWarningSnackBar` to `ZerpaiToast`
+
+### Pending
+- Run seed migration `backend/migrations/seed_stock_accounts.sql` in Supabase SQL editor (adds Finished Goods, Work In Progress stock accounts)
+
+## Sales Orders — Shared Reusable Mapping Applied (March 27, 2026)
+
+### Goal
+- Align the Sales Orders module with the repo's shared ERP primitives instead of maintaining screen-local list, search, amount, and form patterns.
+
+### Files updated
+- Updated `lib/modules/sales/presentation/sales_order_overview.dart`
+- Updated `lib/shared/widgets/inputs/z_search_field.dart`
+- Updated `lib/shared/widgets/z_data_table_shell.dart`
+
+### What changed
+- Replaced the Sales Orders toolbar search input with shared `ZSearchField`
+- Replaced the Customize Columns dialog search field with shared `ZSearchField`
+- Refactored the Sales Orders table shell to use shared `ZDataTableShell` while preserving the module-specific header and scrollable body
+- Replaced raw amount text rendering with shared `ZCurrencyDisplay` for Sales Order amount values
+- Added a real `New Custom View` dialog using shared form primitives:
+  - `ZerpaiFormCard`
+  - `ZerpaiFormRow`
+  - `FormDropdown<T>`
+  - `ZerpaiRadioGroup<T>`
+  - `ZButton`
+- Added unsaved-change protection to the New Custom View dialog via `showUnsavedChangesDialog()`
+
+### Shared reusable extensions
+- `ZSearchField` now supports:
+  - external `controller`
+  - external `focusNode`
+  - `initialValue`
+  - correct listener ownership for reusable page/dialog usage
+- `ZDataTableShell` now supports a custom `body` widget in addition to row lists, allowing shared table framing to be reused for more complex list screens like Sales Orders
+
+### Validation
+- `dart format lib/shared/widgets/inputs/z_search_field.dart`
+- `dart format lib/shared/widgets/z_data_table_shell.dart`
+- `dart format lib/modules/sales/presentation/sales_order_overview.dart`
+- `dart analyze lib/shared/widgets/inputs/z_search_field.dart lib/shared/widgets/z_data_table_shell.dart lib/modules/sales/presentation/sales_order_overview.dart`
+
+### Result
+- Sales Orders now uses the shared search, table-shell, amount-display, and form-dialog primitives expected by the repo, while retaining its module-specific list interactions, bulk actions, column controls, and detail workspace behavior.
+
+## Sales Orders — Real Edit Flow & Router Fix (March 27, 2026)
+
+### Goal
+- Make the Sales Order detail `Edit` action open a true edit workflow instead of reusing the create flow incorrectly, and fix the GoRouter crash seen when clicking edit from the detail panel.
+
+### Files updated
+- Updated `lib/core/routing/app_routes.dart`
+- Updated `lib/core/routing/app_router.dart`
+- Updated `lib/modules/sales/presentation/sales_order_overview.dart`
+- Updated `lib/modules/sales/presentation/sales_order_create.dart`
+- Updated `lib/modules/sales/controllers/sales_order_controller.dart`
+- Updated `lib/modules/sales/services/sales_order_api_service.dart`
+
+### What changed
+- Added a dedicated Sales Order edit route: `/sales/orders/:id/edit`
+- Updated detail-toolbar `Edit` to navigate into the edit route with the current order passed through `extra`
+- Reworked edit navigation to use a full-path router push based on the live browser path after a GoRouter context/state error was reported during edit clicks
+- Extended `SalesOrderCreateScreen` to support:
+  - `initialOrder`
+  - `initialOrderId`
+  - direct-route hydration for edit mode
+- Switched page chrome for edit mode:
+  - page title becomes `Edit Sales Order`
+  - primary green action becomes `Update`
+  - draft action becomes `Update Draft`
+- Updated form submission so edit mode calls update instead of create
+- Added `updateSalesOrder(...)` to the Sales Order API service and controller
+
+### Validation
+- `dart format lib/core/routing/app_routes.dart`
+- `dart format lib/core/routing/app_router.dart`
+- `dart format lib/modules/sales/presentation/sales_order_overview.dart`
+- `dart format lib/modules/sales/presentation/sales_order_create.dart`
+- `dart format lib/modules/sales/controllers/sales_order_controller.dart`
+- `dart format lib/modules/sales/services/sales_order_api_service.dart`
+- `dart analyze lib/core/routing/app_routes.dart lib/core/routing/app_router.dart lib/modules/sales/presentation/sales_order_overview.dart lib/modules/sales/presentation/sales_order_create.dart lib/modules/sales/controllers/sales_order_controller.dart lib/modules/sales/services/sales_order_api_service.dart`
+
+### Result
+- Sales Orders now has a real edit/update path, and the edit button no longer depends on the failing route-state lookup path that triggered the GoRouter red screen.

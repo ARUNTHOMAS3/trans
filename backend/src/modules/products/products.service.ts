@@ -2083,6 +2083,7 @@ export class ProductsService {
         "id, user_account_name, system_account_name, account_type, is_active",
       )
       .eq("is_active", true)
+      .eq("account_type", "Stock")
       .order("system_account_name", { ascending: true });
 
     if (error) throw new Error(error.message);

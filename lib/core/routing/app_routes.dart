@@ -32,42 +32,73 @@ class AppRoutes {
   static const String compositeItemsCreate = '/items/composite-items/create';
   static const String compositeItemsDetail = '/items/composite-items/:id';
 
-  // Sales
+  // Sales — Customers
   static const String salesCustomers = '/sales/customers';
-  static const String salesCustomersDetail = '/sales/customers/:id';
   static const String salesCustomersCreate = '/sales/customers/create';
+  static const String salesCustomersDetail = '/sales/customers/:id';
+
+  // Sales — Quotations
   static const String salesQuotations = '/sales/quotations';
-  static const String salesQuotationsDetail = '/sales/quotations/:id';
   static const String salesQuotationsCreate = '/sales/quotations/create';
+  static const String salesQuotationsDetail = '/sales/quotations/:id';
+
+  // Sales — Retainer Invoices
   static const String salesRetainerInvoices = '/sales/retainer-invoices';
-  static const String salesRetainerInvoicesDetail =
-      '/sales/retainer-invoices/:id';
   static const String salesRetainerInvoicesCreate =
       '/sales/retainer-invoices/create';
+  static const String salesRetainerInvoicesDetail =
+      '/sales/retainer-invoices/:id';
+
+  // Sales — Orders
   static const String salesOrders = '/sales/orders';
-  static const String salesOrdersDetail = '/sales/orders/:id';
   static const String salesOrdersCreate = '/sales/orders/create';
+  static const String salesOrdersEdit = '/sales/orders/:id/edit';
+  static const String salesOrdersDetail = '/sales/orders/:id';
+
+  // Sales — Invoices
   static const String salesInvoices = '/sales/invoices';
-  static const String salesInvoicesDetail = '/sales/invoices/:id';
   static const String salesInvoicesCreate = '/sales/invoices/create';
+  static const String salesInvoicesDetail = '/sales/invoices/:id';
+
+  // Sales — Delivery Challans
   static const String salesDeliveryChallans = '/sales/delivery-challans';
-  static const String salesDeliveryChallansDetail =
-      '/sales/delivery-challans/:id';
   static const String salesDeliveryChallansCreate =
       '/sales/delivery-challans/create';
+  static const String salesDeliveryChallansDetail =
+      '/sales/delivery-challans/:id';
+
+  // Sales — Payments Received
   static const String salesPaymentsReceived = '/sales/payments-received';
-  static const String salesPaymentsReceivedDetail =
-      '/sales/payments-received/:id';
   static const String salesPaymentsReceivedCreate =
       '/sales/payments-received/create';
+  static const String salesPaymentsReceivedDetail =
+      '/sales/payments-received/:id';
+
+  // Sales — Returns
   static const String salesReturns = '/sales/returns';
   static const String salesReturnsDetail = '/sales/returns/:id';
+
+  // Sales — Credit Notes
   static const String salesCreditNotes = '/sales/credit-notes';
-  static const String salesCreditNotesDetail = '/sales/credit-notes/:id';
   static const String salesCreditNotesCreate = '/sales/credit-notes/create';
+  static const String salesCreditNotesDetail = '/sales/credit-notes/:id';
+
+  // Sales — e-Way Bills
   static const String salesEWayBills = '/sales/e-way-bills';
-  static const String salesEWayBillsDetail = '/sales/e-way-bills/:id';
   static const String salesEWayBillsCreate = '/sales/e-way-bills/create';
+  static const String salesEWayBillsDetail = '/sales/e-way-bills/:id';
+
+  // Sales — Payment Links
+  static const String salesPaymentLinks = '/sales/payment-links';
+  static const String salesPaymentLinksCreate = '/sales/payment-links/create';
+  static const String salesPaymentLinksDetail = '/sales/payment-links/:id';
+
+  // Sales — Recurring Invoices
+  static const String salesRecurringInvoices = '/sales/recurring-invoices';
+  static const String salesRecurringInvoicesCreate =
+      '/sales/recurring-invoices/create';
+  static const String salesRecurringInvoicesDetail =
+      '/sales/recurring-invoices/:id';
 
   // Inventory / Assemblies
   static const String assemblies = '/inventory/assemblies';

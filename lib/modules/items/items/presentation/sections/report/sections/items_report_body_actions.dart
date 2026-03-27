@@ -19,13 +19,7 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
         final result = await showImportItemsDialog(context);
         if (!context.mounted) return;
         if (result != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Import option: $result'),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          ZerpaiToast.info(context, 'Import option: $result');
         }
         return;
       case _ItemsMoreAction.exportItems:
@@ -51,13 +45,7 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
     }
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ZerpaiToast.info(context, msg);
   }
 
   void _handleSortField(
@@ -69,13 +57,7 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
     final dirText = ascending ? 'ascending' : 'descending';
     final label = _sortFieldLabel(field);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Sorted by $label ($dirText)'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ZerpaiToast.info(context, 'Sorted by $label ($dirText)');
   }
 
   void _handleTransactionAction(BuildContext context, String type) {
@@ -92,13 +74,7 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
     }
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ZerpaiToast.info(context, msg);
   }
 
   void _handleSelectionOverflow(
@@ -116,13 +92,7 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
     }
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ZerpaiToast.info(context, msg);
   }
 
   Future<void> _handleMarkAsActive(BuildContext context) async {
@@ -140,13 +110,7 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
         : 'No items selected';
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ZerpaiToast.info(context, msg);
   }
 
   void _handlePushToEcommerce(BuildContext context) {
@@ -156,13 +120,7 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
         : 'No items selected';
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ZerpaiToast.info(context, msg);
   }
 
   Future<void> _handleLockItem(BuildContext context, bool lock) async {
@@ -192,13 +150,7 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
 
   void _showActionSnack(BuildContext context, String msg) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ZerpaiToast.info(context, msg);
   }
 
   // -----------------------------------------------------------

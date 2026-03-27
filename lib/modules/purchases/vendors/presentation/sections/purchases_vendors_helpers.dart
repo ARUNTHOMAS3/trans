@@ -245,12 +245,7 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
             final filesToAdd = result.files.take(availableSlots).toList();
             _attachedFiles.addAll(filesToAdd);
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('You can upload a maximum of 10 files'),
-                backgroundColor: Color(0xFFDC2626),
-              ),
-            );
+            ZerpaiToast.error(context, 'You can upload a maximum of 10 files');
           }
         });
       }

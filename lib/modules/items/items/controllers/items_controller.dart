@@ -36,10 +36,7 @@ class ItemsController extends StateNotifier<ItemsState> {
   }
 
   Future<void> _initializeData() async {
-    await Future.wait([
-      loadItems(),
-      loadCompositeItems(),
-    ]);
+    await Future.wait([loadItems(), loadCompositeItems()]);
   }
 
   Future<void> loadItems() async {
@@ -60,7 +57,9 @@ class ItemsController extends StateNotifier<ItemsState> {
 
       final results = await Future.wait([resultFuture, countFuture]);
       final data = results[0] as Map<String, dynamic>;
-      final items = data['items'] as List<Item>;
+      final items = (data['items'] as List<Item>)
+          .map(_mergeWithExistingItem)
+          .toList();
       final nextCursorStr = data['next_cursor'] as String?;
       final itemsCount = results[1] as int;
 
@@ -133,7 +132,9 @@ class ItemsController extends StateNotifier<ItemsState> {
         cursor: state.nextCursor,
       );
 
-      final newItems = data['items'] as List<Item>;
+      final newItems = (data['items'] as List<Item>)
+          .map(_mergeWithExistingItem)
+          .toList();
       final nextCursorStr = data['next_cursor'] as String?;
 
       final allItems = [...state.items, ...newItems];
@@ -169,7 +170,10 @@ class ItemsController extends StateNotifier<ItemsState> {
         error: null,
       );
 
-      final items = await repo.searchProducts(query.trim(), limit: 30);
+      final items = (await repo.searchProducts(
+        query.trim(),
+        limit: 30,
+      )).map(_mergeWithExistingItem).toList();
 
       state = state.copyWith(
         items: items,
@@ -204,6 +208,58 @@ class ItemsController extends StateNotifier<ItemsState> {
       );
       if (item != null) _syncLookupCache(item);
     }
+  }
+
+  Item _mergeWithExistingItem(Item incoming) {
+    final incomingId = incoming.id;
+    if (incomingId == null || incomingId.isEmpty) {
+      return incoming;
+    }
+
+    final existing = state.items.cast<Item?>().firstWhere(
+      (item) => item?.id == incomingId,
+      orElse: () => null,
+    );
+    if (existing == null) {
+      return incoming;
+    }
+
+    return incoming.copyWith(
+      compositions: incoming.compositions ?? existing.compositions,
+      unitName: incoming.unitName ?? existing.unitName,
+      categoryName: incoming.categoryName ?? existing.categoryName,
+      manufacturerName: incoming.manufacturerName ?? existing.manufacturerName,
+      brandName: incoming.brandName ?? existing.brandName,
+      storageName: incoming.storageName ?? existing.storageName,
+      inventoryAccountName:
+          incoming.inventoryAccountName ?? existing.inventoryAccountName,
+      intraStateTaxName:
+          incoming.intraStateTaxName ?? existing.intraStateTaxName,
+      interStateTaxName:
+          incoming.interStateTaxName ?? existing.interStateTaxName,
+      preferredVendorName:
+          incoming.preferredVendorName ?? existing.preferredVendorName,
+      salesAccountName: incoming.salesAccountName ?? existing.salesAccountName,
+      purchaseAccountName:
+          incoming.purchaseAccountName ?? existing.purchaseAccountName,
+      rackName: incoming.rackName ?? existing.rackName,
+      buyingRuleName: incoming.buyingRuleName ?? existing.buyingRuleName,
+      drugScheduleName: incoming.drugScheduleName ?? existing.drugScheduleName,
+      storageDescription:
+          incoming.storageDescription ?? existing.storageDescription,
+      about: incoming.about ?? existing.about,
+      usesDescription: incoming.usesDescription ?? existing.usesDescription,
+      howToUse: incoming.howToUse ?? existing.howToUse,
+      dosageDescription:
+          incoming.dosageDescription ?? existing.dosageDescription,
+      missedDoseDescription:
+          incoming.missedDoseDescription ?? existing.missedDoseDescription,
+      safetyAdvice: incoming.safetyAdvice ?? existing.safetyAdvice,
+      sideEffects: incoming.sideEffects ?? existing.sideEffects,
+      faqText: incoming.faqText ?? existing.faqText,
+      imageUrls: incoming.imageUrls ?? existing.imageUrls,
+      primaryImageUrl: incoming.primaryImageUrl ?? existing.primaryImageUrl,
+    );
   }
 
   /// Ensures a specific item is loaded into the state.

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/shared/services/recent_history_service.dart';
 import '../../../../shared/widgets/zerpai_layout.dart';
@@ -720,9 +721,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
 
   void _updateRatesInBulk(List<dynamic> items) {
     if (_selectedItemIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one item.')),
-      );
+      ZerpaiToast.info(context, 'Please select at least one item.');
       return;
     }
 
@@ -2416,12 +2415,7 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppTheme.errorRed,
-          ),
-        );
+        ZerpaiToast.error(context, 'Error: $e');
       }
     } finally {
       if (mounted) {

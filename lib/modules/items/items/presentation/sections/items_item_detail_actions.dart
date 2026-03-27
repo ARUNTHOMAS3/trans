@@ -10,9 +10,7 @@ extension _ItemDetailActions on _ItemDetailScreenState {
       case _ItemsMoreAction.importItems:
         final result = await showImportItemsDialog(context);
         if (result != null && context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Import option: $result')));
+          ZerpaiToast.info(context, 'Import option: $result');
         }
         return;
       case _ItemsMoreAction.importItemImages:
@@ -34,9 +32,7 @@ extension _ItemDetailActions on _ItemDetailScreenState {
     }
 
     if (msg.isNotEmpty && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
-      );
+      ZerpaiToast.info(context, msg);
     }
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Query, BadRequestException } from "@nestjs/common";
+import { Controller, Get, Post, Body, Headers, Query, Param, BadRequestException } from "@nestjs/common";
 import { HsnSacService } from "../services/hsn-sac.service";
 import { SalesService } from "../services/sales.service";
 
@@ -13,6 +13,14 @@ export class SalesController {
   async getList(@Query("type") type: string) {
     if (!type) throw new BadRequestException("Type is required");
     return this.salesService.getSalesByType(type);
+  }
+
+  @Post()
+  async createSalesOrder(
+    @Body() body: any,
+    @Headers('x-org-id') orgId: string,
+  ) {
+    return this.salesService.createSalesOrder(body, orgId || '00000000-0000-0000-0000-000000000000');
   }
 
   @Get("hsn/search")
@@ -37,5 +45,11 @@ export class SalesController {
       throw new BadRequestException("Type must be HSN or SAC");
     }
     return this.hsnSacService.searchHsnSac(query, type);
+  }
+
+  // Must be last — dynamic segment catches anything not matched above
+  @Get(':id')
+  async getSalesOrderById(@Param('id') id: string) {
+    return this.salesService.getSalesOrderById(id);
   }
 }

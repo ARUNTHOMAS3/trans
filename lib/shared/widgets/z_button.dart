@@ -6,18 +6,21 @@ class ZButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool loading;
   final bool primary;
+  final IconData? icon;
 
   const ZButton.primary({
     super.key,
     required this.label,
     required this.onPressed,
     this.loading = false,
+    this.icon,
   }) : primary = true;
 
   const ZButton.secondary({
     super.key,
     required this.label,
     required this.onPressed,
+    this.icon,
   }) : loading = false,
        primary = false;
 
@@ -30,25 +33,24 @@ class ZButton extends StatelessWidget {
   }
 
   Widget _buildPrimary() {
+    final child = loading
+        ? const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          )
+        : _labelRow(Colors.white, FontWeight.w600);
+
     return ElevatedButton(
       onPressed: loading ? null : onPressed,
       style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
+        padding: EdgeInsets.symmetric(horizontal: icon != null ? 16 : 28),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
-      child: loading
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-          : Text(
-              label,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
+      child: child,
     );
   }
 
@@ -56,18 +58,31 @@ class ZButton extends StatelessWidget {
     return OutlinedButton(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: EdgeInsets.symmetric(horizontal: icon != null ? 14 : 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         side: const BorderSide(color: AppTheme.borderColor),
       ),
-      child: Text(
+      child: _labelRow(AppTheme.textBody, FontWeight.w500),
+    );
+  }
+
+  Widget _labelRow(Color textColor, FontWeight weight) {
+    if (icon == null) {
+      return Text(
         label,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: AppTheme.textBody,
+        style: TextStyle(fontSize: 14, fontWeight: weight, color: textColor),
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: textColor),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(fontSize: 14, fontWeight: weight, color: textColor),
         ),
-      ),
+      ],
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import '../models/auth_state.dart';
 import '../repositories/auth_repository.dart';
 
@@ -62,9 +63,7 @@ class _AuthLoginPageState extends ConsumerState<AuthLoginPage> {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Login failed: $error')));
+        ZerpaiToast.error(context, 'Login failed: $error');
       }
     }
   }

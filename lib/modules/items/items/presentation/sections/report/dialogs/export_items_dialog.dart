@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 Future<void> showExportItemsDialog(BuildContext context) {
   String module = 'items';
@@ -270,11 +271,7 @@ Future<void> showExportItemsDialog(BuildContext context) {
                                 ),
                                 onPressed: () {
                                   Navigator.of(ctx).pop();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Export started'),
-                                    ),
-                                  );
+                                  ZerpaiToast.info(context, 'Export started');
                                 },
                                 child: const Text('Export'),
                               ),

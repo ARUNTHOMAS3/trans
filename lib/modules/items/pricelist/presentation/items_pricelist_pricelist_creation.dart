@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/core/routing/app_router.dart';
 import '../../../../shared/widgets/zerpai_layout.dart';
@@ -2410,12 +2411,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppTheme.errorRed,
-          ),
-        );
+        ZerpaiToast.error(context, 'Error: $e');
       }
     } finally {
       if (mounted) {

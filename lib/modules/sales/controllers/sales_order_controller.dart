@@ -91,6 +91,17 @@ class SalesOrderController extends StateNotifier<AsyncValue<List<SalesOrder>>> {
     }
   }
 
+  Future<SalesOrder?> updateSalesOrder(String id, SalesOrder sale) async {
+    try {
+      final updatedSale = await _apiService.updateSalesOrder(id, sale);
+      await loadSalesOrders();
+      return updatedSale;
+    } catch (e) {
+      debugPrint('Error updating sales order: $e');
+      rethrow;
+    }
+  }
+
   Future<void> deleteSalesOrder(String id) async {
     try {
       await _apiService.deleteSalesOrder(id);

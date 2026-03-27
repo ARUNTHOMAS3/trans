@@ -9,6 +9,7 @@ import '../models/pricelist_model.dart';
 import '../providers/pricelist_provider.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../core/constants/app_colors.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 /// Price Lists Screen - Inventory → Items → Price Lists
 class PriceListOverviewScreen extends ConsumerStatefulWidget {
@@ -639,14 +640,7 @@ class _PriceListOverviewScreenState
                     .read(priceListNotifierProvider.notifier)
                     .deactivatePriceList(priceList.id);
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Price list "${priceList.name}" deactivated',
-                      ),
-                      backgroundColor: AppTheme.successGreen,
-                    ),
-                  );
+                  ZerpaiToast.success(context, 'Price list "${priceList.name}" deactivated');
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -698,12 +692,7 @@ class _PriceListOverviewScreenState
                     .read(priceListNotifierProvider.notifier)
                     .updatePriceList(priceList.copyWith(status: 'active'));
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Price list "${priceList.name}" activated'),
-                      backgroundColor: AppTheme.successGreen,
-                    ),
-                  );
+                  ZerpaiToast.success(context, 'Price list "${priceList.name}" activated');
                 }
               },
               child: const Text('Activate'),
@@ -766,12 +755,7 @@ class _PriceListOverviewScreenState
                     .read(priceListNotifierProvider.notifier)
                     .deletePriceList(priceList.id);
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Price list "${priceList.name}" deleted'),
-                      backgroundColor: AppTheme.errorRed,
-                    ),
-                  );
+                  ZerpaiToast.error(context, 'Price list "${priceList.name}" deleted');
                 }
               },
               style: ElevatedButton.styleFrom(

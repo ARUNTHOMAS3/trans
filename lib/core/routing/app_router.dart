@@ -14,6 +14,7 @@ import 'package:zerpai_erp/modules/sales/presentation/sales_customer_create.dart
 import 'package:zerpai_erp/modules/sales/presentation/sales_generic_list.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_order_overview.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_order_create.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_invoice_create.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_retainer_invoice_create.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_delivery_challan_create.dart';
@@ -23,6 +24,8 @@ import 'package:zerpai_erp/modules/sales/presentation/sales_eway_bill_create.dar
 import 'package:zerpai_erp/modules/sales/presentation/sales_quotation_create.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_document_detail.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_customer_overview.dart';
+import 'package:zerpai_erp/modules/sales/presentation/sales_payment_link_create.dart';
+import 'package:zerpai_erp/modules/sales/presentation/sales_recurring_invoice_create.dart';
 
 import 'package:zerpai_erp/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_creation.dart';
 import 'package:zerpai_erp/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_overview.dart';
@@ -96,8 +99,14 @@ final GoRouter appRouter = GoRouter(
   debugLogDiagnostics: false,
   redirect: (context, state) {
     final path = state.uri.path;
-    const skipPrefixes = ['/not-found', '/unauthorized', '/error', '/maintenance'];
-    if (skipPrefixes.any((p) => path == p || path.startsWith('$p/'))) return null;
+    const skipPrefixes = [
+      '/not-found',
+      '/unauthorized',
+      '/error',
+      '/maintenance',
+    ];
+    if (skipPrefixes.any((p) => path == p || path.startsWith('$p/')))
+      return null;
     if (RegExp(r'^/\d{10,20}(/|$)').hasMatch(path)) return null;
     final query = state.uri.query.isNotEmpty ? '?${state.uri.query}' : '';
     return '/$_kDevOrgSystemId${path == '/' ? '/home' : path}$query';
@@ -171,7 +180,8 @@ final GoRouter appRouter = GoRouter(
             ),
             GoRoute(
               path: 'settings/orgprofile',
-              builder: (context, state) => const SettingsOrganizationProfilePage(),
+              builder: (context, state) =>
+                  const SettingsOrganizationProfilePage(),
             ),
             GoRoute(
               path: 'settings/orgbranding',
@@ -300,8 +310,22 @@ final GoRouter appRouter = GoRouter(
               ],
             ),
 
+            // ── Sales ────────────────────────────────────────────────────
+            // Deep-link query params (applies across all sales list routes):
+            //   ?q=<search>          — pre-fill search field
+            //   ?filter=<value>      — pre-select a status filter tab
+            //   ?status=<value>      — alias for filter (used by external links)
+            // Create-screen deep-link params:
+            //   ?customerId=<id>     — pre-select customer
+            //   ?cloneId=<id>        — clone an existing document
+            //   ?fromOrderId=<id>    — convert a sales order to invoice/challan
+            //   ?fromInvoiceId=<id>  — associate invoice when creating payment
+            //   ?fromChallanId=<id>  — associate challan when creating e-way bill
+            // Detail-screen deep-link params:
+            //   ?tab=<name>          — open a specific tab (overview/comments/history)
             GoRoute(
               path: 'sales/customers',
+              name: AppRoutes.salesCustomers,
               builder: (context, state) => SalesGenericListScreen(
                 title: 'Customers',
                 createRoute: AppRoutes.salesCustomersCreate,
@@ -320,18 +344,23 @@ final GoRouter appRouter = GoRouter(
               routes: [
                 GoRoute(
                   path: 'create',
-                  builder: (context, state) => const SalesCustomerCreateScreen(),
+                  name: AppRoutes.salesCustomersCreate,
+                  builder: (context, state) =>
+                      const SalesCustomerCreateScreen(),
                 ),
                 GoRoute(
                   path: ':id',
-                  builder: (context, state) =>
-                      SalesCustomerOverviewScreen(id: state.pathParameters['id']!),
+                  name: AppRoutes.salesCustomersDetail,
+                  builder: (context, state) => SalesCustomerOverviewScreen(
+                    id: state.pathParameters['id']!,
+                  ),
                 ),
               ],
             ),
 
             GoRoute(
               path: 'sales/quotations',
+              name: AppRoutes.salesQuotations,
               builder: (context, state) => SalesGenericListScreen(
                 title: 'Quotations',
                 createRoute: AppRoutes.salesQuotationsCreate,
@@ -349,13 +378,16 @@ final GoRouter appRouter = GoRouter(
               routes: [
                 GoRoute(
                   path: 'create',
+                  name: AppRoutes.salesQuotationsCreate,
                   builder: (context, state) => const SalesQuoteCreateScreen(),
                 ),
                 GoRoute(
                   path: ':id',
+                  name: AppRoutes.salesQuotationsDetail,
                   builder: (context, state) => SalesDocumentDetailScreen(
                     id: state.pathParameters['id']!,
                     documentType: 'quotation',
+                    initialTab: state.uri.queryParameters['tab'],
                   ),
                 ),
               ],
@@ -363,25 +395,35 @@ final GoRouter appRouter = GoRouter(
 
             GoRoute(
               path: 'sales/retainer-invoices',
+              name: AppRoutes.salesRetainerInvoices,
               builder: (context, state) => SalesGenericListScreen(
                 title: 'Retainer Invoices',
                 createRoute: AppRoutes.salesRetainerInvoicesCreate,
                 detailRoute: AppRoutes.salesRetainerInvoicesDetail,
                 initialSearchQuery: state.uri.queryParameters['q'],
                 provider: salesRetainerInvoicesProvider,
-                columns: ['invoice_number', 'customer', 'date', 'amount', 'status'],
+                columns: [
+                  'invoice_number',
+                  'customer',
+                  'date',
+                  'amount',
+                  'status',
+                ],
               ),
               routes: [
                 GoRoute(
                   path: 'create',
+                  name: AppRoutes.salesRetainerInvoicesCreate,
                   builder: (context, state) =>
                       const SalesRetainerInvoiceCreateScreen(),
                 ),
                 GoRoute(
                   path: ':id',
+                  name: AppRoutes.salesRetainerInvoicesDetail,
                   builder: (context, state) => SalesDocumentDetailScreen(
                     id: state.pathParameters['id']!,
                     documentType: 'retainer_invoice',
+                    initialTab: state.uri.queryParameters['tab'],
                   ),
                 ),
               ],
@@ -389,19 +431,48 @@ final GoRouter appRouter = GoRouter(
 
             GoRoute(
               path: 'sales/orders',
+              name: AppRoutes.salesOrders,
               builder: (context, state) => SalesOrderOverviewScreen(
                 initialSearchQuery: state.uri.queryParameters['q'],
+                initialFilter:
+                    state.uri.queryParameters['filter'] ??
+                    state.uri.queryParameters['status'],
               ),
               routes: [
                 GoRoute(
                   path: 'create',
-                  builder: (context, state) => const SalesOrderCreateScreen(),
+                  name: AppRoutes.salesOrdersCreate,
+                  builder: (context, state) {
+                    final initialOrder = state.extra;
+                    return SalesOrderCreateScreen(
+                      initialOrder: initialOrder is SalesOrder
+                          ? initialOrder
+                          : null,
+                      initialCustomerId:
+                          state.uri.queryParameters['customerId'],
+                      cloneId: state.uri.queryParameters['cloneId'],
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: ':id/edit',
+                  name: AppRoutes.salesOrdersEdit,
+                  builder: (context, state) {
+                    final initialOrder = state.extra;
+                    return SalesOrderCreateScreen(
+                      initialOrder: initialOrder is SalesOrder
+                          ? initialOrder
+                          : null,
+                      initialOrderId: state.pathParameters['id'],
+                    );
+                  },
                 ),
                 GoRoute(
                   path: ':id',
-                  builder: (context, state) => SalesDocumentDetailScreen(
-                    id: state.pathParameters['id']!,
-                    documentType: 'sales_order',
+                  name: AppRoutes.salesOrdersDetail,
+                  builder: (context, state) => SalesOrderOverviewScreen(
+                    initialSearchQuery: state.uri.queryParameters['q'],
+                    initialSelectedId: state.pathParameters['id']!,
                   ),
                 ),
               ],
@@ -409,6 +480,7 @@ final GoRouter appRouter = GoRouter(
 
             GoRoute(
               path: 'sales/invoices',
+              name: AppRoutes.salesInvoices,
               builder: (context, state) => SalesGenericListScreen(
                 title: 'Invoices',
                 createRoute: AppRoutes.salesInvoicesCreate,
@@ -427,13 +499,21 @@ final GoRouter appRouter = GoRouter(
               routes: [
                 GoRoute(
                   path: 'create',
-                  builder: (context, state) => const SalesInvoiceCreateScreen(),
+                  name: AppRoutes.salesInvoicesCreate,
+                  builder: (context, state) => SalesInvoiceCreateScreen(
+                    initialCustomerId:
+                        state.uri.queryParameters['customerId'],
+                    fromOrderId: state.uri.queryParameters['fromOrderId'],
+                    cloneId: state.uri.queryParameters['cloneId'],
+                  ),
                 ),
                 GoRoute(
                   path: ':id',
+                  name: AppRoutes.salesInvoicesDetail,
                   builder: (context, state) => SalesDocumentDetailScreen(
                     id: state.pathParameters['id']!,
                     documentType: 'invoice',
+                    initialTab: state.uri.queryParameters['tab'],
                   ),
                 ),
               ],
@@ -441,6 +521,7 @@ final GoRouter appRouter = GoRouter(
 
             GoRoute(
               path: 'sales/delivery-challans',
+              name: AppRoutes.salesDeliveryChallans,
               builder: (context, state) => SalesGenericListScreen(
                 title: 'Delivery Challans',
                 createRoute: AppRoutes.salesDeliveryChallansCreate,
@@ -452,13 +533,21 @@ final GoRouter appRouter = GoRouter(
               routes: [
                 GoRoute(
                   path: 'create',
-                  builder: (context, state) => const SalesChallanCreateScreen(),
+                  name: AppRoutes.salesDeliveryChallansCreate,
+                  builder: (context, state) => SalesChallanCreateScreen(
+                    initialCustomerId:
+                        state.uri.queryParameters['customerId'],
+                    fromOrderId: state.uri.queryParameters['fromOrderId'],
+                    cloneId: state.uri.queryParameters['cloneId'],
+                  ),
                 ),
                 GoRoute(
                   path: ':id',
+                  name: AppRoutes.salesDeliveryChallansDetail,
                   builder: (context, state) => SalesDocumentDetailScreen(
                     id: state.pathParameters['id']!,
                     documentType: 'delivery_challan',
+                    initialTab: state.uri.queryParameters['tab'],
                   ),
                 ),
               ],
@@ -466,6 +555,7 @@ final GoRouter appRouter = GoRouter(
 
             GoRoute(
               path: 'sales/payments-received',
+              name: AppRoutes.salesPaymentsReceived,
               builder: (context, state) => SalesGenericListScreen(
                 title: 'Payments Received',
                 createRoute: AppRoutes.salesPaymentsReceivedCreate,
@@ -483,21 +573,31 @@ final GoRouter appRouter = GoRouter(
               routes: [
                 GoRoute(
                   path: 'create',
-                  builder: (context, state) => const SalesPaymentCreateScreen(),
+                  name: AppRoutes.salesPaymentsReceivedCreate,
+                  builder: (context, state) => SalesPaymentCreateScreen(
+                    initialCustomerId:
+                        state.uri.queryParameters['customerId'],
+                    fromInvoiceId:
+                        state.uri.queryParameters['fromInvoiceId'],
+                    cloneId: state.uri.queryParameters['cloneId'],
+                  ),
                 ),
                 GoRoute(
                   path: ':id',
+                  name: AppRoutes.salesPaymentsReceivedDetail,
                   builder: (context, state) => SalesDocumentDetailScreen(
                     id: state.pathParameters['id']!,
                     documentType: 'payment_received',
+                    initialTab: state.uri.queryParameters['tab'],
                   ),
                 ),
               ],
             ),
 
-            // Sales - Returns
+            // Sales — Returns
             GoRoute(
               path: 'sales/returns',
+              name: AppRoutes.salesReturns,
               builder: (context, state) => SalesGenericListScreen(
                 title: 'Sales Returns',
                 createRoute: AppRoutes.salesReturns,
@@ -514,9 +614,11 @@ final GoRouter appRouter = GoRouter(
               routes: [
                 GoRoute(
                   path: ':id',
+                  name: AppRoutes.salesReturnsDetail,
                   builder: (context, state) => SalesDocumentDetailScreen(
                     id: state.pathParameters['id']!,
                     documentType: 'sales_return',
+                    initialTab: state.uri.queryParameters['tab'],
                   ),
                 ),
               ],
@@ -524,6 +626,7 @@ final GoRouter appRouter = GoRouter(
 
             GoRoute(
               path: 'sales/credit-notes',
+              name: AppRoutes.salesCreditNotes,
               builder: (context, state) => SalesGenericListScreen(
                 title: 'Credit Notes',
                 createRoute: AppRoutes.salesCreditNotesCreate,
@@ -541,13 +644,22 @@ final GoRouter appRouter = GoRouter(
               routes: [
                 GoRoute(
                   path: 'create',
-                  builder: (context, state) => const SalesCreditNoteCreateScreen(),
+                  name: AppRoutes.salesCreditNotesCreate,
+                  builder: (context, state) => SalesCreditNoteCreateScreen(
+                    initialCustomerId:
+                        state.uri.queryParameters['customerId'],
+                    fromInvoiceId:
+                        state.uri.queryParameters['fromInvoiceId'],
+                    cloneId: state.uri.queryParameters['cloneId'],
+                  ),
                 ),
                 GoRoute(
                   path: ':id',
+                  name: AppRoutes.salesCreditNotesDetail,
                   builder: (context, state) => SalesDocumentDetailScreen(
                     id: state.pathParameters['id']!,
                     documentType: 'credit_note',
+                    initialTab: state.uri.queryParameters['tab'],
                   ),
                 ),
               ],
@@ -555,6 +667,7 @@ final GoRouter appRouter = GoRouter(
 
             GoRoute(
               path: 'sales/e-way-bills',
+              name: AppRoutes.salesEWayBills,
               builder: (context, state) => SalesGenericListScreen(
                 title: 'e-Way Bills',
                 createRoute: AppRoutes.salesEWayBillsCreate,
@@ -566,13 +679,106 @@ final GoRouter appRouter = GoRouter(
               routes: [
                 GoRoute(
                   path: 'create',
-                  builder: (context, state) => const SalesEWayBillCreateScreen(),
+                  name: AppRoutes.salesEWayBillsCreate,
+                  builder: (context, state) => SalesEWayBillCreateScreen(
+                    initialCustomerId:
+                        state.uri.queryParameters['customerId'],
+                    fromChallanId:
+                        state.uri.queryParameters['fromChallanId'],
+                    cloneId: state.uri.queryParameters['cloneId'],
+                  ),
                 ),
                 GoRoute(
                   path: ':id',
+                  name: AppRoutes.salesEWayBillsDetail,
                   builder: (context, state) => SalesDocumentDetailScreen(
                     id: state.pathParameters['id']!,
                     documentType: 'eway_bill',
+                    initialTab: state.uri.queryParameters['tab'],
+                  ),
+                ),
+              ],
+            ),
+
+            // Sales — Payment Links
+            GoRoute(
+              path: 'sales/payment-links',
+              name: AppRoutes.salesPaymentLinks,
+              builder: (context, state) => SalesGenericListScreen(
+                title: 'Payment Links',
+                createRoute: AppRoutes.salesPaymentLinksCreate,
+                detailRoute: AppRoutes.salesPaymentLinksDetail,
+                initialSearchQuery: state.uri.queryParameters['q'],
+                provider: salesPaymentLinksProvider,
+                columns: const [
+                  'link_id',
+                  'customer',
+                  'amount',
+                  'expiry',
+                  'status',
+                ],
+              ),
+              routes: [
+                GoRoute(
+                  path: 'create',
+                  name: AppRoutes.salesPaymentLinksCreate,
+                  builder: (context, state) => SalesPaymentLinkCreateScreen(
+                    initialCustomerId:
+                        state.uri.queryParameters['customerId'],
+                    fromInvoiceId:
+                        state.uri.queryParameters['fromInvoiceId'],
+                  ),
+                ),
+                GoRoute(
+                  path: ':id',
+                  name: AppRoutes.salesPaymentLinksDetail,
+                  builder: (context, state) => SalesDocumentDetailScreen(
+                    id: state.pathParameters['id']!,
+                    documentType: 'payment_link',
+                    initialTab: state.uri.queryParameters['tab'],
+                  ),
+                ),
+              ],
+            ),
+
+            // Sales — Recurring Invoices
+            GoRoute(
+              path: 'sales/recurring-invoices',
+              name: AppRoutes.salesRecurringInvoices,
+              builder: (context, state) => SalesGenericListScreen(
+                title: 'Recurring Invoices',
+                createRoute: AppRoutes.salesRecurringInvoicesCreate,
+                detailRoute: AppRoutes.salesRecurringInvoicesDetail,
+                initialSearchQuery: state.uri.queryParameters['q'],
+                provider: salesRecurringInvoicesProvider,
+                columns: const [
+                  'profile_name',
+                  'customer',
+                  'frequency',
+                  'next_invoice_date',
+                  'status',
+                ],
+              ),
+              routes: [
+                GoRoute(
+                  path: 'create',
+                  name: AppRoutes.salesRecurringInvoicesCreate,
+                  builder: (context, state) =>
+                      SalesRecurringInvoiceCreateScreen(
+                    initialCustomerId:
+                        state.uri.queryParameters['customerId'],
+                    fromInvoiceId:
+                        state.uri.queryParameters['fromInvoiceId'],
+                    cloneId: state.uri.queryParameters['cloneId'],
+                  ),
+                ),
+                GoRoute(
+                  path: ':id',
+                  name: AppRoutes.salesRecurringInvoicesDetail,
+                  builder: (context, state) => SalesDocumentDetailScreen(
+                    id: state.pathParameters['id']!,
+                    documentType: 'recurring_invoice',
+                    initialTab: state.uri.queryParameters['tab'],
                   ),
                 ),
               ],
@@ -790,7 +996,8 @@ final GoRouter appRouter = GoRouter(
                     } else if (extra is ManualJournalTemplate) {
                       template = extra;
                     } else if (extra is Map<String, dynamic>) {
-                      initialJournal = extra['initialJournal'] as ManualJournal?;
+                      initialJournal =
+                          extra['initialJournal'] as ManualJournal?;
                       template = extra['template'] as ManualJournalTemplate?;
                       showTemplates = extra['showTemplates'] as bool? ?? false;
                     }
@@ -809,7 +1016,8 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'journal-template-creation',
-                  builder: (context, state) => const JournalTemplateCreateScreen(),
+                  builder: (context, state) =>
+                      const JournalTemplateCreateScreen(),
                 ),
                 GoRoute(
                   path: ':id',
@@ -835,7 +1043,10 @@ final GoRouter appRouter = GoRouter(
                     opaque: false,
                     transitionsBuilder:
                         (context, animation, secondaryAnimation, child) {
-                          return FadeTransition(opacity: animation, child: child);
+                          return FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          );
                         },
                   ),
                 ),
@@ -859,7 +1070,9 @@ final GoRouter appRouter = GoRouter(
                   builder: (context, state) {
                     final extra = state.extra;
                     if (extra is RecurringJournal) {
-                      return RecurringJournalCreateScreen(initialJournal: extra);
+                      return RecurringJournalCreateScreen(
+                        initialJournal: extra,
+                      );
                     }
                     if (extra is ManualJournal) {
                       return RecurringJournalCreateScreen(

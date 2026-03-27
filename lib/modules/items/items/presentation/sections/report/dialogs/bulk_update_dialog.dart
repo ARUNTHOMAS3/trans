@@ -7,6 +7,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/category_dropdown.dart'
     show CategoryDropdown, CategoryNode;
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 Future<void> showBulkUpdateDialog(
   BuildContext context, {
@@ -1180,33 +1181,13 @@ Future<void> showBulkUpdateDialog(
                                           ? () async {
                                               if (selectedIds.isEmpty) {
                                                 if (!context.mounted) return;
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      'No items selected',
-                                                    ),
-                                                    behavior: SnackBarBehavior
-                                                        .floating,
-                                                  ),
-                                                );
+                                                ZerpaiToast.info(context, 'No items selected');
                                                 return;
                                               }
                                               final updated =
                                                   await applyBulkUpdate();
                                               if (!context.mounted) return;
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    '$updated item(s) updated successfully',
-                                                  ),
-                                                  behavior:
-                                                      SnackBarBehavior.floating,
-                                                ),
-                                              );
+                                              ZerpaiToast.success(context, '$updated item(s) updated successfully');
                                               Navigator.pop(ctx);
                                             }
                                           : null,

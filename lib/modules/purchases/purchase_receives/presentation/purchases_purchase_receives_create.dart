@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart';
@@ -782,25 +783,15 @@ class _PurchasesPurchaseReceivesCreateScreenState
 
   Future<void> _handleSave(String status) async {
     if (!(_selectedVendorName?.isNotEmpty ?? false)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a vendor')),
-      );
+      ZerpaiToast.error(context, 'Please select a vendor');
       return;
     }
     if (!(_selectedPONumber?.isNotEmpty ?? false)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a purchase order')),
-      );
+      ZerpaiToast.error(context, 'Please select a purchase order');
       return;
     }
     if (_items.isEmpty || _items.every((item) => item.quantityToReceive <= 0)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please enter quantity to receive for at least one item',
-          ),
-        ),
-      );
+      ZerpaiToast.error(context, 'Please enter quantity to receive for at least one item');
       return;
     }
 
@@ -829,38 +820,22 @@ class _PurchasesPurchaseReceivesCreateScreenState
     setState(() => _isSaving = false);
 
     if (result == PurchaseReceiveSaveMode.remote) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            status == 'received'
-                ? 'Purchase Receive saved successfully'
-                : 'Purchase Receive saved as draft',
-          ),
-          backgroundColor: const Color(0xFF19A05E),
-        ),
+      ZerpaiToast.success(
+        context,
+        status == 'received'
+            ? 'Purchase Receive saved successfully'
+            : 'Purchase Receive saved as draft',
       );
       context.go(AppRoutes.purchaseReceives);
       return;
     }
 
     if (result == PurchaseReceiveSaveMode.localFallback) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Purchase Receive saved locally only because the API is unavailable.',
-          ),
-          backgroundColor: Color(0xFF2563EB),
-        ),
-      );
+      ZerpaiToast.info(context, 'Purchase Receive saved locally only because the API is unavailable.');
       context.go(AppRoutes.purchaseReceives);
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Failed to save Purchase Receive. Please try again.'),
-        backgroundColor: _dangerRed,
-      ),
-    );
+    ZerpaiToast.error(context, 'Failed to save Purchase Receive. Please try again.');
   }
 }

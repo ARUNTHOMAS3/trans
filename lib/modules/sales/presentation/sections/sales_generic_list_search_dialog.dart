@@ -334,12 +334,7 @@ extension _GenericListSearchDialog on _SalesGenericListScreenState {
                       ElevatedButton(
                         onPressed: () {
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Searching with applied filters..'),
-                              backgroundColor: Color(0xFF22C55E),
-                            ),
-                          );
+                          ZerpaiToast.info(context, 'Searching with applied filters..');
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF22C55E),

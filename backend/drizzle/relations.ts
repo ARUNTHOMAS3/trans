@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { products, batches, taxGroups, taxGroupTaxes, associateTaxes, countries, states, customers, salesPaymentLinks, accounts, purchasesPurchaseOrderItems, purchasesPurchaseOrders, brands, buyingRules, categories, manufacturers, vendors, racks, schedules, storageLocations, units, purchasesPurchaseOrderAttachments, organization, settingsBranches, salesOrders, paymentTerms, priceLists, tdsRates, salesOrderItems, accountsFiscalYears, accountsManualJournals, accountsRecurringJournals, salesOrderAttachments, accountTransactions, accountsManualJournalAttachments, contents, productContents, strengths, warehouses, shipmentPreferences, vendorContactPersons, salesPayments, compositeItemParts, compositeItems, vendorBankAccounts, tdsSections, uqc, accountsRecurringJournalItems, timezones, tdsGroups, tdsGroupItems, accountsJournalTemplateItems, accountsJournalTemplates, accountsManualJournalItems, productOutletInventorySettings, reorderTerms, compositeItemOutletInventorySettings, priceListItems, itemVendorMappings, priceListVolumeRanges, customerContactPersons, currencies, settingsBranding, accountsManualJournalTagMappings, accountsReportingTags } from "./schema";
+import { products, batches, taxGroups, taxGroupTaxes, associateTaxes, countries, states, customers, salesPaymentLinks, accounts, purchasesPurchaseOrderItems, purchasesPurchaseOrders, brands, buyingRules, categories, manufacturers, vendors, racks, schedules, storageLocations, units, purchasesPurchaseOrderAttachments, salesOrders, paymentTerms, priceLists, tdsRates, salesOrderItems, accountsFiscalYears, accountsManualJournals, accountsRecurringJournals, salesOrderAttachments, settingsTransactionSeries, settingsBranches, organization, accountTransactions, accountsManualJournalAttachments, contents, productContents, strengths, warehouses, settingsBranchTransactionSeries, settingsBranchUsers, shipmentPreferences, vendorContactPersons, salesPayments, compositeItemParts, compositeItems, vendorBankAccounts, tdsSections, uqc, accountsRecurringJournalItems, timezones, tdsGroups, tdsGroupItems, accountsJournalTemplateItems, accountsJournalTemplates, accountsManualJournalItems, productOutletInventorySettings, reorderTerms, compositeItemOutletInventorySettings, priceListItems, itemVendorMappings, priceListVolumeRanges, customerContactPersons, currencies, settingsBranding, accountsManualJournalTagMappings, accountsReportingTags } from "./schema";
 
 export const batchesRelations = relations(batches, ({one, many}) => ({
 	product: one(products, {
@@ -229,6 +229,7 @@ export const accountsRelations = relations(accounts, ({one, many}) => ({
 	accounts: many(accounts, {
 		relationName: "accounts_parentId_accounts_id"
 	}),
+	settingsBranches: many(settingsBranches),
 	accountTransactions: many(accountTransactions),
 	tdsRates_payableAccountId: many(tdsRates, {
 		relationName: "tdsRates_payableAccountId_accounts_id"
@@ -348,24 +349,6 @@ export const purchasesPurchaseOrderAttachmentsRelations = relations(purchasesPur
 	}),
 }));
 
-export const settingsBranchesRelations = relations(settingsBranches, ({one, many}) => ({
-	organization: one(organization, {
-		fields: [settingsBranches.orgId],
-		references: [organization.id]
-	}),
-	warehouses: many(warehouses),
-}));
-
-export const organizationRelations = relations(organization, ({one, many}) => ({
-	settingsBranches: many(settingsBranches),
-	warehouses: many(warehouses),
-	state: one(states, {
-		fields: [organization.stateId],
-		references: [states.id]
-	}),
-	settingsBrandings: many(settingsBranding),
-}));
-
 export const salesOrdersRelations = relations(salesOrders, ({one, many}) => ({
 	customer: one(customers, {
 		fields: [salesOrders.customerId],
@@ -466,6 +449,49 @@ export const salesOrderAttachmentsRelations = relations(salesOrderAttachments, (
 	}),
 }));
 
+export const settingsBranchesRelations = relations(settingsBranches, ({one, many}) => ({
+	settingsTransactionSery: one(settingsTransactionSeries, {
+		fields: [settingsBranches.defaultTransactionSeriesId],
+		references: [settingsTransactionSeries.id]
+	}),
+	account: one(accounts, {
+		fields: [settingsBranches.gstinImportExportAccountId],
+		references: [accounts.id]
+	}),
+	organization: one(organization, {
+		fields: [settingsBranches.orgId],
+		references: [organization.id]
+	}),
+	settingsBranch: one(settingsBranches, {
+		fields: [settingsBranches.parentBranchId],
+		references: [settingsBranches.id],
+		relationName: "settingsBranches_parentBranchId_settingsBranches_id"
+	}),
+	settingsBranches: many(settingsBranches, {
+		relationName: "settingsBranches_parentBranchId_settingsBranches_id"
+	}),
+	warehouses: many(warehouses),
+	settingsBranchTransactionSeries: many(settingsBranchTransactionSeries),
+	settingsBranchUsers: many(settingsBranchUsers),
+}));
+
+export const settingsTransactionSeriesRelations = relations(settingsTransactionSeries, ({many}) => ({
+	settingsBranches: many(settingsBranches),
+	settingsBranchTransactionSeries: many(settingsBranchTransactionSeries),
+}));
+
+export const organizationRelations = relations(organization, ({one, many}) => ({
+	settingsBranches: many(settingsBranches),
+	warehouses: many(warehouses),
+	settingsBranchTransactionSeries: many(settingsBranchTransactionSeries),
+	settingsBranchUsers: many(settingsBranchUsers),
+	state: one(states, {
+		fields: [organization.stateId],
+		references: [states.id]
+	}),
+	settingsBrandings: many(settingsBranding),
+}));
+
 export const accountTransactionsRelations = relations(accountTransactions, ({one}) => ({
 	account: one(accounts, {
 		fields: [accountTransactions.accountId],
@@ -521,6 +547,32 @@ export const warehousesRelations = relations(warehouses, ({one, many}) => ({
 	}),
 	purchasesPurchaseOrders_warehouseId: many(purchasesPurchaseOrders, {
 		relationName: "purchasesPurchaseOrders_warehouseId_warehouses_id"
+	}),
+}));
+
+export const settingsBranchTransactionSeriesRelations = relations(settingsBranchTransactionSeries, ({one}) => ({
+	settingsBranch: one(settingsBranches, {
+		fields: [settingsBranchTransactionSeries.branchId],
+		references: [settingsBranches.id]
+	}),
+	organization: one(organization, {
+		fields: [settingsBranchTransactionSeries.orgId],
+		references: [organization.id]
+	}),
+	settingsTransactionSery: one(settingsTransactionSeries, {
+		fields: [settingsBranchTransactionSeries.transactionSeriesId],
+		references: [settingsTransactionSeries.id]
+	}),
+}));
+
+export const settingsBranchUsersRelations = relations(settingsBranchUsers, ({one}) => ({
+	settingsBranch: one(settingsBranches, {
+		fields: [settingsBranchUsers.branchId],
+		references: [settingsBranches.id]
+	}),
+	organization: one(organization, {
+		fields: [settingsBranchUsers.orgId],
+		references: [organization.id]
 	}),
 }));
 

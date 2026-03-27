@@ -46,9 +46,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load users: $e')));
+      ZerpaiToast.error(context, 'Failed to load users: $e');
     }
   }
 

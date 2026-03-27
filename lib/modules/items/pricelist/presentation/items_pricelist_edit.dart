@@ -10,6 +10,7 @@ import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 /// Price List Edit Screen - Inventory → Items → Price Lists → Edit
 class PriceListEditScreen extends ConsumerStatefulWidget {
@@ -1843,21 +1844,11 @@ class _PriceListEditScreenState extends ConsumerState<PriceListEditScreen> {
       if (mounted) {
         setState(() => _isDirty = false);
         _handleCancel();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Price list updated'),
-            backgroundColor: AppTheme.successGreen,
-          ),
-        );
+        ZerpaiToast.success(context, 'Price list updated');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppTheme.errorRed,
-          ),
-        );
+        ZerpaiToast.error(context, 'Error: $e');
       }
     } finally {
       if (mounted) {

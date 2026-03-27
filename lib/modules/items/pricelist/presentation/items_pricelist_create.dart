@@ -7,6 +7,7 @@ import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import '../models/pricelist_model.dart';
 import '../providers/pricelist_provider.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
@@ -1944,12 +1945,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppTheme.errorRed,
-          ),
-        );
+        ZerpaiToast.error(context, 'Error: $e');
       }
     } finally {
       if (mounted) {

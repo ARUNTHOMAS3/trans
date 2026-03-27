@@ -20,6 +20,7 @@ import 'package:zerpai_erp/shared/widgets/hsn_sac_search_modal.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/category_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_categories_dialog.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 enum CompositeItemType { assembly, kit }
 
@@ -2601,15 +2602,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
                                         extra: item,
                                       );
                                     } catch (e) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Error finding item details: $e',
-                                          ),
-                                        ),
-                                      );
+                                      ZerpaiToast.error(context, 'Error finding item details: $e');
                                     }
                                   }
                                 },
@@ -2826,12 +2819,7 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Warning: Failed to upload images: $e'),
-              backgroundColor: Colors.orange,
-            ),
-          );
+          ZerpaiToast.info(context, 'Warning: Failed to upload images: $e');
         }
       }
     }
@@ -2906,7 +2894,6 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
       'parts': parts,
     };
 
-    final messenger = ScaffoldMessenger.of(context);
     final success = await controller.createCompositeItem(payload);
     if (!mounted) return;
 
@@ -2954,19 +2941,9 @@ class _CompositeCreateScreenState extends ConsumerState<CompositeCreateScreen> {
       final freshState = ref.read(itemsControllerProvider);
       final errors = freshState.validationErrors;
       if (errors.isNotEmpty) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Validation failed: ${errors.values.first}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ZerpaiToast.error(context, 'Validation failed: ${errors.values.first}');
       } else if (freshState.error != null) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Error: ${freshState.error}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ZerpaiToast.error(context, 'Error: ${freshState.error}');
       }
     }
   }

@@ -9,6 +9,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
@@ -284,9 +285,7 @@ class _SalesCustomerCreateScreenState
       final remainingSlots = 5 - documents.length;
       if (remainingSlots <= 0) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Maximum 5 files allowed')),
-          );
+          ZerpaiToast.info(context, 'Maximum 5 files allowed');
         }
         return;
       }
@@ -433,13 +432,7 @@ class _SalesCustomerCreateScreenState
     // If there are validation errors, show message and return
     if (validationErrors.isNotEmpty) {
       setState(() {}); // Rebuild to show red borders
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields (marked with *)'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
-        ),
-      );
+      ZerpaiToast.error(context, 'Please fill in all required fields (marked with *)');
       return;
     }
 
@@ -631,21 +624,9 @@ class _SalesCustomerCreateScreenState
           .createCustomer(newCustomer);
 
       if (mounted) {
-        // Show success message BEFORE navigation
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Customer ${result.displayName} created successfully!',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        ZerpaiToast.success(context, 'Customer ${result.displayName} created successfully!');
 
-        // Wait a moment for the SnackBar to show
-        await Future.delayed(const Duration(milliseconds: 300));
-
-        // Then navigate
+        // Navigate
         if (mounted) {
           if (Navigator.of(context).canPop()) {
             Navigator.pop(context);
@@ -657,13 +638,7 @@ class _SalesCustomerCreateScreenState
     } catch (e) {
       AppLogger.error('Error creating customer', error: e);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error creating customer: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        ZerpaiToast.error(context, 'Error creating customer: $e');
       }
     } finally {
       if (mounted) setState(() => isLoading = false);

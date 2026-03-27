@@ -34,6 +34,7 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/services/draft_storage_service.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 part 'sections/items_item_create_primary_info.dart';
 part 'sections/items_item_create_images.dart';
@@ -78,6 +79,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
   static const String _defaultDrugScheduleName = 'NONE / GENERAL';
   static const String _defaultBuyingRuleName = 'No Restriction (OTC)';
   static const String _defaultStorageName = 'Normal Temp';
+  static const String _defaultInventoryAccountName = 'Inventory Asset';
 
   // Edit mode - stores the item being edited
   Item? editingItem;
@@ -299,9 +301,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
 
     DraftStorageService.clear(_draftKey);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Draft restored successfully.')),
-      );
+      ZerpaiToast.info(context, 'Draft restored successfully.');
     }
   }
 
@@ -696,6 +696,11 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       _defaultStorageName,
     );
 
+    final defaultInventoryAccountId = _findLookupIdByName(
+      itemsState.accounts,
+      _defaultInventoryAccountName,
+    );
+
     if (!mounted) return;
 
     setState(() {
@@ -703,6 +708,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
       scheduleOfDrugId ??= defaultDrugScheduleId;
       storageId ??= defaultStorageId;
       valuationMethod ??= 'FEFO';
+      inventoryAccountId ??= defaultInventoryAccountId;
     });
   }
 
@@ -996,14 +1002,7 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                           }
                         } catch (e) {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Warning: Failed to upload images: $e',
-                                ),
-                                backgroundColor: Colors.orange,
-                              ),
-                            );
+                            ZerpaiToast.info(context, 'Warning: Failed to upload images: $e');
                           }
                         }
                       } else if (isEditMode) {
@@ -1195,21 +1194,9 @@ class _ItemCreateScreenState extends ConsumerState<ItemCreateScreen> {
                         final freshState = ref.read(itemsControllerProvider);
                         final errors = freshState.validationErrors;
                         if (errors.isNotEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Validation failed: ${errors.values.first}',
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
+                          ZerpaiToast.error(context, 'Validation failed: ${errors.values.first}');
                         } else if (freshState.error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error: ${freshState.error}'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
+                          ZerpaiToast.error(context, 'Error: ${freshState.error}');
                         }
                       }
                     },

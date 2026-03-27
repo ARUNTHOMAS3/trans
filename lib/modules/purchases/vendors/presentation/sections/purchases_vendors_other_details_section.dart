@@ -47,11 +47,7 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                   InkWell(
                     onTap: () {
                       if (_gstinPrefillCtrl.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Enter a GSTIN to fetch details.'),
-                          ),
-                        );
+                        ZerpaiToast.info(context, 'Enter a GSTIN to fetch details.');
                         return;
                       }
                       _openGstinPrefillDialog();

@@ -42,6 +42,8 @@ class _SalesOrderPreferencesDialogState extends State<SalesOrderPreferencesDialo
     return Dialog(
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.only(top: 60, left: 24, right: 24, bottom: 24),
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Container(
         width: 550,

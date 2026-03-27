@@ -49,9 +49,7 @@ class _PrintTemplatesPageState extends ConsumerState<PrintTemplatesPage> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load templates: $e')));
+      ZerpaiToast.error(context, 'Failed to load templates: $e');
     }
   }
 
@@ -119,9 +117,7 @@ class _PrintTemplatesPageState extends ConsumerState<PrintTemplatesPage> {
       _applyFilters();
     });
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Template duplicated successfully')));
+    ZerpaiToast.success(context, 'Template duplicated successfully');
   }
 
   Future<void> _deleteTemplate(PrintTemplate template) async {

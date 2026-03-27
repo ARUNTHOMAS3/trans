@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:intl/intl.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
@@ -307,9 +308,7 @@ class _SalesRetainerInvoiceCreateScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ZerpaiToast.error(context, 'Error: $e');
       }
     }
   }

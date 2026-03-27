@@ -387,6 +387,25 @@ class SalesOrderApiService {
     }
   }
 
+  Future<SalesOrder> updateSalesOrder(String id, SalesOrder sale) async {
+    try {
+      final payload = sale.toJson();
+      debugPrint('🚀 Updating sales order payload: $payload');
+      final response = await _apiClient.put('/sales/$id', data: payload);
+      if (response.statusCode == 200) {
+        return SalesOrder.fromJson(response.data);
+      }
+      throw Exception('Failed to update sales order');
+    } catch (e) {
+      if (e is DioException) {
+        debugPrint(
+          '❌ updateSalesOrder error response: ${e.response?.statusCode} -> ${e.response?.data}',
+        );
+      }
+      throw Exception('Error updating sales order: $e');
+    }
+  }
+
   Future<void> deleteSalesOrder(String id) async {
     try {
       final response = await _apiClient.delete('/sales/$id');

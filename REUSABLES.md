@@ -27,6 +27,7 @@
 | Widget | File | Description |
 |--------|------|-------------|
 | `CustomTextField` | `inputs/custom_text_field.dart` | Feature-rich text input: border animation, case formatting, numeric validation, prefix/suffix |
+| `ZSearchField` | `inputs/z_search_field.dart` | Standard ERP search input bar with border animation and optional trailing actions |
 | `FormDropdown<T>` | `inputs/dropdown_input.dart` | Generic searchable dropdown — **always use instead of `DropdownButtonFormField`**; supports multi-select, settings footer, custom items |
 | `ZerpaiDatePicker` | `inputs/zerpai_date_picker.dart` | Standard date picker — anchored calendar popup below target field — **use for all ERP date inputs** |
 | `ZerpaiCalendar` | `inputs/zerpai_calendar.dart` | Reusable calendar with day/month/year selector modes and date range constraints |
@@ -54,7 +55,18 @@
 
 | Widget | File | Description |
 |--------|------|-------------|
-| `ZButton` | `z_button.dart` | Dual-mode button: primary green elevated / secondary gray outlined, with loading spinner |
+| `ZButton` | `z_button.dart` | Dual-mode button: primary green elevated / secondary gray outlined, with loading spinner and optional icon support |
+
+### Layout & Tables
+
+| Widget | File | Description |
+|--------|------|-------------|
+| `ZDataTableShell` | `z_data_table_shell.dart` | Bordered table container with integrated header and divider |
+| `ZTableHeader` | `z_data_table_shell.dart` | Standardized header row for ERP tables |
+| `ZTableRowLayout` | `z_data_table_shell.dart` | Generic clickable row layout with consistent ERP padding |
+| `ZTableCell` | `z_data_table_shell.dart` | Cell wrapper with flex support to match header/row column widths |
+| `ZCurrencyDisplay` | `z_currency_display.dart` | Reusable currency display with standardized symbol rendering (Roboto fallback) and decimal formatting |
+| `ZRowActions` | `z_row_actions.dart` | Vertical ellipsis (⋮) menu for row-level actions; supports Edit, Delete, Duplicate, and custom actions with dividers |
 
 ### Dialogs
 
@@ -98,6 +110,7 @@
 | `HiveService` | `hive_service.dart` | Hive local DB wrapper: initialisation, box management, CRUD |
 | `DialogService` | `dialog_service.dart` | Shows dialogs, snackbars, and toast notifications |
 | `StorageService` | `storage_service.dart` | Cloudflare R2 file uploads/downloads |
+| `LookupUtils` | `lookup_service.dart` (utils/lookup_utils.dart) | Generic lookup/search for master data mapping (IDs to Names) |
 | `ImagePickerService` | `image_picker_service.dart` | File/image picker abstraction |
 | `LookupService` | `lookup_service.dart` | Generic lookup/search for master data |
 | `RecentHistoryService` | `recent_history_service.dart` | In-memory cache of recently opened items |

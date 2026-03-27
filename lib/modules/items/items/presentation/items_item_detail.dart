@@ -11,8 +11,6 @@ import 'sections/components/items_batch_dialogs.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_state.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
-import 'package:zerpai_erp/modules/items/items/models/unit_model.dart';
-import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/report/items_filter_dropdown.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/report/items_filters.dart';
 import 'sections/report/dialogs/import_items_dialog.dart';
@@ -20,6 +18,7 @@ import 'sections/report/dialogs/export_items_dialog.dart';
 import 'sections/report/dialogs/bulk_update_dialog.dart';
 import 'sections/items_stock_providers.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'package:zerpai_erp/shared/utils/lookup_utils.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/services/storage_service.dart';
@@ -421,82 +420,79 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
         ),
       );
     } else {
-      // Resolve IDs to Names
+      // Resolve names using LookupUtils
       final unitName =
           item.unitName ??
-          state.units
-              .firstWhere(
-                (u) => u.id == item.unitId,
-                orElse: () => Unit(id: '', unitName: 'N/A'),
-              )
-              .unitName;
+          LookupUtils.getNameById(
+            state.units.map((u) => {'id': u.id, 'name': u.unitName}).toList(),
+            item.unitId,
+            fallback: 'N/A',
+          );
 
       final categoryName =
           item.categoryName ??
-          state.categories.firstWhere(
-            (c) => c['id'] == item.categoryId,
-            orElse: () => {'name': 'N/A'},
-          )['name'];
+          LookupUtils.getNameById(
+            state.categories,
+            item.categoryId,
+            fallback: 'N/A',
+          );
 
-      // Resolve names: prefer the joined name embedded in the item model (from API),
-      // then fall back to the global lookup lists.
       final manufacturerName =
           item.manufacturerName ??
-          state.manufacturers.firstWhere(
-            (m) => m['id'] == item.manufacturerId,
-            orElse: () => {'name': null},
-          )['name'] ??
-          'N/A';
+          LookupUtils.getNameById(
+            state.manufacturers,
+            item.manufacturerId,
+            fallback: 'N/A',
+          );
 
       final brandName =
           item.brandName ??
-          state.brands.firstWhere(
-            (b) => b['id'] == item.brandId,
-            orElse: () => {'name': null},
-          )['name'] ??
-          'N/A';
+          LookupUtils.getNameById(state.brands, item.brandId, fallback: 'N/A');
 
       final purchaseAccountName =
           item.purchaseAccountName ??
-          state.accounts.firstWhere(
-            (a) => a['id'] == item.purchaseAccountId,
-            orElse: () => {'name': null},
-          )['name'] ??
-          'N/A';
+          LookupUtils.getNameById(
+            state.accounts,
+            item.purchaseAccountId,
+            fallback: 'N/A',
+          );
 
       final inventoryAccountName =
           item.inventoryAccountName ??
-          state.accounts.firstWhere(
-            (a) => a['id'] == item.inventoryAccountId,
-            orElse: () => {'name': null},
-          )['name'] ??
-          'N/A';
+          LookupUtils.getNameById(
+            state.accounts,
+            item.inventoryAccountId,
+            fallback: 'N/A',
+          );
 
       final salesAccountName =
           item.salesAccountName ??
-          state.accounts.firstWhere(
-            (a) => a['id'] == item.salesAccountId,
-            orElse: () => {'name': null},
-          )['name'] ??
-          'N/A';
+          LookupUtils.getNameById(
+            state.accounts,
+            item.salesAccountId,
+            fallback: 'N/A',
+          );
+
+      final taxLookup = [
+        ...state.taxRates.map((t) => {'id': t.id, 'name': t.taxName}),
+        ...state.taxGroups.map((t) => {'id': t.id, 'name': t.taxName}),
+      ];
 
       final intraStateTaxName =
           item.intraStateTaxName ??
-          state.taxRates
-              .firstWhere(
-                (t) => t.id == item.intraStateTaxId,
-                orElse: () => TaxRate(id: '', taxName: 'N/A', taxRate: 0),
-              )
-              .taxName;
+          LookupUtils.getNameById(
+            taxLookup,
+            item.intraStateTaxId,
+            fallback: 'N/A',
+          );
 
       final interStateTaxName =
           item.interStateTaxName ??
-          state.taxRates
-              .firstWhere(
-                (t) => t.id == item.interStateTaxId,
-                orElse: () => TaxRate(id: '', taxName: 'N/A', taxRate: 0),
-              )
-              .taxName;
+          LookupUtils.getNameById(
+            taxLookup,
+            item.interStateTaxId,
+            fallback: 'N/A',
+          );
 
       final tabs = _tabsForItem(item);
       final selectedIndex = _resolveTabIndex(tabs);

@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
@@ -22,7 +23,21 @@ import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 
 class SalesChallanCreateScreen extends ConsumerStatefulWidget {
-  const SalesChallanCreateScreen({super.key});
+  /// Deep-link support: pre-select a customer by ID.
+  final String? initialCustomerId;
+
+  /// Deep-link support: convert a sales order to delivery challan.
+  final String? fromOrderId;
+
+  /// Deep-link support: clone an existing challan by ID.
+  final String? cloneId;
+
+  const SalesChallanCreateScreen({
+    super.key,
+    this.initialCustomerId,
+    this.fromOrderId,
+    this.cloneId,
+  });
 
   @override
   ConsumerState<SalesChallanCreateScreen> createState() =>
@@ -369,9 +384,7 @@ class _SalesChallanCreateScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ZerpaiToast.error(context, 'Error: $e');
       }
     }
   }

@@ -28,6 +28,7 @@ import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import '../notifiers/purchase_order_notifier.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 // ── Zoho-style Colors ────────────────────────────────────────────────────────
 const _bgWhite = Color(0xFFFFFFFF);
@@ -177,16 +178,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
     // Basic validation
     if (poState.vendorId == null || poState.vendorId!.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please select a vendor')));
+      ZerpaiToast.error(context, 'Please select a vendor');
       return;
     }
 
     if (poState.items.every((i) => i.productId.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add at least one item')),
-      );
+      ZerpaiToast.error(context, 'Please add at least one item');
       return;
     }
 
@@ -247,23 +244,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       await repository.createPurchaseOrder(po);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Purchase Order saved successfully'),
-            backgroundColor: _greenBtn,
-          ),
-        );
+        ZerpaiToast.success(context, 'Purchase Order saved successfully');
         context.pop(); // Go back to list
       }
     } catch (e) {
       AppLogger.error('Error saving purchase order', error: e, module: 'purchases');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving PO: $e'),
-            backgroundColor: _dangerRed,
-          ),
-        );
+        ZerpaiToast.error(context, 'Error saving PO: $e');
       }
     } finally {
       notifier.updateField(isSaving: false);

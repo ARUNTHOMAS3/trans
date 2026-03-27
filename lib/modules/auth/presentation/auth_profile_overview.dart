@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import '../repositories/user_management_repository.dart';
 import '../models/user_profile_model.dart';
 
@@ -43,24 +44,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load profile: $e')));
+      ZerpaiToast.error(context, 'Failed to load profile: $e');
     }
   }
 
   void _showEditProfileDialog() {
     // Implementation for editing profile
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Edit profile functionality coming soon')),
-    );
+    ZerpaiToast.info(context, 'Edit profile functionality coming soon');
   }
 
   void _showChangePasswordDialog() {
     // Implementation for changing password
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Change password functionality coming soon')),
-    );
+    ZerpaiToast.info(context, 'Change password functionality coming soon');
   }
 
   @override

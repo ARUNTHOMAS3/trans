@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:intl/intl.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
@@ -13,7 +14,21 @@ import '../models/sales_eway_bill_model.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 class SalesEWayBillCreateScreen extends ConsumerStatefulWidget {
-  const SalesEWayBillCreateScreen({super.key});
+  /// Deep-link support: pre-select a customer by ID.
+  final String? initialCustomerId;
+
+  /// Deep-link support: pre-fill from a delivery challan.
+  final String? fromChallanId;
+
+  /// Deep-link support: clone an existing e-way bill by ID.
+  final String? cloneId;
+
+  const SalesEWayBillCreateScreen({
+    super.key,
+    this.initialCustomerId,
+    this.fromChallanId,
+    this.cloneId,
+  });
 
   @override
   ConsumerState<SalesEWayBillCreateScreen> createState() =>
@@ -211,9 +226,7 @@ class _SalesEWayBillCreateScreenState
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ZerpaiToast.error(context, 'Error: $e');
       }
     }
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
@@ -528,9 +529,7 @@ class _PurchasesVendorsVendorCreateScreenState
         await ref.read(vendorProvider.notifier).createVendor(updatedVendor);
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Vendor created successfully')),
-          );
+          ZerpaiToast.success(context, 'Vendor created successfully');
 
           // 3. Inform backend to increment sequence
           try {
@@ -548,9 +547,7 @@ class _PurchasesVendorsVendorCreateScreenState
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-          );
+          ZerpaiToast.error(context, 'Error: $e');
         }
       } finally {
         if (mounted) setState(() => isLoading = false);
