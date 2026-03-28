@@ -41,6 +41,49 @@ export class GlobalLookupsController {
     }
   }
 
+  private async resolveTimezoneRow(
+    rawTimezone: string,
+  ): Promise<{ display: string; tzdb_name: string } | null> {
+    const client = this.supabaseService.getClient();
+
+    const matchBy = async (column: "tzdb_name" | "display" | "name") => {
+      const { data, error } = await client
+        .from("timezones")
+        .select("display, tzdb_name")
+        .eq("is_active", true)
+        .eq(column, rawTimezone)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      return data ?? null;
+    };
+
+    return (
+      (await matchBy("tzdb_name")) ??
+      (await matchBy("display")) ??
+      (await matchBy("name"))
+    );
+  }
+
+  private async resolveCompanyIdLabel(rawLabel: string): Promise<string | null> {
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("company_id_labels")
+      .select("label")
+      .eq("is_active", true)
+      .eq("label", rawLabel)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    return data?.label ?? null;
+  }
+
   @Get("currencies")
   async getCurrencies(@Query("q") q?: string) {
     const client = this.supabaseService.getClient();
@@ -98,16 +141,16 @@ export class GlobalLookupsController {
     const client = this.supabaseService.getClient();
     let query = client
       .from("timezones")
-      .select("display")
+      .select("id, name, tzdb_name, utc_offset, display, country_id")
       .eq("is_active", true);
     if (countryId) {
       query = query.eq("country_id", countryId);
     }
-    const { data, error } = await query.order("sort_order", {
-      ascending: true,
-    });
+    const { data, error } = await query
+      .order("sort_order", { ascending: true })
+      .order("display", { ascending: true });
     if (error) throw error;
-    return (data ?? []).map((r) => r.display);
+    return data ?? [];
   }
 
   @Get("company-id-labels")
@@ -178,7 +221,8 @@ export class GlobalLookupsController {
   }
 
   /** Returns full org profile — all columns live directly on the organization table,
-   *  merged with branding settings from settings_branding. */
+   *  merged with branding settings from settings_branding.
+   *  Also resolves country name from state_id → states.state_id → countries. */
   @Get("org/:orgId")
   async getOrgDetails(@Param("orgId") orgId: string) {
     const client = this.supabaseService.getClient();
@@ -187,7 +231,7 @@ export class GlobalLookupsController {
       client
         .from("organization")
         .select(
-          "id, system_id, name, state_id, industry, logo_url, base_currency, fiscal_year, timezone, date_format, date_separator, company_id_label, company_id_value, payment_stub_address, has_separate_payment_stub_address",
+          "id, system_id, name, state_id, industry, logo_url, base_currency, base_currency_decimals, base_currency_format, fiscal_year, organization_language, communication_languages, timezone, date_format, date_separator, company_id_label, company_id_value, payment_stub_address, has_separate_payment_stub_address",
         )
         .eq("id", orgId)
         .single(),
@@ -200,9 +244,41 @@ export class GlobalLookupsController {
 
     if (orgResult.error) throw orgResult.error;
 
+    const org = orgResult.data as any;
+
+    let timezoneDisplay: string | null = null;
+    let timezoneTzdbName: string | null = null;
+    if (org?.timezone) {
+      const timezoneRow = await this.resolveTimezoneRow(org.timezone);
+      timezoneDisplay = timezoneRow?.display ?? null;
+      timezoneTzdbName = timezoneRow?.tzdb_name ?? null;
+    }
+
+    // Resolve country name: state_id → states(state_id FK = countries.id) → countries(name)
+    let countryName: string | null = null;
+    if (org?.state_id) {
+      const { data: stateRow } = await client
+        .from("states")
+        .select("state_id")
+        .eq("id", org.state_id)
+        .maybeSingle();
+
+      if (stateRow?.state_id) {
+        const { data: countryRow } = await client
+          .from("countries")
+          .select("name")
+          .eq("id", stateRow.state_id)
+          .maybeSingle();
+        countryName = countryRow?.name ?? null;
+      }
+    }
+
     return {
-      ...orgResult.data,
-      logo_url: await this.resolveLogoUrl(orgResult.data?.logo_url),
+      ...org,
+      country: countryName,
+      timezone_display: timezoneDisplay,
+      timezone_tzdb_name: timezoneTzdbName,
+      logo_url: await this.resolveLogoUrl(org?.logo_url),
       // Branding defaults if no row exists yet
       accent_color: brandingResult.data?.accent_color ?? "#22A95E",
       theme_mode: brandingResult.data?.theme_mode ?? "dark",
@@ -265,7 +341,11 @@ export class GlobalLookupsController {
       state_id?: string;
       industry?: string;
       base_currency?: string;
+      base_currency_decimals?: number;
+      base_currency_format?: string;
       fiscal_year?: string;
+      organization_language?: string;
+      communication_languages?: string[];
       timezone?: string;
       date_format?: string;
       date_separator?: string;
@@ -276,10 +356,44 @@ export class GlobalLookupsController {
     },
   ) {
     const client = this.supabaseService.getClient();
+    const payload = { ...body } as Record<string, unknown>;
+
+    if (typeof body.timezone === "string" && body.timezone.trim().isNotEmpty) {
+      const rawTimezone = body.timezone.trim();
+      const timezoneRow = await this.resolveTimezoneRow(rawTimezone);
+      if (!timezoneRow?.tzdb_name) {
+        throw new BadRequestException("Invalid timezone selection.");
+      }
+
+      payload.timezone = timezoneRow.tzdb_name;
+    }
+
+    if (
+      typeof body.company_id_label === "string" &&
+      body.company_id_label.trim().isNotEmpty
+    ) {
+      const resolvedLabel = await this.resolveCompanyIdLabel(
+        body.company_id_label.trim(),
+      );
+      if (!resolvedLabel) {
+        throw new BadRequestException("Invalid company ID label selection.");
+      }
+
+      payload.company_id_label = resolvedLabel;
+    }
+
+    if (
+      Array.isArray(body.communication_languages) &&
+      body.communication_languages.length > 0
+    ) {
+      payload.communication_languages = body.communication_languages
+        .map((value) => value?.toString().trim())
+        .filter((value): value is string => Boolean(value));
+    }
 
     const { error } = await client
       .from("organization")
-      .update({ ...body, updated_at: new Date().toISOString() })
+      .update({ ...payload, updated_at: new Date().toISOString() })
       .eq("id", orgId);
     if (error) throw error;
 

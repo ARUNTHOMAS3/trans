@@ -133,6 +133,8 @@ class _SettingsWarehouseCreatePageState
   bool _isSaving = false;
   bool _isLoading = false;
   String _organizationName = '';
+  String _orgCountry = 'India';
+  List<String> _stateOptions = _indianStates;
   List<_BranchOption> _branches = <_BranchOption>[];
   final Set<String> _expandedBlocks = <String>{'Organization'};
 
@@ -165,11 +167,50 @@ class _SettingsWarehouseCreatePageState
       final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
       final orgRes = await _apiClient.get('lookups/org/$orgId');
       if (!mounted) return;
+
+      String orgCountry = 'India';
+      List<String> stateOptions = _indianStates;
+
+      if (orgRes.success && orgRes.data is Map<String, dynamic>) {
+        final orgData = orgRes.data as Map<String, dynamic>;
+        final countryName = (orgData['country'] ?? '').toString().trim();
+        orgCountry = countryName.isNotEmpty ? countryName : 'India';
+        _organizationName = ((orgData['name'] ?? user?.orgName ?? '')).toString().trim();
+
+        final isIndia = orgCountry.toLowerCase() == 'india';
+        if (!isIndia && countryName.isNotEmpty) {
+          // Resolve country ID then fetch states
+          final countriesRes = await _apiClient.get('lookups/countries');
+          if (countriesRes.success && countriesRes.data is List) {
+            final match = (countriesRes.data as List)
+                .whereType<Map<String, dynamic>>()
+                .firstWhere(
+                  (c) => (c['name'] ?? '').toString().toLowerCase() == orgCountry.toLowerCase(),
+                  orElse: () => <String, dynamic>{},
+                );
+            final countryId = (match['id'] ?? '').toString();
+            if (countryId.isNotEmpty) {
+              final statesRes = await _apiClient.get('lookups/states', queryParameters: {'countryId': countryId});
+              if (statesRes.success && statesRes.data is List) {
+                stateOptions = (statesRes.data as List)
+                    .whereType<Map<String, dynamic>>()
+                    .map((s) => (s['name'] ?? '').toString())
+                    .where((n) => n.isNotEmpty)
+                    .toList();
+              }
+            }
+          }
+        }
+      } else {
+        _organizationName = user?.orgName ?? '';
+      }
+
+      if (!mounted) return;
       setState(() {
-        _organizationName = orgRes.success && orgRes.data is Map<String, dynamic>
-            ? ((orgRes.data as Map<String, dynamic>)['name'] ?? user?.orgName ?? '').toString().trim()
-            : user?.orgName ?? '';
+        _orgCountry = orgCountry;
+        _stateOptions = stateOptions.isNotEmpty ? stateOptions : _indianStates;
       });
+
       final res = await _apiClient.get('branches', queryParameters: <String, dynamic>{'org_id': orgId});
       if (!mounted) return;
       if (res.success && res.data is List) {
@@ -202,7 +243,7 @@ class _SettingsWarehouseCreatePageState
         final stateVal = (d['state'] ?? '').toString();
         final parentId = d['branch_id']?.toString();
         setState(() {
-          _selectedState = _indianStates.contains(stateVal) ? stateVal : null;
+          _selectedState = _stateOptions.contains(stateVal) ? stateVal : null;
           if (parentId != null && parentId.isNotEmpty) _parentBranchId = parentId;
         });
       }
@@ -249,7 +290,7 @@ class _SettingsWarehouseCreatePageState
         'city': _cityCtrl.text.trim(),
         'state': _selectedState ?? '',
         'pincode': _pincodeCtrl.text.trim(),
-        'country': 'India',
+        'country': _orgCountry,
       };
       final apiClient = ref.read(apiClientProvider);
       final res = _isEditing
@@ -535,10 +576,10 @@ class _SettingsWarehouseCreatePageState
                                     ],
                                   ),
                                   const SizedBox(height: AppTheme.space8),
-                                  _buildStaticField('India'),
+                                  _buildStaticField(_orgCountry),
                                   const SizedBox(height: AppTheme.space8),
                                   FormDropdown<String>(
-                                    items: _indianStates,
+                                    items: _stateOptions,
                                     value: _selectedState,
                                     hint: 'Select state / Union territory',
                                     onChanged: (v) =>

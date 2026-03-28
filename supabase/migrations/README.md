@@ -45,3 +45,9 @@ SELECT COUNT(*) FROM vendors;     -- Should show 2
 - The seed data script generates unique org_id and outlet_id
 - These IDs will be printed in the query output
 - You'll need these IDs for API testing (X-Org-Id header)
+
+## TODO: Country/State Master Expansion
+
+- Current rollout focus is India-first master data completeness.
+- Non-India state/province seed data should be added later through a separate additive migration.
+- Do not retrofit global country/state expansion into unrelated hardening migrations such as timezone audit/setup changes.

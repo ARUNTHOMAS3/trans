@@ -19,11 +19,30 @@ import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/shared/widgets/form_row.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 // TODO(auth): Remove _kDevOrgId and all fallbacks that reference it once auth
 // is fully enabled. Replace every usage with the real authUserProvider orgId.
 const String _kDevOrgId = '00000000-0000-0000-0000-000000000002';
+
+class _TimezoneOption {
+  final String id;
+  final String name;
+  final String tzdbName;
+  final String utcOffset;
+  final String display;
+  final String? countryId;
+
+  const _TimezoneOption({
+    required this.id,
+    required this.name,
+    required this.tzdbName,
+    required this.utcOffset,
+    required this.display,
+    this.countryId,
+  });
+}
 
 class SettingsOrganizationProfilePage extends ConsumerStatefulWidget {
   const SettingsOrganizationProfilePage({super.key});
@@ -38,7 +57,7 @@ class _SettingsOrganizationProfilePageState
   // Populated from /lookups/industries
   List<String> _industryOptions = <String>[];
   // Populated from /lookups/timezones (re-fetched on country change)
-  List<String> _timeZoneOptions = <String>[];
+  List<_TimezoneOption> _timeZoneOptions = <_TimezoneOption>[];
   // Populated from /lookups/company-id-labels
   List<String> _companyIdOptions = <String>[];
   // Maps country name → UUID for timezone filtering
@@ -86,6 +105,19 @@ class _SettingsOrganizationProfilePageState
       };
 
   static const List<String> _dateSeparatorOptions = <String>['-', '/', '.'];
+  static const List<String> _languageOptions = <String>[
+    'English',
+    'Hindi',
+    'Arabic',
+    'Bengali',
+    'Gujarati',
+    'Kannada',
+    'Malayalam',
+    'Marathi',
+    'Tamil',
+    'Telugu',
+    'Urdu',
+  ];
 
   static const List<_ProfileNavSection> _navSections = <_ProfileNavSection>[
     _ProfileNavSection(
@@ -102,8 +134,14 @@ class _SettingsOrganizationProfilePageState
               label: 'Branding',
               route: AppRoutes.settingsOrgBranding,
             ),
-            _ProfileNavEntry(label: 'Branches', route: AppRoutes.settingsBranches),
-            _ProfileNavEntry(label: 'Warehouses', route: AppRoutes.settingsWarehouses),
+            _ProfileNavEntry(
+              label: 'Branches',
+              route: AppRoutes.settingsBranches,
+            ),
+            _ProfileNavEntry(
+              label: 'Warehouses',
+              route: AppRoutes.settingsWarehouses,
+            ),
             _ProfileNavEntry(label: 'Approvals'),
             _ProfileNavEntry(label: 'Manage Subscription'),
           ],
@@ -216,6 +254,8 @@ class _SettingsOrganizationProfilePageState
   final GlobalKey _primaryContactKey = GlobalKey();
   final GlobalKey _baseCurrencyKey = GlobalKey();
   final GlobalKey _fiscalYearKey = GlobalKey();
+  final GlobalKey _organizationLanguageKey = GlobalKey();
+  final GlobalKey _communicationLanguagesKey = GlobalKey();
   final GlobalKey _timeZoneKey = GlobalKey();
   final GlobalKey _dateFormatKey = GlobalKey();
   final GlobalKey _companyIdKey = GlobalKey();
@@ -233,13 +273,19 @@ class _SettingsOrganizationProfilePageState
   String? _selectedLocation;
   String? _selectedState;
   String? _selectedBaseCurrency;
+  String? _selectedBaseCurrencyDecimals;
+  String? _selectedBaseCurrencyFormat;
   String? _selectedFiscalYear;
+  String? _selectedOrganizationLanguage;
+  List<String> _selectedCommunicationLanguages = <String>[];
   String? _selectedTimeZone;
   String? _selectedDateFormat;
   String? _selectedDateSeparator;
   String? _selectedCompanyIdLabel;
   bool _hasSeparatePaymentStubAddress = false;
   List<String> _currencyOptions = <String>[];
+  Map<String, Map<String, dynamic>> _currencyDataByCode =
+      <String, Map<String, dynamic>>{};
   List<String> _countryOptions = <String>[];
   List<String> _stateOptions = <String>[];
   Uint8List? _logoBytes;
@@ -278,7 +324,7 @@ class _SettingsOrganizationProfilePageState
       child: Form(
         key: _formKey,
         child: Container(
-          color: AppTheme.bgLight,
+          color: Colors.white,
           child: Column(
             children: [
               _SettingsProfileTopBar(
@@ -310,6 +356,24 @@ class _SettingsOrganizationProfilePageState
         ),
       ),
     );
+  }
+
+  _TimezoneOption? get _selectedTimeZoneOption {
+    final selected = _selectedTimeZone;
+    if (selected == null || selected.isEmpty) {
+      return null;
+    }
+
+    for (final option in _timeZoneOptions) {
+      if (option.tzdbName == selected ||
+          option.display == selected ||
+          option.name == selected ||
+          option.id == selected) {
+        return option;
+      }
+    }
+
+    return null;
   }
 
   String? _matchOption(String raw, List<String> options) {
@@ -379,16 +443,23 @@ class _SettingsOrganizationProfilePageState
           ? Map<String, dynamic>.from(orgResponse.data as Map<String, dynamic>)
           : <String, dynamic>{};
 
-      final List<String> currencyOptions =
-          currenciesResponse != null &&
-              currenciesResponse.success &&
-              currenciesResponse.data is List
-          ? (currenciesResponse.data as List)
-                .whereType<Map>()
-                .map((dynamic item) => (item['code'] ?? '').toString())
-                .where((code) => code.isNotEmpty)
-                .toList()
-          : <String>[];
+      final List<String> currencyOptions = <String>[];
+      final Map<String, Map<String, dynamic>> currencyDataByCode =
+          <String, Map<String, dynamic>>{};
+      if (currenciesResponse != null &&
+          currenciesResponse.success &&
+          currenciesResponse.data is List) {
+        for (final dynamic item
+            in (currenciesResponse.data as List).whereType<Map>()) {
+          final String code = (item['code'] ?? '').toString();
+          if (code.isNotEmpty) {
+            currencyOptions.add(code);
+            currencyDataByCode[code] = Map<String, dynamic>.from(
+              item as Map<dynamic, dynamic>,
+            );
+          }
+        }
+      }
 
       final List<String> countryOptions = <String>[];
       final Map<String, String> countryIdByName = <String, String>{};
@@ -406,13 +477,6 @@ class _SettingsOrganizationProfilePageState
         }
       }
 
-      final String? defaultIndiaCountry = countryOptions.firstWhere(
-        (name) => name.toLowerCase() == 'india',
-        orElse: () => '',
-      ).isEmpty
-          ? null
-          : countryOptions.firstWhere((name) => name.toLowerCase() == 'india');
-
       List<String> _parseStringList(Response<dynamic> r) =>
           r.success && r.data is List
           ? (r.data as List)
@@ -424,9 +488,9 @@ class _SettingsOrganizationProfilePageState
       final List<String> industryOptions = industriesResponse != null
           ? _parseStringList(industriesResponse)
           : <String>[];
-      final List<String> timezoneOptions = timezonesResponse != null
-          ? _parseStringList(timezonesResponse)
-          : <String>[];
+      final List<_TimezoneOption> timezoneOptions = timezonesResponse != null
+          ? _parseTimezoneOptions(timezonesResponse)
+          : <_TimezoneOption>[];
       final List<String> companyIdOptions = companyIdLabelsResponse != null
           ? _parseStringList(companyIdLabelsResponse)
           : <String>[];
@@ -443,6 +507,7 @@ class _SettingsOrganizationProfilePageState
         _primaryContactEmail = user?.email.trim() ?? '';
         _organizationNameController.text = _organizationName;
         _currencyOptions = currencyOptions;
+        _currencyDataByCode = currencyDataByCode;
         _countryOptions = countryOptions;
         _countryIdByName = countryIdByName;
         _industryOptions = industryOptions;
@@ -452,9 +517,21 @@ class _SettingsOrganizationProfilePageState
           (orgData['base_currency'] ?? '').toString(),
           _currencyOptions,
         );
-        _selectedLocation =
-            _matchOption((orgData['country'] ?? '').toString(), _countryOptions) ??
-            defaultIndiaCountry;
+        final selectedCurrencyData =
+            _currencyDataByCode[_selectedBaseCurrency] ?? <String, dynamic>{};
+        final orgDecimals = orgData['base_currency_decimals']?.toString();
+        final orgFormat = (orgData['base_currency_format'] ?? '').toString();
+        _selectedBaseCurrencyDecimals =
+            orgDecimals != null && orgDecimals.isNotEmpty
+            ? orgDecimals
+            : selectedCurrencyData['decimals']?.toString();
+        _selectedBaseCurrencyFormat = orgFormat.isNotEmpty
+            ? orgFormat
+            : selectedCurrencyData['format']?.toString();
+        _selectedLocation = _matchOption(
+          (orgData['country'] ?? '').toString(),
+          _countryOptions,
+        );
         _selectedIndustry = _matchOption(
           (orgData['industry'] ?? '').toString(),
           _industryOptions,
@@ -463,8 +540,29 @@ class _SettingsOrganizationProfilePageState
           (orgData['fiscal_year'] ?? '').toString(),
           _fiscalYearOptions,
         );
-        _selectedTimeZone = _matchOption(
-          (orgData['timezone'] ?? '').toString(),
+        _selectedOrganizationLanguage = _matchOption(
+          (orgData['organization_language'] ?? '').toString(),
+          _languageOptions,
+        );
+        _selectedCommunicationLanguages =
+            ((orgData['communication_languages'] as List?)
+                        ?.map((item) => item.toString())
+                        .where((item) => item.trim().isNotEmpty)
+                        .toList() ??
+                    <String>[])
+                .where(_languageOptions.contains)
+                .toList();
+        if (_selectedCommunicationLanguages.isEmpty) {
+          _selectedCommunicationLanguages = <String>[
+            _selectedOrganizationLanguage ?? 'English',
+          ];
+        }
+        _selectedTimeZone = _matchTimezoneValue(
+          (orgData['timezone_tzdb_name'] ??
+                  orgData['timezone_display'] ??
+                  orgData['timezone'] ??
+                  '')
+              .toString(),
           _timeZoneOptions,
         );
         _selectedDateFormat = _matchOption(
@@ -498,7 +596,10 @@ class _SettingsOrganizationProfilePageState
           ? _countryIdByName[_selectedLocation!]
           : null;
       if (countryId != null) {
-        await _fetchStates(countryId, selectedStateId: (orgData['state_id'] ?? '').toString());
+        await _fetchStates(
+          countryId,
+          selectedStateId: (orgData['state_id'] ?? '').toString(),
+        );
         await _fetchTimezones(countryId);
       }
     } catch (error) {
@@ -519,13 +620,16 @@ class _SettingsOrganizationProfilePageState
       if (!mounted) return;
       setState(() {
         _timeZoneOptions = response.success && response.data is List
-            ? (response.data as List)
-                  .map((dynamic e) => e.toString())
-                  .where((s) => s.isNotEmpty)
-                  .toList()
-            : <String>[];
+            ? _parseTimezoneOptions(response)
+            : <_TimezoneOption>[];
         if (_selectedTimeZone != null &&
-            !_timeZoneOptions.contains(_selectedTimeZone)) {
+            !_timeZoneOptions.any(
+              (option) =>
+                  option.tzdbName == _selectedTimeZone ||
+                  option.display == _selectedTimeZone ||
+                  option.name == _selectedTimeZone ||
+                  option.id == _selectedTimeZone,
+            )) {
           _selectedTimeZone = null;
         }
       });
@@ -534,10 +638,7 @@ class _SettingsOrganizationProfilePageState
     }
   }
 
-  Future<void> _fetchStates(
-    String countryId, {
-    String? selectedStateId,
-  }) async {
+  Future<void> _fetchStates(String countryId, {String? selectedStateId}) async {
     try {
       final response = await _apiClient.get(
         '/lookups/states',
@@ -771,174 +872,497 @@ class _SettingsOrganizationProfilePageState
       );
     }
 
-    return SingleChildScrollView(
-      controller: _bodyScrollController,
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.space20,
-        AppTheme.space20,
-        AppTheme.space20,
-        AppTheme.space24,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1360),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.borderLight),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildContentHeader(),
-                const Divider(height: 1, color: AppTheme.borderLight),
-                Padding(
-                  padding: const EdgeInsets.all(AppTheme.space20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildInfoBanner(
-                        icon: LucideIcons.info,
-                        message:
-                            'This page is part of the shared global settings system. Real organization data is loaded where available and the rest remains editable for future API wiring.',
-                      ),
-                      const SizedBox(height: AppTheme.space20),
-                      _buildLogoSection(),
-                      const SizedBox(height: AppTheme.space24),
-                      const Divider(height: 1, color: AppTheme.borderLight),
-                      const SizedBox(height: AppTheme.space24),
-                      _buildMainFields(),
-                      const SizedBox(height: AppTheme.space24),
-                      const Divider(height: 1, color: AppTheme.borderLight),
-                      const SizedBox(height: AppTheme.space24),
-                      Text(
-                        'Primary Contact',
-                        key: _primaryContactKey,
-                        style: AppTheme.sectionHeader,
-                      ),
-                      const SizedBox(height: AppTheme.space16),
-                      _buildPrimaryContactCard(),
-                      const SizedBox(height: AppTheme.space16),
-                      _buildInfoBanner(
-                        icon: LucideIcons.mail,
-                        message:
-                            'Your primary contact email belongs to the current signed-in user context. Save wiring can later persist organization-specific delivery preferences.',
-                      ),
-                      const SizedBox(height: AppTheme.space20),
-                      _buildConfigurationFields(),
-                      const SizedBox(height: AppTheme.space24),
-                      const Divider(height: 1, color: AppTheme.borderLight),
-                      const SizedBox(height: AppTheme.space24),
-                      Text(
-                        'Additional Fields',
-                        key: _additionalFieldsKey,
-                        style: AppTheme.sectionHeader,
-                      ),
-                      const SizedBox(height: AppTheme.space16),
-                      _buildAdditionalFieldsTable(),
-                      const SizedBox(height: AppTheme.space16),
-                      TextButton.icon(
-                        onPressed: _addAdditionalField,
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            controller: _bodyScrollController,
+            padding: const EdgeInsets.all(AppTheme.space32),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 620,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Organization Profile',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
                         ),
-                        icon: const Icon(LucideIcons.plusCircle, size: 18),
-                        label: const Text('New Field'),
+                        if (_organizationSystemId.isNotEmpty) ...[
+                          const SizedBox(width: AppTheme.space12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppTheme.space12,
+                              vertical: AppTheme.space4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.bgLight,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              'ID: $_organizationSystemId',
+                              style: AppTheme.metaHelper.copyWith(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: AppTheme.space16),
+                    _buildInfoBanner(
+                      icon: LucideIcons.info,
+                      message:
+                          'This page is part of the shared global settings system. Real organization data is loaded where available and the rest remains editable for future API wiring.',
+                    ),
+                    const SizedBox(height: AppTheme.space24),
+
+                    // ── Section: Organization Logo ─────────────────────────
+                    _buildLogoSection(),
+                    const SizedBox(height: AppTheme.space24),
+
+                    // ── Section: Organization Details ─────────────────────
+                    Container(
+                      color: Colors.white,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ZerpaiFormRow(
+                            key: _organizationNameKey,
+                            label: 'Organization Name',
+                            required: true,
+                            child: TextFormField(
+                              controller: _organizationNameController,
+                              decoration: const InputDecoration(
+                                hintText: 'Your organization name',
+                              ),
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Organization name is required.'
+                                  : null,
+                            ),
+                          ),
+                          ZerpaiFormRow(
+                            key: _industryKey,
+                            label: 'Industry',
+                            child: _buildDropdownField(
+                              value: _selectedIndustry,
+                              hintText: 'Select industry',
+                              items: _industryOptions,
+                              onChanged: (value) =>
+                                  setState(() => _selectedIndustry = value),
+                            ),
+                          ),
+                          ZerpaiFormRow(
+                            key: _organizationLocationKey,
+                            label: 'Organization Location',
+                            required: true,
+                            child: _buildDropdownField(
+                              value: _selectedLocation,
+                              hintText: _countryOptions.isEmpty
+                                  ? 'No country data available'
+                                  : 'Select country',
+                              items: _countryOptions,
+                              onChanged: (value) async {
+                                setState(() {
+                                  _selectedLocation = value;
+                                  _selectedState = null;
+                                });
+                                if (value != null) {
+                                  final countryId = _countryIdByName[value];
+                                  if (countryId != null) {
+                                    await _fetchStates(countryId);
+                                    await _fetchTimezones(countryId);
+                                  }
+                                } else {
+                                  setState(() {
+                                    _stateOptions = <String>[];
+                                    _stateIdByName = <String, String>{};
+                                    _timeZoneOptions = <_TimezoneOption>[];
+                                    _selectedTimeZone = null;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                          ZerpaiFormRow(
+                            key: _stateKey,
+                            label: 'State',
+                            child: _buildDropdownField(
+                              value: _selectedState,
+                              hintText: _selectedLocation == null
+                                  ? 'Select country first'
+                                  : (_stateOptions.isEmpty
+                                        ? 'No state data available'
+                                        : 'Select state'),
+                              items: _stateOptions,
+                              onChanged: (value) =>
+                                  setState(() => _selectedState = value),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: AppTheme.space20),
-                      _buildInfoBanner(
-                        icon: LucideIcons.info,
-                        message:
-                            'Company ID and additional fields can later be surfaced in transaction PDFs once the organization-profile update endpoint is available.',
+                    ),
+                    const SizedBox(height: AppTheme.space20),
+
+                    // ── Organization Address banner ────────────────────────
+                    Container(
+                      key: _paymentStubKey,
+                      padding: const EdgeInsets.all(AppTheme.space16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.infoBg,
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, color: AppTheme.borderLight),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.space20,
-                    vertical: AppTheme.space16,
-                  ),
-                  child: Row(
-                    children: [
-                      ElevatedButton(
-                        onPressed: _isSaving ? null : _saveProfile,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: ref.watch(appBrandingProvider).accentColor,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                LucideIcons.mapPin,
+                                size: 18,
+                                color: AppTheme.primaryBlue,
+                              ),
+                              const SizedBox(width: AppTheme.space8),
+                              Text(
+                                'Organization Address',
+                                style: AppTheme.bodyText.copyWith(
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              )
-                            : const Text('Save'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppTheme.space10),
+                          Text(
+                            'Manage your business branches and warehouses from the Branches and Warehouses settings pages.',
+                            style: AppTheme.bodyText.copyWith(
+                              color: AppTheme.textSecondary,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.space8),
+                          Row(
+                            children: [
+                              TextButton(
+                                onPressed: () =>
+                                    context.go(AppRoutes.settingsBranches),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text('Go to Branches'),
+                              ),
+                              const SizedBox(width: AppTheme.space16),
+                              TextButton(
+                                onPressed: () =>
+                                    context.go(AppRoutes.settingsWarehouses),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text('Go to Warehouses'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: AppTheme.space12),
-                      OutlinedButton(
-                        onPressed: () => context.go(AppRoutes.settings),
-                        child: const Text('Cancel'),
+                    ),
+                    const SizedBox(height: AppTheme.space12),
+
+                    // ── Payment stub toggle ───────────────────────────────
+                    Container(
+                      color: Colors.white,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ZerpaiFormRow(
+                            label: 'Payment Stub Address',
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Would you like to add a different address for payment stubs?',
+                                    style: AppTheme.bodyText.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  _hasSeparatePaymentStubAddress ? 'Yes' : 'No',
+                                  style: AppTheme.bodyText.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(width: AppTheme.space12),
+                                Switch.adaptive(
+                                  value: _hasSeparatePaymentStubAddress,
+                                  activeThumbColor: ref
+                                      .watch(appBrandingProvider)
+                                      .accentColor,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _hasSeparatePaymentStubAddress = value;
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_hasSeparatePaymentStubAddress) ...[
+                            ZerpaiFormRow(
+                              label: 'Payment stub address',
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              child: TextFormField(
+                                controller: _paymentStubAddressController,
+                                maxLines: 4,
+                                maxLength: 255,
+                                decoration: const InputDecoration(
+                                  hintText:
+                                      'You can enter a maximum of 255 characters',
+                                  alignLabelWithHint: true,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: AppTheme.space24),
+
+                    // ── Section: Primary Contact ───────────────────────────
+                    Text(
+                      'Primary Contact',
+                      key: _primaryContactKey,
+                      style: AppTheme.sectionHeader,
+                    ),
+                    const SizedBox(height: AppTheme.space12),
+                    _buildPrimaryContactCard(),
+                    const SizedBox(height: AppTheme.space12),
+                    _buildInfoBanner(
+                      icon: LucideIcons.mail,
+                      message:
+                          'Your primary contact email belongs to the current signed-in user context. Save wiring can later persist organization-specific delivery preferences.',
+                    ),
+                    const SizedBox(height: AppTheme.space24),
+
+                    // ── Section: Configuration ────────────────────────────
+                    Text('Configuration', style: AppTheme.sectionHeader),
+                    const SizedBox(height: AppTheme.space12),
+                    Container(
+                      color: Colors.white,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ZerpaiFormRow(
+                            key: _baseCurrencyKey,
+                            label: 'Base Currency',
+                            child: _buildBaseCurrencyField(),
+                          ),
+                          ZerpaiFormRow(
+                            key: _fiscalYearKey,
+                            label: 'Fiscal Year',
+                            child: _buildDropdownField(
+                              value: _selectedFiscalYear,
+                              hintText: 'Select fiscal year',
+                              items: _fiscalYearOptions,
+                              onChanged: (value) =>
+                                  setState(() => _selectedFiscalYear = value),
+                            ),
+                          ),
+                          ZerpaiFormRow(
+                            key: _organizationLanguageKey,
+                            label: 'Organization Language',
+                            tooltipMessage:
+                                'Any change in the language will not be reflected in Email Templates, Template Customizations, Payment Modes and Default tax Rates. These will still remain in the language selected during this organization\'s setup.',
+                            child: _buildDropdownField(
+                              value: _selectedOrganizationLanguage,
+                              hintText: 'Select organization language',
+                              items: _languageOptions,
+                              onChanged: (value) => setState(() {
+                                _selectedOrganizationLanguage = value;
+                                if (value != null &&
+                                    !_selectedCommunicationLanguages.contains(
+                                      value,
+                                    )) {
+                                  _selectedCommunicationLanguages = <String>[
+                                    value,
+                                    ..._selectedCommunicationLanguages,
+                                  ];
+                                }
+                              }),
+                            ),
+                          ),
+                          ZerpaiFormRow(
+                            key: _communicationLanguagesKey,
+                            label: 'Communication Languages',
+                            tooltipMessage:
+                                'Select the languages in which users can create email templates and send emails to customers and vendors.',
+                            child: FormDropdown<String>(
+                              value: null,
+                              items: _languageOptions,
+                              multiSelect: true,
+                              selectedValues: _selectedCommunicationLanguages,
+                              isSelectedValueRemovable: (value) =>
+                                  value != 'English',
+                              hint: 'Select communication languages',
+                              showSearch: true,
+                              onChanged: (_) {},
+                              onSelectedValuesChanged: (values) => setState(() {
+                                _selectedCommunicationLanguages = values;
+                              }),
+                            ),
+                          ),
+                          ZerpaiFormRow(
+                            key: _timeZoneKey,
+                            label: 'Time Zone',
+                            child: FormDropdown<_TimezoneOption>(
+                              value: _selectedTimeZoneOption,
+                              items: _timeZoneOptions,
+                              hint: 'Select time zone',
+                              displayStringForValue: (option) => option.display,
+                              searchStringForValue: (option) =>
+                                  '${option.display} ${option.name} ${option.tzdbName}',
+                              onChanged: (value) => setState(
+                                () => _selectedTimeZone = value?.tzdbName,
+                              ),
+                              menuWidth: 720,
+                            ),
+                          ),
+                          ZerpaiFormRow(
+                            key: _dateFormatKey,
+                            label: 'Date Format',
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _buildGroupedDateFormatDropdown(),
+                                ),
+                                const SizedBox(width: AppTheme.space12),
+                                SizedBox(
+                                  width: 120,
+                                  child: _buildDropdownField(
+                                    value: _selectedDateSeparator,
+                                    hintText: 'Separator',
+                                    items: _dateSeparatorOptions,
+                                    onChanged: (value) => setState(
+                                      () => _selectedDateSeparator = value,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ZerpaiFormRow(
+                            key: _companyIdKey,
+                            label: 'Company ID',
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _buildDropdownField(
+                                    value: _selectedCompanyIdLabel,
+                                    hintText: 'Select identifier',
+                                    items: _companyIdOptions,
+                                    onChanged: (value) => setState(
+                                      () => _selectedCompanyIdLabel = value,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: AppTheme.space12),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _companyIdValueController,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Enter identifier value',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.space24),
+
+                    // ── Section: Additional Fields ─────────────────────────
+                    Text(
+                      'Additional Fields',
+                      key: _additionalFieldsKey,
+                      style: AppTheme.sectionHeader,
+                    ),
+                    const SizedBox(height: AppTheme.space12),
+                    _buildAdditionalFieldsTable(),
+                    const SizedBox(height: AppTheme.space12),
+                    TextButton.icon(
+                      onPressed: _addAdditionalField,
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                      icon: const Icon(LucideIcons.plusCircle, size: 18),
+                      label: const Text('New Field'),
+                    ),
+                    const SizedBox(height: AppTheme.space16),
+                    _buildInfoBanner(
+                      icon: LucideIcons.info,
+                      message:
+                          'Company ID and additional fields can later be surfaced in transaction PDFs once the organization-profile update endpoint is available.',
+                    ),
+                    const SizedBox(height: AppTheme.space24),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildContentHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.space20,
-        AppTheme.space18,
-        AppTheme.space20,
-        AppTheme.space18,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: AppTheme.space12,
-              runSpacing: AppTheme.space8,
-              children: [
-                Text(
-                  'Organization Profile',
-                  style: AppTheme.pageTitle.copyWith(fontSize: 18),
-                ),
-                if (_organizationSystemId.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.space12,
-                      vertical: AppTheme.space8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.bgLight,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      'ID: $_organizationSystemId',
-                      style: AppTheme.metaHelper.copyWith(
-                        color: AppTheme.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+        // ── Fixed bottom bar ──────────────────────────────────────────────────
+        Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: AppTheme.borderLight)),
           ),
-        ],
-      ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.space32,
+            vertical: AppTheme.space16,
+          ),
+          child: Row(
+            children: [
+              ElevatedButton(
+                onPressed: _isSaving ? null : _saveProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ref.watch(appBrandingProvider).accentColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Save'),
+              ),
+              const SizedBox(width: AppTheme.space12),
+              OutlinedButton(
+                onPressed: () => context.go(AppRoutes.settings),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1179,224 +1603,6 @@ class _SettingsOrganizationProfilePageState
     }
   }
 
-  Widget _buildMainFields() {
-    return Column(
-      children: [
-        _buildFieldRow(
-          key: _organizationNameKey,
-          label: 'Organization Name*',
-          isRequired: true,
-          child: TextFormField(
-            controller: _organizationNameController,
-            decoration: const InputDecoration(
-              hintText: 'Your organization name',
-            ),
-            validator: (v) => (v == null || v.trim().isEmpty)
-                ? 'Organization name is required.'
-                : null,
-          ),
-        ),
-        const SizedBox(height: AppTheme.space18),
-        _buildFieldRow(
-          key: _industryKey,
-          label: 'Industry',
-          tooltip:
-              'Select your industry type to help us fine-tune your experience. If you can\'t find your industry type from the list of options, you can input your own.',
-          child: _buildDropdownField(
-            value: _selectedIndustry,
-            hintText: 'Select industry',
-            items: _industryOptions,
-            onChanged: (value) => setState(() => _selectedIndustry = value),
-          ),
-        ),
-        const SizedBox(height: AppTheme.space18),
-        _buildFieldRow(
-          key: _organizationLocationKey,
-          label: 'Organization Location*',
-          isRequired: true,
-          child: _buildDropdownField(
-            value: _selectedLocation,
-            hintText: _countryOptions.isEmpty
-                ? 'No country data available'
-                : 'Select country',
-            items: _countryOptions,
-            onChanged: (value) async {
-              setState(() {
-                _selectedLocation = value;
-                _selectedState = null;
-              });
-              if (value != null) {
-                final countryId = _countryIdByName[value];
-                if (countryId != null) {
-                  await _fetchStates(countryId);
-                  await _fetchTimezones(countryId);
-                }
-              } else {
-                setState(() {
-                  _stateOptions = <String>[];
-                  _stateIdByName = <String, String>{};
-                  _timeZoneOptions = <String>[];
-                  _selectedTimeZone = null;
-                });
-              }
-            },
-          ),
-        ),
-        const SizedBox(height: AppTheme.space18),
-        _buildFieldRow(
-          key: _stateKey,
-          label: 'State',
-          child: _buildDropdownField(
-            value: _selectedState,
-            hintText: _selectedLocation == null
-                ? 'Select country first'
-                : (_stateOptions.isEmpty
-                      ? 'No state data available'
-                      : 'Select state'),
-            items: _stateOptions,
-            onChanged: (value) => setState(() => _selectedState = value),
-          ),
-        ),
-        const SizedBox(height: AppTheme.space20),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: 630,
-            child: Container(
-              key: _paymentStubKey,
-              padding: const EdgeInsets.all(AppTheme.space16),
-              decoration: BoxDecoration(
-                color: AppTheme.infoBg,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        LucideIcons.mapPin,
-                        size: 18,
-                        color: AppTheme.primaryBlue,
-                      ),
-                      const SizedBox(width: AppTheme.space8),
-                      Text(
-                        'Organization Address',
-                        style: AppTheme.bodyText.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppTheme.space10),
-                  Text(
-                    'Manage your business branches and warehouses from the Branches and Warehouses settings pages.',
-                    style: AppTheme.bodyText.copyWith(
-                      color: AppTheme.textSecondary,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: AppTheme.space8),
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () => context.go(AppRoutes.settingsBranches),
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Text('Go to Branches'),
-                      ),
-                      const SizedBox(width: AppTheme.space16),
-                      TextButton(
-                        onPressed: () => context.go(AppRoutes.settingsWarehouses),
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Text('Go to Warehouses'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: AppTheme.space20),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: 630,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.space16,
-                vertical: AppTheme.space14,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppTheme.borderLight),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Would you like to add a different address for payment stubs?',
-                          style: AppTheme.bodyText.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        _hasSeparatePaymentStubAddress ? 'Yes' : 'No',
-                        style: AppTheme.bodyText.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: AppTheme.space12),
-                      Switch.adaptive(
-                        value: _hasSeparatePaymentStubAddress,
-                        activeThumbColor: ref.watch(appBrandingProvider).accentColor,
-                        onChanged: (value) {
-                          setState(() {
-                            _hasSeparatePaymentStubAddress = value;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                  if (_hasSeparatePaymentStubAddress) ...[
-                    const SizedBox(height: AppTheme.space16),
-                    _buildFieldRow(
-                      label: 'Payment Stub Address',
-                      tooltip:
-                          'This address will be displayed on payment stubs. You can view this by enabling Payment Stub in Templates.',
-                      child: TextFormField(
-                        controller: _paymentStubAddressController,
-                        maxLines: 4,
-                        maxLength: 255,
-                        decoration: const InputDecoration(
-                          hintText: 'You can enter a maximum of 255 characters',
-                          alignLabelWithHint: true,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildPrimaryContactCard() {
     return SizedBox(
       width: 630,
@@ -1472,98 +1678,6 @@ class _SettingsOrganizationProfilePageState
         Text(
           subValue,
           style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildConfigurationFields() {
-    return Column(
-      children: [
-        _buildFieldRow(
-          key: _baseCurrencyKey,
-          label: 'Base Currency',
-          tooltip:
-              'Your transactions and financial reports will be shown in the base currency.',
-          child: _buildDropdownField(
-            value: _selectedBaseCurrency,
-            hintText: _currencyOptions.isEmpty
-                ? 'No currency data available'
-                : 'Select base currency',
-            items: _currencyOptions,
-            onChanged: (value) => setState(() => _selectedBaseCurrency = value),
-          ),
-        ),
-        const SizedBox(height: AppTheme.space18),
-        _buildFieldRow(
-          key: _fiscalYearKey,
-          label: 'Fiscal Year',
-          child: _buildDropdownField(
-            value: _selectedFiscalYear,
-            hintText: 'Select fiscal year',
-            items: _fiscalYearOptions,
-            onChanged: (value) => setState(() => _selectedFiscalYear = value),
-          ),
-        ),
-        const SizedBox(height: AppTheme.space18),
-        _buildFieldRow(
-          key: _timeZoneKey,
-          label: 'Time Zone',
-          child: _buildDropdownField(
-            value: _selectedTimeZone,
-            hintText: 'Select time zone',
-            items: _timeZoneOptions,
-            onChanged: (value) => setState(() => _selectedTimeZone = value),
-            menuWidth: 720,
-          ),
-        ),
-        const SizedBox(height: AppTheme.space18),
-        _buildFieldRow(
-          key: _dateFormatKey,
-          label: 'Date Format',
-          child: Row(
-            children: [
-              Expanded(child: _buildGroupedDateFormatDropdown()),
-              const SizedBox(width: AppTheme.space12),
-              SizedBox(
-                width: 120,
-                child: _buildDropdownField(
-                  value: _selectedDateSeparator,
-                  hintText: 'Separator',
-                  items: _dateSeparatorOptions,
-                  onChanged: (value) =>
-                      setState(() => _selectedDateSeparator = value),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppTheme.space18),
-        _buildFieldRow(
-          key: _companyIdKey,
-          label: 'Company ID',
-          child: Row(
-            children: [
-              Expanded(
-                child: _buildDropdownField(
-                  value: _selectedCompanyIdLabel,
-                  hintText: 'Select identifier',
-                  items: _companyIdOptions,
-                  onChanged: (value) =>
-                      setState(() => _selectedCompanyIdLabel = value),
-                ),
-              ),
-              const SizedBox(width: AppTheme.space12),
-              Expanded(
-                child: TextFormField(
-                  controller: _companyIdValueController,
-                  decoration: const InputDecoration(
-                    hintText: 'Enter identifier value',
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ],
     );
@@ -1672,62 +1786,330 @@ class _SettingsOrganizationProfilePageState
     );
   }
 
-  Widget _buildFieldRow({
-    Key? key,
-    required String label,
-    required Widget child,
-    bool isRequired = false,
-    String? tooltip,
-  }) {
-    return LayoutBuilder(
-      key: key,
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 860;
-        final labelWidget = Padding(
-          padding: EdgeInsets.only(top: compact ? 0 : AppTheme.space12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: AppTheme.bodyText.copyWith(
-                  color: isRequired ? AppTheme.errorRed : AppTheme.textPrimary,
+  Widget _buildBaseCurrencyField() {
+    final bool isIndia = _selectedLocation?.toLowerCase() == 'india';
+    final gearIconButton = IconButton(
+      icon: Icon(
+        LucideIcons.settings,
+        size: 16,
+        color: _selectedBaseCurrency == null
+            ? AppTheme.textMuted
+            : AppTheme.textSecondary,
+      ),
+      tooltip: 'Edit currency details',
+      splashRadius: 18,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      onPressed: _selectedBaseCurrency == null
+          ? null
+          : () => _showEditCurrencyDialog(_selectedBaseCurrency!),
+    );
+    final gearButton = isIndia
+        ? ZTooltip(
+            message:
+                'Base currency is fixed to INR for India-based organizations, but you can still edit the INR currency settings.',
+            child: gearIconButton,
+          )
+        : gearIconButton;
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildDropdownField(
+            value: _selectedBaseCurrency,
+            hintText: _currencyOptions.isEmpty
+                ? 'No currency data available'
+                : 'Select base currency',
+            items: _currencyOptions,
+            onChanged: isIndia
+                ? null
+                : (value) => setState(() {
+                    _selectedBaseCurrency = value;
+                    final selectedCurrencyData =
+                        _currencyDataByCode[value] ?? <String, dynamic>{};
+                    _selectedBaseCurrencyDecimals =
+                        selectedCurrencyData['decimals']?.toString() ?? '2';
+                    _selectedBaseCurrencyFormat = selectedCurrencyData['format']
+                        ?.toString();
+                  }),
+          ),
+        ),
+        const SizedBox(width: AppTheme.space8),
+        gearButton,
+      ],
+    );
+  }
+
+  Future<void> _showEditCurrencyDialog(String code) async {
+    final Map<String, dynamic> data = Map<String, dynamic>.from(
+      _currencyDataByCode[code] ?? {},
+    );
+
+    final codeCtrl = TextEditingController(
+      text: (data['code'] ?? code).toString(),
+    );
+    final symbolCtrl = TextEditingController(
+      text: (data['symbol'] ?? '').toString(),
+    );
+    final nameCtrl = TextEditingController(
+      text: (data['name'] ?? '').toString(),
+    );
+
+    final List<String> decimalOptions = ['0', '2', '3'];
+    List<String> formatOptionsFor(String? decimals) {
+      switch (decimals) {
+        case '0':
+          return [
+            '1,234,567',
+            '1.234.567',
+            '1 234 567',
+            "1'234'567",
+            '12,34,567',
+          ];
+        case '3':
+          return [
+            '1,234,567.890',
+            '1.234.567,890',
+            '1 234 567,890',
+            "1'234'567.890",
+            '12,34,567.890',
+          ];
+        case '2':
+        default:
+          return [
+            '1,234,567.89',
+            '1.234.567,89',
+            '1 234 567,89',
+            "1'234'567.89",
+            '12,34,567.89',
+          ];
+      }
+    }
+
+    String? selectedDecimals =
+        decimalOptions.contains(
+          (_selectedBaseCurrencyDecimals ?? data['decimals'] ?? '').toString(),
+        )
+        ? (_selectedBaseCurrencyDecimals ?? data['decimals'] ?? '').toString()
+        : '2';
+    List<String> formatOptions = formatOptionsFor(selectedDecimals);
+    String? selectedFormat = (_selectedBaseCurrencyFormat ?? data['format'])
+        ?.toString();
+    if (selectedFormat != null && !formatOptions.contains(selectedFormat)) {
+      selectedFormat = formatOptions.first;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.space8),
+          ),
+          child: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Header ────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppTheme.space24,
+                    AppTheme.space20,
+                    AppTheme.space16,
+                    AppTheme.space16,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Edit Currency',
+                          style: AppTheme.sectionHeader,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          LucideIcons.x,
+                          size: 18,
+                          color: AppTheme.textSecondary,
+                        ),
+                        splashRadius: 18,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (tooltip != null) ...[
-                const SizedBox(width: AppTheme.space6),
-                ZTooltip(
-                  message: tooltip,
-                  child: const Icon(
-                    LucideIcons.helpCircle,
-                    size: 15,
-                    color: AppTheme.textSecondary,
+                const Divider(height: 1, color: AppTheme.borderLight),
+                // ── Body ─────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.all(AppTheme.space24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _dialogField(
+                        label: 'Currency Code',
+                        required: true,
+                        child: _readOnlyDialogInput(codeCtrl),
+                      ),
+                      const SizedBox(height: AppTheme.space16),
+                      _dialogField(
+                        label: 'Currency Symbol',
+                        required: true,
+                        child: _readOnlyDialogInput(symbolCtrl),
+                      ),
+                      const SizedBox(height: AppTheme.space16),
+                      _dialogField(
+                        label: 'Currency Name',
+                        required: true,
+                        child: _readOnlyDialogInput(nameCtrl),
+                      ),
+                      const SizedBox(height: AppTheme.space16),
+                      _dialogField(
+                        label: 'Decimal Places',
+                        child: _buildDropdownField(
+                          value: selectedDecimals,
+                          hintText: 'Select',
+                          items: decimalOptions,
+                          onChanged: (v) => setDlgState(() {
+                            selectedDecimals = v;
+                            formatOptions = formatOptionsFor(selectedDecimals);
+                            if (selectedFormat == null ||
+                                !formatOptions.contains(selectedFormat)) {
+                              selectedFormat = formatOptions.first;
+                            }
+                          }),
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.space16),
+                      _dialogField(
+                        label: 'Format',
+                        child: _buildDropdownField(
+                          value: selectedFormat,
+                          hintText: 'Select format',
+                          items: formatOptions,
+                          onChanged: (v) =>
+                              setDlgState(() => selectedFormat = v),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: AppTheme.borderLight),
+                // ── Footer ───────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.space24,
+                    vertical: AppTheme.space16,
+                  ),
+                  child: Row(
+                    children: [
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.successGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppTheme.space20,
+                            vertical: AppTheme.space10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.space4,
+                            ),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _selectedBaseCurrencyDecimals = selectedDecimals;
+                            _selectedBaseCurrencyFormat = selectedFormat;
+                          });
+                          Navigator.of(ctx).pop();
+                        },
+                        child: const Text('Save'),
+                      ),
+                      const SizedBox(width: AppTheme.space8),
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(color: AppTheme.textSecondary),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ],
+            ),
           ),
-        );
+        ),
+      ),
+    );
 
-        if (compact) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              labelWidget,
-              const SizedBox(height: AppTheme.space8),
-              SizedBox(width: 520, child: child),
-            ],
-          );
-        }
+    codeCtrl.dispose();
+    symbolCtrl.dispose();
+    nameCtrl.dispose();
+  }
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(width: 220, child: labelWidget),
-            SizedBox(width: 410, child: child),
-          ],
-        );
-      },
+  Widget _dialogField({
+    required String label,
+    required Widget child,
+    bool required = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            text: label,
+            style: AppTheme.tableHeader,
+            children: required
+                ? [
+                    TextSpan(
+                      text: '*',
+                      style: TextStyle(color: AppTheme.errorRed),
+                    ),
+                  ]
+                : [],
+          ),
+        ),
+        const SizedBox(height: AppTheme.space6),
+        child,
+      ],
+    );
+  }
+
+  Widget _readOnlyDialogInput(TextEditingController controller) {
+    return TextFormField(
+      controller: controller,
+      readOnly: true,
+      style: AppTheme.bodyText,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: AppTheme.bgDisabled,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.space12,
+          vertical: AppTheme.space8,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.space4),
+          borderSide: BorderSide(color: AppTheme.borderLight),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.space4),
+          borderSide: BorderSide(color: AppTheme.borderLight),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.space4),
+          borderSide: BorderSide(color: AppTheme.borderLight),
+        ),
+      ),
     );
   }
 
@@ -1735,7 +2117,7 @@ class _SettingsOrganizationProfilePageState
     required String? value,
     required String hintText,
     required List<String> items,
-    required ValueChanged<String?> onChanged,
+    ValueChanged<String?>? onChanged,
     double? menuWidth,
   }) {
     return FormDropdown<String>(
@@ -1743,8 +2125,57 @@ class _SettingsOrganizationProfilePageState
       items: items,
       hint: hintText,
       menuWidth: menuWidth,
-      onChanged: onChanged,
+      onChanged: onChanged ?? (_) {},
     );
+  }
+
+  List<_TimezoneOption> _parseTimezoneOptions(Response<dynamic> response) {
+    if (!response.success || response.data is! List) {
+      return <_TimezoneOption>[];
+    }
+
+    return (response.data as List)
+        .whereType<Map>()
+        .map(
+          (dynamic item) =>
+              Map<String, dynamic>.from(item as Map<dynamic, dynamic>),
+        )
+        .map(
+          (item) => _TimezoneOption(
+            id: (item['id'] ?? '').toString(),
+            name: (item['name'] ?? '').toString(),
+            tzdbName: (item['tzdb_name'] ?? '').toString(),
+            utcOffset: (item['utc_offset'] ?? '').toString(),
+            display: (item['display'] ?? '').toString(),
+            countryId: (item['country_id'] ?? '').toString().trim().isEmpty
+                ? null
+                : (item['country_id'] ?? '').toString(),
+          ),
+        )
+        .where(
+          (option) =>
+              option.id.isNotEmpty &&
+              option.tzdbName.isNotEmpty &&
+              option.display.isNotEmpty,
+        )
+        .toList();
+  }
+
+  String? _matchTimezoneValue(String raw, List<_TimezoneOption> options) {
+    if (raw.isEmpty) {
+      return null;
+    }
+
+    for (final option in options) {
+      if (option.tzdbName == raw ||
+          option.display == raw ||
+          option.name == raw ||
+          option.id == raw) {
+        return option.tzdbName;
+      }
+    }
+
+    return null;
   }
 
   Future<bool> _verifySavedOrgProfile(
@@ -1758,7 +2189,9 @@ class _SettingsOrganizationProfilePageState
       return false;
     }
 
-    final data = Map<String, dynamic>.from(response.data as Map<String, dynamic>);
+    final data = Map<String, dynamic>.from(
+      response.data as Map<String, dynamic>,
+    );
 
     bool matches(String key) {
       if (!payload.containsKey(key)) {
@@ -1767,22 +2200,57 @@ class _SettingsOrganizationProfilePageState
 
       final expected = payload[key];
       final actual = data[key];
-      return (actual ?? '').toString().trim() == (expected ?? '').toString().trim();
+      return (actual ?? '').toString().trim() ==
+          (expected ?? '').toString().trim();
     }
 
     return matches('name') &&
         matches('state_id') &&
         matches('industry') &&
         matches('base_currency') &&
+        matches('base_currency_decimals') &&
+        matches('base_currency_format') &&
         matches('fiscal_year') &&
+        matches('organization_language') &&
         matches('timezone') &&
         matches('date_format') &&
         matches('date_separator') &&
         matches('company_id_label') &&
         matches('company_id_value') &&
+        _matchesStringList(
+          data['communication_languages'],
+          payload['communication_languages'],
+        ) &&
         matches('payment_stub_address') &&
         data['has_separate_payment_stub_address'] ==
             payload['has_separate_payment_stub_address'];
+  }
+
+  bool _matchesStringList(dynamic actual, dynamic expected) {
+    if (expected == null) {
+      return true;
+    }
+    final actualList =
+        (actual as List?)
+            ?.map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList() ??
+        const <String>[];
+    final expectedList =
+        (expected as List?)
+            ?.map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList() ??
+        const <String>[];
+    if (actualList.length != expectedList.length) {
+      return false;
+    }
+    for (var i = 0; i < actualList.length; i++) {
+      if (actualList[i] != expectedList[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Widget _buildGroupedDateFormatDropdown() {
@@ -1793,10 +2261,10 @@ class _SettingsOrganizationProfilePageState
       flatItems.addAll(patterns);
     });
 
-    // Parse GMT offset from timezone string e.g. "(GMT +5:30) India Standard Time"
+    // Parse UTC offset from the selected timezone lookup row.
     Duration tzOffset() {
-      final tz = _selectedTimeZone ?? '';
-      final match = RegExp(r'GMT ([+-])(\d{1,2}):(\d{2})').firstMatch(tz);
+      final offset = _selectedTimeZoneOption?.utcOffset ?? '';
+      final match = RegExp(r'([+-])(\d{2}):(\d{2})').firstMatch(offset);
       if (match == null) return Duration.zero;
       final sign = match.group(1) == '+' ? 1 : -1;
       final hours = int.parse(match.group(2)!);
@@ -1947,6 +2415,18 @@ class _SettingsOrganizationProfilePageState
       ),
       SettingsSearchItem(
         group: 'Setup & Configurations',
+        label: 'Organization Language',
+        subtitle: 'Profile',
+        onSelected: () => _scrollToKey(_organizationLanguageKey),
+      ),
+      SettingsSearchItem(
+        group: 'Setup & Configurations',
+        label: 'Communication Languages',
+        subtitle: 'Profile',
+        onSelected: () => _scrollToKey(_communicationLanguagesKey),
+      ),
+      SettingsSearchItem(
+        group: 'Setup & Configurations',
         label: 'Time Zone',
         subtitle: 'Profile',
         onSelected: () => _scrollToKey(_timeZoneKey),
@@ -2047,6 +2527,24 @@ class _SettingsOrganizationProfilePageState
       ZerpaiToast.error(context, 'Please select a fiscal year.');
       return;
     }
+    if (_selectedLocation == null) {
+      ZerpaiToast.error(context, 'Please select an organization location.');
+      return;
+    }
+    if (_selectedState == null) {
+      ZerpaiToast.error(
+        context,
+        'Please select a state for the selected organization location.',
+      );
+      return;
+    }
+    if (!_stateIdByName.containsKey(_selectedState)) {
+      ZerpaiToast.error(
+        context,
+        'Please select a valid state for the selected organization location.',
+      );
+      return;
+    }
 
     // Resolve org ID — prefer auth user, then API-loaded ID, then dev fallback.
     // TODO(auth): Remove _kDevOrgId fallback once auth is enabled.
@@ -2063,23 +2561,31 @@ class _SettingsOrganizationProfilePageState
       return;
     }
 
-      final payload = <String, dynamic>{
-        'name': _organizationNameController.text.trim(),
-        if (_selectedState != null) 'state_id': _stateIdByName[_selectedState],
-        if (_selectedIndustry != null) 'industry': _selectedIndustry,
-        'base_currency': _selectedBaseCurrency,
-        'fiscal_year': _selectedFiscalYear,
-        if (_selectedTimeZone != null) 'timezone': _selectedTimeZone,
-        if (_selectedDateFormat != null) 'date_format': _selectedDateFormat,
-        if (_selectedDateSeparator != null)
-          'date_separator': _selectedDateSeparator,
-        if (_selectedCompanyIdLabel != null)
-          'company_id_label': _selectedCompanyIdLabel,
-        'company_id_value': _companyIdValueController.text.trim(),
-        'has_separate_payment_stub_address': _hasSeparatePaymentStubAddress,
-        if (_hasSeparatePaymentStubAddress)
-          'payment_stub_address': _paymentStubAddressController.text.trim(),
-      };
+    final payload = <String, dynamic>{
+      'name': _organizationNameController.text.trim(),
+      if (_selectedState != null) 'state_id': _stateIdByName[_selectedState],
+      if (_selectedIndustry != null) 'industry': _selectedIndustry,
+      'base_currency': _selectedBaseCurrency,
+      if (_selectedBaseCurrencyDecimals != null)
+        'base_currency_decimals': int.tryParse(_selectedBaseCurrencyDecimals!),
+      if (_selectedBaseCurrencyFormat != null &&
+          _selectedBaseCurrencyFormat!.trim().isNotEmpty)
+        'base_currency_format': _selectedBaseCurrencyFormat,
+      'fiscal_year': _selectedFiscalYear,
+      if (_selectedOrganizationLanguage != null)
+        'organization_language': _selectedOrganizationLanguage,
+      'communication_languages': _selectedCommunicationLanguages,
+      if (_selectedTimeZone != null) 'timezone': _selectedTimeZone,
+      if (_selectedDateFormat != null) 'date_format': _selectedDateFormat,
+      if (_selectedDateSeparator != null)
+        'date_separator': _selectedDateSeparator,
+      if (_selectedCompanyIdLabel != null)
+        'company_id_label': _selectedCompanyIdLabel,
+      'company_id_value': _companyIdValueController.text.trim(),
+      'has_separate_payment_stub_address': _hasSeparatePaymentStubAddress,
+      if (_hasSeparatePaymentStubAddress)
+        'payment_stub_address': _paymentStubAddressController.text.trim(),
+    };
 
     setState(() => _isSaving = true);
     try {

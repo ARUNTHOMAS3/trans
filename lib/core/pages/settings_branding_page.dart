@@ -347,7 +347,7 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
       enableBodyScroll: false,
       searchFocusNode: _searchFocusNode,
       child: Container(
-        color: AppTheme.bgLight,
+        color: Colors.white,
         child: Column(
           children: [
             _buildTopBar(context),
@@ -647,99 +647,114 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.space20,
-        AppTheme.space20,
-        AppTheme.space20,
-        AppTheme.space24,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1360),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.borderLight),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.space32,
+              AppTheme.space28,
+              AppTheme.space32,
+              AppTheme.space24,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppTheme.space20,
-                    AppTheme.space18,
-                    AppTheme.space20,
-                    AppTheme.space18,
+            child: SizedBox(
+              width: 620,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Logo ──────────────────────────────────────────
+                  Text('Organization Logo', style: AppTheme.sectionHeader),
+                  const SizedBox(height: AppTheme.space16),
+                  Container(
+                    color: Colors.white,
+                    child: _buildLogoSection(),
                   ),
-                  child: Text(
-                    'Branding',
-                    style: AppTheme.pageTitle.copyWith(fontSize: 18),
-                  ),
-                ),
-                const Divider(height: 1, color: AppTheme.borderLight),
-                Padding(
-                  padding: const EdgeInsets.all(AppTheme.space20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: AppTheme.space28),
+
+                  // ── Appearance ────────────────────────────────────
+                  Text('Appearance', style: AppTheme.sectionHeader),
+                  const SizedBox(height: AppTheme.space16),
+                  Row(
                     children: [
-                      _buildLogoSection(),
-                      const SizedBox(height: AppTheme.space32),
-                      const Divider(height: 1, color: AppTheme.borderLight),
-                      const SizedBox(height: AppTheme.space32),
-                      _buildAppearanceSection(),
-                      const SizedBox(height: AppTheme.space32),
-                      const Divider(height: 1, color: AppTheme.borderLight),
-                      const SizedBox(height: AppTheme.space32),
-                      _buildAccentColorSection(),
-                      const SizedBox(height: AppTheme.space16),
-                      _buildAccentColorNote(),
-                      const SizedBox(height: AppTheme.space32),
-                      const Divider(height: 1, color: AppTheme.borderLight),
-                      const SizedBox(height: AppTheme.space24),
-                      _buildBrandingToggle(),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, color: AppTheme.borderLight),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.space20,
-                    vertical: AppTheme.space16,
-                  ),
-                  child: Row(
-                    children: [
-                      ElevatedButton(
-                        onPressed: _isSaving ? null : _saveBranding,
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                        ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text('Save'),
+                      _buildAppearanceTile(
+                        mode: _AppearanceMode.dark,
+                        label: 'Dark Pane',
                       ),
-                      const SizedBox(width: AppTheme.space12),
-                      OutlinedButton(
-                        onPressed: () => context.go(AppRoutes.settings),
-                        child: const Text('Cancel'),
+                      const SizedBox(width: AppTheme.space16),
+                      _buildAppearanceTile(
+                        mode: _AppearanceMode.light,
+                        label: 'Light Pane',
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: AppTheme.space28),
+                  const Divider(height: 1, color: AppTheme.borderLight),
+                  const SizedBox(height: AppTheme.space28),
+
+                  // ── Accent Color ──────────────────────────────────
+                  Text('Accent Color', style: AppTheme.sectionHeader),
+                  const SizedBox(height: AppTheme.space16),
+                  Wrap(
+                    spacing: AppTheme.space12,
+                    runSpacing: AppTheme.space12,
+                    children: [
+                      ..._presetAccentColors.map(_buildColorSwatch),
+                      _buildCustomColorSwatch(),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.space16),
+                  _buildAccentColorNote(),
+                  const SizedBox(height: AppTheme.space28),
+                  const Divider(height: 1, color: AppTheme.borderLight),
+                  const SizedBox(height: AppTheme.space28),
+
+                  // ── Keep Branding ─────────────────────────────────
+                  _buildBrandingToggle(),
+                  const SizedBox(height: AppTheme.space24),
+                ],
+              ),
             ),
           ),
         ),
-      ),
+
+        // ── Fixed bottom bar ──────────────────────────────────────────
+        Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: AppTheme.borderLight)),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.space32,
+            vertical: AppTheme.space16,
+          ),
+          child: Row(
+            children: [
+              ElevatedButton(
+                onPressed: _isSaving ? null : _saveBranding,
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Save'),
+              ),
+              const SizedBox(width: AppTheme.space12),
+              OutlinedButton(
+                onPressed: () => context.go(AppRoutes.settings),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -812,14 +827,9 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
       );
     }
 
-    return Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Organization Logo', style: AppTheme.sectionHeader),
-        const SizedBox(height: AppTheme.space12),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
             SizedBox(
               width: 250,
               height: 96,
@@ -907,35 +917,6 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
                 ],
               ),
             ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Appearance section
-  // ---------------------------------------------------------------------------
-
-  Widget _buildAppearanceSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Appearance', style: AppTheme.sectionHeader),
-        const SizedBox(height: AppTheme.space16),
-        Row(
-          children: [
-            _buildAppearanceTile(
-              mode: _AppearanceMode.dark,
-              label: 'Dark Pane',
-            ),
-            const SizedBox(width: AppTheme.space16),
-            _buildAppearanceTile(
-              mode: _AppearanceMode.light,
-              label: 'Light Pane',
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -1054,28 +1035,6 @@ class _SettingsBrandingPageState extends ConsumerState<SettingsBrandingPage> {
           ),
         ),
       ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Accent color section
-  // ---------------------------------------------------------------------------
-
-  Widget _buildAccentColorSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Accent Color', style: AppTheme.sectionHeader),
-        const SizedBox(height: AppTheme.space16),
-        Wrap(
-          spacing: AppTheme.space12,
-          runSpacing: AppTheme.space12,
-          children: [
-            ..._presetAccentColors.map(_buildColorSwatch),
-            _buildCustomColorSwatch(),
-          ],
-        ),
-      ],
     );
   }
 

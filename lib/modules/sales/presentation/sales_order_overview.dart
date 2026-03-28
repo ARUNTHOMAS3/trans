@@ -107,12 +107,12 @@ const List<String> _bulkUpdateFields = [
   'PDF Template',
   'Order Date',
   'Exchange Rate',
-  'Sales person',
+  'Sales Person',
   'Customer Notes',
   'Terms & Conditions',
   'Payment Terms',
   'Delivery Method',
-  'Reference#',
+  'Reference #',
   'Expected Shipment Date',
 ];
 
@@ -1189,12 +1189,15 @@ class _SalesOrderOverviewScreenState
                         width: _tableWidth,
                         child: ListView.separated(
                           itemCount: sales.length,
-                          separatorBuilder: (context, index) =>
-                              const Divider(height: 1, color: AppTheme.borderLight),
+                          separatorBuilder: (context, index) => const Divider(
+                            height: 1,
+                            color: AppTheme.borderLight,
+                          ),
                           itemBuilder: (context, index) {
                             final sale = sales[index];
                             return InkWell(
-                              onTap: () => context.go('/sales/orders/${sale.id}'),
+                              onTap: () =>
+                                  context.go('/sales/orders/${sale.id}'),
                               hoverColor: AppTheme.selectionActiveBg,
                               child: Container(
                                 height: _clipText ? 46 : 56,
@@ -1204,19 +1207,25 @@ class _SalesOrderOverviewScreenState
                                     SizedBox(
                                       width: 30,
                                       child: Checkbox(
-                                        value: _selectedSaleIds.contains(sale.id),
-                                        onChanged: (value) => _toggleSaleSelection(
+                                        value: _selectedSaleIds.contains(
                                           sale.id,
-                                          value ?? false,
                                         ),
+                                        onChanged: (value) =>
+                                            _toggleSaleSelection(
+                                              sale.id,
+                                              value ?? false,
+                                            ),
                                         activeColor: AppTheme.primaryBlueDark,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(3),
+                                          borderRadius: BorderRadius.circular(
+                                            3,
+                                          ),
                                         ),
                                       ),
                                     ),
                                     ..._visibleColumns.map(
-                                      (column) => _buildCellForColumn(column, sale),
+                                      (column) =>
+                                          _buildCellForColumn(column, sale),
                                     ),
                                   ],
                                 ),
@@ -1246,134 +1255,128 @@ class _SalesOrderOverviewScreenState
         border: Border.all(color: AppTheme.borderLight),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _BulkActionButton(
-              label: 'Bulk Update',
-              onTap: _showBulkUpdateDialog,
-            ),
-            const SizedBox(width: 8),
-            _BulkIconButton(
-              icon: LucideIcons.fileText,
-              onTap: () => _handleBulkAction('PDF export'),
-            ),
-            _BulkIconButton(
-              icon: LucideIcons.printer,
-              onTap: () => _handleBulkAction('Print'),
-            ),
-            _BulkIconButton(
-              icon: LucideIcons.mail,
-              onTap: () => _handleBulkAction('Email'),
-            ),
-            _BulkDivider(),
-            _BulkActionButton(
-              label: 'Mark shipment as fulfilled',
-              onTap: () => _handleBulkAction('Shipment fulfilment'),
-            ),
-            _BulkActionButton(
-              label: 'Backorder',
-              onTap: () => _handleBulkAction('Backorder'),
-            ),
-            _BulkActionButton(
-              label: 'Dropship',
-              onTap: () => _handleBulkAction('Dropship'),
-            ),
-            _BulkActionButton(
-              label: 'Generate picklist',
-              onTap: () => _handleBulkAction('Picklist generation'),
-            ),
-            MenuAnchor(
-              style: _menuStyle(),
-              builder: (context, controller, child) {
-                return InkWell(
-                  onTap: () => controller.isOpen
-                      ? controller.close()
-                      : controller.open(),
-                  borderRadius: BorderRadius.circular(6),
-                  child: const _BulkMoreButton(),
-                );
-              },
-              menuChildren: [
-                MenuItemButton(
-                  style: _menuItemStyle(),
-                  onPressed: () => _handleBulkAction('Quick shipments'),
-                  child: const SizedBox(
-                    width: 210,
-                    child: Text('Create Quick Shipments'),
-                  ),
-                ),
-                MenuItemButton(
-                  style: _menuItemStyle(),
-                  onPressed: () => _handleBulkAction('Merge sales orders'),
-                  child: const SizedBox(
-                    width: 210,
-                    child: Text('Merge Sales Orders'),
-                  ),
-                ),
-                MenuItemButton(
-                  style: _menuItemStyle(),
-                  onPressed: () => _handleBulkAction('Bulk cancel items'),
-                  child: const SizedBox(
-                    width: 210,
-                    child: Text('Bulk Cancel Items'),
-                  ),
-                ),
-                MenuItemButton(
-                  style: _menuItemStyle(),
-                  onPressed: () =>
-                      _handleBulkAction('Bulk reopen canceled items'),
-                  child: const SizedBox(
-                    width: 210,
-                    child: Text('Bulk reopen canceled items'),
-                  ),
-                ),
-                MenuItemButton(
-                  style: _menuItemStyle(),
-                  onPressed: () => _handleBulkAction('Delete'),
-                  child: const SizedBox(width: 210, child: Text('Delete')),
-                ),
-              ],
-            ),
-            _BulkDivider(),
-            Container(
-              width: 28,
-              height: 28,
-              decoration: const BoxDecoration(
-                color: AppTheme.bgDisabled,
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '${_selectedSaleIds.length}',
-                style: AppTheme.bodyText.copyWith(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+      child: Row(
+        children: [
+          _BulkActionButton(label: 'Bulk Update', onTap: _showBulkUpdateDialog),
+          const SizedBox(width: 8),
+          _BulkIconButton(
+            icon: LucideIcons.fileText,
+            onTap: () => _handleBulkAction('PDF export'),
+          ),
+          _BulkIconButton(
+            icon: LucideIcons.printer,
+            onTap: () => _handleBulkAction('Print'),
+          ),
+          _BulkIconButton(
+            icon: LucideIcons.mail,
+            onTap: () => _handleBulkAction('Email'),
+          ),
+          _BulkDivider(),
+          _BulkActionButton(
+            label: 'Mark shipment as fulfilled',
+            onTap: () => _handleBulkAction('Shipment fulfilment'),
+          ),
+          _BulkActionButton(
+            label: 'Backorder',
+            onTap: () => _handleBulkAction('Backorder'),
+          ),
+          _BulkActionButton(
+            label: 'Dropship',
+            onTap: () => _handleBulkAction('Dropship'),
+          ),
+          _BulkActionButton(
+            label: 'Generate picklist',
+            onTap: () => _handleBulkAction('Picklist generation'),
+          ),
+          MenuAnchor(
+            style: _menuStyle(),
+            builder: (context, controller, child) {
+              return InkWell(
+                onTap: () =>
+                    controller.isOpen ? controller.close() : controller.open(),
+                borderRadius: BorderRadius.circular(6),
+                child: const _BulkMoreButton(),
+              );
+            },
+            menuChildren: [
+              MenuItemButton(
+                style: _menuItemStyle(),
+                onPressed: () => _handleBulkAction('Quick shipments'),
+                child: const SizedBox(
+                  width: 210,
+                  child: Text('Create Quick Shipments'),
                 ),
               ),
+              MenuItemButton(
+                style: _menuItemStyle(),
+                onPressed: () => _handleBulkAction('Merge sales orders'),
+                child: const SizedBox(
+                  width: 210,
+                  child: Text('Merge Sales Orders'),
+                ),
+              ),
+              MenuItemButton(
+                style: _menuItemStyle(),
+                onPressed: () => _handleBulkAction('Bulk cancel items'),
+                child: const SizedBox(
+                  width: 210,
+                  child: Text('Bulk Cancel Items'),
+                ),
+              ),
+              MenuItemButton(
+                style: _menuItemStyle(),
+                onPressed: () =>
+                    _handleBulkAction('Bulk reopen canceled items'),
+                child: const SizedBox(
+                  width: 210,
+                  child: Text('Bulk reopen canceled items'),
+                ),
+              ),
+              MenuItemButton(
+                style: _menuItemStyle(),
+                onPressed: () => _handleBulkAction('Delete'),
+                child: const SizedBox(width: 210, child: Text('Delete')),
+              ),
+            ],
+          ),
+          _BulkDivider(),
+          const Spacer(),
+          Container(
+            width: 28,
+            height: 28,
+            decoration: const BoxDecoration(
+              color: AppTheme.bgDisabled,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(width: 10),
-            Text('Selected', style: AppTheme.bodyText.copyWith(fontSize: 13)),
-            const SizedBox(width: 18),
-            Text(
-              'Esc',
+            alignment: Alignment.center,
+            child: Text(
+              '${_selectedSaleIds.length}',
               style: AppTheme.bodyText.copyWith(
-                fontSize: 13,
-                color: AppTheme.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(width: 8),
-            InkWell(
-              onTap: _clearSelection,
-              borderRadius: BorderRadius.circular(999),
-              child: const Padding(
-                padding: EdgeInsets.all(4),
-                child: Icon(LucideIcons.x, size: 18, color: AppTheme.errorRed),
-              ),
+          ),
+          const SizedBox(width: 10),
+          Text('Selected', style: AppTheme.bodyText.copyWith(fontSize: 13)),
+          const SizedBox(width: 18),
+          Text(
+            'Esc',
+            style: AppTheme.bodyText.copyWith(
+              fontSize: 13,
+              color: AppTheme.textSecondary,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: _clearSelection,
+            borderRadius: BorderRadius.circular(999),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(LucideIcons.x, size: 18, color: AppTheme.errorRed),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1442,7 +1445,10 @@ class _SalesOrderOverviewScreenState
       case _SalesOrderColumnKey.salesOrderNumber:
         return _Cell(
           width: column.width,
-          child: Text(sale.saleNumber, style: AppTheme.linkText),
+          child: Text(
+            sale.saleNumber,
+            style: AppTheme.linkText.copyWith(decoration: TextDecoration.none),
+          ),
         );
       case _SalesOrderColumnKey.reference:
         return _Cell(
@@ -1460,7 +1466,10 @@ class _SalesOrderOverviewScreenState
           width: column.width,
           child: Text(
             sale.status.toUpperCase(),
-            style: AppTheme.linkText.copyWith(fontSize: 12),
+            style: AppTheme.linkText.copyWith(
+              fontSize: 12,
+              decoration: TextDecoration.none,
+            ),
           ),
         );
       case _SalesOrderColumnKey.invoiced:
@@ -1763,16 +1772,49 @@ class _SalesOrderOverviewScreenState
                         _pdfLogo(orgSettings),
                         const SizedBox(height: 16),
                         Text(
-                          _customerName(order),
+                          orgSettings?.name.trim().isNotEmpty == true
+                              ? orgSettings!.name.trim()
+                              : 'YOUR COMPANY NAME',
                           style: AppTheme.bodyText.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Text(
-                          _address(order.customer?.fullBillingAddress),
-                          style: AppTheme.bodyText.copyWith(fontSize: 13),
-                        ),
+                        if (orgSettings?.paymentStubAddress
+                                ?.trim()
+                                .isNotEmpty ==
+                            true)
+                          Text(
+                            orgSettings!.paymentStubAddress!.trim(),
+                            style: AppTheme.bodyText.copyWith(fontSize: 13),
+                          ),
+                        if (orgSettings?.companyIdentityLine?.isNotEmpty ==
+                            true)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top:
+                                  orgSettings?.paymentStubAddress
+                                          ?.trim()
+                                          .isNotEmpty ==
+                                      true
+                                  ? 6
+                                  : 0,
+                            ),
+                            child: Text(
+                              orgSettings!.companyIdentityLine!,
+                              style: AppTheme.bodyText.copyWith(fontSize: 13),
+                            ),
+                          ),
+                        if ((orgSettings?.paymentStubAddress
+                                    ?.trim()
+                                    .isNotEmpty !=
+                                true) &&
+                            (orgSettings?.companyIdentityLine?.isNotEmpty !=
+                                true))
+                          Text(
+                            'Address Line 1\nCity, State PIN',
+                            style: AppTheme.bodyText.copyWith(fontSize: 13),
+                          ),
                       ],
                     ),
                   ),
@@ -2572,7 +2614,9 @@ class _Header extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.3,
-                    color: sorted ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                    color: sorted
+                        ? AppTheme.primaryBlue
+                        : AppTheme.textSecondary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -2952,7 +2996,8 @@ class _SalesOrderBulkUpdateDialogState
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      alignment: Alignment.topCenter,
+      insetPadding: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: SizedBox(
         width: 640,
@@ -3004,72 +3049,75 @@ class _SalesOrderBulkUpdateDialogState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: FormDropdown<String>(
-                      value: _selectedField,
-                      items: _bulkUpdateFields,
-                      hint: 'Select a field',
-                      onChanged: (value) {
-                        setState(() => _selectedField = value);
-                      },
-                      displayStringForValue: (value) => value,
-                      searchStringForValue: (value) => value,
-                      showSearch: true,
-                      menuWidth: 300,
-                      fillColor: Colors.white,
+                    child: SizedBox(
+                      height: 40,
+                      child: FormDropdown<String>(
+                        value: _selectedField,
+                        items: _bulkUpdateFields,
+                        hint: 'Select a field',
+                        onChanged: (value) {
+                          setState(() => _selectedField = value);
+                        },
+                        displayStringForValue: (value) => value,
+                        searchStringForValue: (value) => value,
+                        showSearch: true,
+                        menuWidth: 300,
+                        fillColor: Colors.white,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 28),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          height: 40,
-                          child: TextField(
-                            controller: _valueController,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 0,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(6),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.borderLight,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(6),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.borderLight,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(6),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.primaryBlue,
-                                ),
-                              ),
+                    child: SizedBox(
+                      height: 40,
+                      child: TextField(
+                        controller: _valueController,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: 'Enter new value',
+                          hintStyle: AppTheme.bodyText.copyWith(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 0,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(
+                              color: AppTheme.borderLight,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(
+                              color: AppTheme.borderLight,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(
+                              color: AppTheme.primaryBlue,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _selectedField == null
-                              ? 'Selected sales orders will be updated with the new value.'
-                              : 'Selected sales orders will be updated with the new $_selectedField value.',
-                          style: AppTheme.bodyText.copyWith(
-                            fontSize: 13,
-                            color: AppTheme.textSecondary,
-                            height: 1.45,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Text(
+                'Note: All the selected sales orders will be updated with the new information and you cannot undo this action.',
+                style: AppTheme.bodyText.copyWith(
+                  fontSize: 13,
+                  color: AppTheme.primaryBlue,
+                  height: 1.45,
+                ),
               ),
             ),
             const Spacer(),
@@ -3080,26 +3128,7 @@ class _SalesOrderBulkUpdateDialogState
                 border: Border(top: BorderSide(color: AppTheme.borderLight)),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  SizedBox(
-                    height: 34,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: AppTheme.borderLight),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: AppTheme.bodyText.copyWith(fontSize: 13),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
                   SizedBox(
                     height: 34,
                     child: ZButton.primary(
@@ -3119,6 +3148,24 @@ class _SalesOrderBulkUpdateDialogState
                           ),
                         );
                       },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    height: 34,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        side: const BorderSide(color: AppTheme.borderLight),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: AppTheme.bodyText.copyWith(fontSize: 13),
+                      ),
                     ),
                   ),
                 ],
@@ -3568,7 +3615,9 @@ class _SalesOrderCustomizeColumnsDialogState
                                     borderRadius: BorderRadius.circular(4),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.12),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.12,
+                                        ),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -3584,7 +3633,10 @@ class _SalesOrderCustomizeColumnsDialogState
                       },
                       itemBuilder: (context, index) {
                         final column = _columns[index];
-                        return _buildColumnTile(column, key: ValueKey(column.key));
+                        return _buildColumnTile(
+                          column,
+                          key: ValueKey(column.key),
+                        );
                       },
                     )
                   : ListView.separated(

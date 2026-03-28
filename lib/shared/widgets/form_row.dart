@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 
 // ─── ZerpaiFormRow ────────────────────────────────────────────────────────────
 /// Standard Zerpai ERP horizontal label-left form row.
@@ -23,6 +24,7 @@ class ZerpaiFormRow extends StatelessWidget {
   final bool required;
   final CrossAxisAlignment crossAxisAlignment;
   final Widget child;
+  final String? tooltipMessage;
 
   /// Label column width. Defaults to [kZerpaiFormLabelWidth] (200 px).
   final double labelWidth;
@@ -34,13 +36,16 @@ class ZerpaiFormRow extends StatelessWidget {
     this.crossAxisAlignment = CrossAxisAlignment.center,
     required this.child,
     this.labelWidth = kZerpaiFormLabelWidth,
+    this.tooltipMessage,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.space20, vertical: AppTheme.space14),
+        horizontal: AppTheme.space20,
+        vertical: AppTheme.space14,
+      ),
       child: Row(
         crossAxisAlignment: crossAxisAlignment,
         children: [
@@ -48,23 +53,39 @@ class ZerpaiFormRow extends StatelessWidget {
             width: labelWidth,
             child: label.isEmpty
                 ? const SizedBox.shrink()
-                : RichText(
-                    text: TextSpan(
-                      text: label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontFamily: 'Inter',
-                        color: required ? AppTheme.errorRed : AppTheme.textBody,
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: RichText(
+                          text: TextSpan(
+                            text: label,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontFamily: 'Inter',
+                              color: required
+                                  ? AppTheme.errorRed
+                                  : AppTheme.textBody,
+                            ),
+                            children: required
+                                ? const [
+                                    TextSpan(
+                                      text: ' *',
+                                      style: TextStyle(
+                                        color: AppTheme.errorRed,
+                                      ),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                        ),
                       ),
-                      children: required
-                          ? const [
-                              TextSpan(
-                                text: ' *',
-                                style: TextStyle(color: AppTheme.errorRed),
-                              ),
-                            ]
-                          : null,
-                    ),
+                      if (tooltipMessage != null &&
+                          tooltipMessage!.trim().isNotEmpty) ...[
+                        const SizedBox(width: AppTheme.space6),
+                        ZTooltip(message: tooltipMessage!.trim()),
+                      ],
+                    ],
                   ),
           ),
           const SizedBox(width: AppTheme.space20),

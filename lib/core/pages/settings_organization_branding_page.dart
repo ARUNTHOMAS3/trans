@@ -386,7 +386,7 @@ class _SettingsOrganizationBrandingPageState
       enableBodyScroll: false,
       searchFocusNode: _searchFocusNode,
       child: Container(
-        color: AppTheme.bgLight,
+        color: Colors.white,
         child: Column(
           children: [
             _buildTopBar(context),
@@ -733,52 +733,52 @@ class _SettingsOrganizationBrandingPageState
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppTheme.space32),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 860),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Branding', style: AppTheme.pageTitle),
-                              const SizedBox(height: AppTheme.space4),
-                              Text(
-                                'Customize how Zerpai looks and feels for your organization.',
-                                style: AppTheme.bodyText.copyWith(
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppTheme.space24),
-                    _buildLogoSection(),
-                    const SizedBox(height: AppTheme.space24),
-                    _buildAppearanceSection(),
-                    const SizedBox(height: AppTheme.space24),
-                    _buildAccentColorSection(),
-                  ],
-                ),
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.space32,
+              AppTheme.space28,
+              AppTheme.space32,
+              AppTheme.space24,
+            ),
+            child: SizedBox(
+              width: 620,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Logo ──────────────────────────────────────────
+                  Text('Organization Logo', style: AppTheme.sectionHeader),
+                  const SizedBox(height: AppTheme.space16),
+                  _buildLogoSection(),
+                  const SizedBox(height: AppTheme.space28),
+
+                  // ── Appearance ────────────────────────────────────
+                  Text('Appearance', style: AppTheme.sectionHeader),
+                  const SizedBox(height: AppTheme.space16),
+                  _buildAppearanceSection(),
+                  const SizedBox(height: AppTheme.space28),
+
+                  // ── Accent Color ──────────────────────────────────
+                  Text('Accent Color', style: AppTheme.sectionHeader),
+                  const SizedBox(height: AppTheme.space16),
+                  _buildAccentColorSection(),
+                  const SizedBox(height: AppTheme.space24),
+                ],
               ),
             ),
           ),
         ),
-        const Divider(height: 1, color: AppTheme.borderLight),
-        Padding(
+
+        // ── Fixed bottom bar ──────────────────────────────────────────
+        Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: AppTheme.borderLight)),
+          ),
           padding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.space20,
+            horizontal: AppTheme.space32,
             vertical: AppTheme.space16,
           ),
           child: Row(
@@ -815,15 +815,13 @@ class _SettingsOrganizationBrandingPageState
   // ─── Logo section ─────────────────────────────────────────────────────────
 
   Widget _buildLogoSection() {
-    return _SectionCard(
-      title: 'Organization Logo',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'This logo will be displayed in transaction PDFs and email notifications.',
-            style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'This logo will be displayed in transaction PDFs and email notifications.',
+          style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
+        ),
           const SizedBox(height: AppTheme.space20),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -937,8 +935,7 @@ class _SettingsOrganizationBrandingPageState
             ],
           ),
         ],
-      ),
-    );
+      );
   }
 
   Widget _buildLogoPreview() {
@@ -987,15 +984,13 @@ class _SettingsOrganizationBrandingPageState
   // ─── Appearance section ───────────────────────────────────────────────────
 
   Widget _buildAppearanceSection() {
-    return _SectionCard(
-      title: 'Appearance',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Choose how the sidebar looks for all users in your organization.',
-            style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Choose how the sidebar looks for all users in your organization.',
+          style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
+        ),
           const SizedBox(height: AppTheme.space20),
           Row(
             children: [
@@ -1015,8 +1010,7 @@ class _SettingsOrganizationBrandingPageState
             ],
           ),
         ],
-      ),
-    );
+      );
   }
 
   Widget _buildAppearanceCard({
@@ -1177,15 +1171,13 @@ class _SettingsOrganizationBrandingPageState
   // ─── Accent color section ─────────────────────────────────────────────────
 
   Widget _buildAccentColorSection() {
-    return _SectionCard(
-      title: 'Accent Color',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Choose the primary accent color used for buttons and active states.',
-            style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Choose the primary accent color used for buttons and active states.',
+          style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
+        ),
           const SizedBox(height: AppTheme.space20),
           Wrap(
             spacing: AppTheme.space12,
@@ -1229,8 +1221,7 @@ class _SettingsOrganizationBrandingPageState
             ),
           ],
         ],
-      ),
-    );
+      );
   }
 
   Widget _buildSwatchShell({
@@ -1586,47 +1577,6 @@ class _SettingsOrganizationBrandingPageState
         },
       ),
     ).then((_) => hexCtrl.dispose());
-  }
-}
-
-// ─── Section card wrapper ─────────────────────────────────────────────────────
-
-class _SectionCard extends StatelessWidget {
-  final String title;
-  final Widget child;
-
-  const _SectionCard({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.space24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.borderLight),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: AppTheme.sectionHeader.copyWith(fontSize: 15),
-          ),
-          const SizedBox(height: AppTheme.space16),
-          const Divider(color: AppTheme.borderLight, height: 1),
-          const SizedBox(height: AppTheme.space20),
-          child,
-        ],
-      ),
-    );
   }
 }
 

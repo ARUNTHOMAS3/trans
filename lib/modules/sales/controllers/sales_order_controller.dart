@@ -102,6 +102,45 @@ class SalesOrderController extends StateNotifier<AsyncValue<List<SalesOrder>>> {
     }
   }
 
+  Future<SalesOrder?> markAsConfirmed(String id) async {
+    try {
+      final current = state.value?.firstWhere((s) => s.id == id);
+      if (current == null) return null;
+      final updated = await _apiService.updateSalesOrder(
+        id,
+        SalesOrder(
+          id: current.id,
+          customerId: current.customerId,
+          saleNumber: current.saleNumber,
+          saleDate: current.saleDate,
+          status: 'confirmed',
+          subTotal: current.subTotal,
+          taxTotal: current.taxTotal,
+          discountTotal: current.discountTotal,
+          shippingCharges: current.shippingCharges,
+          adjustment: current.adjustment,
+          total: current.total,
+          documentType: current.documentType,
+          reference: current.reference,
+          paymentTerms: current.paymentTerms,
+          deliveryMethod: current.deliveryMethod,
+          salesperson: current.salesperson,
+          expectedShipmentDate: current.expectedShipmentDate,
+          customerNotes: current.customerNotes,
+          termsAndConditions: current.termsAndConditions,
+          customer: current.customer,
+          items: current.items,
+          createdAt: current.createdAt,
+        ),
+      );
+      await loadSalesOrders();
+      return updated;
+    } catch (e) {
+      debugPrint('Error marking as confirmed: $e');
+      rethrow;
+    }
+  }
+
   Future<void> deleteSalesOrder(String id) async {
     try {
       await _apiService.deleteSalesOrder(id);

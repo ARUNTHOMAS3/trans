@@ -8444,3 +8444,608 @@ Timestamp of Log Update: March 27, 2026 - (IST)
 ### No Backend Changes
 
 Timestamp of Log Update: March 27, 2026 - 18:42 (IST)
+
+---
+
+## Session — March 28, 2026
+
+### Sales Orders Overview — Polish & Bug Fixes
+
+#### 1. Fixed `withOpacity` Deprecation
+- Replaced `Colors.black.withOpacity(0.12)` with `Colors.black.withValues(alpha: 0.12)` in `sales_order_overview.dart` (line 3571) to resolve Flutter deprecation warning.
+
+#### 2. Removed Underlines from Table Link-Style Text
+- Sales order number (e.g., "SO-1") and order status (e.g., "SENT") used `AppTheme.linkText` which includes `TextDecoration.underline`.
+- Applied `.copyWith(decoration: TextDecoration.none)` at both call sites to strip underlines while keeping the blue color and weight.
+- `AppTheme.linkText` token itself was not modified — underlines remain correct for actual hyperlink contexts.
+
+#### 3. Bulk Action Toolbar — Alignment & Layout Fix
+- Replaced `SingleChildScrollView` wrapper around the bulk toolbar `Row` with a direct `Row` (bounded by the `Container`).
+- Added `const Spacer()` between the `...` overflow menu and the `6 Selected · Esc ✕` group.
+- This pushes the selection count and dismiss controls to the far right edge, matching the Zoho Inventory reference layout.
+- Fixed a broken indentation bug introduced during the refactor where `_BulkDivider`, `Spacer`, and the right-side widgets were accidentally placed outside the `Row`'s `children` list, causing parse errors (`expected_token`, `missing_identifier`). Full rewrite of `_selectionToolbar()` with correct uniform indentation resolved all errors.
+
+### No Backend Changes
+
+Timestamp of Log Update: March 28, 2026 - IST
+
+---
+
+## 2026-03-28 — Sales Orders Module Refactor (PRD 14.12.8.3 / Zoho Inventory Alignment)
+
+### Files changed
+- `lib/modules/sales/presentation/sales_order_overview.dart`
+- `lib/modules/sales/presentation/sales_document_detail.dart`
+- `lib/modules/sales/controllers/sales_order_controller.dart`
+
+### 1. List View — `sales_order_overview.dart`
+- **Bulk Update field label casing**: Fixed `'Sales person'` → `'Sales Person'` and `'Reference#'` → `'Reference #'` (Title Case per CLAUDE.md).
+- **Bulk Update dialog hint text**: Added `hintText: 'Enter new value'` (Sentence case) to the value TextField.
+- Note: Customize Columns (ReorderableListView + Search) and all Filter views (All, Draft, Pending Approval, Approved, Confirmed, Closed, Void, etc.) were already correctly implemented — no changes needed.
+
+### 2. Detail View — `sales_document_detail.dart`
+- **Screen refactor**: Converted `SalesDocumentDetailScreen` from `ConsumerWidget` → `ConsumerStatefulWidget` to manage `_drawerItem` state for the side drawer.
+- **4-stage status timeline**: Replaced flat 3-item `_StatusBar` with a horizontal 4-stage timeline (Order → Invoice → Payment → Shipment) using colored dot + label + value chips connected by lines. Statuses are logic-driven from `sale.status`; Invoice/Payment/Shipment show placeholder values pending API linkage.
+- **Create menu reorder**: Changed Create dropdown order to Package → Shipment → Invoice → Purchase Order (removed Delivery Challan, added Purchase Order for drop-ship per PRD).
+- **Convert to Invoice**: Wired button to `context.go('/sales/invoices/create', extra: {'fromOrderId': sale.id})` — navigates to invoice creation screen pre-seeded with the source SO id.
+- **Mark as Confirmed**: Added to `...` more menu; calls `salesOrderControllerProvider.markAsConfirmed(sale.id)` via `onMarkConfirmed` callback on `_ActionBar`.
+- **Item name as blue link**: Item names in `_ItemsTable` are now `GestureDetector`-wrapped blue underlined text (`Color(0xFF2563EB)`) that fires `onItemTap(item)`.
+- **Item stock/transaction side drawer**: Added `_ItemStockDrawer` — a `Positioned.fill` `Stack` overlay with a 30%-width right panel containing:
+  - Tab 1: **Stock Locations** — physical stock per warehouse (placeholder rows, real data from inventory API pending).
+  - Tab 2: **Transactions** — recent SO/PO for this item (placeholder, real data pending).
+  - Dim overlay on the left closes the drawer on tap.
+
+### 3. Controller — `sales_order_controller.dart`
+- **`markAsConfirmed(String id)`**: New method that copies the current `SalesOrder`, sets `status: 'confirmed'`, calls `_apiService.updateSalesOrder`, and refreshes the list via `loadSalesOrders()`.
+
+
+## 2026-03-28 — Settings Module Refactors
+
+### 1. Org Country-Aware State Dropdowns (Branches + Warehouses)
+**Files:** `lib/core/pages/settings_branches_create_page.dart`, `lib/core/pages/settings_warehouses_create_page.dart`
+- Added `_orgCountry` and `_stateOptions` state vars to both pages
+- `_loadOrgName()` / `_loadOrgAndBranches()` now reads org `country` from `lookups/org/$orgId`
+- If India → use hardcoded `_indianStates` (no extra API call)
+- If other country → resolve country ID via `/lookups/countries`, then fetch `/lookups/states?countryId=...`
+- Country static field and save body `country` key now use dynamic `_orgCountry` instead of hardcoded `'India'`
+- `_loadExisting()` matches saved state against `_stateOptions` instead of `_indianStates`
+
+### 2. Org Profile Save/Cancel → Fixed Bottom Bar
+**File:** `lib/core/pages/settings_organization_profile_page.dart`
+- Moved Save/Cancel from inside the scrollable card to a fixed bottom bar
+- `_buildBody()` now returns a `Column` wrapping `Expanded(SingleChildScrollView)` + bottom `Container`
+- Bottom bar: white background, top border, `space32` h-padding, `space16` v-padding — matches branches/warehouses pattern
+
+### 3. Backend 404: GET /api/v1/users
+- `settings_branches_create_page.dart` calls `_loadOrgUsers()` → `GET /api/v1/users?org_id=...`
+- No `/users` controller exists in the NestJS backend yet — endpoint not built
+- Flutter side silently catches the 404 (`catch (_) {}`), UI unaffected (Primary Contact shows empty)
+- Deferred: create `UsersModule` + `UsersController` in backend when user management is ready
+
+## 2026-03-28 — Backend: Add /users endpoint
+
+**Files created:**
+- `backend/src/modules/users/users.service.ts`
+- `backend/src/modules/users/users.controller.ts`
+- `backend/src/modules/users/users.module.ts`
+
+**File modified:**
+- `backend/src/app.module.ts` — registered `UsersModule`
+
+**Endpoints:**
+- `GET /users?org_id=<uuid>` — returns all users in the org
+- `GET /users/:id?org_id=<uuid>` — returns a single user by ID
+
+**Implementation:**
+- Uses `client.auth.admin.listUsers()` (Supabase service-role key)
+- Filters by `user_metadata.org_id` or `app_metadata.org_id` to enforce org scope
+- Returns: `id`, `email`, `name`, `full_name`, `role`, `is_active`, `created_at`
+- Fixes the 404 error from `settings_branches_create_page.dart` `_loadOrgUsers()`
+
+## Org Profile — Divider Removal, Country Fix, Logo Reposition (March 28, 2026)
+
+### Summary
+
+Three targeted fixes to the Organization Profile settings page and its backing API endpoint.
+
+---
+
+### 1. Remove Form Dividers
+
+All `kZerpaiFormDivider` hairline dividers between `ZerpaiFormRow` widgets in `settings_organization_profile_page.dart` were removed (8 total). The form now has cleaner vertical spacing without the extra visual noise between rows.
+
+**Why**: The dividers between adjacent form rows were adding clutter rather than aiding readability. Adjacent rows already have enough padding separation from `ZerpaiFormRow`'s internal spacing.
+
+---
+
+### 2. Country Not Persisting After Save
+
+**Root Cause**: The `organization` table has no `country_id` column — only `state_id`. The `GET /lookups/org/:orgId` endpoint was never returning a `country` field, so the Flutter page always read `null` and fell back to `defaultIndiaCountry`.
+
+**Fix**: Updated `getOrgDetails` in `global-lookups.controller.ts` to resolve country name via two sequential Supabase queries after the main org fetch:
+- `organization.state_id → states.id` (get the states row)
+- `states.state_id → countries.id` (get country name — note: `states.state_id` is the FK column name referencing `countries`)
+
+The resolved `country` name is now returned in the API response. Since the `organization` table stores no `country_id`, the country is always derived from the selected state's parent country — correct for the Indian SME context where state always implies country.
+
+**Side effect fixed**: `settings_branches_create_page.dart` already read `orgData['country']` — it will now receive the correct value without any frontend changes.
+
+---
+
+### 3. Logo Section Repositioned to Top
+
+Moved `_buildLogoSection()` from below the Configuration section to the **top of the form**, right after the info banner — matching the Zoho Inventory reference UX where the org logo appears first before name/industry/location fields.
+
+**Why**: Users expect the brand identity (logo) to be the first editable element on an org profile page, not buried below configuration fields.
+
+---
+
+### Frontend Files
+- `lib/core/pages/settings_organization_profile_page.dart` — removed 8 `kZerpaiFormDivider` usages; moved `_buildLogoSection()` to top of form scroll content
+
+### Backend Files
+- `backend/src/modules/lookups/global-lookups.controller.ts` — `getOrgDetails`: added sequential state→country resolution to return `country` field in org profile response
+
+Timestamp of Log Update: March 28, 2026 - (IST)
+
+## Settings: Organization Location Save Guard & India Fallback Fix (March 28, 2026)
+
+### Problem
+
+- The Organization Profile page stores location indirectly through `organization.state_id`; there is no `country_id` column on `public.organization`.
+- The page was still defaulting the organization location back to `India` when no derived country came back from `GET /lookups/org/:orgId`.
+- This created a misleading flow:
+  - user changed country to a non-India value
+  - did not save a matching state
+  - refresh derived no country from the backend
+  - UI silently fell back to `India`
+
+### Frontend fix
+
+**File:** `lib/core/pages/settings_organization_profile_page.dart`
+
+- Removed the automatic `defaultIndiaCountry` fallback during profile load.
+- Organization Location now reflects only the actual backend-derived country value.
+- Added explicit save guards:
+  - organization location is required
+  - state is required for the selected organization location
+  - selected state must resolve to a valid `states.id` mapping before save
+
+### Result
+
+- Changing country without selecting a valid state no longer appears to “save” and then revert to India on refresh.
+- The page now matches the actual storage model:
+  - country display is derived from `state_id`
+  - state selection is mandatory for persisting a country change
+
+### Verification
+
+- `dart format lib/core/pages/settings_organization_profile_page.dart`
+- `dart analyze lib/core/pages/settings_organization_profile_page.dart`
+
+Timestamp of Log Update: March 28, 2026 - (IST)
+
+## Timezones: 1014 Audit Migration Applied (March 28, 2026)
+
+### Migration execution
+
+- Applied `supabase/migrations/1014_timezones_lookup_audit.sql` successfully in the production Supabase SQL editor.
+- The migration completed with `Success. No rows returned`.
+
+### What this confirmed
+
+- `public.timezones` already had the timezone master data in place.
+- `1014` did not reseed or duplicate timezone rows.
+- `1014` was used only to harden the existing table by ensuring:
+  - required column definitions
+  - `timezones_name_key`
+  - `timezones_country_id_fkey`
+  - `trg_audit_row`
+  - `trg_audit_truncate`
+  - `SELECT` grants for `anon`, `authenticated`, and `service_role`
+
+### Result
+
+- Existing timezone records remain intact.
+- The table now matches the expected audited lookup-table shape for Settings timezone usage.
+
+Timestamp of Log Update: March 28, 2026 - (IST)
+
+## Settings + Sales Documents: Company ID Labels Expansion (March 28, 2026)
+
+### Summary
+
+Added support for the new organization identity labels `GSTIN`, `CIN (Corporate Identity Number)`, and `PAN` in the DB-backed Company ID flow, and wired document views to render the configured organization identity label/value instead of hardcoded `GSTIN`.
+
+### Backend
+
+**File:** `backend/src/modules/lookups/global-lookups.controller.ts`
+
+- Kept `GET /lookups/company-id-labels` DB-backed from `public.company_id_labels`, so new labels added in the table now flow into the settings dropdown automatically.
+- Hardened `POST /lookups/org/:orgId/save`:
+  - validates `company_id_label` against the active rows in `public.company_id_labels`
+  - rejects invalid/manual labels instead of persisting arbitrary strings
+
+### Frontend
+
+**File:** `lib/core/models/org_settings_model.dart`
+
+- Added normalized helpers:
+  - `resolvedCompanyIdLabel`
+  - `resolvedCompanyIdValue`
+  - `companyIdentityLine`
+- This creates one consistent display source for `GSTIN`, `CIN (Corporate Identity Number)`, `PAN`, or any future DB-backed company ID label.
+
+**File:** `lib/modules/sales/presentation/sales_document_detail.dart`
+
+- Replaced the hardcoded org header placeholder line `GSTIN: —` with the configured organization identity from `orgSettingsProvider`.
+- Sales document PDF/detail header now renders:
+  - organization name
+  - payment stub address when available
+  - dynamic company identity line from settings, e.g.:
+    - `GSTIN: ...`
+    - `CIN (Corporate Identity Number): ...`
+    - `PAN: ...`
+
+**File:** `lib/modules/sales/presentation/sales_order_overview.dart`
+
+- Updated the Sales Order PDF preview header to use the configured organization identity line instead of assuming GSTIN-only output.
+- The preview now reflects the selected Company ID label/value from Organization Profile.
+
+### Result
+
+- The Company ID dropdown in Organization Profile now picks up the newly inserted DB labels automatically.
+- Saved org profile values remain validated against the real lookup table.
+- Sales document surfaces now reflect the configured company identity label everywhere this org identity is shown in the Sales Orders document views.
+
+### Verification
+
+- `dart format lib/core/models/org_settings_model.dart lib/modules/sales/presentation/sales_document_detail.dart lib/modules/sales/presentation/sales_order_overview.dart`
+- `dart analyze lib/core/models/org_settings_model.dart lib/modules/sales/presentation/sales_document_detail.dart lib/modules/sales/presentation/sales_order_overview.dart`
+
+Timestamp of Log Update: March 28, 2026 - (IST)
+
+## Settings: Real Timezone Lookup Table Wiring (March 28, 2026)
+
+### Database
+
+- Added additive migration `supabase/migrations/1014_timezones_lookup_audit.sql`.
+- Standardized `public.timezones` to the requested schema shape:
+  - `id`
+  - `name`
+  - `tzdb_name`
+  - `utc_offset`
+  - `display`
+  - `country_id`
+  - `is_active`
+  - `sort_order`
+- Ensured:
+  - primary key on `id`
+  - unique constraint on `name`
+  - foreign key `country_id -> countries.id ON DELETE SET NULL`
+- Added audit triggers on `public.timezones`:
+  - `trg_audit_row -> audit_row_changes()`
+  - `trg_audit_truncate -> audit_table_truncate()`
+- Re-granted `SELECT` on `public.timezones` to `anon`, `authenticated`, and `service_role`.
+
+### Backend
+
+**File:** `backend/src/modules/lookups/global-lookups.controller.ts`
+
+- Changed `GET /lookups/timezones` to return real timezone rows instead of `display[]`.
+- Response now includes:
+  - `id`
+  - `name`
+  - `tzdb_name`
+  - `utc_offset`
+  - `display`
+  - `country_id`
+- Added timezone normalization in org-profile load/save flow:
+  - `GET /lookups/org/:orgId` now resolves and returns:
+    - `timezone_display`
+    - `timezone_tzdb_name`
+  - `POST /lookups/org/:orgId/save` now validates timezone input against `public.timezones`
+  - save canonicalizes legacy display/name values to the stored `tzdb_name`
+
+### Frontend
+
+**File:** `lib/core/pages/settings_organization_profile_page.dart`
+
+- Replaced the timezone dropdown’s string-only option list with real typed timezone lookup rows.
+- The Time Zone field now uses the actual `public.timezones` lookup payload instead of plain `display` strings.
+- The selected timezone is now persisted as canonical `tzdb_name`, not the UI display label.
+- Existing saved org rows remain compatible:
+  - old display-string values
+  - timezone names
+  - canonical `tzdb_name`
+  are all matched back to the dropdown correctly on load.
+- Date format preview sampling now uses the selected timezone row’s `utc_offset` instead of parsing offset text from the display label.
+- Country change still re-fetches filtered timezones, but now preserves only valid canonical selections.
+
+### Verification
+
+- `dart format lib/core/pages/settings_organization_profile_page.dart lib/core/models/org_settings_model.dart`
+- `dart analyze lib/core/pages/settings_organization_profile_page.dart lib/core/models/org_settings_model.dart`
+
+### Notes
+
+- Backend TypeScript was not fully typechecked in this pass because the local `tsc` CLI was not available through `npx` in this environment.
+- The change is backward-compatible with older organization rows that still store timezone display text.
+
+Timestamp of Log Update: March 28, 2026 - (IST)
+
+## Settings — Org-Level Currency Format Persistence (March 28, 2026)
+
+### Summary
+
+Persisted the **Edit Currency** dialog values at the organization level so **Decimal Places** and **Format** now survive refreshes alongside the selected base currency. The previous implementation only loaded master currency metadata into the dialog and closed on Save without writing the chosen overrides anywhere.
+
+### Why This Change Was Needed
+
+- `base_currency` was already persisted on `public.organization`, but the dialog-specific `Decimal Places` and `Format` values were only local UI state.
+- That made the settings screen misleading: users could interact with the dialog, press **Save**, and still lose the values after refresh because no org-scoped persistence path existed.
+- Storing these values on `organization` keeps currency master data global while allowing organization-specific display preferences.
+
+### Frontend Files
+
+- `lib/core/pages/settings_organization_profile_page.dart`
+  - Added organization-level state for `base_currency_decimals` and `base_currency_format`.
+  - On profile load, hydrates those values from the org row first, then falls back to the selected currency master row when org overrides are absent.
+  - When the base currency changes, refreshes the working decimal/format state from the selected currency defaults.
+  - Updated the **Edit Currency** dialog so its Save action writes the selected Decimal Places and Format back into page state instead of just closing the modal.
+  - Extended the org profile save payload to include `base_currency_decimals` and `base_currency_format`.
+- `lib/core/models/org_settings_model.dart`
+  - Added `baseCurrencyDecimals` and `baseCurrencyFormat` to the org settings model so org-level currency display preferences round-trip cleanly through the provider layer.
+
+### Backend Files
+
+- `backend/src/modules/lookups/global-lookups.controller.ts`
+  - Extended `GET /lookups/org/:orgId` to return `base_currency_decimals` and `base_currency_format` from `public.organization`.
+  - Extended `POST /lookups/org/:orgId/save` DTO handling so org profile saves accept and persist those two organization-scoped currency formatting fields.
+
+### Validation
+
+- `dart format E:\zerpai-new\lib\core\models\org_settings_model.dart`
+- `dart format E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- `dart analyze E:\zerpai-new\lib\core\models\org_settings_model.dart E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- Result: no issues found on the Flutter side.
+- Note: backend-wide TypeScript validation was not re-run here because this repo already contains unrelated pre-existing backend schema/tooling issues.
+
+Timestamp of Log Update: $timestamp (IST)
+
+## Settings — Currency Gear Access, Org Persistence, And Decimal-Aware Formats (March 28, 2026)
+
+### Summary
+
+Completed the Organization Profile currency-settings flow so the base-currency gear is usable for India as well, the dialog values persist on the organization row, and the available format patterns now respond correctly to the selected decimal precision.
+
+### Why This Change Was Needed
+
+- The earlier India branch kept the base currency fixed to INR but still blocked the gear affordance from being useful in practice.
+- The Edit Currency dialog originally behaved like a temporary UI editor: Decimal Places and Format could be changed in the modal but were not stored on `organization`, so refreshes lost the values.
+- The dialog also treated Decimal Places and Format as unrelated fields, which allowed invalid combinations such as `0` decimals with a two-decimal display pattern.
+
+### Frontend Files
+
+- `lib/core/pages/settings_organization_profile_page.dart`
+  - Enabled the base-currency gear for India while keeping the base currency itself fixed, so India-based orgs can still open the Edit Currency dialog.
+  - Kept the India tooltip but changed the behavior so the gear launches the dialog instead of being effectively dead.
+  - Added organization-scoped state for `base_currency_decimals` and `base_currency_format`.
+  - Hydrates Decimal Places and Format from the org row first, then falls back to the selected currency master row when org overrides are absent.
+  - Updated the dialog Save action so it writes the selected Decimal Places and Format back into page state before closing.
+  - Extended the org profile save payload to include `base_currency_decimals` and `base_currency_format`.
+  - Reworked the Format dropdown so its options are generated from the chosen decimal precision:
+    - `0` decimals -> integer-only patterns
+    - `2` decimals -> two-decimal patterns
+    - `3` decimals -> three-decimal patterns
+  - Added automatic format correction when Decimal Places changes and the previously selected format no longer matches the new precision.
+- `lib/core/models/org_settings_model.dart`
+  - Added `baseCurrencyDecimals` and `baseCurrencyFormat` to the shared org settings model.
+
+### Backend Files
+
+- `backend/src/modules/lookups/global-lookups.controller.ts`
+  - Extended `GET /lookups/org/:orgId` to return `base_currency_decimals` and `base_currency_format` from `public.organization`.
+  - Extended `POST /lookups/org/:orgId/save` handling so org profile saves persist those two organization-scoped currency display settings.
+
+### Validation
+
+- `dart format E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- `dart format E:\zerpai-new\lib\core\models\org_settings_model.dart`
+- `dart analyze E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- `dart analyze E:\zerpai-new\lib\core\models\org_settings_model.dart`
+- Result: no issues found on the Flutter side.
+- Note: backend-wide TS validation remains constrained by unrelated pre-existing backend schema/tooling issues already present in the repo.
+
+Timestamp of Log Update: $timestamp (IST)
+
+## Settings — Organization Language And Communication Languages (March 28, 2026)
+
+### Summary
+
+Added the missing **Organization Language** and **Communication Languages** fields to Organization Profile, backed them with real organization-level persistence, and exposed them in the configuration section so they survive refreshes instead of behaving like design-only placeholders.
+
+### Why This Change Was Needed
+
+- The configuration section was missing language settings that are part of the intended global organization profile surface.
+- There was no existing persistence path for these values on `public.organization`, so adding the UI alone would have created another non-persistent settings gap.
+- Communication Languages requires multi-selection semantics, so the implementation needed to support array persistence rather than a single text value.
+
+### Frontend Files
+
+- `lib/core/pages/settings_organization_profile_page.dart`
+  - Added **Organization Language** as a proper dropdown-backed configuration row.
+  - Added **Communication Languages** as a persisted multi-select field rendered as chips in the trigger surface.
+  - Implemented a pure-white multi-select dialog for Communication Languages with checkbox selection and Save / Cancel actions.
+  - Hydrates both fields from the org profile payload on page load.
+  - Includes both fields in the org profile save payload.
+  - Added settings-search targets so quick search can jump directly to the new language fields.
+  - Extended save verification logic so post-save readback checks include the new array/string language fields.
+- `lib/core/models/org_settings_model.dart`
+  - Added `organizationLanguage` and `communicationLanguages` to the org settings model.
+
+### Backend Files
+
+- `backend/src/modules/lookups/global-lookups.controller.ts`
+  - Extended `GET /lookups/org/:orgId` to return `organization_language` and `communication_languages` from `public.organization`.
+  - Extended `POST /lookups/org/:orgId/save` to accept and persist both fields.
+  - Normalizes `communication_languages` into a trimmed string array before saving.
+- `backend/src/db/schema.ts`
+  - Updated the Drizzle organization schema definition to include `organization_language` and `communication_languages`.
+
+### Database / Migration Files
+
+- `supabase/migrations/1015_organization_language_fields.sql`
+  - Added `organization_language` to `public.organization` with an `English` default.
+  - Added `communication_languages` as a `text[]` organization-level field with `ARRAY['English']` default.
+  - Backfilled existing org rows so null / empty records get safe initial values.
+
+### Validation
+
+- `dart format E:\zerpai-new\lib\core\models\org_settings_model.dart`
+- `dart format E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- `dart analyze E:\zerpai-new\lib\core\models\org_settings_model.dart E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- Result: no issues found on the Flutter side.
+- Note: backend-wide TS validation remains limited by unrelated existing backend schema/tooling issues already present in the repo.
+
+Timestamp of Log Update: $timestamp (IST)
+
+## Settings — Language Field Help Tooltips (March 28, 2026)
+
+### Summary
+
+Added the missing help tooltips for **Organization Language** and **Communication Languages**, matching the reference copy and keeping the implementation on the shared form-row pattern instead of introducing screen-local label hacks.
+
+### Why This Change Was Needed
+
+- The language settings were missing the explanatory guidance visible in the target UI.
+- These help icons belong to the label layer, so the clean implementation point is the shared horizontal form-row primitive rather than ad hoc trailing widgets inside individual fields.
+
+### Frontend Files
+
+- `lib/shared/widgets/form_row.dart`
+  - Extended `ZerpaiFormRow` with optional `tooltipMessage` support.
+  - Integrated the shared `ZTooltip` into the label column so any horizontal settings form row can now render consistent help text without custom screen-local label composition.
+- `lib/core/pages/settings_organization_profile_page.dart`
+  - Added the Organization Language tooltip copy:
+    - `Any change in the language will not be reflected in Email Templates, Template Customizations, Payment Modes and Default tax Rates. These will still remain in the language selected during this organization's setup.`
+  - Added the Communication Languages tooltip copy:
+    - `Select the languages in which users can create email templates and send emails to customers and vendors.`
+
+### Validation
+
+- `dart format E:\zerpai-new\lib\shared\widgets\form_row.dart`
+- `dart format E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- `dart analyze E:\zerpai-new\lib\shared\widgets\form_row.dart E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- Result: no issues found
+
+Timestamp of Log Update: $timestamp (IST)
+
+## Settings — Communication Languages Shared Multi-Select Refactor (March 28, 2026)
+
+### Summary
+
+Replaced the temporary local Communication Languages picker with the shared `FormDropdown<T>` path by adding real multi-select support, inline chips, and persistent selected-row highlighting inside the shared dropdown.
+
+### Why This Change Was Needed
+
+- The Organization Profile screen was still using a screen-local dialog for Communication Languages.
+- The target UI shows selected languages inline inside the field itself, not behind a separate modal.
+- This behavior belongs in the reusable dropdown primitive so other screens can use the same pattern later.
+
+### Frontend Files
+
+- `lib/shared/widgets/inputs/dropdown_input.dart`
+  - Added `multiSelect`, `selectedValues`, and `onSelectedValuesChanged` to `FormDropdown<T>`.
+  - Updated selection, clear, scroll-to-selected, and row rendering logic to support multi-select behavior.
+  - Added inline chip rendering with per-chip remove actions inside the trigger field.
+  - Updated selected-row styling so the active/selected option uses the blue highlight treatment shown in the reference UI.
+- `lib/core/pages/settings_organization_profile_page.dart`
+  - Replaced the temporary local Communication Languages field/dialog implementation with the shared `FormDropdown<String>` multi-select configuration.
+  - Removed the now-obsolete custom Communication Languages dialog code.
+
+### Validation
+
+- `dart format E:\zerpai-new\lib\shared\widgets\inputs\dropdown_input.dart`
+- `dart format E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- `dart analyze E:\zerpai-new\lib\shared\widgets\inputs\dropdown_input.dart E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- Result: no issues found
+
+Timestamp of Log Update: March 28, 2026 (IST)
+
+## Backend — Drizzle Schema Restart Fix for Organization Currency Fields (March 28, 2026)
+
+### Summary
+
+Fixed the backend restart failure caused by the newly added `base_currency_decimals` organization column mapping using `smallint(...)` without importing `smallint` from `drizzle-orm/pg-core`.
+
+### Why This Change Was Needed
+
+- The Nest dev server was crashing on restart with `ReferenceError: smallint is not defined`.
+- This blocked the backend from listening on port `3001`, which could surface as intermittent frontend `ERR_CONNECTION_REFUSED` errors during org-profile saves.
+
+### Backend Files
+
+- `backend/src/db/schema.ts`
+  - Added the missing `smallint` import to the Drizzle pg-core import list.
+
+### Validation
+
+- Confirmed the original runtime error source is removed.
+- Attempted TypeScript verification, but backend-wide validation still hits unrelated pre-existing Drizzle dependency/type issues in `node_modules`, not this schema import fix.
+
+Timestamp of Log Update: March 28, 2026 (IST)
+
+## Settings — Communication Languages English Lock (March 28, 2026)
+
+### Summary
+
+Locked `English` as a non-removable communication language so it stays selected in the inline chip field and cannot be deselected from the dropdown menu.
+
+### Why This Change Was Needed
+
+- The Communication Languages field was allowing the default English selection to be removed.
+- The target behavior requires English to remain selected as the baseline communication language.
+
+### Frontend Files
+
+- `lib/shared/widgets/inputs/dropdown_input.dart`
+  - Added `isSelectedValueRemovable` to `FormDropdown<T>` for reusable per-value removal rules in multi-select mode.
+  - Prevented removal both from the inline chip close action and from tapping an already-selected row in the dropdown list when a value is marked non-removable.
+- `lib/core/pages/settings_organization_profile_page.dart`
+  - Applied the new rule to Communication Languages so `English` cannot be removed.
+
+### Validation
+
+- `dart format E:\zerpai-new\lib\shared\widgets\inputs\dropdown_input.dart`
+- `dart format E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- `dart analyze E:\zerpai-new\lib\shared\widgets\inputs\dropdown_input.dart E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- Result: no issues found
+
+Timestamp of Log Update: March 28, 2026 (IST)
+
+## Settings — Multi-Select Dropdown Selected Row Styling (March 28, 2026)
+
+### Summary
+
+Adjusted shared multi-select dropdown row styling so selected values show only the checkmark by default instead of using a persistent blue row highlight. Blue remains reserved for hover/highlight state.
+
+### Why This Change Was Needed
+
+- The Communication Languages dropdown was visually treating selected rows as permanently highlighted.
+- The target behavior shows selected items with checkmarks while keeping the row surface white unless hovered.
+
+### Frontend Files
+
+- `lib/shared/widgets/inputs/dropdown_input.dart`
+  - Updated `_defaultRow` so selected rows remain on a white background.
+  - Kept the blue hover treatment for the currently highlighted row.
+  - Updated the selected checkmark color to stay blue on normal selected rows and turn white only when the row is hovered.
+
+### Validation
+
+- `dart format E:\zerpai-new\lib\shared\widgets\inputs\dropdown_input.dart`
+- `dart analyze E:\zerpai-new\lib\shared\widgets\inputs\dropdown_input.dart E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- Result: no issues found
+
+Timestamp of Log Update: March 28, 2026 (IST)

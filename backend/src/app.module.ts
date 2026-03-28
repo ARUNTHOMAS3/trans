@@ -17,6 +17,7 @@ import { BranchesModule } from "./modules/branches/branches.module";
 import { WarehousesSettingsModule } from "./modules/warehouses-settings/warehouses-settings.module";
 import { GstModule } from "./modules/gst/gst.module";
 import { TransactionSeriesModule } from "./modules/transaction-series/transaction-series.module";
+import { UsersModule } from "./modules/users/users.module";
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { TransactionSeriesModule } from "./modules/transaction-series/transactio
     WarehousesSettingsModule,
     GstModule,
     TransactionSeriesModule,
+    UsersModule,
   ],
   controllers: [],
   providers: [],

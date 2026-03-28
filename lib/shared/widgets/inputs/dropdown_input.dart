@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:collection';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
@@ -52,6 +53,10 @@ class FormDropdown<T> extends StatefulWidget {
   final bool showRightBorder;
   final bool hideBorderDefault;
   final double? itemHeight;
+  final bool multiSelect;
+  final List<T> selectedValues;
+  final ValueChanged<List<T>>? onSelectedValuesChanged;
+  final bool Function(T value)? isSelectedValueRemovable;
 
   const FormDropdown({
     super.key,
@@ -90,6 +95,10 @@ class FormDropdown<T> extends StatefulWidget {
     this.showRightBorder = true,
     this.hideBorderDefault = false,
     this.itemHeight,
+    this.multiSelect = false,
+    this.selectedValues = const [],
+    this.onSelectedValuesChanged,
+    this.isSelectedValueRemovable,
   });
 
   @override
@@ -131,7 +140,9 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   void didUpdateWidget(covariant FormDropdown<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.items != widget.items || oldWidget.value != widget.value) {
+    if (oldWidget.items != widget.items ||
+        oldWidget.value != widget.value ||
+        !listEquals(oldWidget.selectedValues, widget.selectedValues)) {
       final q = _searchCtrl.text;
       setState(() {
         _filteredItems = _localFilter(q);
@@ -277,9 +288,14 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   }
 
   void _scrollToSelected() {
-    if (widget.value == null) return;
+    final T? selectedItem = widget.multiSelect
+        ? (widget.selectedValues.isNotEmpty
+              ? widget.selectedValues.first
+              : null)
+        : widget.value;
+    if (selectedItem == null) return;
 
-    final int index = _filteredItems.indexWhere((e) => e == widget.value);
+    final int index = _filteredItems.indexWhere((e) => e == selectedItem);
     if (index < 0) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -343,6 +359,20 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   }
 
   void _handleItemTap(T value) {
+    if (widget.multiSelect) {
+      final List<T> nextValues = List<T>.from(widget.selectedValues);
+      if (nextValues.contains(value)) {
+        if (widget.isSelectedValueRemovable?.call(value) == false) {
+          return;
+        }
+        nextValues.remove(value);
+      } else {
+        nextValues.add(value);
+      }
+      widget.onSelectedValuesChanged?.call(nextValues);
+      _markOverlayNeedsBuild();
+      return;
+    }
     widget.onChanged(value);
     _removeOverlay();
   }
@@ -351,6 +381,10 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
     if (!widget.allowClear || !widget.enabled) return;
 
     _blockToggleOnce = true;
+    if (widget.multiSelect) {
+      widget.onSelectedValuesChanged?.call(<T>[]);
+      return;
+    }
     widget.onChanged(null);
 
     _searchCtrl.clear();
@@ -545,7 +579,9 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                       height: listHeight,
                       child: widget.listBuilder!(_filteredItems, (item) {
                         final int index = _filteredItems.indexOf(item);
-                        final bool isSelected = item == widget.value;
+                        final bool isSelected = widget.multiSelect
+                            ? widget.selectedValues.contains(item)
+                            : item == widget.value;
                         final bool isHovered = _hoveredIndex == index;
                         final bool enabled =
                             widget.isItemEnabled?.call(item) ?? true;
@@ -607,7 +643,9 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                           itemCount: _filteredItems.length,
                           itemBuilder: (context, index) {
                             final item = _filteredItems[index];
-                            final bool isSelected = item == widget.value;
+                            final bool isSelected = widget.multiSelect
+                                ? widget.selectedValues.contains(item)
+                                : item == widget.value;
                             final bool isHovered = _hoveredIndex == index;
                             final bool enabled =
                                 widget.isItemEnabled?.call(item) ?? true;
@@ -769,13 +807,11 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
       text = AppTheme.textMuted; // Gray-400
     } else {
       if (isHovered) {
-        // Hover gets prominent blue
         bg = AppTheme.infoBlue;
         text = Colors.white;
       } else if (isSelected) {
-        // Selection gets light blue
-        bg = AppTheme.infoBg;
-        text = AppTheme.primaryBlueDark;
+        bg = Colors.transparent;
+        text = AppTheme.textPrimary;
       }
     }
 
@@ -802,12 +838,74 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
             ),
           ),
           if (enabled && isSelected)
-            const Icon(
+            Icon(
               Icons.check,
               size: 16,
-              color: AppTheme.primaryBlueDark, // Blue-600 checkmark
+              color: isHovered ? Colors.white : AppTheme.primaryBlueDark,
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMultiSelectValue() {
+    if (widget.selectedValues.isEmpty) {
+      return Text(
+        widget.hint ?? '',
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: widget.selectedValues.map((item) {
+          final String label = widget.displayStringForValue != null
+              ? widget.displayStringForValue!(item)
+              : item.toString();
+          final bool canRemove =
+              widget.isSelectedValueRemovable?.call(item) ?? true;
+
+          return Container(
+            margin: const EdgeInsets.only(right: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.bgDisabled,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                if (canRemove) ...[
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: widget.enabled
+                        ? () {
+                            final List<T> nextValues = List<T>.from(
+                              widget.selectedValues,
+                            )..remove(item);
+                            widget.onSelectedValuesChanged?.call(nextValues);
+                          }
+                        : null,
+                    child: const Icon(
+                      Icons.close,
+                      size: 14,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -820,7 +918,9 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
         borderRadius: widget.borderRadius?.topLeft.x ?? 4.0,
       );
     }
-    final hasValue = widget.value != null;
+    final hasValue = widget.multiSelect
+        ? widget.selectedValues.isNotEmpty
+        : widget.value != null;
     final bool hasError = widget.errorText != null;
 
     return Column(
@@ -838,86 +938,89 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                 onTap: widget.enabled ? _toggleDropdown : null,
                 hoverColor: Colors.transparent,
                 child: Container(
-                padding:
-                    widget.padding ??
-                    const EdgeInsets.symmetric(horizontal: 10),
-                decoration: BoxDecoration(
-                  color: widget.fillColor ?? Colors.white,
-                  borderRadius: widget.borderRadius ?? BorderRadius.circular(4),
-                  border:
-                      widget.border ??
-                      Border(
-                        top: _getBorderSide(hasError),
-                        bottom: _getBorderSide(hasError),
-                        left: widget.showLeftBorder
-                            ? _getBorderSide(hasError)
-                            : BorderSide.none,
-                        right: widget.showRightBorder
-                            ? _getBorderSide(hasError)
-                            : BorderSide.none,
-                      ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        hasValue
-                            ? (widget.displayStringForValue != null
-                                  ? widget.displayStringForValue!(
-                                      widget.value as T,
-                                    )
-                                  : widget.value.toString())
-                            : (widget.hint ?? ''),
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: hasValue
-                              ? AppTheme.textPrimary
-                              : AppTheme.textMuted,
+                  padding:
+                      widget.padding ??
+                      const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: widget.fillColor ?? Colors.white,
+                    borderRadius:
+                        widget.borderRadius ?? BorderRadius.circular(4),
+                    border:
+                        widget.border ??
+                        Border(
+                          top: _getBorderSide(hasError),
+                          bottom: _getBorderSide(hasError),
+                          left: widget.showLeftBorder
+                              ? _getBorderSide(hasError)
+                              : BorderSide.none,
+                          right: widget.showRightBorder
+                              ? _getBorderSide(hasError)
+                              : BorderSide.none,
                         ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: widget.multiSelect
+                            ? _buildMultiSelectValue()
+                            : Text(
+                                hasValue
+                                    ? (widget.displayStringForValue != null
+                                          ? widget.displayStringForValue!(
+                                              widget.value as T,
+                                            )
+                                          : widget.value.toString())
+                                    : (widget.hint ?? ''),
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: hasValue
+                                      ? AppTheme.textPrimary
+                                      : AppTheme.textMuted,
+                                ),
+                              ),
                       ),
-                    ),
-                    if (widget.onEdit != null && hasValue) ...[
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () {
-                          _blockToggleOnce = true;
-                          widget.onEdit!();
-                        },
-                        child: const Icon(
-                          Icons.edit,
-                          size: 14,
-                          color: AppTheme.primaryBlueDark,
+                      if (widget.onEdit != null && hasValue) ...[
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            _blockToggleOnce = true;
+                            widget.onEdit!();
+                          },
+                          child: const Icon(
+                            Icons.edit,
+                            size: 14,
+                            color: AppTheme.primaryBlueDark,
+                          ),
                         ),
-                      ),
-                    ],
-                    if (widget.allowClear && hasValue) ...[
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: _handleClear,
-                        child: const Icon(
-                          Icons.close,
-                          size: 14,
-                          color: AppTheme.errorRed,
+                      ],
+                      if (widget.allowClear && hasValue) ...[
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: _handleClear,
+                          child: const Icon(
+                            Icons.close,
+                            size: 14,
+                            color: AppTheme.errorRed,
+                          ),
                         ),
-                      ),
+                      ],
+                      if (widget.showArrowOnSelection || !hasValue) ...[
+                        const SizedBox(width: 6),
+                        Icon(
+                          _isOpen
+                              ? Icons.keyboard_arrow_up
+                              : Icons.keyboard_arrow_down,
+                          size: widget.iconSize ?? 18,
+                          color: _isOpen
+                              ? AppTheme.primaryBlueDark
+                              : AppTheme.textSecondary,
+                        ),
+                      ],
                     ],
-                    if (widget.showArrowOnSelection || !hasValue) ...[
-                      const SizedBox(width: 6),
-                      Icon(
-                        _isOpen
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                        size: widget.iconSize ?? 18,
-                        color: _isOpen
-                            ? AppTheme.primaryBlueDark
-                            : AppTheme.textSecondary,
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
-            ),
             ),
           ),
         ),
@@ -933,10 +1036,10 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
       color: !shouldShowBorder
           ? Colors.transparent
           : hasError
-              ? AppTheme.errorRed
-              : _isOpen
-                  ? AppTheme.primaryBlueDark
-                  : AppTheme.borderColor,
+          ? AppTheme.errorRed
+          : _isOpen
+          ? AppTheme.primaryBlueDark
+          : AppTheme.borderColor,
     );
   }
 }

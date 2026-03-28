@@ -15,6 +15,7 @@ import {
   check,
   date,
   numeric,
+  smallint,
 } from "drizzle-orm/pg-core";
 
 // Enums
@@ -905,7 +906,11 @@ export const organizations = pgTable("organization", {
   industry: varchar("industry", { length: 255 }),
   logoUrl: text("logo_url"),
   baseCurrency: varchar("base_currency", { length: 10 }),
+  baseCurrencyDecimals: smallint("base_currency_decimals"),
+  baseCurrencyFormat: varchar("base_currency_format", { length: 50 }),
   fiscalYear: varchar("fiscal_year", { length: 50 }),
+  organizationLanguage: varchar("organization_language", { length: 50 }),
+  communicationLanguages: text("communication_languages").array(),
   timezone: varchar("timezone", { length: 100 }),
   dateFormat: varchar("date_format", { length: 50 }),
   dateSeparator: varchar("date_separator", { length: 5 }),

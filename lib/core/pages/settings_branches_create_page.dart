@@ -216,6 +216,8 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
   String? _selectedState;
   String? _selectedBusinessType;
   late final List<Map<String, String>> _businessTypes;
+  String _orgCountry = 'India';
+  List<String> _stateOptions = _indianStates;
 
   // ── Child location ────────────────────────────────────────────────────────
   bool _isChildLocation = false;
@@ -300,10 +302,47 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
       final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
       final res = await _apiClient.get('lookups/org/$orgId');
       if (!mounted) return;
+
+      String orgCountry = 'India';
+      List<String> stateOptions = _indianStates;
+      String orgName = user?.orgName ?? '';
+
+      if (res.success && res.data is Map<String, dynamic>) {
+        final orgData = res.data as Map<String, dynamic>;
+        orgName = ((orgData['name'] ?? user?.orgName ?? '')).toString().trim();
+        final countryName = (orgData['country'] ?? '').toString().trim();
+        orgCountry = countryName.isNotEmpty ? countryName : 'India';
+
+        final isIndia = orgCountry.toLowerCase() == 'india';
+        if (!isIndia && countryName.isNotEmpty) {
+          final countriesRes = await _apiClient.get('lookups/countries');
+          if (countriesRes.success && countriesRes.data is List) {
+            final match = (countriesRes.data as List)
+                .whereType<Map<String, dynamic>>()
+                .firstWhere(
+                  (c) => (c['name'] ?? '').toString().toLowerCase() == orgCountry.toLowerCase(),
+                  orElse: () => <String, dynamic>{},
+                );
+            final countryId = (match['id'] ?? '').toString();
+            if (countryId.isNotEmpty) {
+              final statesRes = await _apiClient.get('lookups/states', queryParameters: {'countryId': countryId});
+              if (statesRes.success && statesRes.data is List) {
+                stateOptions = (statesRes.data as List)
+                    .whereType<Map<String, dynamic>>()
+                    .map((s) => (s['name'] ?? '').toString())
+                    .where((n) => n.isNotEmpty)
+                    .toList();
+              }
+            }
+          }
+        }
+      }
+
+      if (!mounted) return;
       setState(() {
-        _organizationName = res.success && res.data is Map<String, dynamic>
-            ? ((res.data as Map<String, dynamic>)['name'] ?? user?.orgName ?? '').toString().trim()
-            : user?.orgName ?? '';
+        _organizationName = orgName;
+        _orgCountry = orgCountry;
+        _stateOptions = stateOptions.isNotEmpty ? stateOptions : _indianStates;
       });
     } catch (_) {}
   }
@@ -422,7 +461,7 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
         }.toList();
 
         setState(() {
-          _selectedState = _indianStates.contains(stateVal) ? stateVal : null;
+          _selectedState = _stateOptions.contains(stateVal) ? stateVal : null;
           if (businessType != null && businessType.isNotEmpty &&
               _businessTypes.any((t) => t['id'] == businessType)) {
             _selectedBusinessType = businessType;
@@ -516,7 +555,7 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
         'city':         _cityCtrl.text.trim(),
         'state':        _selectedState ?? '',
         'pincode':      _pincodeCtrl.text.trim(),
-        'country':      'India',
+        'country':      _orgCountry,
         'is_child_location': _isChildLocation,
         if (_isChildLocation && _parentBranchId != null) 'parent_branch_id': _parentBranchId,
         if (_selectedBusinessType != null) 'branch_type': _selectedBusinessType,
@@ -885,11 +924,11 @@ class _SettingsBranchCreatePageState extends ConsumerState<SettingsBranchCreateP
                               )),
                             ]),
                             const SizedBox(height: AppTheme.space8),
-                            _buildStaticField('India'),
+                            _buildStaticField(_orgCountry),
                             const SizedBox(height: AppTheme.space8),
                             Row(children: [
                               Expanded(child: FormDropdown<String>(
-                                items: _indianStates,
+                                items: _stateOptions,
                                 value: _selectedState,
                                 hint: 'State / Union territory',
                                 onChanged: (v) => setState(() => _selectedState = v),
