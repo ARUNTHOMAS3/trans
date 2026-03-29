@@ -55,8 +55,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               icon: LucideIcons.users,
               accent: Color(0xFFEF4444),
               items: <_SettingsEntry>[
-                _SettingsEntry(label: 'Users'),
-                _SettingsEntry(label: 'Roles'),
+                _SettingsEntry(label: 'Users', route: AppRoutes.settingsUsers),
+                _SettingsEntry(label: 'Roles', route: AppRoutes.settingsRoles),
                 _SettingsEntry(label: 'User Preferences'),
               ],
             ),

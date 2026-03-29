@@ -65,6 +65,9 @@ import 'package:zerpai_erp/core/pages/settings_branches_list_page.dart';
 import 'package:zerpai_erp/core/pages/settings_branches_create_page.dart';
 import 'package:zerpai_erp/core/pages/settings_warehouses_list_page.dart';
 import 'package:zerpai_erp/core/pages/settings_warehouses_create_page.dart';
+import 'package:zerpai_erp/core/pages/settings_users_page.dart';
+import 'package:zerpai_erp/core/pages/settings_users_form_page.dart';
+import 'package:zerpai_erp/core/pages/settings_roles_page.dart';
 
 // Purchasing Module
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_list.dart';
@@ -215,6 +218,30 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) => SettingsWarehouseCreatePage(
                 warehouseId: state.pathParameters['id'],
               ),
+            ),
+            GoRoute(
+              path: 'settings/users',
+              builder: (context, state) => const SettingsUsersPage(),
+            ),
+            GoRoute(
+              path: 'settings/users/new',
+              builder: (context, state) => const SettingsUsersFormPage(),
+            ),
+            GoRoute(
+              path: 'settings/users/:id',
+              builder: (context, state) => SettingsUsersPage(
+                selectedUserId: state.pathParameters['id'],
+                initialTab: state.uri.queryParameters['tab'] ?? 'details',
+              ),
+            ),
+            GoRoute(
+              path: 'settings/users/:id/edit',
+              builder: (context, state) =>
+                  SettingsUsersFormPage(userId: state.pathParameters['id']),
+            ),
+            GoRoute(
+              path: 'settings/roles',
+              builder: (context, state) => const SettingsRolesPage(),
             ),
 
             // Items
@@ -501,8 +528,7 @@ final GoRouter appRouter = GoRouter(
                   path: 'create',
                   name: AppRoutes.salesInvoicesCreate,
                   builder: (context, state) => SalesInvoiceCreateScreen(
-                    initialCustomerId:
-                        state.uri.queryParameters['customerId'],
+                    initialCustomerId: state.uri.queryParameters['customerId'],
                     fromOrderId: state.uri.queryParameters['fromOrderId'],
                     cloneId: state.uri.queryParameters['cloneId'],
                   ),
@@ -535,8 +561,7 @@ final GoRouter appRouter = GoRouter(
                   path: 'create',
                   name: AppRoutes.salesDeliveryChallansCreate,
                   builder: (context, state) => SalesChallanCreateScreen(
-                    initialCustomerId:
-                        state.uri.queryParameters['customerId'],
+                    initialCustomerId: state.uri.queryParameters['customerId'],
                     fromOrderId: state.uri.queryParameters['fromOrderId'],
                     cloneId: state.uri.queryParameters['cloneId'],
                   ),
@@ -575,10 +600,8 @@ final GoRouter appRouter = GoRouter(
                   path: 'create',
                   name: AppRoutes.salesPaymentsReceivedCreate,
                   builder: (context, state) => SalesPaymentCreateScreen(
-                    initialCustomerId:
-                        state.uri.queryParameters['customerId'],
-                    fromInvoiceId:
-                        state.uri.queryParameters['fromInvoiceId'],
+                    initialCustomerId: state.uri.queryParameters['customerId'],
+                    fromInvoiceId: state.uri.queryParameters['fromInvoiceId'],
                     cloneId: state.uri.queryParameters['cloneId'],
                   ),
                 ),
@@ -646,10 +669,8 @@ final GoRouter appRouter = GoRouter(
                   path: 'create',
                   name: AppRoutes.salesCreditNotesCreate,
                   builder: (context, state) => SalesCreditNoteCreateScreen(
-                    initialCustomerId:
-                        state.uri.queryParameters['customerId'],
-                    fromInvoiceId:
-                        state.uri.queryParameters['fromInvoiceId'],
+                    initialCustomerId: state.uri.queryParameters['customerId'],
+                    fromInvoiceId: state.uri.queryParameters['fromInvoiceId'],
                     cloneId: state.uri.queryParameters['cloneId'],
                   ),
                 ),
@@ -681,10 +702,8 @@ final GoRouter appRouter = GoRouter(
                   path: 'create',
                   name: AppRoutes.salesEWayBillsCreate,
                   builder: (context, state) => SalesEWayBillCreateScreen(
-                    initialCustomerId:
-                        state.uri.queryParameters['customerId'],
-                    fromChallanId:
-                        state.uri.queryParameters['fromChallanId'],
+                    initialCustomerId: state.uri.queryParameters['customerId'],
+                    fromChallanId: state.uri.queryParameters['fromChallanId'],
                     cloneId: state.uri.queryParameters['cloneId'],
                   ),
                 ),
@@ -723,10 +742,8 @@ final GoRouter appRouter = GoRouter(
                   path: 'create',
                   name: AppRoutes.salesPaymentLinksCreate,
                   builder: (context, state) => SalesPaymentLinkCreateScreen(
-                    initialCustomerId:
-                        state.uri.queryParameters['customerId'],
-                    fromInvoiceId:
-                        state.uri.queryParameters['fromInvoiceId'],
+                    initialCustomerId: state.uri.queryParameters['customerId'],
+                    fromInvoiceId: state.uri.queryParameters['fromInvoiceId'],
                   ),
                 ),
                 GoRoute(
@@ -765,12 +782,12 @@ final GoRouter appRouter = GoRouter(
                   name: AppRoutes.salesRecurringInvoicesCreate,
                   builder: (context, state) =>
                       SalesRecurringInvoiceCreateScreen(
-                    initialCustomerId:
-                        state.uri.queryParameters['customerId'],
-                    fromInvoiceId:
-                        state.uri.queryParameters['fromInvoiceId'],
-                    cloneId: state.uri.queryParameters['cloneId'],
-                  ),
+                        initialCustomerId:
+                            state.uri.queryParameters['customerId'],
+                        fromInvoiceId:
+                            state.uri.queryParameters['fromInvoiceId'],
+                        cloneId: state.uri.queryParameters['cloneId'],
+                      ),
                 ),
                 GoRoute(
                   path: ':id',

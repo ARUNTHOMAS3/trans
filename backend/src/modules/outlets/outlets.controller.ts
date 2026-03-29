@@ -76,6 +76,29 @@ export class OutletsController {
     }
   }
 
+  @Patch(":id/contacts")
+  async updateContacts(
+    @Param("id") id: string,
+    @Query("org_id") orgId: string,
+    @Body() body: any,
+  ) {
+    if (!orgId) {
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: "org_id is required",
+      };
+    }
+    try {
+      const data = await this.outletsService.updateContacts(id, orgId, body);
+      return { data, message: "Contacts updated successfully" };
+    } catch (error: any) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
   @Delete(":id")
   async remove(@Param("id") id: string, @Query("org_id") orgId: string) {
     if (!orgId) {

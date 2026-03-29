@@ -30,127 +30,117 @@ class SettingsOrganizationBrandingPage extends ConsumerStatefulWidget {
 
 class _SettingsOrganizationBrandingPageState
     extends ConsumerState<SettingsOrganizationBrandingPage> {
-  static const List<_BrandingNavSection> _navSections =
-      <_BrandingNavSection>[
-        _BrandingNavSection(
-          title: 'Organization Settings',
-          blocks: <_BrandingNavBlock>[
-            _BrandingNavBlock(
-              title: 'Organization',
-              items: <_BrandingNavEntry>[
-                _BrandingNavEntry(
-                  label: 'Profile',
-                  route: AppRoutes.settingsOrgProfile,
-                ),
-                _BrandingNavEntry(
-                  label: 'Branding',
-                  route: AppRoutes.settingsOrgBranding,
-                ),
-                _BrandingNavEntry(label: 'Branches', route: AppRoutes.settingsBranches),
-                _BrandingNavEntry(label: 'Warehouses', route: AppRoutes.settingsWarehouses),
-                _BrandingNavEntry(label: 'Approvals'),
-                _BrandingNavEntry(label: 'Manage Subscription'),
-              ],
+  static const List<_BrandingNavSection> _navSections = <_BrandingNavSection>[
+    _BrandingNavSection(
+      title: 'Organization Settings',
+      blocks: <_BrandingNavBlock>[
+        _BrandingNavBlock(
+          title: 'Organization',
+          items: <_BrandingNavEntry>[
+            _BrandingNavEntry(
+              label: 'Profile',
+              route: AppRoutes.settingsOrgProfile,
             ),
-            _BrandingNavBlock(
-              title: 'Users & Roles',
-              items: <_BrandingNavEntry>[
-                _BrandingNavEntry(label: 'Users'),
-                _BrandingNavEntry(label: 'Roles'),
-                _BrandingNavEntry(label: 'User Preferences'),
-              ],
+            _BrandingNavEntry(
+              label: 'Branding',
+              route: AppRoutes.settingsOrgBranding,
             ),
-            _BrandingNavBlock(
-              title: 'Taxes & Compliance',
-              items: <_BrandingNavEntry>[
-                _BrandingNavEntry(label: 'Taxes'),
-                _BrandingNavEntry(label: 'Direct Taxes'),
-                _BrandingNavEntry(label: 'e-Way Bills'),
-                _BrandingNavEntry(label: 'e-Invoicing'),
-                _BrandingNavEntry(label: 'MSME Settings'),
-              ],
+            _BrandingNavEntry(
+              label: 'Branches',
+              route: AppRoutes.settingsBranches,
             ),
-            _BrandingNavBlock(
-              title: 'Setup & Configurations',
-              items: <_BrandingNavEntry>[
-                _BrandingNavEntry(label: 'General'),
-                _BrandingNavEntry(label: 'Currencies'),
-                _BrandingNavEntry(label: 'Reminders'),
-                _BrandingNavEntry(label: 'Customer Portal'),
-              ],
+            _BrandingNavEntry(
+              label: 'Warehouses',
+              route: AppRoutes.settingsWarehouses,
             ),
-            _BrandingNavBlock(
-              title: 'Customization',
-              items: <_BrandingNavEntry>[
-                _BrandingNavEntry(label: 'Transaction Number Series'),
-                _BrandingNavEntry(label: 'PDF Templates'),
-                _BrandingNavEntry(label: 'Email Notifications'),
-                _BrandingNavEntry(label: 'SMS Notifications'),
-                _BrandingNavEntry(label: 'Reporting Tags'),
-                _BrandingNavEntry(label: 'Web Tabs'),
-              ],
-            ),
-            _BrandingNavBlock(
-              title: 'Automation',
-              items: <_BrandingNavEntry>[
-                _BrandingNavEntry(label: 'Workflow Rules'),
-                _BrandingNavEntry(label: 'Workflow Actions'),
-                _BrandingNavEntry(
-                  label: 'Workflow Logs',
-                  route: AppRoutes.auditLogs,
-                ),
-              ],
+            _BrandingNavEntry(label: 'Approvals'),
+            _BrandingNavEntry(label: 'Manage Subscription'),
+          ],
+        ),
+        _BrandingNavBlock(
+          title: 'Users & Roles',
+          items: <_BrandingNavEntry>[
+            _BrandingNavEntry(label: 'Users', route: AppRoutes.settingsUsers),
+            _BrandingNavEntry(label: 'Roles', route: AppRoutes.settingsRoles),
+            _BrandingNavEntry(label: 'User Preferences'),
+          ],
+        ),
+        _BrandingNavBlock(
+          title: 'Taxes & Compliance',
+          items: <_BrandingNavEntry>[
+            _BrandingNavEntry(label: 'Taxes'),
+            _BrandingNavEntry(label: 'Direct Taxes'),
+            _BrandingNavEntry(label: 'e-Way Bills'),
+            _BrandingNavEntry(label: 'e-Invoicing'),
+            _BrandingNavEntry(label: 'MSME Settings'),
+          ],
+        ),
+        _BrandingNavBlock(
+          title: 'Setup & Configurations',
+          items: <_BrandingNavEntry>[
+            _BrandingNavEntry(label: 'General'),
+            _BrandingNavEntry(label: 'Currencies'),
+            _BrandingNavEntry(label: 'Reminders'),
+            _BrandingNavEntry(label: 'Customer Portal'),
+          ],
+        ),
+        _BrandingNavBlock(
+          title: 'Customization',
+          items: <_BrandingNavEntry>[
+            _BrandingNavEntry(label: 'Transaction Number Series'),
+            _BrandingNavEntry(label: 'PDF Templates'),
+            _BrandingNavEntry(label: 'Email Notifications'),
+            _BrandingNavEntry(label: 'SMS Notifications'),
+            _BrandingNavEntry(label: 'Reporting Tags'),
+            _BrandingNavEntry(label: 'Web Tabs'),
+          ],
+        ),
+        _BrandingNavBlock(
+          title: 'Automation',
+          items: <_BrandingNavEntry>[
+            _BrandingNavEntry(label: 'Workflow Rules'),
+            _BrandingNavEntry(label: 'Workflow Actions'),
+            _BrandingNavEntry(
+              label: 'Workflow Logs',
+              route: AppRoutes.auditLogs,
             ),
           ],
         ),
-        _BrandingNavSection(
-          title: 'Module Settings',
-          blocks: <_BrandingNavBlock>[
-            _BrandingNavBlock(
-              title: 'General',
-              items: <_BrandingNavEntry>[
-                _BrandingNavEntry(
-                  label: 'Customers and Vendors',
-                  route: AppRoutes.salesCustomers,
-                ),
-                _BrandingNavEntry(
-                  label: 'Items',
-                  route: AppRoutes.itemsReport,
-                ),
-              ],
+      ],
+    ),
+    _BrandingNavSection(
+      title: 'Module Settings',
+      blocks: <_BrandingNavBlock>[
+        _BrandingNavBlock(
+          title: 'General',
+          items: <_BrandingNavEntry>[
+            _BrandingNavEntry(
+              label: 'Customers and Vendors',
+              route: AppRoutes.salesCustomers,
             ),
-            _BrandingNavBlock(
-              title: 'Inventory',
-              items: <_BrandingNavEntry>[
-                _BrandingNavEntry(
-                  label: 'Assemblies',
-                  route: AppRoutes.assemblies,
-                ),
-                _BrandingNavEntry(
-                  label: 'Inventory Adjustments',
-                  route: AppRoutes.inventoryAdjustments,
-                ),
-                _BrandingNavEntry(
-                  label: 'Picklists',
-                  route: AppRoutes.picklists,
-                ),
-                _BrandingNavEntry(
-                  label: 'Packages',
-                  route: AppRoutes.packages,
-                ),
-                _BrandingNavEntry(
-                  label: 'Shipments',
-                  route: AppRoutes.shipments,
-                ),
-                _BrandingNavEntry(
-                  label: 'Transfer Orders',
-                  route: AppRoutes.transferOrders,
-                ),
-              ],
+            _BrandingNavEntry(label: 'Items', route: AppRoutes.itemsReport),
+          ],
+        ),
+        _BrandingNavBlock(
+          title: 'Inventory',
+          items: <_BrandingNavEntry>[
+            _BrandingNavEntry(label: 'Assemblies', route: AppRoutes.assemblies),
+            _BrandingNavEntry(
+              label: 'Inventory Adjustments',
+              route: AppRoutes.inventoryAdjustments,
+            ),
+            _BrandingNavEntry(label: 'Picklists', route: AppRoutes.picklists),
+            _BrandingNavEntry(label: 'Packages', route: AppRoutes.packages),
+            _BrandingNavEntry(label: 'Shipments', route: AppRoutes.shipments),
+            _BrandingNavEntry(
+              label: 'Transfer Orders',
+              route: AppRoutes.transferOrders,
             ),
           ],
         ),
-      ];
+      ],
+    ),
+  ];
 
   static const SweepGradient _kRainbowGradient = SweepGradient(
     colors: [
@@ -212,8 +202,9 @@ class _SettingsOrganizationBrandingPageState
     });
     try {
       final user = ref.read(authUserProvider);
-      final String orgId =
-          (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+      final String orgId = (user?.orgId.isNotEmpty == true)
+          ? user!.orgId
+          : _kDevOrgId;
       final Response<dynamic>? res = await _safeGet(
         '/lookups/org/$orgId',
         useCache: false,
@@ -224,14 +215,15 @@ class _SettingsOrganizationBrandingPageState
           : <String, dynamic>{};
       if (!mounted) return;
       setState(() {
-        _organizationName =
-            (data['name'] ?? user?.orgName ?? '').toString().trim();
+        _organizationName = (data['name'] ?? user?.orgName ?? '')
+            .toString()
+            .trim();
         final String logoUrl = (data['logo_url'] ?? '').toString().trim();
         _existingLogoUrl = logoUrl.isEmpty ? null : logoUrl;
-        _selectedAppearance =
-            (data['theme_mode'] ?? 'dark').toString();
-        final String hex =
-            (data['accent_color'] ?? '#22A95E').toString().replaceAll('#', '');
+        _selectedAppearance = (data['theme_mode'] ?? 'dark').toString();
+        final String hex = (data['accent_color'] ?? '#22A95E')
+            .toString()
+            .replaceAll('#', '');
         final int? colorVal = int.tryParse('FF$hex', radix: 16);
         if (colorVal != null) _selectedAccentColor = Color(colorVal);
         _isLoading = false;
@@ -287,13 +279,11 @@ class _SettingsOrganizationBrandingPageState
     setState(() => _isUploadingLogo = true);
     try {
       final user = ref.read(authUserProvider);
-      final String orgId =
-          (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+      final String orgId = (user?.orgId.isNotEmpty == true)
+          ? user!.orgId
+          : _kDevOrgId;
       final FormData formData = FormData.fromMap(<String, dynamic>{
-        'file': MultipartFile.fromBytes(
-          _logoBytes!,
-          filename: _logoFileName,
-        ),
+        'file': MultipartFile.fromBytes(_logoBytes!, filename: _logoFileName),
       });
       final Response<dynamic> res = await _apiClient.post(
         '/org/$orgId/logo',
@@ -301,8 +291,9 @@ class _SettingsOrganizationBrandingPageState
       );
       if (!mounted) return;
       if (res.success && res.data is Map) {
-        final String newUrl =
-            ((res.data as Map)['logo_url'] ?? '').toString().trim();
+        final String newUrl = ((res.data as Map)['logo_url'] ?? '')
+            .toString()
+            .trim();
         setState(() {
           _existingLogoUrl = newUrl.isEmpty ? null : newUrl;
           _logoBytes = null;
@@ -323,8 +314,9 @@ class _SettingsOrganizationBrandingPageState
     setState(() => _isRemovingLogo = true);
     try {
       final user = ref.read(authUserProvider);
-      final String orgId =
-          (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+      final String orgId = (user?.orgId.isNotEmpty == true)
+          ? user!.orgId
+          : _kDevOrgId;
       final Response<dynamic> res = await _apiClient.delete('/org/$orgId/logo');
       if (!mounted) return;
       if (res.success) {
@@ -348,8 +340,9 @@ class _SettingsOrganizationBrandingPageState
     setState(() => _isSaving = true);
     try {
       final user = ref.read(authUserProvider);
-      final String orgId =
-          (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+      final String orgId = (user?.orgId.isNotEmpty == true)
+          ? user!.orgId
+          : _kDevOrgId;
       final String accentHex =
           '#${_selectedAccentColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
       await _apiClient.post(
@@ -471,10 +464,7 @@ class _SettingsOrganizationBrandingPageState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'All Settings',
-                                  style: AppTheme.pageTitle,
-                                ),
+                                Text('All Settings', style: AppTheme.pageTitle),
                                 const SizedBox(height: AppTheme.space4),
                                 Text(
                                   _organizationName.isNotEmpty
@@ -585,8 +575,9 @@ class _SettingsOrganizationBrandingPageState
     final String currentPath = GoRouterState.of(
       context,
     ).uri.path.replaceFirst(RegExp(r'^/\d{10,20}'), '');
-    final bool hasActiveChild =
-        block.items.any((item) => item.route == currentPath);
+    final bool hasActiveChild = block.items.any(
+      (item) => item.route == currentPath,
+    );
     final bool isExpanded =
         _expandedBlocks.contains(block.title) || hasActiveChild;
 
@@ -822,70 +813,97 @@ class _SettingsOrganizationBrandingPageState
           'This logo will be displayed in transaction PDFs and email notifications.',
           style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
         ),
-          const SizedBox(height: AppTheme.space20),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Logo preview
-              Container(
-                width: 160,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: AppTheme.bgLight,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppTheme.borderLight,
-                    style: BorderStyle.solid,
-                  ),
+        const SizedBox(height: AppTheme.space20),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Logo preview
+            Container(
+              width: 160,
+              height: 100,
+              decoration: BoxDecoration(
+                color: AppTheme.bgLight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppTheme.borderLight,
+                  style: BorderStyle.solid,
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: _buildLogoPreview(),
               ),
-              const SizedBox(width: AppTheme.space24),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Preferred Image Dimensions: 240 × 240 pixels @ 72 DPI',
-                      style: AppTheme.captionText.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
+              clipBehavior: Clip.antiAlias,
+              child: _buildLogoPreview(),
+            ),
+            const SizedBox(width: AppTheme.space24),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Preferred Image Dimensions: 240 × 240 pixels @ 72 DPI',
+                    style: AppTheme.captionText.copyWith(
+                      color: AppTheme.textSecondary,
                     ),
-                    const SizedBox(height: AppTheme.space4),
-                    Text(
-                      'Supported Files: jpg, jpeg, png, gif, bmp',
-                      style: AppTheme.captionText.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
+                  ),
+                  const SizedBox(height: AppTheme.space4),
+                  Text(
+                    'Supported Files: jpg, jpeg, png, gif, bmp',
+                    style: AppTheme.captionText.copyWith(
+                      color: AppTheme.textSecondary,
                     ),
-                    const SizedBox(height: AppTheme.space4),
-                    Text(
-                      'Maximum File Size: 1MB',
-                      style: AppTheme.captionText.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
+                  ),
+                  const SizedBox(height: AppTheme.space4),
+                  Text(
+                    'Maximum File Size: 1MB',
+                    style: AppTheme.captionText.copyWith(
+                      color: AppTheme.textSecondary,
                     ),
-                    const SizedBox(height: AppTheme.space16),
-                    Row(
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed:
-                              _isUploadingLogo ? null : _pickAndUploadLogo,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.textPrimary,
-                            side: const BorderSide(
-                              color: AppTheme.borderMid,
-                            ),
+                  ),
+                  const SizedBox(height: AppTheme.space16),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _isUploadingLogo ? null : _pickAndUploadLogo,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.textPrimary,
+                          side: const BorderSide(color: AppTheme.borderMid),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppTheme.space16,
+                            vertical: AppTheme.space10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: _isUploadingLogo
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(LucideIcons.upload, size: 15),
+                        label: Text(
+                          _existingLogoUrl != null || _logoBytes != null
+                              ? 'Change Logo'
+                              : 'Upload Logo',
+                        ),
+                      ),
+                      if (_existingLogoUrl != null || _logoBytes != null) ...[
+                        const SizedBox(width: AppTheme.space12),
+                        TextButton(
+                          onPressed: (_isRemovingLogo || _isUploadingLogo)
+                              ? null
+                              : (_logoBytes != null
+                                    ? _clearLocalLogo
+                                    : _removeLogo),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.errorRed,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: AppTheme.space16,
+                              horizontal: AppTheme.space12,
                               vertical: AppTheme.space10,
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
                           ),
-                          icon: _isUploadingLogo
+                          child: _isRemovingLogo
                               ? const SizedBox(
                                   width: 14,
                                   height: 14,
@@ -893,49 +911,18 @@ class _SettingsOrganizationBrandingPageState
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Icon(LucideIcons.upload, size: 15),
-                          label: Text(
-                            _existingLogoUrl != null || _logoBytes != null
-                                ? 'Change Logo'
-                                : 'Upload Logo',
-                          ),
+                              : const Text('Remove Logo'),
                         ),
-                        if (_existingLogoUrl != null || _logoBytes != null) ...[
-                          const SizedBox(width: AppTheme.space12),
-                          TextButton(
-                            onPressed:
-                                (_isRemovingLogo || _isUploadingLogo)
-                                ? null
-                                : (_logoBytes != null
-                                      ? _clearLocalLogo
-                                      : _removeLogo),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppTheme.errorRed,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppTheme.space12,
-                                vertical: AppTheme.space10,
-                              ),
-                            ),
-                            child: _isRemovingLogo
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text('Remove Logo'),
-                          ),
-                        ],
                       ],
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
-      );
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _buildLogoPreview() {
@@ -959,10 +946,7 @@ class _SettingsOrganizationBrandingPageState
           SizedBox(height: 6),
           Text(
             'No logo',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppTheme.textMuted,
-            ),
+            style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
           ),
         ],
       ),
@@ -991,26 +975,26 @@ class _SettingsOrganizationBrandingPageState
           'Choose how the sidebar looks for all users in your organization.',
           style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
         ),
-          const SizedBox(height: AppTheme.space20),
-          Row(
-            children: [
-              _buildAppearanceCard(
-                key: 'dark',
-                label: 'Dark Pane',
-                sidebarColor: const Color(0xFF1F2633),
-                contentColor: const Color(0xFFF9FAFB),
-              ),
-              const SizedBox(width: AppTheme.space16),
-              _buildAppearanceCard(
-                key: 'light',
-                label: 'Light Pane',
-                sidebarColor: const Color(0xFFF3F4F6),
-                contentColor: Colors.white,
-              ),
-            ],
-          ),
-        ],
-      );
+        const SizedBox(height: AppTheme.space20),
+        Row(
+          children: [
+            _buildAppearanceCard(
+              key: 'dark',
+              label: 'Dark Pane',
+              sidebarColor: const Color(0xFF1F2633),
+              contentColor: const Color(0xFFF9FAFB),
+            ),
+            const SizedBox(width: AppTheme.space16),
+            _buildAppearanceCard(
+              key: 'light',
+              label: 'Light Pane',
+              sidebarColor: const Color(0xFFF3F4F6),
+              contentColor: Colors.white,
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _buildAppearanceCard({
@@ -1023,19 +1007,19 @@ class _SettingsOrganizationBrandingPageState
     return GestureDetector(
       onTap: () {
         setState(() => _selectedAppearance = key);
-        ref.read(appBrandingProvider.notifier).apply(
-          accentColor: _selectedAccentColor,
-          isDarkPane: key != 'light',
-        );
+        ref
+            .read(appBrandingProvider.notifier)
+            .apply(
+              accentColor: _selectedAccentColor,
+              isDarkPane: key != 'light',
+            );
       },
       child: Container(
         width: 148,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? _selectedAccentColor
-                : AppTheme.borderLight,
+            color: isSelected ? _selectedAccentColor : AppTheme.borderLight,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -1088,8 +1072,7 @@ class _SettingsOrganizationBrandingPageState
                                 height: 8,
                                 width: 60,
                                 decoration: BoxDecoration(
-                                  color:
-                                      Colors.black.withValues(alpha: 0.12),
+                                  color: Colors.black.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                               ),
@@ -1098,8 +1081,7 @@ class _SettingsOrganizationBrandingPageState
                                 height: 6,
                                 width: 40,
                                 decoration: BoxDecoration(
-                                  color:
-                                      Colors.black.withValues(alpha: 0.07),
+                                  color: Colors.black.withValues(alpha: 0.07),
                                   borderRadius: BorderRadius.circular(3),
                                 ),
                               ),
@@ -1178,50 +1160,50 @@ class _SettingsOrganizationBrandingPageState
           'Choose the primary accent color used for buttons and active states.',
           style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
         ),
-          const SizedBox(height: AppTheme.space20),
-          Wrap(
-            spacing: AppTheme.space12,
-            runSpacing: AppTheme.space12,
-            children: [
-              ..._accentOptions.map((option) => _buildAccentSwatch(option)),
-              _buildCustomColorSwatch(),
-            ],
-          ),
-          if (_selectedAccentColor.computeLuminance() < 0.15) ...[
-            const SizedBox(height: AppTheme.space16),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.space16,
-                vertical: AppTheme.space12,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF7ED),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFFED7AA)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    LucideIcons.alertTriangle,
-                    size: 16,
-                    color: Color(0xFFF97316),
-                  ),
-                  const SizedBox(width: AppTheme.space8),
-                  Expanded(
-                    child: Text(
-                      'Consider selecting a lighter accent color to improve the readability of low-contrast text.',
-                      style: AppTheme.bodyText.copyWith(
-                        fontSize: 13,
-                        color: const Color(0xFF92400E),
-                      ),
+        const SizedBox(height: AppTheme.space20),
+        Wrap(
+          spacing: AppTheme.space12,
+          runSpacing: AppTheme.space12,
+          children: [
+            ..._accentOptions.map((option) => _buildAccentSwatch(option)),
+            _buildCustomColorSwatch(),
+          ],
+        ),
+        if (_selectedAccentColor.computeLuminance() < 0.15) ...[
+          const SizedBox(height: AppTheme.space16),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.space16,
+              vertical: AppTheme.space12,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7ED),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFFED7AA)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  LucideIcons.alertTriangle,
+                  size: 16,
+                  color: Color(0xFFF97316),
+                ),
+                const SizedBox(width: AppTheme.space8),
+                Expanded(
+                  child: Text(
+                    'Consider selecting a lighter accent color to improve the readability of low-contrast text.',
+                    style: AppTheme.bodyText.copyWith(
+                      fontSize: 13,
+                      color: const Color(0xFF92400E),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ],
-      );
+      ],
+    );
   }
 
   Widget _buildSwatchShell({
@@ -1281,10 +1263,9 @@ class _SettingsOrganizationBrandingPageState
       isSelected: isSelected,
       onTap: () {
         setState(() => _selectedAccentColor = option.color);
-        ref.read(appBrandingProvider.notifier).apply(
-          accentColor: option.color,
-          isDarkPane: _isDarkPane,
-        );
+        ref
+            .read(appBrandingProvider.notifier)
+            .apply(accentColor: option.color, isDarkPane: _isDarkPane);
       },
       child: Text(
         option.label,
@@ -1298,8 +1279,9 @@ class _SettingsOrganizationBrandingPageState
   }
 
   Widget _buildCustomColorSwatch() {
-    final bool isCustom =
-        !_accentOptions.any((o) => o.color == _selectedAccentColor);
+    final bool isCustom = !_accentOptions.any(
+      (o) => o.color == _selectedAccentColor,
+    );
     return _buildSwatchShell(
       bgColor: isCustom ? _selectedAccentColor : Colors.white,
       isSelected: isCustom,
@@ -1366,38 +1348,43 @@ class _SettingsOrganizationBrandingPageState
 
           return Dialog(
             backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(8),
             ),
-            elevation: 8,
-            child: SizedBox(
-              width: 360,
+            elevation: 12,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 286, maxWidth: 286),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (showSwatches) ...[
-                      GestureDetector(
-                        onTap: () =>
-                            setDialogState(() => showSwatches = false),
-                        child: const Row(
-                          children: [
-                            Icon(
-                              LucideIcons.chevronLeft,
-                              size: 15,
-                              color: AppTheme.textSecondary,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'Back',
-                              style: TextStyle(
-                                fontSize: 13,
+                      InkWell(
+                        onTap: () => setDialogState(() => showSwatches = false),
+                        borderRadius: BorderRadius.circular(6),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                LucideIcons.chevronLeft,
+                                size: 14,
                                 color: AppTheme.textSecondary,
                               ),
-                            ),
-                          ],
+                              SizedBox(width: 4),
+                              Text(
+                                'Back',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -1412,146 +1399,44 @@ class _SettingsOrganizationBrandingPageState
                         },
                         itemBuilder: (color, isSelected, onTap) =>
                             GestureDetector(
-                          onTap: onTap,
-                          child: Container(
-                            margin: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                              border: isSelected
-                                  ? Border.all(
-                                      color: Colors.white,
-                                      width: 2,
-                                    )
-                                  : null,
-                              boxShadow: isSelected
-                                  ? [
-                                      BoxShadow(
-                                        color: color.withValues(alpha: 0.5),
-                                        blurRadius: 4,
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(),
-                          child: const Text('Cancel'),
-                        ),
-                      ),
-                    ] else ...[
-                      ColorPicker(
-                        pickerColor: tempColor,
-                        onColorChanged: (c) {
-                          setDialogState(() {
-                            tempColor = c;
-                            hexCtrl.text = '#${_colorToHex(c)}';
-                          });
-                        },
-                        enableAlpha: false,
-                        labelTypes: const [],
-                        pickerAreaHeightPercent: 0.65,
-                        displayThumbColor: true,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: hexCtrl,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontFamily: 'monospace',
-                              ),
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: const BorderSide(
-                                    color: AppTheme.borderLight,
-                                  ),
+                              onTap: onTap,
+                              child: Container(
+                                margin: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  border: isSelected
+                                      ? Border.all(
+                                          color: Colors.white,
+                                          width: 2,
+                                        )
+                                      : null,
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: color.withValues(alpha: 0.5),
+                                            blurRadius: 4,
+                                          ),
+                                        ]
+                                      : null,
                                 ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: const BorderSide(
-                                    color: AppTheme.borderLight,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
-                                isDense: true,
-                              ),
-                              onSubmitted: applyHex,
-                              onChanged: applyHex,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            width: 38,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: tempColor,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppTheme.borderLight),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      GestureDetector(
-                        onTap: () =>
-                            setDialogState(() => showSwatches = true),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 16,
-                              height: 16,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: _kRainbowGradient,
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            const Text(
-                              'Swatches',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                            const Icon(
-                              LucideIcons.chevronRight,
-                              size: 14,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ],
-                        ),
                       ),
                       const SizedBox(height: 14),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            child: const Text('Cancel'),
-                          ),
-                          const SizedBox(width: 8),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: tempColor,
                               foregroundColor: Colors.white,
+                              elevation: 0,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
+                                horizontal: 14,
                                 vertical: 10,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                             ),
                             onPressed: () {
@@ -1565,6 +1450,170 @@ class _SettingsOrganizationBrandingPageState
                                   );
                             },
                             child: const Text('Apply'),
+                          ),
+                          const SizedBox(width: 10),
+                          OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.textPrimary,
+                              side: const BorderSide(
+                                color: AppTheme.borderLight,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      ColorPicker(
+                        pickerColor: tempColor,
+                        onColorChanged: (c) {
+                          setDialogState(() {
+                            tempColor = c;
+                            hexCtrl.text = '#${_colorToHex(c)}';
+                          });
+                        },
+                        enableAlpha: false,
+                        labelTypes: const [],
+                        pickerAreaHeightPercent: 0.72,
+                        displayThumbColor: true,
+                        portraitOnly: true,
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: hexCtrl,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontFamily: 'monospace',
+                              ),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                  borderSide: const BorderSide(
+                                    color: AppTheme.borderLight,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                  borderSide: const BorderSide(
+                                    color: AppTheme.borderLight,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                  borderSide: BorderSide(color: tempColor),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                isDense: true,
+                              ),
+                              onSubmitted: applyHex,
+                              onChanged: applyHex,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 64,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: tempColor,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppTheme.borderLight),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: () => setDialogState(() => showSwatches = true),
+                        borderRadius: BorderRadius.circular(6),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            children: [
+                              Icon(
+                                LucideIcons.palette,
+                                size: 15,
+                                color: AppTheme.textSecondary,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'Swatches',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                              Icon(
+                                LucideIcons.chevronRight,
+                                size: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(height: 1, color: AppTheme.borderLight),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: tempColor,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              setState(() => _selectedAccentColor = tempColor);
+                              ref
+                                  .read(appBrandingProvider.notifier)
+                                  .apply(
+                                    accentColor: tempColor,
+                                    isDarkPane: _isDarkPane,
+                                  );
+                            },
+                            child: const Text('Apply'),
+                          ),
+                          const SizedBox(width: 10),
+                          OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.textPrimary,
+                              side: const BorderSide(
+                                color: AppTheme.borderLight,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            child: const Text('Cancel'),
                           ),
                         ],
                       ),

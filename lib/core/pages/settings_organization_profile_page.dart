@@ -20,6 +20,7 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/form_row.dart';
+import 'package:zerpai_erp/shared/widgets/settings_fixed_header_layout.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 // TODO(auth): Remove _kDevOrgId and all fallbacks that reference it once auth
@@ -872,497 +873,483 @@ class _SettingsOrganizationProfilePageState
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            controller: _bodyScrollController,
-            padding: const EdgeInsets.all(AppTheme.space32),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: 620,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Organization Profile',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        if (_organizationSystemId.isNotEmpty) ...[
-                          const SizedBox(width: AppTheme.space12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppTheme.space12,
-                              vertical: AppTheme.space4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.bgLight,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              'ID: $_organizationSystemId',
-                              style: AppTheme.metaHelper.copyWith(
-                                color: AppTheme.textPrimary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: AppTheme.space16),
-                    _buildInfoBanner(
-                      icon: LucideIcons.info,
-                      message:
-                          'This page is part of the shared global settings system. Real organization data is loaded where available and the rest remains editable for future API wiring.',
-                    ),
-                    const SizedBox(height: AppTheme.space24),
-
-                    // ── Section: Organization Logo ─────────────────────────
-                    _buildLogoSection(),
-                    const SizedBox(height: AppTheme.space24),
-
-                    // ── Section: Organization Details ─────────────────────
-                    Container(
-                      color: Colors.white,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ZerpaiFormRow(
-                            key: _organizationNameKey,
-                            label: 'Organization Name',
-                            required: true,
-                            child: TextFormField(
-                              controller: _organizationNameController,
-                              decoration: const InputDecoration(
-                                hintText: 'Your organization name',
-                              ),
-                              validator: (v) => (v == null || v.trim().isEmpty)
-                                  ? 'Organization name is required.'
-                                  : null,
-                            ),
-                          ),
-                          ZerpaiFormRow(
-                            key: _industryKey,
-                            label: 'Industry',
-                            child: _buildDropdownField(
-                              value: _selectedIndustry,
-                              hintText: 'Select industry',
-                              items: _industryOptions,
-                              onChanged: (value) =>
-                                  setState(() => _selectedIndustry = value),
-                            ),
-                          ),
-                          ZerpaiFormRow(
-                            key: _organizationLocationKey,
-                            label: 'Organization Location',
-                            required: true,
-                            child: _buildDropdownField(
-                              value: _selectedLocation,
-                              hintText: _countryOptions.isEmpty
-                                  ? 'No country data available'
-                                  : 'Select country',
-                              items: _countryOptions,
-                              onChanged: (value) async {
-                                setState(() {
-                                  _selectedLocation = value;
-                                  _selectedState = null;
-                                });
-                                if (value != null) {
-                                  final countryId = _countryIdByName[value];
-                                  if (countryId != null) {
-                                    await _fetchStates(countryId);
-                                    await _fetchTimezones(countryId);
-                                  }
-                                } else {
-                                  setState(() {
-                                    _stateOptions = <String>[];
-                                    _stateIdByName = <String, String>{};
-                                    _timeZoneOptions = <_TimezoneOption>[];
-                                    _selectedTimeZone = null;
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                          ZerpaiFormRow(
-                            key: _stateKey,
-                            label: 'State',
-                            child: _buildDropdownField(
-                              value: _selectedState,
-                              hintText: _selectedLocation == null
-                                  ? 'Select country first'
-                                  : (_stateOptions.isEmpty
-                                        ? 'No state data available'
-                                        : 'Select state'),
-                              items: _stateOptions,
-                              onChanged: (value) =>
-                                  setState(() => _selectedState = value),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.space20),
-
-                    // ── Organization Address banner ────────────────────────
-                    Container(
-                      key: _paymentStubKey,
-                      padding: const EdgeInsets.all(AppTheme.space16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.infoBg,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                LucideIcons.mapPin,
-                                size: 18,
-                                color: AppTheme.primaryBlue,
-                              ),
-                              const SizedBox(width: AppTheme.space8),
-                              Text(
-                                'Organization Address',
-                                style: AppTheme.bodyText.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppTheme.space10),
-                          Text(
-                            'Manage your business branches and warehouses from the Branches and Warehouses settings pages.',
-                            style: AppTheme.bodyText.copyWith(
-                              color: AppTheme.textSecondary,
-                              height: 1.5,
-                            ),
-                          ),
-                          const SizedBox(height: AppTheme.space8),
-                          Row(
-                            children: [
-                              TextButton(
-                                onPressed: () =>
-                                    context.go(AppRoutes.settingsBranches),
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: Size.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                child: const Text('Go to Branches'),
-                              ),
-                              const SizedBox(width: AppTheme.space16),
-                              TextButton(
-                                onPressed: () =>
-                                    context.go(AppRoutes.settingsWarehouses),
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: Size.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                child: const Text('Go to Warehouses'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.space12),
-
-                    // ── Payment stub toggle ───────────────────────────────
-                    Container(
-                      color: Colors.white,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ZerpaiFormRow(
-                            label: 'Payment Stub Address',
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Would you like to add a different address for payment stubs?',
-                                    style: AppTheme.bodyText.copyWith(
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  _hasSeparatePaymentStubAddress ? 'Yes' : 'No',
-                                  style: AppTheme.bodyText.copyWith(
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(width: AppTheme.space12),
-                                Switch.adaptive(
-                                  value: _hasSeparatePaymentStubAddress,
-                                  activeThumbColor: ref
-                                      .watch(appBrandingProvider)
-                                      .accentColor,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _hasSeparatePaymentStubAddress = value;
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (_hasSeparatePaymentStubAddress) ...[
-                            ZerpaiFormRow(
-                              label: 'Payment stub address',
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              child: TextFormField(
-                                controller: _paymentStubAddressController,
-                                maxLines: 4,
-                                maxLength: 255,
-                                decoration: const InputDecoration(
-                                  hintText:
-                                      'You can enter a maximum of 255 characters',
-                                  alignLabelWithHint: true,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.space24),
-
-                    // ── Section: Primary Contact ───────────────────────────
-                    Text(
-                      'Primary Contact',
-                      key: _primaryContactKey,
-                      style: AppTheme.sectionHeader,
-                    ),
-                    const SizedBox(height: AppTheme.space12),
-                    _buildPrimaryContactCard(),
-                    const SizedBox(height: AppTheme.space12),
-                    _buildInfoBanner(
-                      icon: LucideIcons.mail,
-                      message:
-                          'Your primary contact email belongs to the current signed-in user context. Save wiring can later persist organization-specific delivery preferences.',
-                    ),
-                    const SizedBox(height: AppTheme.space24),
-
-                    // ── Section: Configuration ────────────────────────────
-                    Text('Configuration', style: AppTheme.sectionHeader),
-                    const SizedBox(height: AppTheme.space12),
-                    Container(
-                      color: Colors.white,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ZerpaiFormRow(
-                            key: _baseCurrencyKey,
-                            label: 'Base Currency',
-                            child: _buildBaseCurrencyField(),
-                          ),
-                          ZerpaiFormRow(
-                            key: _fiscalYearKey,
-                            label: 'Fiscal Year',
-                            child: _buildDropdownField(
-                              value: _selectedFiscalYear,
-                              hintText: 'Select fiscal year',
-                              items: _fiscalYearOptions,
-                              onChanged: (value) =>
-                                  setState(() => _selectedFiscalYear = value),
-                            ),
-                          ),
-                          ZerpaiFormRow(
-                            key: _organizationLanguageKey,
-                            label: 'Organization Language',
-                            tooltipMessage:
-                                'Any change in the language will not be reflected in Email Templates, Template Customizations, Payment Modes and Default tax Rates. These will still remain in the language selected during this organization\'s setup.',
-                            child: _buildDropdownField(
-                              value: _selectedOrganizationLanguage,
-                              hintText: 'Select organization language',
-                              items: _languageOptions,
-                              onChanged: (value) => setState(() {
-                                _selectedOrganizationLanguage = value;
-                                if (value != null &&
-                                    !_selectedCommunicationLanguages.contains(
-                                      value,
-                                    )) {
-                                  _selectedCommunicationLanguages = <String>[
-                                    value,
-                                    ..._selectedCommunicationLanguages,
-                                  ];
-                                }
-                              }),
-                            ),
-                          ),
-                          ZerpaiFormRow(
-                            key: _communicationLanguagesKey,
-                            label: 'Communication Languages',
-                            tooltipMessage:
-                                'Select the languages in which users can create email templates and send emails to customers and vendors.',
-                            child: FormDropdown<String>(
-                              value: null,
-                              items: _languageOptions,
-                              multiSelect: true,
-                              selectedValues: _selectedCommunicationLanguages,
-                              isSelectedValueRemovable: (value) =>
-                                  value != 'English',
-                              hint: 'Select communication languages',
-                              showSearch: true,
-                              onChanged: (_) {},
-                              onSelectedValuesChanged: (values) => setState(() {
-                                _selectedCommunicationLanguages = values;
-                              }),
-                            ),
-                          ),
-                          ZerpaiFormRow(
-                            key: _timeZoneKey,
-                            label: 'Time Zone',
-                            child: FormDropdown<_TimezoneOption>(
-                              value: _selectedTimeZoneOption,
-                              items: _timeZoneOptions,
-                              hint: 'Select time zone',
-                              displayStringForValue: (option) => option.display,
-                              searchStringForValue: (option) =>
-                                  '${option.display} ${option.name} ${option.tzdbName}',
-                              onChanged: (value) => setState(
-                                () => _selectedTimeZone = value?.tzdbName,
-                              ),
-                              menuWidth: 720,
-                            ),
-                          ),
-                          ZerpaiFormRow(
-                            key: _dateFormatKey,
-                            label: 'Date Format',
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: _buildGroupedDateFormatDropdown(),
-                                ),
-                                const SizedBox(width: AppTheme.space12),
-                                SizedBox(
-                                  width: 120,
-                                  child: _buildDropdownField(
-                                    value: _selectedDateSeparator,
-                                    hintText: 'Separator',
-                                    items: _dateSeparatorOptions,
-                                    onChanged: (value) => setState(
-                                      () => _selectedDateSeparator = value,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          ZerpaiFormRow(
-                            key: _companyIdKey,
-                            label: 'Company ID',
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: _buildDropdownField(
-                                    value: _selectedCompanyIdLabel,
-                                    hintText: 'Select identifier',
-                                    items: _companyIdOptions,
-                                    onChanged: (value) => setState(
-                                      () => _selectedCompanyIdLabel = value,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: AppTheme.space12),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _companyIdValueController,
-                                    decoration: const InputDecoration(
-                                      hintText: 'Enter identifier value',
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.space24),
-
-                    // ── Section: Additional Fields ─────────────────────────
-                    Text(
-                      'Additional Fields',
-                      key: _additionalFieldsKey,
-                      style: AppTheme.sectionHeader,
-                    ),
-                    const SizedBox(height: AppTheme.space12),
-                    _buildAdditionalFieldsTable(),
-                    const SizedBox(height: AppTheme.space12),
-                    TextButton.icon(
-                      onPressed: _addAdditionalField,
-                      style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                      icon: const Icon(LucideIcons.plusCircle, size: 18),
-                      label: const Text('New Field'),
-                    ),
-                    const SizedBox(height: AppTheme.space16),
-                    _buildInfoBanner(
-                      icon: LucideIcons.info,
-                      message:
-                          'Company ID and additional fields can later be surfaced in transaction PDFs once the organization-profile update endpoint is available.',
-                    ),
-                    const SizedBox(height: AppTheme.space24),
-                  ],
+    return SettingsFixedHeaderLayout(
+      maxWidth: 620,
+      scrollController: _bodyScrollController,
+      headerPadding: const EdgeInsets.fromLTRB(
+        AppTheme.space32,
+        AppTheme.space32,
+        AppTheme.space32,
+        AppTheme.space16,
+      ),
+      header: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Text(
+            'Organization Profile',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          if (_organizationSystemId.isNotEmpty) ...[
+            const SizedBox(width: AppTheme.space12),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.space12,
+                vertical: AppTheme.space4,
+              ),
+              decoration: BoxDecoration(
+                color: AppTheme.bgLight,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                'ID: $_organizationSystemId',
+                style: AppTheme.metaHelper.copyWith(
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
+          ],
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildInfoBanner(
+            icon: LucideIcons.info,
+            message:
+                'This page is part of the shared global settings system. Real organization data is loaded where available and the rest remains editable for future API wiring.',
           ),
-        ),
-        // ── Fixed bottom bar ──────────────────────────────────────────────────
-        Container(
-          decoration: const BoxDecoration(
+          const SizedBox(height: AppTheme.space24),
+
+          // ── Section: Organization Logo ─────────────────────────
+          _buildLogoSection(),
+          const SizedBox(height: AppTheme.space24),
+
+          // ── Section: Organization Details ─────────────────────
+          Container(
             color: Colors.white,
-            border: Border(top: BorderSide(color: AppTheme.borderLight)),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.space32,
-            vertical: AppTheme.space16,
-          ),
-          child: Row(
-            children: [
-              ElevatedButton(
-                onPressed: _isSaving ? null : _saveProfile,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: ref.watch(appBrandingProvider).accentColor,
-                  foregroundColor: Colors.white,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ZerpaiFormRow(
+                  key: _organizationNameKey,
+                  label: 'Organization Name',
+                  required: true,
+                  child: TextFormField(
+                    controller: _organizationNameController,
+                    decoration: const InputDecoration(
+                      hintText: 'Your organization name',
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Organization name is required.'
+                        : null,
+                  ),
                 ),
-                child: _isSaving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Save'),
-              ),
-              const SizedBox(width: AppTheme.space12),
-              OutlinedButton(
-                onPressed: () => context.go(AppRoutes.settings),
-                child: const Text('Cancel'),
-              ),
-            ],
+                ZerpaiFormRow(
+                  key: _industryKey,
+                  label: 'Industry',
+                  child: _buildDropdownField(
+                    value: _selectedIndustry,
+                    hintText: 'Select industry',
+                    items: _industryOptions,
+                    onChanged: (value) =>
+                        setState(() => _selectedIndustry = value),
+                  ),
+                ),
+                ZerpaiFormRow(
+                  key: _organizationLocationKey,
+                  label: 'Organization Location',
+                  required: true,
+                  child: _buildDropdownField(
+                    value: _selectedLocation,
+                    hintText: _countryOptions.isEmpty
+                        ? 'No country data available'
+                        : 'Select country',
+                    items: _countryOptions,
+                    onChanged: (value) async {
+                      setState(() {
+                        _selectedLocation = value;
+                        _selectedState = null;
+                      });
+                      if (value != null) {
+                        final countryId = _countryIdByName[value];
+                        if (countryId != null) {
+                          await _fetchStates(countryId);
+                          await _fetchTimezones(countryId);
+                        }
+                      } else {
+                        setState(() {
+                          _stateOptions = <String>[];
+                          _stateIdByName = <String, String>{};
+                          _timeZoneOptions = <_TimezoneOption>[];
+                          _selectedTimeZone = null;
+                        });
+                      }
+                    },
+                  ),
+                ),
+                ZerpaiFormRow(
+                  key: _stateKey,
+                  label: 'State',
+                  required: true,
+                  child: _buildDropdownField(
+                    value: _selectedState,
+                    hintText: _selectedLocation == null
+                        ? 'Select country first'
+                        : (_stateOptions.isEmpty
+                              ? 'No state data available'
+                              : 'Select state'),
+                    items: _stateOptions,
+                    onChanged: (value) =>
+                        setState(() => _selectedState = value),
+                  ),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(height: AppTheme.space20),
+
+          // ── Organization Address banner ────────────────────────
+          Container(
+            key: _paymentStubKey,
+            padding: const EdgeInsets.all(AppTheme.space16),
+            decoration: BoxDecoration(
+              color: AppTheme.infoBg,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      LucideIcons.mapPin,
+                      size: 18,
+                      color: AppTheme.primaryBlue,
+                    ),
+                    const SizedBox(width: AppTheme.space8),
+                    Text(
+                      'Organization Address',
+                      style: AppTheme.bodyText.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppTheme.space10),
+                Text(
+                  'Manage your business branches and warehouses from the Branches and Warehouses settings pages.',
+                  style: AppTheme.bodyText.copyWith(
+                    color: AppTheme.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.space8),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => context.go(AppRoutes.settingsBranches),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Go to Branches'),
+                    ),
+                    const SizedBox(width: AppTheme.space16),
+                    TextButton(
+                      onPressed: () => context.go(AppRoutes.settingsWarehouses),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Go to Warehouses'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppTheme.space12),
+
+          // ── Payment stub toggle ───────────────────────────────
+          Container(
+            color: Colors.white,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ZerpaiFormRow(
+                  label: 'Payment Stub Address',
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Would you like to add a different address for payment stubs?',
+                          style: AppTheme.bodyText.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _hasSeparatePaymentStubAddress ? 'Yes' : 'No',
+                        style: AppTheme.bodyText.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.space12),
+                      Switch.adaptive(
+                        value: _hasSeparatePaymentStubAddress,
+                        activeThumbColor: ref
+                            .watch(appBrandingProvider)
+                            .accentColor,
+                        onChanged: (value) {
+                          setState(() {
+                            _hasSeparatePaymentStubAddress = value;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                if (_hasSeparatePaymentStubAddress) ...[
+                  ZerpaiFormRow(
+                    label: 'Payment stub address',
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    child: TextFormField(
+                      controller: _paymentStubAddressController,
+                      maxLines: 4,
+                      maxLength: 255,
+                      decoration: const InputDecoration(
+                        hintText: 'You can enter a maximum of 255 characters',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: AppTheme.space24),
+
+          // ── Section: Primary Contact ───────────────────────────
+          Text(
+            'Primary Contact',
+            key: _primaryContactKey,
+            style: AppTheme.sectionHeader,
+          ),
+          const SizedBox(height: AppTheme.space12),
+          _buildPrimaryContactCard(),
+          const SizedBox(height: AppTheme.space12),
+          _buildInfoBanner(
+            icon: LucideIcons.mail,
+            message:
+                'Your primary contact email belongs to the current signed-in user context. Save wiring can later persist organization-specific delivery preferences.',
+          ),
+          const SizedBox(height: AppTheme.space24),
+
+          // ── Section: Configuration ────────────────────────────
+          Text('Configuration', style: AppTheme.sectionHeader),
+          const SizedBox(height: AppTheme.space12),
+          Container(
+            color: Colors.white,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ZerpaiFormRow(
+                  key: _baseCurrencyKey,
+                  label: 'Base Currency',
+                  required: true,
+                  child: _buildBaseCurrencyField(),
+                ),
+                ZerpaiFormRow(
+                  key: _fiscalYearKey,
+                  label: 'Fiscal Year',
+                  required: true,
+                  child: _buildDropdownField(
+                    value: _selectedFiscalYear,
+                    hintText: 'Select fiscal year',
+                    items: _fiscalYearOptions,
+                    onChanged: (value) =>
+                        setState(() => _selectedFiscalYear = value),
+                  ),
+                ),
+                ZerpaiFormRow(
+                  key: _organizationLanguageKey,
+                  label: 'Organization Language',
+                  required: true,
+                  tooltipMessage:
+                      'Any change in the language will not be reflected in Email Templates, Template Customizations, Payment Modes and Default tax Rates. These will still remain in the language selected during this organization\'s setup.',
+                  child: _buildDropdownField(
+                    value: _selectedOrganizationLanguage,
+                    hintText: 'Select organization language',
+                    items: _languageOptions,
+                    onChanged: (value) => setState(() {
+                      _selectedOrganizationLanguage = value;
+                      if (value != null &&
+                          !_selectedCommunicationLanguages.contains(value)) {
+                        _selectedCommunicationLanguages = <String>[
+                          value,
+                          ..._selectedCommunicationLanguages,
+                        ];
+                      }
+                    }),
+                  ),
+                ),
+                ZerpaiFormRow(
+                  key: _communicationLanguagesKey,
+                  label: 'Communication Languages',
+                  required: true,
+                  tooltipMessage:
+                      'Select the languages in which users can create email templates and send emails to customers and vendors.',
+                  child: FormDropdown<String>(
+                    value: null,
+                    items: _languageOptions,
+                    multiSelect: true,
+                    selectedValues: _selectedCommunicationLanguages,
+                    isSelectedValueRemovable: (value) => value != 'English',
+                    hint: 'Select communication languages',
+                    showSearch: true,
+                    onChanged: (_) {},
+                    onSelectedValuesChanged: (values) => setState(() {
+                      _selectedCommunicationLanguages = values;
+                    }),
+                  ),
+                ),
+                ZerpaiFormRow(
+                  key: _timeZoneKey,
+                  label: 'Time Zone',
+                  required: true,
+                  child: FormDropdown<_TimezoneOption>(
+                    value: _selectedTimeZoneOption,
+                    items: _timeZoneOptions,
+                    hint: 'Select time zone',
+                    displayStringForValue: (option) => option.display,
+                    searchStringForValue: (option) =>
+                        '${option.display} ${option.name} ${option.tzdbName}',
+                    onChanged: (value) =>
+                        setState(() => _selectedTimeZone = value?.tzdbName),
+                    menuWidth: 720,
+                  ),
+                ),
+                ZerpaiFormRow(
+                  key: _dateFormatKey,
+                  label: 'Date Format',
+                  required: true,
+                  child: Row(
+                    children: [
+                      Expanded(child: _buildGroupedDateFormatDropdown()),
+                      const SizedBox(width: AppTheme.space12),
+                      SizedBox(
+                        width: 120,
+                        child: _buildDropdownField(
+                          value: _selectedDateSeparator,
+                          hintText: 'Separator',
+                          items: _dateSeparatorOptions,
+                          onChanged: (value) =>
+                              setState(() => _selectedDateSeparator = value),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ZerpaiFormRow(
+                  key: _companyIdKey,
+                  label: 'Company ID',
+                  required: true,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdownField(
+                          value: _selectedCompanyIdLabel,
+                          hintText: 'Select identifier',
+                          items: _companyIdOptions,
+                          onChanged: (value) =>
+                              setState(() => _selectedCompanyIdLabel = value),
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.space12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _companyIdValueController,
+                          decoration: const InputDecoration(
+                            hintText: 'Enter identifier value',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppTheme.space24),
+
+          // ── Section: Additional Fields ─────────────────────────
+          Text(
+            'Additional Fields',
+            key: _additionalFieldsKey,
+            style: AppTheme.sectionHeader,
+          ),
+          const SizedBox(height: AppTheme.space12),
+          _buildAdditionalFieldsTable(),
+          const SizedBox(height: AppTheme.space12),
+          TextButton.icon(
+            onPressed: _addAdditionalField,
+            style: TextButton.styleFrom(padding: EdgeInsets.zero),
+            icon: const Icon(LucideIcons.plusCircle, size: 18),
+            label: const Text('New Field'),
+          ),
+          const SizedBox(height: AppTheme.space16),
+          _buildInfoBanner(
+            icon: LucideIcons.info,
+            message:
+                'Company ID and additional fields can later be surfaced in transaction PDFs once the organization-profile update endpoint is available.',
+          ),
+          const SizedBox(height: AppTheme.space24),
+        ],
+      ),
+      footer: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: AppTheme.borderLight)),
         ),
-      ],
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.space32,
+          vertical: AppTheme.space16,
+        ),
+        child: Row(
+          children: [
+            ElevatedButton(
+              onPressed: _isSaving ? null : _saveProfile,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ref.watch(appBrandingProvider).accentColor,
+                foregroundColor: Colors.white,
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Save'),
+            ),
+            const SizedBox(width: AppTheme.space12),
+            OutlinedButton(
+              onPressed: () => context.go(AppRoutes.settings),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2527,6 +2514,38 @@ class _SettingsOrganizationProfilePageState
       ZerpaiToast.error(context, 'Please select a fiscal year.');
       return;
     }
+    if (_selectedOrganizationLanguage == null ||
+        _selectedOrganizationLanguage!.trim().isEmpty) {
+      ZerpaiToast.error(context, 'Please select an organization language.');
+      return;
+    }
+    if (_selectedCommunicationLanguages.isEmpty) {
+      ZerpaiToast.error(
+        context,
+        'Please select at least one communication language.',
+      );
+      return;
+    }
+    if (!_selectedCommunicationLanguages.contains('English')) {
+      ZerpaiToast.error(
+        context,
+        'English must remain included in communication languages.',
+      );
+      return;
+    }
+    if (_selectedTimeZone == null || _selectedTimeZone!.trim().isEmpty) {
+      ZerpaiToast.error(context, 'Please select a time zone.');
+      return;
+    }
+    if (_selectedDateFormat == null || _selectedDateFormat!.trim().isEmpty) {
+      ZerpaiToast.error(context, 'Please select a date format.');
+      return;
+    }
+    if (_selectedDateSeparator == null ||
+        _selectedDateSeparator!.trim().isEmpty) {
+      ZerpaiToast.error(context, 'Please select a date separator.');
+      return;
+    }
     if (_selectedLocation == null) {
       ZerpaiToast.error(context, 'Please select an organization location.');
       return;
@@ -2543,6 +2562,16 @@ class _SettingsOrganizationProfilePageState
         context,
         'Please select a valid state for the selected organization location.',
       );
+      return;
+    }
+    final String companyIdValue = _companyIdValueController.text.trim();
+    if (_selectedCompanyIdLabel == null ||
+        _selectedCompanyIdLabel!.trim().isEmpty) {
+      ZerpaiToast.error(context, 'Please select a company ID label.');
+      return;
+    }
+    if (companyIdValue.isEmpty) {
+      ZerpaiToast.error(context, 'Please enter the company ID value.');
       return;
     }
 

@@ -6,8 +6,11 @@ import 'package:zerpai_erp/core/providers/app_branding_provider.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
+import 'package:zerpai_erp/shared/widgets/settings_fixed_header_layout.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
@@ -51,8 +54,8 @@ const List<_NavSection> _navSections = <_NavSection>[
       _NavBlock(
         title: 'Users & Roles',
         items: <_NavEntry>[
-          _NavEntry(label: 'Users'),
-          _NavEntry(label: 'Roles'),
+          _NavEntry(label: 'Users', route: AppRoutes.settingsUsers),
+          _NavEntry(label: 'Roles', route: AppRoutes.settingsRoles),
           _NavEntry(label: 'User Preferences'),
         ],
       ),
@@ -102,7 +105,10 @@ const List<_NavSection> _navSections = <_NavSection>[
       _NavBlock(
         title: 'General',
         items: <_NavEntry>[
-          _NavEntry(label: 'Customers and Vendors', route: AppRoutes.salesCustomers),
+          _NavEntry(
+            label: 'Customers and Vendors',
+            route: AppRoutes.salesCustomers,
+          ),
           _NavEntry(label: 'Items', route: AppRoutes.itemsReport),
         ],
       ),
@@ -115,13 +121,27 @@ const List<_NavSection> _navSections = <_NavSection>[
 const List<Map<String, String>> _kBranchTypes = [
   {'id': 'fofo', 'code': 'FOFO', 'label': 'Franchise Owned Franchise Operated'},
   {'id': 'coco', 'code': 'COCO', 'label': 'Company Owned Company Operated'},
-  {'id': 'fico', 'code': 'FICO', 'label': 'Franchise Invested Company Operated'},
+  {
+    'id': 'fico',
+    'code': 'FICO',
+    'label': 'Franchise Invested Company Operated',
+  },
   {'id': 'foco', 'code': 'FOCO', 'label': 'Franchise Owned Company Operated'},
 ];
 
 const List<String> _kMonths = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 String _fmtDate(DateTime d) =>
@@ -129,6 +149,7 @@ String _fmtDate(DateTime d) =>
 
 class _BranchRow {
   final String id;
+  final String systemId;
   final String name;
   final String outletCode;
   final String gstin;
@@ -143,6 +164,7 @@ class _BranchRow {
 
   const _BranchRow({
     required this.id,
+    required this.systemId,
     required this.name,
     required this.outletCode,
     required this.gstin,
@@ -157,23 +179,24 @@ class _BranchRow {
   });
 
   factory _BranchRow.fromJson(Map<String, dynamic> j) => _BranchRow(
-        id: (j['id'] ?? '').toString(),
-        name: (j['name'] ?? '').toString(),
-        outletCode: (j['branch_code'] ?? j['outlet_code'] ?? '').toString(),
-        gstin: (j['gstin'] ?? '').toString(),
-        city: (j['city'] ?? '').toString(),
-        state: (j['state'] ?? '').toString(),
-        country: (j['country'] ?? 'India').toString(),
-        isActive: j['is_active'] as bool? ?? true,
-        isPrimary: j['is_primary'] as bool? ?? false,
-        branchType: (j['branch_type'] ?? '').toString(),
-        subscriptionFrom: j['subscription_from'] != null
-            ? DateTime.tryParse(j['subscription_from'].toString())
-            : null,
-        subscriptionTo: j['subscription_to'] != null
-            ? DateTime.tryParse(j['subscription_to'].toString())
-            : null,
-      );
+    id: (j['id'] ?? '').toString(),
+    systemId: (j['system_id'] ?? '').toString(),
+    name: (j['name'] ?? '').toString(),
+    outletCode: (j['branch_code'] ?? j['outlet_code'] ?? '').toString(),
+    gstin: (j['gstin'] ?? '').toString(),
+    city: (j['city'] ?? '').toString(),
+    state: (j['state'] ?? '').toString(),
+    country: (j['country'] ?? 'India').toString(),
+    isActive: j['is_active'] as bool? ?? true,
+    isPrimary: j['is_primary'] as bool? ?? false,
+    branchType: (j['branch_type'] ?? '').toString(),
+    subscriptionFrom: j['subscription_from'] != null
+        ? DateTime.tryParse(j['subscription_from'].toString())
+        : null,
+    subscriptionTo: j['subscription_to'] != null
+        ? DateTime.tryParse(j['subscription_to'].toString())
+        : null,
+  );
 
   String get addressSummary {
     final parts = <String>[
@@ -187,8 +210,10 @@ class _BranchRow {
   String get branchTypeLabel {
     if (branchType.isEmpty) return '';
     final normalized = branchType.toLowerCase();
-    return _kBranchTypes
-        .firstWhere((t) => t['id'] == normalized, orElse: () => {'code': branchType.toUpperCase()})['code']!;
+    return _kBranchTypes.firstWhere(
+      (t) => t['id'] == normalized,
+      orElse: () => {'code': branchType.toUpperCase()},
+    )['code']!;
   }
 
   String get subscriptionPeriod {
@@ -199,6 +224,12 @@ class _BranchRow {
     if (subscriptionFrom != null) return 'From ${_fmtDate(subscriptionFrom!)}';
     return 'Until ${_fmtDate(subscriptionTo!)}';
   }
+}
+
+class _ContactOption {
+  final String id;
+  final String name;
+  const _ContactOption({required this.id, required this.name});
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -236,18 +267,24 @@ class _SettingsBranchesListPageState
     super.dispose();
   }
 
+  String get _currentOrgId {
+    final user = ref.read(authUserProvider);
+    return (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+  }
+
   Future<void> _load() async {
     setState(() => _isLoading = true);
     try {
       final user = ref.read(authUserProvider);
-      final orgId =
-          (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+      final orgId = _currentOrgId;
 
       final orgRes = await _apiClient.get('lookups/org/$orgId');
       if (!mounted) return;
       if (orgRes.success && orgRes.data is Map<String, dynamic>) {
         _organizationName =
-            ((orgRes.data as Map<String, dynamic>)['name'] ?? user?.orgName ?? '')
+            ((orgRes.data as Map<String, dynamic>)['name'] ??
+                    user?.orgName ??
+                    '')
                 .toString()
                 .trim();
       } else {
@@ -256,18 +293,19 @@ class _SettingsBranchesListPageState
 
       final res = await _apiClient.get(
         'branches',
-        queryParameters: <String, dynamic>{
-          'org_id': orgId,
-        },
+        queryParameters: <String, dynamic>{'org_id': orgId},
       );
       if (!mounted) return;
-      final List<dynamic> rows =
-          res.success && res.data is List ? res.data as List<dynamic> : [];
+      final List<dynamic> rows = res.success && res.data is List
+          ? res.data as List<dynamic>
+          : [];
       setState(() {
         _branches = rows
             .whereType<Map<String, dynamic>>()
-            .where((j) =>
-                (j['location_type'] ?? 'business').toString() == 'business')
+            .where(
+              (j) =>
+                  (j['location_type'] ?? 'business').toString() == 'business',
+            )
             .map(_BranchRow.fromJson)
             .toList();
         _isLoading = false;
@@ -340,8 +378,11 @@ class _SettingsBranchesListPageState
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppTheme.borderLight),
                         ),
-                        child: const Icon(LucideIcons.chevronLeft,
-                            size: 20, color: AppTheme.textPrimary),
+                        child: const Icon(
+                          LucideIcons.chevronLeft,
+                          size: 20,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
                     ),
                     const SizedBox(width: AppTheme.space12),
@@ -354,11 +395,15 @@ class _SettingsBranchesListPageState
                             decoration: BoxDecoration(
                               color: const Color(0xFFFFF3EE),
                               borderRadius: BorderRadius.circular(14),
-                              border:
-                                  Border.all(color: const Color(0xFFFED7C3)),
+                              border: Border.all(
+                                color: const Color(0xFFFED7C3),
+                              ),
                             ),
-                            child: const Icon(LucideIcons.settings2,
-                                color: Color(0xFFF97316), size: 22),
+                            child: const Icon(
+                              LucideIcons.settings2,
+                              color: Color(0xFFF97316),
+                              size: 22,
+                            ),
                           ),
                           const SizedBox(width: AppTheme.space16),
                           Expanded(
@@ -411,10 +456,14 @@ class _SettingsBranchesListPageState
                     vertical: AppTheme.space12,
                   ),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                icon: const Icon(LucideIcons.x,
-                    size: 16, color: AppTheme.errorRed),
+                icon: const Icon(
+                  LucideIcons.x,
+                  size: 16,
+                  color: AppTheme.errorRed,
+                ),
                 label: const Text('Close Settings'),
               ),
             ],
@@ -427,10 +476,9 @@ class _SettingsBranchesListPageState
   // ─── Sidebar ───────────────────────────────────────────────────────────────
 
   Widget _buildSidebar() {
-    final String currentPath = GoRouterState.of(context)
-        .uri
-        .path
-        .replaceFirst(RegExp(r'^/\d{10,20}'), '');
+    final String currentPath = GoRouterState.of(
+      context,
+    ).uri.path.replaceFirst(RegExp(r'^/\d{10,20}'), '');
 
     return Container(
       width: 240,
@@ -449,7 +497,9 @@ class _SettingsBranchesListPageState
           for (final section in _navSections) ...[
             Padding(
               padding: const EdgeInsets.only(
-                  left: AppTheme.space4, bottom: AppTheme.space8),
+                left: AppTheme.space4,
+                bottom: AppTheme.space8,
+              ),
               child: Text(
                 section.title.toUpperCase(),
                 style: AppTheme.captionText.copyWith(
@@ -469,8 +519,9 @@ class _SettingsBranchesListPageState
   }
 
   Widget _buildSidebarBlock(_NavBlock block, String currentPath) {
-    final bool hasActiveChild =
-        block.items.any((item) => item.route == currentPath);
+    final bool hasActiveChild = block.items.any(
+      (item) => item.route == currentPath,
+    );
     final bool isExpanded =
         _expandedBlocks.contains(block.title) || hasActiveChild;
 
@@ -505,8 +556,9 @@ class _SettingsBranchesListPageState
                   Expanded(
                     child: Text(
                       block.title,
-                      style: AppTheme.bodyText
-                          .copyWith(fontWeight: FontWeight.w600),
+                      style: AppTheme.bodyText.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -570,19 +622,10 @@ class _SettingsBranchesListPageState
   // ─── Body ──────────────────────────────────────────────────────────────────
 
   Widget _buildBody() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.space32),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1100),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: AppTheme.space24),
-            _buildTable(),
-          ],
-        ),
-      ),
+    return SettingsFixedHeaderLayout(
+      maxWidth: 1100,
+      header: _buildHeader(),
+      body: _buildTable(),
     );
   }
 
@@ -619,11 +662,15 @@ class _SettingsBranchesListPageState
               horizontal: AppTheme.space20,
               vertical: AppTheme.space12,
             ),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
           icon: const Icon(LucideIcons.plus, size: 16),
-          label: const Text('Add Branch',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          label: const Text(
+            'Add Branch',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          ),
         ),
       ],
     );
@@ -663,7 +710,9 @@ class _SettingsBranchesListPageState
     );
     return Container(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.space20, vertical: AppTheme.space12),
+        horizontal: AppTheme.space20,
+        vertical: AppTheme.space12,
+      ),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
       ),
@@ -672,6 +721,7 @@ class _SettingsBranchesListPageState
           SizedBox(width: 20),
           SizedBox(width: AppTheme.space12),
           Expanded(flex: 3, child: Text('NAME', style: style)),
+          Expanded(flex: 2, child: Text('SYSTEM ID', style: style)),
           Expanded(flex: 2, child: Text('BRANCH CODE', style: style)),
           Expanded(flex: 2, child: Text('GSTIN', style: style)),
           Expanded(flex: 2, child: Text('BRANCH TYPE', style: style)),
@@ -685,14 +735,15 @@ class _SettingsBranchesListPageState
 
   Widget _buildRow(_BranchRow branch) {
     final bool isHovered = _hoveredId == branch.id;
-    final Color accentColor = ref.watch(appBrandingProvider).accentColor;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredId = branch.id),
       onExit: (_) => setState(() => _hoveredId = null),
       child: Container(
         padding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.space20, vertical: AppTheme.space14),
+          horizontal: AppTheme.space20,
+          vertical: AppTheme.space14,
+        ),
         decoration: BoxDecoration(
           color: isHovered ? AppTheme.bgLight : Colors.white,
           border: const Border(bottom: BorderSide(color: AppTheme.borderLight)),
@@ -734,10 +785,23 @@ class _SettingsBranchesListPageState
                   ),
                   if (branch.isPrimary) ...[
                     const SizedBox(width: 6),
-                    const Icon(LucideIcons.star,
-                        size: 13, color: Color(0xFFFFC107)),
+                    const Icon(
+                      LucideIcons.star,
+                      size: 13,
+                      color: Color(0xFFFFC107),
+                    ),
                   ],
                 ],
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                branch.systemId.isNotEmpty ? branch.systemId : '—',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                ),
               ),
             ),
             // Branch code
@@ -746,24 +810,29 @@ class _SettingsBranchesListPageState
               child: Text(
                 branch.outletCode.isNotEmpty ? branch.outletCode : '—',
                 style: const TextStyle(
-                    fontSize: 13, color: AppTheme.textSecondary),
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                ),
               ),
             ),
             // GSTIN
             Expanded(
               flex: 2,
               child: branch.gstin.isNotEmpty
-                  ? Text(branch.gstin,
+                  ? Text(
+                      branch.gstin,
                       style: const TextStyle(
-                          fontSize: 13, color: AppTheme.textPrimary))
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
+                    )
                   : GestureDetector(
-                      onTap: () =>
-                          ZerpaiToast.info(context, 'Coming soon'),
+                      onTap: () => _showAssociateGstinDialog(branch),
                       child: Text(
                         'Associate GSTIN >',
                         style: TextStyle(
                           fontSize: 13,
-                          color: accentColor,
+                          color: ref.watch(appBrandingProvider).accentColor,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -773,9 +842,21 @@ class _SettingsBranchesListPageState
             Expanded(
               flex: 2,
               child: branch.branchTypeLabel.isNotEmpty
-                  ? Text(branch.branchTypeLabel,
-                      style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, fontWeight: FontWeight.w500))
-                  : const Text('—', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                  ? Text(
+                      branch.branchTypeLabel,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    )
+                  : const Text(
+                      '—',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
             ),
             // Address
             Expanded(
@@ -789,50 +870,511 @@ class _SettingsBranchesListPageState
             Expanded(
               flex: 3,
               child: branch.subscriptionPeriod.isNotEmpty
-                  ? Text(branch.subscriptionPeriod,
-                      style: const TextStyle(fontSize: 13, color: AppTheme.textBody))
-                  : const Text('—', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                  ? Text(
+                      branch.subscriptionPeriod,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textBody,
+                      ),
+                    )
+                  : const Text(
+                      '—',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
             ),
             // Actions
             SizedBox(
               width: 48,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  PopupMenuButton<String>(
-                    icon: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 150),
-                      child: isHovered
-                          ? Icon(LucideIcons.chevronDown,
-                              key: const ValueKey('chevron'),
-                              size: 16,
-                              color: accentColor)
-                          : const Icon(LucideIcons.moreHorizontal,
-                              key: ValueKey('dots'),
-                              size: 16,
-                              color: AppTheme.textSecondary),
-                    ),
-                    itemBuilder: (_) => <PopupMenuEntry<String>>[
-                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                      const PopupMenuItem(
-                          value: 'delete', child: Text('Delete')),
-                    ],
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        context.go(AppRoutes.settingsBranchEdit
-                            .replaceFirst(':id', branch.id));
-                      } else {
-                        ZerpaiToast.info(context, 'Coming soon');
-                      }
-                    },
-                  ),
-                ],
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: _buildActionMenu(branch, isHovered),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildActionMenu(_BranchRow branch, bool isHovered) {
+    final Color accentColor = ref.watch(appBrandingProvider).accentColor;
+    final MenuController controller = MenuController();
+
+    MenuItemButton buildItem(String label, VoidCallback onPressed) {
+      return MenuItemButton(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+            if (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.focused)) {
+              return AppTheme.primaryBlue;
+            }
+            return Colors.white;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+            if (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.focused)) {
+              return Colors.white;
+            }
+            return AppTheme.textPrimary;
+          }),
+          padding: WidgetStateProperty.all(
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+          shape: WidgetStateProperty.all(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          minimumSize: WidgetStateProperty.all(const Size(150, 40)),
+        ),
+        onPressed: () {
+          controller.close();
+          onPressed();
+        },
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+        ),
+      );
+    }
+
+    return MenuAnchor(
+      controller: controller,
+      crossAxisUnconstrained: false,
+      alignmentOffset: const Offset(-138, 8),
+      style: MenuStyle(
+        backgroundColor: WidgetStateProperty.all(Colors.white),
+        surfaceTintColor: WidgetStateProperty.all(Colors.white),
+        elevation: WidgetStateProperty.all(8),
+        padding: WidgetStateProperty.all(const EdgeInsets.all(8)),
+        side: WidgetStateProperty.all(
+          const BorderSide(color: AppTheme.borderLight),
+        ),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      menuChildren: [
+        buildItem('Edit', () {
+          context.go(
+            AppRoutes.settingsBranchEdit.replaceFirst(':id', branch.id),
+          );
+        }),
+        buildItem('Associate GSTIN', () => _showAssociateGstinDialog(branch)),
+        buildItem('Delete', () => _confirmDelete(branch)),
+        buildItem('Enable bin locations', () => _openBinLocations(branch)),
+        buildItem(
+          'Associate Contacts',
+          () => _showAssociateContactsDialog(branch),
+        ),
+      ],
+      builder: (context, menuController, child) {
+        return IconButton(
+          onPressed: () {
+            if (menuController.isOpen) {
+              menuController.close();
+            } else {
+              menuController.open();
+            }
+          },
+          splashRadius: 18,
+          icon: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            child: isHovered
+                ? Icon(
+                    LucideIcons.chevronDown,
+                    key: const ValueKey('chevron'),
+                    size: 16,
+                    color: accentColor,
+                  )
+                : const Icon(
+                    LucideIcons.moreHorizontal,
+                    key: ValueKey('dots'),
+                    size: 16,
+                    color: AppTheme.textSecondary,
+                  ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showAssociateContactsDialog(_BranchRow branch) async {
+    final orgId = _currentOrgId;
+    List<_ContactOption> users = [];
+    String? selectedUserId;
+
+    try {
+      final res = await _apiClient.get(
+        'users',
+        queryParameters: {'org_id': orgId},
+      );
+      if (res.success && res.data is List) {
+        users = (res.data as List)
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (user) => _ContactOption(
+                id: (user['id'] ?? '').toString(),
+                name:
+                    ((user['name'] ?? user['full_name'] ?? user['email']) ?? '')
+                        .toString(),
+              ),
+            )
+            .where((user) => user.id.isNotEmpty && user.name.isNotEmpty)
+            .toList();
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: SizedBox(
+            width: 460,
+            child: Padding(
+              padding: const EdgeInsets.all(AppTheme.space24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Associate Contacts',
+                          style: AppTheme.pageTitle.copyWith(fontSize: 18),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(LucideIcons.x, size: 18),
+                        color: AppTheme.textSecondary,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.space8),
+                  Text(
+                    'Set the primary contact for ${branch.name}.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space20),
+                  FormDropdown<String>(
+                    items: users.map((user) => user.id).toList(),
+                    value: selectedUserId,
+                    hint: 'Select primary contact',
+                    displayStringForValue: (id) {
+                      final match = users.firstWhere(
+                        (user) => user.id == id,
+                        orElse: () => _ContactOption(id: id, name: id),
+                      );
+                      return match.name;
+                    },
+                    onChanged: (value) =>
+                        setDialogState(() => selectedUserId = value),
+                  ),
+                  const SizedBox(height: AppTheme.space24),
+                  Row(
+                    children: [
+                      Consumer(
+                        builder: (_, ref, __) {
+                          final accentColor = ref
+                              .watch(appBrandingProvider)
+                              .accentColor;
+                          return ElevatedButton(
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              try {
+                                final res = await _apiClient.put(
+                                  'branches/${branch.id}',
+                                  data: {
+                                    'org_id': orgId,
+                                    'primary_contact_id': selectedUserId,
+                                  },
+                                );
+                                if (!mounted) return;
+                                if (res.success) {
+                                  ZerpaiToast.success(
+                                    context,
+                                    'Contacts associated',
+                                  );
+                                  _load();
+                                } else {
+                                  ZerpaiToast.error(
+                                    context,
+                                    res.message ??
+                                        'Failed to associate contacts',
+                                  );
+                                }
+                              } catch (_) {
+                                if (mounted) {
+                                  ZerpaiToast.error(
+                                    context,
+                                    'Failed to associate contacts',
+                                  );
+                                }
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accentColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Update'),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: AppTheme.space12),
+                      OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(_BranchRow branch) async {
+    final cancelled = await showZerpaiConfirmationDialog(
+      context,
+      title: 'Delete Branch',
+      message: 'Delete "${branch.name}"? This cannot be undone.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      variant: ZerpaiConfirmationVariant.danger,
+    );
+    if (cancelled || !mounted) return;
+
+    try {
+      final res = await _apiClient.delete(
+        'branches/${branch.id}?org_id=$_currentOrgId',
+      );
+      if (!mounted) return;
+      if (res.success) {
+        ZerpaiToast.success(context, 'Branch deleted');
+        _load();
+      } else {
+        ZerpaiToast.error(context, res.message ?? 'Failed to delete branch');
+      }
+    } catch (_) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to delete branch');
+      }
+    }
+  }
+
+  Future<void> _showAssociateGstinDialog(_BranchRow branch) async {
+    final orgId = _currentOrgId;
+    final TextEditingController gstinCtrl = TextEditingController(
+      text: branch.gstin,
+    );
+    String? selectedExistingGstin = branch.gstin.isNotEmpty
+        ? branch.gstin
+        : null;
+    final existingGstins =
+        _branches
+            .where((row) => row.id != branch.id && row.gstin.isNotEmpty)
+            .map((row) => row.gstin)
+            .toSet()
+            .toList()
+          ..sort();
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: SizedBox(
+            width: 520,
+            child: Padding(
+              padding: const EdgeInsets.all(AppTheme.space24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Associate GSTIN',
+                          style: AppTheme.pageTitle.copyWith(fontSize: 18),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(LucideIcons.x, size: 18),
+                        color: AppTheme.textSecondary,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.space8),
+                  Text(
+                    'Update GSTIN for ${branch.name}.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space20),
+                  if (existingGstins.isNotEmpty) ...[
+                    FormDropdown<String>(
+                      items: existingGstins,
+                      value: selectedExistingGstin,
+                      hint: 'Associate existing GSTIN',
+                      onChanged: (value) => setDialogState(() {
+                        selectedExistingGstin = value;
+                        if (value != null && value.isNotEmpty) {
+                          gstinCtrl.text = value;
+                        }
+                      }),
+                    ),
+                    const SizedBox(height: AppTheme.space12),
+                    const Text(
+                      'Or enter a GSTIN manually',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.space8),
+                  ],
+                  TextField(
+                    controller: gstinCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Enter GSTIN',
+                      hintStyle: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: Colors.white,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: const BorderSide(
+                          color: AppTheme.borderColor,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: const BorderSide(
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space24),
+                  Row(
+                    children: [
+                      Consumer(
+                        builder: (_, ref, __) {
+                          final accentColor = ref
+                              .watch(appBrandingProvider)
+                              .accentColor;
+                          return ElevatedButton(
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              try {
+                                final res = await _apiClient.put(
+                                  'branches/${branch.id}',
+                                  data: {
+                                    'org_id': orgId,
+                                    'gstin': gstinCtrl.text.trim().isEmpty
+                                        ? null
+                                        : gstinCtrl.text.trim(),
+                                  },
+                                );
+                                if (!mounted) return;
+                                if (res.success) {
+                                  ZerpaiToast.success(
+                                    context,
+                                    'GSTIN associated',
+                                  );
+                                  _load();
+                                } else {
+                                  ZerpaiToast.error(
+                                    context,
+                                    res.message ?? 'Failed to update GSTIN',
+                                  );
+                                }
+                              } catch (_) {
+                                if (mounted) {
+                                  ZerpaiToast.error(
+                                    context,
+                                    'Failed to update GSTIN',
+                                  );
+                                }
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accentColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Update'),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: AppTheme.space12),
+                      OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    gstinCtrl.dispose();
+  }
+
+  Future<void> _openBinLocations(_BranchRow branch) async {
+    final cancelled = await showZerpaiConfirmationDialog(
+      context,
+      title: 'Enable Bin Locations',
+      message:
+          'Bin locations are configured from Locations settings. Open Locations to continue for "${branch.name}".',
+      confirmLabel: 'Open Locations',
+      cancelLabel: 'Cancel',
+    );
+    if (cancelled || !mounted) return;
+    context.go(AppRoutes.settingsLocations);
   }
 
   Widget _buildEmptyState() {
@@ -848,8 +1390,11 @@ class _SettingsBranchesListPageState
                 color: AppTheme.infoBg,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(LucideIcons.building2,
-                  color: AppTheme.primaryBlue, size: 24),
+              child: const Icon(
+                LucideIcons.building2,
+                color: AppTheme.primaryBlue,
+                size: 24,
+              ),
             ),
             const SizedBox(height: AppTheme.space16),
             const Text(

@@ -1,6 +1,10 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show FilteringTextInputFormatter, LengthLimitingTextInputFormatter, TextInputFormatter;
+import 'package:flutter/services.dart'
+    show
+        FilteringTextInputFormatter,
+        LengthLimitingTextInputFormatter,
+        TextInputFormatter;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -14,6 +18,7 @@ import 'package:zerpai_erp/shared/services/storage_service.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/transaction_series_dropdown.dart';
+import 'package:zerpai_erp/shared/widgets/settings_fixed_header_layout.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 const String _kDevOrgId = '00000000-0000-0000-0000-000000000002';
@@ -95,8 +100,8 @@ const List<_NavSection> _navSections = <_NavSection>[
       _NavBlock(
         title: 'Users & Roles',
         items: <_NavEntry>[
-          _NavEntry(label: 'Users'),
-          _NavEntry(label: 'Roles'),
+          _NavEntry(label: 'Users', route: AppRoutes.settingsUsers),
+          _NavEntry(label: 'Roles', route: AppRoutes.settingsRoles),
           _NavEntry(label: 'User Preferences'),
         ],
       ),
@@ -191,8 +196,8 @@ class _SeriesModuleRow {
   final TextEditingController prefixCtrl;
   final TextEditingController startingCtrl;
   _SeriesModuleRow({required String prefix, required String starting})
-      : prefixCtrl = TextEditingController(text: prefix),
-        startingCtrl = TextEditingController(text: starting);
+    : prefixCtrl = TextEditingController(text: prefix),
+      startingCtrl = TextEditingController(text: starting);
   void dispose() {
     prefixCtrl.dispose();
     startingCtrl.dispose();
@@ -200,23 +205,77 @@ class _SeriesModuleRow {
 }
 
 const List<Map<String, String>> _kSeriesModules = [
-  {'key': 'credit_note', 'label': 'Credit Note', 'prefix': 'CN-', 'starting': '00001'},
-  {'key': 'customer_payment', 'label': 'Customer Payment', 'prefix': '', 'starting': '1'},
-  {'key': 'purchase_order', 'label': 'Purchase Order', 'prefix': 'PO-', 'starting': '00001'},
-  {'key': 'sales_order', 'label': 'Sales Order', 'prefix': 'SO-', 'starting': '00001'},
-  {'key': 'vendor_payment', 'label': 'Vendor Payment', 'prefix': '', 'starting': '1'},
-  {'key': 'retainer_invoice', 'label': 'Retainer Invoice', 'prefix': 'RET-', 'starting': '00001'},
-  {'key': 'bill_of_supply', 'label': 'Bill Of Supply', 'prefix': 'BOS-', 'starting': '000001'},
-  {'key': 'invoice', 'label': 'Invoice', 'prefix': 'INV-', 'starting': '000001'},
-  {'key': 'delivery_challan', 'label': 'Delivery Challan', 'prefix': 'DC-', 'starting': '00001'},
-  {'key': 'self_invoice', 'label': 'Self-Invoice', 'prefix': '', 'starting': '1'},
+  {
+    'key': 'credit_note',
+    'label': 'Credit Note',
+    'prefix': 'CN-',
+    'starting': '00001',
+  },
+  {
+    'key': 'customer_payment',
+    'label': 'Customer Payment',
+    'prefix': '',
+    'starting': '1',
+  },
+  {
+    'key': 'purchase_order',
+    'label': 'Purchase Order',
+    'prefix': 'PO-',
+    'starting': '00001',
+  },
+  {
+    'key': 'sales_order',
+    'label': 'Sales Order',
+    'prefix': 'SO-',
+    'starting': '00001',
+  },
+  {
+    'key': 'vendor_payment',
+    'label': 'Vendor Payment',
+    'prefix': '',
+    'starting': '1',
+  },
+  {
+    'key': 'retainer_invoice',
+    'label': 'Retainer Invoice',
+    'prefix': 'RET-',
+    'starting': '00001',
+  },
+  {
+    'key': 'bill_of_supply',
+    'label': 'Bill Of Supply',
+    'prefix': 'BOS-',
+    'starting': '000001',
+  },
+  {
+    'key': 'invoice',
+    'label': 'Invoice',
+    'prefix': 'INV-',
+    'starting': '000001',
+  },
+  {
+    'key': 'delivery_challan',
+    'label': 'Delivery Challan',
+    'prefix': 'DC-',
+    'starting': '00001',
+  },
+  {
+    'key': 'self_invoice',
+    'label': 'Self-Invoice',
+    'prefix': '',
+    'starting': '1',
+  },
 ];
 
 class _AccountOption {
   final String id;
   final String name;
   final String? accountType;
-  const _AccountOption({required this.id, required this.name, this.accountType});
+  const _AccountOption({
+    required this.id,
+    required this.name,
+    this.accountType,
+  });
 }
 
 class _GstinData {
@@ -281,8 +340,9 @@ class _IndiaPhoneFormatter extends TextInputFormatter {
     }
 
     // Prefix intact — only digits allowed after it
-    String digits =
-        text.substring(_prefix.length).replaceAll(RegExp(r'\D'), '');
+    String digits = text
+        .substring(_prefix.length)
+        .replaceAll(RegExp(r'\D'), '');
     if (digits.length > 10) digits = digits.substring(0, 10);
     final result = _prefix + digits;
     return TextEditingValue(
@@ -429,10 +489,12 @@ class _SettingsLocationsCreatePageState
         final list = (res.data as List).cast<Map<String, dynamic>>();
         setState(() {
           _outlets = list
-              .where((o) =>
-                  o['id'] != widget.outletId &&
-                  (o['parent_outlet_id'] == null ||
-                      (o['parent_outlet_id'] as String?)?.isEmpty != false))
+              .where(
+                (o) =>
+                    o['id'] != widget.outletId &&
+                    (o['parent_outlet_id'] == null ||
+                        (o['parent_outlet_id'] as String?)?.isEmpty != false),
+              )
               .map(
                 (o) => _OutletOption(
                   id: o['id'].toString(),
@@ -448,8 +510,7 @@ class _SettingsLocationsCreatePageState
   Future<void> _loadTransactionSeries() async {
     try {
       final user = ref.read(authUserProvider);
-      final orgId =
-          (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+      final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
       final res = await _apiClient.get(
         '/transaction-series',
         queryParameters: {'org_id': orgId},
@@ -459,10 +520,12 @@ class _SettingsLocationsCreatePageState
         setState(() {
           _transactionSeries = (res.data as List)
               .cast<Map<String, dynamic>>()
-              .map((s) => _SeriesOption(
-                    id: s['id'].toString(),
-                    name: (s['name'] ?? s['series_name'] ?? '').toString(),
-                  ))
+              .map(
+                (s) => _SeriesOption(
+                  id: s['id'].toString(),
+                  name: (s['name'] ?? s['series_name'] ?? '').toString(),
+                ),
+              )
               .toList();
         });
       }
@@ -472,8 +535,7 @@ class _SettingsLocationsCreatePageState
   Future<void> _loadAccounts() async {
     try {
       final user = ref.read(authUserProvider);
-      final orgId =
-          (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+      final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
       final res = await _apiClient.get(
         '/accountant',
         queryParameters: {'orgId': orgId},
@@ -492,11 +554,15 @@ class _SettingsLocationsCreatePageState
                     .replaceAll(' ', '_');
                 return expenseTypes.contains(t);
               })
-              .map((a) => _AccountOption(
-                    id: a['id'].toString(),
-                    name: (a['user_account_name'] ?? a['system_account_name'] ?? '').toString(),
-                    accountType: (a['account_type'] ?? '').toString(),
-                  ))
+              .map(
+                (a) => _AccountOption(
+                  id: a['id'].toString(),
+                  name:
+                      (a['user_account_name'] ?? a['system_account_name'] ?? '')
+                          .toString(),
+                  accountType: (a['account_type'] ?? '').toString(),
+                ),
+              )
               .toList();
         });
       }
@@ -507,8 +573,7 @@ class _SettingsLocationsCreatePageState
     setState(() => _isLoading = true);
     try {
       final user = ref.read(authUserProvider);
-      final orgId =
-          (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+      final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
       final res = await _apiClient.get(
         '/outlets/${widget.outletId}',
         queryParameters: {'org_id': orgId},
@@ -556,7 +621,8 @@ class _SettingsLocationsCreatePageState
               registeredOn: d['gstin_registered_on']?.toString(),
               reverseCharge: d['gstin_reverse_charge'] == true,
               importExport: d['gstin_import_export'] == true,
-              customDutyAccountId: d['gstin_custom_duty_account_id']?.toString(),
+              customDutyAccountId: d['gstin_custom_duty_account_id']
+                  ?.toString(),
               digitalServices: d['gstin_digital_services'] == true,
             );
           }
@@ -601,21 +667,23 @@ class _SettingsLocationsCreatePageState
           : _kDevOrgId;
 
       // Duplicate name check (same org, excluding self when editing)
-      final nameCheck = await ref.read(apiClientProvider).get(
-            '/outlets',
-            queryParameters: {'org_id': orgId},
-          );
+      final nameCheck = await ref
+          .read(apiClientProvider)
+          .get('/outlets', queryParameters: {'org_id': orgId});
       if (nameCheck.success && nameCheck.data is List) {
         final trimmed = _nameCtrl.text.trim().toLowerCase();
         final duplicate = (nameCheck.data as List).any((o) {
-          final isSelf = widget.outletId != null &&
-              o['id']?.toString() == widget.outletId;
+          final isSelf =
+              widget.outletId != null && o['id']?.toString() == widget.outletId;
           return !isSelf &&
               (o['name'] ?? '').toString().toLowerCase() == trimmed;
         });
         if (duplicate) {
           setState(() => _isSaving = false);
-          ZerpaiToast.error(context, 'A location with this name already exists.');
+          ZerpaiToast.error(
+            context,
+            'A location with this name already exists.',
+          );
           return;
         }
       }
@@ -1000,44 +1068,39 @@ class _SettingsLocationsCreatePageState
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.space32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _isEditing ? 'Edit Location' : 'Add Location',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: AppTheme.space24),
-                _buildLocationTypeSelector(),
-                const SizedBox(height: AppTheme.space24),
-                _buildMainFields(),
-                const SizedBox(height: AppTheme.space20),
-                _buildAddressSection(),
-                const SizedBox(height: AppTheme.space20),
-                _buildBottomFields(),
-                const SizedBox(height: AppTheme.space20),
-                if (_isBusiness) ...[
-                  _buildTransactionSeriesSection(),
-                  const SizedBox(height: AppTheme.space20),
-                ],
-                _buildLocationAccessSection(),
-                const SizedBox(height: AppTheme.space32),
-                _buildActions(),
-                const SizedBox(height: AppTheme.space48),
-              ],
-            ),
+    return Form(
+      key: _formKey,
+      child: SettingsFixedHeaderLayout(
+        maxWidth: 760,
+        contentAlignment: Alignment.topCenter,
+        header: Text(
+          _isEditing ? 'Edit Location' : 'Add Location',
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textPrimary,
           ),
+        ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLocationTypeSelector(),
+            const SizedBox(height: AppTheme.space24),
+            _buildMainFields(),
+            const SizedBox(height: AppTheme.space20),
+            _buildAddressSection(),
+            const SizedBox(height: AppTheme.space20),
+            _buildBottomFields(),
+            const SizedBox(height: AppTheme.space20),
+            if (_isBusiness) ...[
+              _buildTransactionSeriesSection(),
+              const SizedBox(height: AppTheme.space20),
+            ],
+            _buildLocationAccessSection(),
+            const SizedBox(height: AppTheme.space32),
+            _buildActions(),
+            const SizedBox(height: AppTheme.space48),
+          ],
         ),
       ),
     );
@@ -1435,12 +1498,15 @@ class _SettingsLocationsCreatePageState
   Future<void> _showNewGstinDialog(BuildContext ctx) async {
     // Local state for dialog
     final gstinCtrl = TextEditingController(text: _gstinData?.gstin ?? '');
-    final legalNameCtrl =
-        TextEditingController(text: _gstinData?.legalName ?? '');
-    final tradeNameCtrl =
-        TextEditingController(text: _gstinData?.tradeName ?? '');
-    final registeredOnCtrl =
-        TextEditingController(text: _gstinData?.registeredOn ?? '');
+    final legalNameCtrl = TextEditingController(
+      text: _gstinData?.legalName ?? '',
+    );
+    final tradeNameCtrl = TextEditingController(
+      text: _gstinData?.tradeName ?? '',
+    );
+    final registeredOnCtrl = TextEditingController(
+      text: _gstinData?.registeredOn ?? '',
+    );
     String? regType = _gstinData?.registrationType;
     bool reverseCharge = _gstinData?.reverseCharge ?? false;
     bool importExport = _gstinData?.importExport ?? false;
@@ -1479,7 +1545,10 @@ class _SettingsLocationsCreatePageState
         });
       } catch (e) {
         setS(() {
-          fetchError = e.toString().replaceFirst('DioException [bad response]: ', '');
+          fetchError = e.toString().replaceFirst(
+            'DioException [bad response]: ',
+            '',
+          );
           fetchingGstin = false;
         });
       }
@@ -1492,8 +1561,9 @@ class _SettingsLocationsCreatePageState
         builder: (dialogCtx, setS) {
           return Dialog(
             backgroundColor: Colors.white,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 640),
               child: Column(
@@ -1517,8 +1587,11 @@ class _SettingsLocationsCreatePageState
                         ),
                         IconButton(
                           onPressed: () => Navigator.pop(dialogCtx),
-                          icon: const Icon(LucideIcons.x,
-                              size: 18, color: AppTheme.errorRed),
+                          icon: const Icon(
+                            LucideIcons.x,
+                            size: 18,
+                            color: AppTheme.errorRed,
+                          ),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
@@ -1545,10 +1618,12 @@ class _SettingsLocationsCreatePageState
                                   textCapitalization:
                                       TextCapitalization.characters,
                                   decoration: _dialogInputDecoration(
-                                      'e.g. 27ABCDE1234F2Z5'),
+                                    'e.g. 27ABCDE1234F2Z5',
+                                  ),
                                   style: const TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.textPrimary),
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimary,
+                                  ),
                                   onChanged: (_) =>
                                       setS(() => gstinError = null),
                                 ),
@@ -1570,7 +1645,9 @@ class _SettingsLocationsCreatePageState
                                       const SizedBox(
                                         width: 12,
                                         height: 12,
-                                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 1.5,
+                                        ),
                                       )
                                     else
                                       GestureDetector(
@@ -1580,7 +1657,8 @@ class _SettingsLocationsCreatePageState
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: AppTheme.primaryBlue,
-                                            decoration: TextDecoration.underline,
+                                            decoration:
+                                                TextDecoration.underline,
                                           ),
                                         ),
                                       ),
@@ -1610,8 +1688,7 @@ class _SettingsLocationsCreatePageState
                               items: _kGstRegistrationTypes,
                               displayStringForValue: (t) => t['label'] ?? '',
                               hint: 'Select a Registration Type',
-                              onChanged: (t) =>
-                                  setS(() => regType = t?['id']),
+                              onChanged: (t) => setS(() => regType = t?['id']),
                             ),
                           ),
                           const SizedBox(height: AppTheme.space16),
@@ -1620,10 +1697,11 @@ class _SettingsLocationsCreatePageState
                             label: 'Business Legal Name',
                             child: TextFormField(
                               controller: legalNameCtrl,
-                              decoration:
-                                  _dialogInputDecoration('Legal name'),
+                              decoration: _dialogInputDecoration('Legal name'),
                               style: const TextStyle(
-                                  fontSize: 13, color: AppTheme.textPrimary),
+                                fontSize: 13,
+                                color: AppTheme.textPrimary,
+                              ),
                             ),
                           ),
                           const SizedBox(height: AppTheme.space16),
@@ -1632,10 +1710,11 @@ class _SettingsLocationsCreatePageState
                             label: 'Business Trade Name',
                             child: TextFormField(
                               controller: tradeNameCtrl,
-                              decoration:
-                                  _dialogInputDecoration('Trade name'),
+                              decoration: _dialogInputDecoration('Trade name'),
                               style: const TextStyle(
-                                  fontSize: 13, color: AppTheme.textPrimary),
+                                fontSize: 13,
+                                color: AppTheme.textPrimary,
+                              ),
                             ),
                           ),
                           const SizedBox(height: AppTheme.space16),
@@ -1644,11 +1723,12 @@ class _SettingsLocationsCreatePageState
                             label: 'GST Registered On',
                             child: TextFormField(
                               controller: registeredOnCtrl,
-                              decoration:
-                                  _dialogInputDecoration('dd-MM-yyyy'),
+                              decoration: _dialogInputDecoration('dd-MM-yyyy'),
                               keyboardType: TextInputType.datetime,
                               style: const TextStyle(
-                                  fontSize: 13, color: AppTheme.textPrimary),
+                                fontSize: 13,
+                                color: AppTheme.textPrimary,
+                              ),
                             ),
                           ),
                           const SizedBox(height: AppTheme.space16),
@@ -1666,7 +1746,8 @@ class _SettingsLocationsCreatePageState
                                       child: Checkbox(
                                         value: reverseCharge,
                                         onChanged: (v) => setS(
-                                            () => reverseCharge = v ?? false),
+                                          () => reverseCharge = v ?? false,
+                                        ),
                                         materialTapTargetSize:
                                             MaterialTapTargetSize.shrinkWrap,
                                       ),
@@ -1675,8 +1756,9 @@ class _SettingsLocationsCreatePageState
                                     const Text(
                                       'Enable Reverse Charge in Sales transactions',
                                       style: TextStyle(
-                                          fontSize: 13,
-                                          color: AppTheme.textBody),
+                                        fontSize: 13,
+                                        color: AppTheme.textBody,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1710,7 +1792,8 @@ class _SettingsLocationsCreatePageState
                                       child: Checkbox(
                                         value: importExport,
                                         onChanged: (v) => setS(
-                                            () => importExport = v ?? false),
+                                          () => importExport = v ?? false,
+                                        ),
                                         materialTapTargetSize:
                                             MaterialTapTargetSize.shrinkWrap,
                                       ),
@@ -1719,8 +1802,9 @@ class _SettingsLocationsCreatePageState
                                     const Text(
                                       'My business is involved in SEZ / Overseas Trading',
                                       style: TextStyle(
-                                          fontSize: 13,
-                                          color: AppTheme.textBody),
+                                        fontSize: 13,
+                                        color: AppTheme.textBody,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1738,7 +1822,8 @@ class _SettingsLocationsCreatePageState
                                         TextSpan(
                                           text: ' *',
                                           style: TextStyle(
-                                              color: AppTheme.errorRed),
+                                            color: AppTheme.errorRed,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -1746,14 +1831,15 @@ class _SettingsLocationsCreatePageState
                                   const SizedBox(height: 6),
                                   FormDropdown<_AccountOption>(
                                     value: _accounts
-                                        .where((a) =>
-                                            a.id == customDutyAccountId)
+                                        .where(
+                                          (a) => a.id == customDutyAccountId,
+                                        )
                                         .firstOrNull,
                                     items: _accounts,
                                     displayStringForValue: (a) => a.name,
                                     hint: 'Select an account',
-                                    onChanged: (a) => setS(
-                                        () => customDutyAccountId = a?.id),
+                                    onChanged: (a) =>
+                                        setS(() => customDutyAccountId = a?.id),
                                   ),
                                   const SizedBox(height: 4),
                                   const Text(
@@ -1782,7 +1868,8 @@ class _SettingsLocationsCreatePageState
                                       child: Checkbox(
                                         value: digitalServices,
                                         onChanged: (v) => setS(
-                                            () => digitalServices = v ?? false),
+                                          () => digitalServices = v ?? false,
+                                        ),
                                         materialTapTargetSize:
                                             MaterialTapTargetSize.shrinkWrap,
                                       ),
@@ -1791,8 +1878,9 @@ class _SettingsLocationsCreatePageState
                                     const Text(
                                       'Track sale of digital services to overseas customers',
                                       style: TextStyle(
-                                          fontSize: 13,
-                                          color: AppTheme.textBody),
+                                        fontSize: 13,
+                                        color: AppTheme.textBody,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1802,8 +1890,9 @@ class _SettingsLocationsCreatePageState
                                     child: Text(
                                       'If you disable this option, any digital service created by you will be considered as a service.',
                                       style: TextStyle(
-                                          fontSize: 11,
-                                          color: AppTheme.textSecondary),
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondary,
+                                      ),
                                     ),
                                   )
                                 else
@@ -1812,8 +1901,9 @@ class _SettingsLocationsCreatePageState
                                     child: Text(
                                       'Enabling this option will let you record and track export of digital services to individuals.',
                                       style: TextStyle(
-                                          fontSize: 11,
-                                          color: AppTheme.textSecondary),
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondary,
+                                      ),
                                     ),
                                   ),
                               ],
@@ -1836,8 +1926,10 @@ class _SettingsLocationsCreatePageState
                               r'^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$',
                             );
                             if (g.isEmpty || !gstinRegex.hasMatch(g)) {
-                              setS(() => gstinError =
-                                  'Enter a valid 15-character GSTIN');
+                              setS(
+                                () => gstinError =
+                                    'Enter a valid 15-character GSTIN',
+                              );
                               return;
                             }
                             Navigator.pop(
@@ -1859,28 +1951,41 @@ class _SettingsLocationsCreatePageState
                             backgroundColor: AppTheme.successGreen,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6)),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
                           ),
-                          child: const Text('Save',
-                              style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w600)),
+                          child: const Text(
+                            'Save',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 12),
                         OutlinedButton(
                           onPressed: () => Navigator.pop(dialogCtx),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6)),
-                            side:
-                                const BorderSide(color: AppTheme.borderColor),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            side: const BorderSide(color: AppTheme.borderColor),
                           ),
-                          child: const Text('Cancel',
-                              style: TextStyle(
-                                  fontSize: 13, color: AppTheme.textBody)),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textBody,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -1916,10 +2021,7 @@ class _SettingsLocationsCreatePageState
             child: RichText(
               text: TextSpan(
                 text: label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textBody,
-                ),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
                 children: required
                     ? const [
                         TextSpan(
@@ -1941,10 +2043,8 @@ class _SettingsLocationsCreatePageState
   InputDecoration _dialogInputDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle:
-          const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(4),
         borderSide: const BorderSide(color: AppTheme.borderColor),
@@ -2066,7 +2166,9 @@ class _SettingsLocationsCreatePageState
                     validator: (v) {
                       final s = v?.trim() ?? '';
                       if (s == '+91' || s == '+91 ' || s.isEmpty) return null;
-                      final digits = s.replaceFirst('+91', '').replaceAll(RegExp(r'\D'), '');
+                      final digits = s
+                          .replaceFirst('+91', '')
+                          .replaceAll(RegExp(r'\D'), '');
                       if (digits.length != 10) {
                         return 'Enter a valid 10-digit phone number';
                       }
@@ -2082,7 +2184,9 @@ class _SettingsLocationsCreatePageState
                     hint: 'Fax number',
                     keyboardType: TextInputType.phone,
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[\d\s\+\-\(\)]')),
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[\d\s\+\-\(\)]'),
+                      ),
                     ],
                     validator: (v) {
                       final s = v?.trim() ?? '';
@@ -2168,8 +2272,10 @@ class _SettingsLocationsCreatePageState
               multiSelect: false,
               accentColor: accentColor,
               onChanged: (ids) => setState(
-                  () => _selectedDefaultSeriesId =
-                      ids.isNotEmpty ? ids.first : null),
+                () => _selectedDefaultSeriesId = ids.isNotEmpty
+                    ? ids.first
+                    : null,
+              ),
               onAddTap: _showCreateSeriesDialog,
             ),
           ],
@@ -2186,10 +2292,10 @@ class _SettingsLocationsCreatePageState
 
     // Create a row controller per module
     final rows = _kSeriesModules
-        .map((m) => _SeriesModuleRow(
-              prefix: m['prefix']!,
-              starting: m['starting']!,
-            ))
+        .map(
+          (m) =>
+              _SeriesModuleRow(prefix: m['prefix']!, starting: m['starting']!),
+        )
         .toList();
 
     bool isSaving = false;
@@ -2208,7 +2314,8 @@ class _SettingsLocationsCreatePageState
           return Dialog(
             backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 680),
               child: Column(
@@ -2232,8 +2339,11 @@ class _SettingsLocationsCreatePageState
                         ),
                         IconButton(
                           onPressed: () => Navigator.pop(ctx),
-                          icon: const Icon(LucideIcons.x,
-                              size: 18, color: AppTheme.errorRed),
+                          icon: const Icon(
+                            LucideIcons.x,
+                            size: 18,
+                            color: AppTheme.errorRed,
+                          ),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
@@ -2255,14 +2365,14 @@ class _SettingsLocationsCreatePageState
                               text: const TextSpan(
                                 text: 'Series Name',
                                 style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.errorRed,
-                                    fontWeight: FontWeight.w500),
+                                  fontSize: 13,
+                                  color: AppTheme.errorRed,
+                                  fontWeight: FontWeight.w500,
+                                ),
                                 children: [
                                   TextSpan(
                                     text: '*',
-                                    style:
-                                        TextStyle(color: AppTheme.errorRed),
+                                    style: TextStyle(color: AppTheme.errorRed),
                                   ),
                                 ],
                               ),
@@ -2276,14 +2386,14 @@ class _SettingsLocationsCreatePageState
                             children: [
                               TextField(
                                 controller: nameCtrl,
-                                onChanged: (_) =>
-                                    setS(() => nameError = null),
-                                decoration: _dialogInputDecoration('').copyWith(
-                                  errorText: nameError,
-                                ),
+                                onChanged: (_) => setS(() => nameError = null),
+                                decoration: _dialogInputDecoration(
+                                  '',
+                                ).copyWith(errorText: nameError),
                                 style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.textPrimary),
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
                               ),
                             ],
                           ),
@@ -2302,10 +2412,10 @@ class _SettingsLocationsCreatePageState
                             Container(
                               decoration: const BoxDecoration(
                                 border: Border(
-                                  top: BorderSide(
-                                      color: AppTheme.borderLight),
+                                  top: BorderSide(color: AppTheme.borderLight),
                                   bottom: BorderSide(
-                                      color: AppTheme.borderLight),
+                                    color: AppTheme.borderLight,
+                                  ),
                                 ),
                               ),
                               child: const Row(
@@ -2314,52 +2424,72 @@ class _SettingsLocationsCreatePageState
                                     flex: 3,
                                     child: Padding(
                                       padding: EdgeInsets.symmetric(
-                                          vertical: 10, horizontal: 8),
-                                      child: Text('MODULE',
-                                          style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppTheme.textSecondary,
-                                              letterSpacing: 0.5)),
+                                        vertical: 10,
+                                        horizontal: 8,
+                                      ),
+                                      child: Text(
+                                        'MODULE',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppTheme.textSecondary,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   Expanded(
                                     flex: 3,
                                     child: Padding(
                                       padding: EdgeInsets.symmetric(
-                                          vertical: 10, horizontal: 8),
-                                      child: Text('PREFIX',
-                                          style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppTheme.textSecondary,
-                                              letterSpacing: 0.5)),
+                                        vertical: 10,
+                                        horizontal: 8,
+                                      ),
+                                      child: Text(
+                                        'PREFIX',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppTheme.textSecondary,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   Expanded(
                                     flex: 3,
                                     child: Padding(
                                       padding: EdgeInsets.symmetric(
-                                          vertical: 10, horizontal: 8),
-                                      child: Text('STARTING NUMBER',
-                                          style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppTheme.textSecondary,
-                                              letterSpacing: 0.5)),
+                                        vertical: 10,
+                                        horizontal: 8,
+                                      ),
+                                      child: Text(
+                                        'STARTING NUMBER',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppTheme.textSecondary,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   Expanded(
                                     flex: 3,
                                     child: Padding(
                                       padding: EdgeInsets.symmetric(
-                                          vertical: 10, horizontal: 8),
-                                      child: Text('PREVIEW',
-                                          style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppTheme.textSecondary,
-                                              letterSpacing: 0.5)),
+                                        vertical: 10,
+                                        horizontal: 8,
+                                      ),
+                                      child: Text(
+                                        'PREVIEW',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppTheme.textSecondary,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -2371,7 +2501,8 @@ class _SettingsLocationsCreatePageState
                                 decoration: const BoxDecoration(
                                   border: Border(
                                     bottom: BorderSide(
-                                        color: AppTheme.borderLight),
+                                      color: AppTheme.borderLight,
+                                    ),
                                   ),
                                 ),
                                 child: Row(
@@ -2381,12 +2512,15 @@ class _SettingsLocationsCreatePageState
                                       flex: 3,
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(
-                                            vertical: 8, horizontal: 8),
+                                          vertical: 8,
+                                          horizontal: 8,
+                                        ),
                                         child: Text(
                                           _kSeriesModules[i]['label']!,
                                           style: const TextStyle(
-                                              fontSize: 13,
-                                              color: AppTheme.textPrimary),
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimary,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -2395,16 +2529,19 @@ class _SettingsLocationsCreatePageState
                                       flex: 3,
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(
-                                            vertical: 6, horizontal: 4),
+                                          vertical: 6,
+                                          horizontal: 4,
+                                        ),
                                         child: TextField(
-                                          controller:
-                                              rows[i].prefixCtrl,
+                                          controller: rows[i].prefixCtrl,
                                           onChanged: (_) => setS(() {}),
-                                          decoration:
-                                              _dialogInputDecoration(''),
+                                          decoration: _dialogInputDecoration(
+                                            '',
+                                          ),
                                           style: const TextStyle(
-                                              fontSize: 13,
-                                              color: AppTheme.textPrimary),
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimary,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -2413,18 +2550,24 @@ class _SettingsLocationsCreatePageState
                                       flex: 3,
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(
-                                            vertical: 6, horizontal: 4),
+                                          vertical: 6,
+                                          horizontal: 4,
+                                        ),
                                         child: TextField(
-                                          controller:
-                                              rows[i].startingCtrl,
+                                          controller: rows[i].startingCtrl,
                                           onChanged: (_) => setS(() {}),
                                           keyboardType: TextInputType.number,
-                                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                          decoration:
-                                              _dialogInputDecoration(''),
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
+                                          decoration: _dialogInputDecoration(
+                                            '',
+                                          ),
                                           style: const TextStyle(
-                                              fontSize: 13,
-                                              color: AppTheme.textPrimary),
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimary,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -2433,12 +2576,15 @@ class _SettingsLocationsCreatePageState
                                       flex: 3,
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(
-                                            vertical: 8, horizontal: 8),
+                                          vertical: 8,
+                                          horizontal: 8,
+                                        ),
                                         child: Text(
                                           preview(i),
                                           style: const TextStyle(
-                                              fontSize: 13,
-                                              color: AppTheme.textSecondary),
+                                            fontSize: 13,
+                                            color: AppTheme.textSecondary,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -2462,29 +2608,29 @@ class _SettingsLocationsCreatePageState
                               : () async {
                                   final name = nameCtrl.text.trim();
                                   if (name.isEmpty) {
-                                    setS(() => nameError =
-                                        'Series name is required');
+                                    setS(
+                                      () =>
+                                          nameError = 'Series name is required',
+                                    );
                                     return;
                                   }
                                   setS(() => isSaving = true);
                                   try {
-                                    final user =
-                                        ref.read(authUserProvider);
+                                    final user = ref.read(authUserProvider);
                                     final orgId =
                                         (user?.orgId.isNotEmpty == true)
-                                            ? user!.orgId
-                                            : _kDevOrgId;
+                                        ? user!.orgId
+                                        : _kDevOrgId;
 
                                     final modules = <Map<String, dynamic>>[];
-                                    for (int i = 0;
-                                        i < _kSeriesModules.length;
-                                        i++) {
+                                    for (
+                                      int i = 0;
+                                      i < _kSeriesModules.length;
+                                      i++
+                                    ) {
                                       modules.add({
-                                        'module_key':
-                                            _kSeriesModules[i]['key'],
-                                        'prefix': rows[i]
-                                            .prefixCtrl
-                                            .text
+                                        'module_key': _kSeriesModules[i]['key'],
+                                        'prefix': rows[i].prefixCtrl.text
                                             .trim(),
                                         'starting_number': rows[i]
                                             .startingCtrl
@@ -2505,20 +2651,25 @@ class _SettingsLocationsCreatePageState
                                     if (!mounted) return;
 
                                     if (res.success) {
-                                      final newId = (res.data
-                                              as Map<String, dynamic>?)?['id']
-                                          ?.toString();
+                                      final newId =
+                                          (res.data
+                                                  as Map<
+                                                    String,
+                                                    dynamic
+                                                  >?)?['id']
+                                              ?.toString();
                                       setState(() {
-                                        _transactionSeries.add(_SeriesOption(
-                                          id: newId ?? name,
-                                          name: name,
-                                        ));
+                                        _transactionSeries.add(
+                                          _SeriesOption(
+                                            id: newId ?? name,
+                                            name: name,
+                                          ),
+                                        );
                                         if (newId != null) {
                                           _selectedSeriesIds.add(newId);
                                         }
                                       });
-                                      if (mounted)
-                                        Navigator.pop(ctx);
+                                      if (mounted) Navigator.pop(ctx);
                                     } else {
                                       setS(() => isSaving = false);
                                       if (mounted) {
@@ -2533,7 +2684,9 @@ class _SettingsLocationsCreatePageState
                                     setS(() => isSaving = false);
                                     if (mounted) {
                                       ZerpaiToast.error(
-                                          context, 'Failed to create series');
+                                        context,
+                                        'Failed to create series',
+                                      );
                                     }
                                   }
                                 },
@@ -2541,9 +2694,12 @@ class _SettingsLocationsCreatePageState
                             backgroundColor: AppTheme.successGreen,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6)),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
                           ),
                           child: isSaving
                               ? const SizedBox(
@@ -2552,13 +2708,17 @@ class _SettingsLocationsCreatePageState
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor: AlwaysStoppedAnimation(
-                                        Colors.white),
+                                      Colors.white,
+                                    ),
                                   ),
                                 )
-                              : const Text('Save',
+                              : const Text(
+                                  'Save',
                                   style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600)),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                         ),
                         const SizedBox(width: 12),
                         OutlinedButton(
@@ -2568,15 +2728,21 @@ class _SettingsLocationsCreatePageState
                           },
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6)),
-                            side: const BorderSide(
-                                color: AppTheme.borderColor),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            side: const BorderSide(color: AppTheme.borderColor),
                           ),
-                          child: const Text('Cancel',
-                              style: TextStyle(
-                                  fontSize: 13, color: AppTheme.textBody)),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textBody,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -2638,212 +2804,228 @@ class _SettingsLocationsCreatePageState
                   padding: const EdgeInsets.all(AppTheme.space16),
                   child: Row(
                     children: [
-                      const Icon(LucideIcons.users,
-                          size: 16, color: AppTheme.textSecondary),
+                      const Icon(
+                        LucideIcons.users,
+                        size: 16,
+                        color: AppTheme.textSecondary,
+                      ),
                       const SizedBox(width: AppTheme.space8),
                       Expanded(
                         child: Text(
                           'All users in your organization have access to this location.',
                           style: const TextStyle(
-                              fontSize: 13, color: AppTheme.textSecondary),
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 )
               : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header row
-              Padding(
-                padding: const EdgeInsets.all(AppTheme.space16),
-                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: count > 0 ? accentColor : AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(width: AppTheme.space8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    // Header row
+                    Padding(
+                      padding: const EdgeInsets.all(AppTheme.space16),
+                      child: Row(
                         children: [
-                          Text(
-                            count > 0
-                                ? '$count user${count == 1 ? '' : 's'} selected'
-                                : 'No users selected',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
                               color: count > 0
                                   ? accentColor
-                                  : AppTheme.textPrimary,
+                                  : AppTheme.textSecondary,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            count > 0
-                                ? 'Selected users can create and access transactions for this location.'
-                                : 'Select the users who can create and access transactions for this location.',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textSecondary,
+                          const SizedBox(width: AppTheme.space8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  count > 0
+                                      ? '$count user${count == 1 ? '' : 's'} selected'
+                                      : 'No users selected',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: count > 0
+                                        ? accentColor
+                                        : AppTheme.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  count > 0
+                                      ? 'Selected users can create and access transactions for this location.'
+                                      : 'Select the users who can create and access transactions for this location.',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
 
-              // Column headers
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.space16,
-                  vertical: AppTheme.space10,
-                ),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: AppTheme.borderLight),
-                    bottom: BorderSide(color: AppTheme.borderLight),
-                  ),
-                ),
-                child: const Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Text(
-                        'USERS',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textSecondary,
-                          letterSpacing: 0.5,
+                    // Column headers
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.space16,
+                        vertical: AppTheme.space10,
+                      ),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: AppTheme.borderLight),
+                          bottom: BorderSide(color: AppTheme.borderLight),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        'ROLE',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textSecondary,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // User rows
-              for (final user in _locationUsers)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.space16,
-                    vertical: AppTheme.space12,
-                  ),
-                  decoration: const BoxDecoration(
-                    border:
-                        Border(bottom: BorderSide(color: AppTheme.borderLight)),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 14,
-                              backgroundColor: AppTheme.bgLight,
-                              child: Text(
-                                (user['name'] ?? '?')[0].toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textPrimary,
-                                ),
+                      child: const Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              'USERS',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textSecondary,
+                                letterSpacing: 0.5,
                               ),
                             ),
-                            const SizedBox(width: AppTheme.space10),
+                          ),
+                          Expanded(
+                            child: Text(
+                              'ROLE',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textSecondary,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // User rows
+                    for (final user in _locationUsers)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.space16,
+                          vertical: AppTheme.space12,
+                        ),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: AppTheme.borderLight),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              flex: 3,
+                              child: Row(
                                 children: [
-                                  Text(
-                                    user['name'] ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppTheme.textPrimary,
+                                  CircleAvatar(
+                                    radius: 14,
+                                    backgroundColor: AppTheme.bgLight,
+                                    child: Text(
+                                      (user['name'] ?? '?')[0].toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textPrimary,
+                                      ),
                                     ),
                                   ),
-                                  Text(
-                                    user['email'] ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.textSecondary,
+                                  const SizedBox(width: AppTheme.space10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          user['name'] ?? '',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppTheme.textPrimary,
+                                          ),
+                                        ),
+                                        Text(
+                                          user['email'] ?? '',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+                            Expanded(
+                              child: Text(
+                                user['role'] ?? '',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textBody,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => setState(
+                                () => _locationUsers.removeWhere(
+                                  (u) => u['userId'] == user['userId'],
+                                ),
+                              ),
+                              icon: const Icon(LucideIcons.x, size: 14),
+                              color: AppTheme.textSecondary,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
                           ],
                         ),
                       ),
-                      Expanded(
-                        child: Text(
-                          user['role'] ?? '',
-                          style: const TextStyle(
+
+                    // Add user row (placeholder)
+                    Padding(
+                      padding: const EdgeInsets.all(AppTheme.space12),
+                      child: OutlinedButton.icon(
+                        onPressed: () => ZerpaiToast.info(
+                          context,
+                          'User assignment coming soon',
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppTheme.space16,
+                            vertical: AppTheme.space10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          side: const BorderSide(color: AppTheme.borderColor),
+                        ),
+                        icon: const Icon(LucideIcons.userPlus, size: 14),
+                        label: const Text(
+                          'Add User',
+                          style: TextStyle(
                             fontSize: 13,
                             color: AppTheme.textBody,
                           ),
                         ),
                       ),
-                      IconButton(
-                        onPressed: () => setState(() =>
-                            _locationUsers.removeWhere(
-                                (u) => u['userId'] == user['userId'])),
-                        icon: const Icon(LucideIcons.x, size: 14),
-                        color: AppTheme.textSecondary,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                ),
-
-              // Add user row (placeholder)
-              Padding(
-                padding: const EdgeInsets.all(AppTheme.space12),
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      ZerpaiToast.info(context, 'User assignment coming soon'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.space16,
-                      vertical: AppTheme.space10,
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    side: const BorderSide(color: AppTheme.borderColor),
-                  ),
-                  icon: const Icon(LucideIcons.userPlus, size: 14),
-                  label: const Text(
-                    'Add User',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textBody),
-                  ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ],
     );

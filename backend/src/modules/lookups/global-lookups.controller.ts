@@ -19,7 +19,9 @@ export class GlobalLookupsController {
     private readonly r2StorageService: R2StorageService,
   ) {}
 
-  private async resolveLogoUrl(keyOrUrl?: string | null): Promise<string | null> {
+  private async resolveLogoUrl(
+    keyOrUrl?: string | null,
+  ): Promise<string | null> {
     if (!keyOrUrl || !keyOrUrl.trim()) {
       return null;
     }
@@ -36,7 +38,10 @@ export class GlobalLookupsController {
     try {
       return await this.r2StorageService.getPresignedUrl(value);
     } catch (error) {
-      console.error("[GlobalLookupsController] Failed to sign org logo:", error);
+      console.error(
+        "[GlobalLookupsController] Failed to sign org logo:",
+        error,
+      );
       return null;
     }
   }
@@ -68,7 +73,9 @@ export class GlobalLookupsController {
     );
   }
 
-  private async resolveCompanyIdLabel(rawLabel: string): Promise<string | null> {
+  private async resolveCompanyIdLabel(
+    rawLabel: string,
+  ): Promise<string | null> {
     const client = this.supabaseService.getClient();
     const { data, error } = await client
       .from("company_id_labels")
@@ -220,6 +227,75 @@ export class GlobalLookupsController {
     return data ?? [];
   }
 
+  @Get("districts")
+  async getDistricts(@Query("stateId") stateId?: string) {
+    if (!stateId?.trim()) {
+      throw new BadRequestException("stateId is required");
+    }
+
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("settings_districts")
+      .select("id,name,code")
+      .eq("state_id", stateId.trim())
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  @Get("local-bodies")
+  async getLocalBodies(
+    @Query("districtId") districtId?: string,
+    @Query("bodyType") bodyType?: string,
+  ) {
+    if (!districtId?.trim()) {
+      throw new BadRequestException("districtId is required");
+    }
+
+    const client = this.supabaseService.getClient();
+    let query = client
+      .from("settings_local_bodies")
+      .select("id,name,code,body_type")
+      .eq("district_id", districtId.trim())
+      .eq("is_active", true);
+
+    if (bodyType?.trim()) {
+      query = query.eq("body_type", bodyType.trim());
+    }
+
+    const { data, error } = await query.order("name", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  @Get("wards")
+  async getWards(@Query("localBodyId") localBodyId?: string) {
+    if (!localBodyId?.trim()) {
+      throw new BadRequestException("localBodyId is required");
+    }
+
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("settings_wards")
+      .select("id,ward_no,name,code")
+      .eq("local_body_id", localBodyId.trim())
+      .eq("is_active", true)
+      .order("ward_no", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+
+    return (data ?? []).map((ward: any) => ({
+      ...ward,
+      display_name:
+        ward.ward_no != null
+          ? `${ward.ward_no} - ${ward.name}`
+          : ward.name,
+    }));
+  }
+
   /** Returns full org profile — all columns live directly on the organization table,
    *  merged with branding settings from settings_branding.
    *  Also resolves country name from state_id → states.state_id → countries. */
@@ -318,9 +394,11 @@ export class GlobalLookupsController {
     const client = this.supabaseService.getClient();
 
     const payload: Record<string, unknown> = { org_id: orgId };
-    if (body.accent_color !== undefined) payload.accent_color = body.accent_color;
+    if (body.accent_color !== undefined)
+      payload.accent_color = body.accent_color;
     if (body.theme_mode !== undefined) payload.theme_mode = body.theme_mode;
-    if (body.keep_branding !== undefined) payload.keep_branding = body.keep_branding;
+    if (body.keep_branding !== undefined)
+      payload.keep_branding = body.keep_branding;
 
     const { error } = await client
       .from("settings_branding")
@@ -358,7 +436,7 @@ export class GlobalLookupsController {
     const client = this.supabaseService.getClient();
     const payload = { ...body } as Record<string, unknown>;
 
-    if (typeof body.timezone === "string" && body.timezone.trim().isNotEmpty) {
+    if (typeof body.timezone === "string" && body.timezone.trim().length > 0) {
       const rawTimezone = body.timezone.trim();
       const timezoneRow = await this.resolveTimezoneRow(rawTimezone);
       if (!timezoneRow?.tzdb_name) {
@@ -370,7 +448,7 @@ export class GlobalLookupsController {
 
     if (
       typeof body.company_id_label === "string" &&
-      body.company_id_label.trim().isNotEmpty
+      body.company_id_label.trim().length > 0
     ) {
       const resolvedLabel = await this.resolveCompanyIdLabel(
         body.company_id_label.trim(),

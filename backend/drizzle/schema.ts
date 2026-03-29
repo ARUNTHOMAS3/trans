@@ -1,4 +1,4 @@
-import { pgTable, foreignKey, uuid, varchar, date, numeric, boolean, timestamp, unique, index, jsonb, text, pgPolicy, integer, check, uniqueIndex, bigint, type AnyPgColumn, smallint, primaryKey, pgView, pgSequence, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, foreignKey, uuid, varchar, date, numeric, boolean, timestamp, unique, index, jsonb, text, integer, pgPolicy, check, uniqueIndex, bigint, type AnyPgColumn, smallint, primaryKey, pgView, pgSequence, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const accountGroupEnum = pgEnum("account_group_enum", ['Assets', 'Liabilities', 'Equity', 'Income', 'Expenses'])
@@ -22,6 +22,7 @@ export const unitType = pgEnum("unit_type", ['count', 'weight', 'volume', 'lengt
 export const vendorType = pgEnum("vendor_type", ['manufacturer', 'distributor', 'wholesaler'])
 
 export const organizationSystemIdSeq = pgSequence("organization_system_id_seq", {  startWith: "60000000000", increment: "1", minValue: "1", maxValue: "9223372036854775807", cache: "1", cycle: false })
+export const settingsBranchesSystemIdSeq = pgSequence("settings_branches_system_id_seq", {  startWith: "60000000000", increment: "1", minValue: "1", maxValue: "9223372036854775807", cache: "1", cycle: false })
 
 export const batches = pgTable("batches", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -116,6 +117,29 @@ export const transactionLocks = pgTable("transaction_locks", {
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
 }, (table) => [
 	unique("idx_org_module_lock").on(table.orgId, table.moduleName),
+]);
+
+export const settingsLsgdSeedStage = pgTable("settings_lsgd_seed_stage", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	stateCode: varchar("state_code", { length: 10 }),
+	stateName: varchar("state_name", { length: 100 }).notNull(),
+	districtName: varchar("district_name", { length: 150 }).notNull(),
+	districtCode: varchar("district_code", { length: 50 }),
+	assemblyName: varchar("assembly_name", { length: 150 }),
+	assemblyCode: varchar("assembly_code", { length: 50 }),
+	localBodyType: varchar("local_body_type", { length: 30 }).notNull(),
+	localBodyName: varchar("local_body_name", { length: 150 }).notNull(),
+	localBodyCode: varchar("local_body_code", { length: 50 }),
+	wardNo: integer("ward_no"),
+	wardName: varchar("ward_name", { length: 150 }),
+	wardCode: varchar("ward_code", { length: 50 }),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_settings_lsgd_seed_stage_district_name").using("btree", table.districtName.asc().nullsLast().op("text_ops")),
+	index("idx_settings_lsgd_seed_stage_local_body_name").using("btree", table.localBodyName.asc().nullsLast().op("text_ops")),
+	index("idx_settings_lsgd_seed_stage_state_name").using("btree", table.stateName.asc().nullsLast().op("text_ops")),
+	index("idx_settings_lsgd_seed_stage_ward_code").using("btree", table.wardCode.asc().nullsLast().op("text_ops")),
 ]);
 
 export const states = pgTable("states", {
@@ -710,20 +734,38 @@ export const settingsBranches = pgTable("settings_branches", {
 	gstinImportExportAccountId: uuid("gstin_import_export_account_id"),
 	gstinDigitalServices: boolean("gstin_digital_services").default(false).notNull(),
 	defaultTransactionSeriesId: uuid("default_transaction_series_id"),
+	districtId: uuid("district_id"),
+	localBodyId: uuid("local_body_id"),
+	wardId: uuid("ward_id"),
+	systemId: varchar("system_id", { length: 20 }).default((nextval(\'settings_branches_system_id_seq').notNull(),
 }, (table) => [
 	index("idx_settings_branches_default_transaction_series_id").using("btree", table.defaultTransactionSeriesId.asc().nullsLast().op("uuid_ops")),
+	index("idx_settings_branches_district_id").using("btree", table.districtId.asc().nullsLast().op("uuid_ops")),
+	index("idx_settings_branches_local_body_id").using("btree", table.localBodyId.asc().nullsLast().op("uuid_ops")),
 	index("idx_settings_branches_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
 	index("idx_settings_branches_parent_branch_id").using("btree", table.parentBranchId.asc().nullsLast().op("uuid_ops")),
 	index("idx_settings_branches_primary_contact_id").using("btree", table.primaryContactId.asc().nullsLast().op("uuid_ops")),
+	index("idx_settings_branches_ward_id").using("btree", table.wardId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("settings_branches_system_id_key").using("btree", table.systemId.asc().nullsLast().op("text_ops")),
 	foreignKey({
 			columns: [table.defaultTransactionSeriesId],
 			foreignColumns: [settingsTransactionSeries.id],
 			name: "settings_branches_default_transaction_series_id_fkey"
 		}).onDelete("set null"),
 	foreignKey({
+			columns: [table.districtId],
+			foreignColumns: [settingsDistricts.id],
+			name: "settings_branches_district_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
 			columns: [table.gstinImportExportAccountId],
 			foreignColumns: [accounts.id],
 			name: "settings_branches_gstin_import_export_account_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.localBodyId],
+			foreignColumns: [settingsLocalBodies.id],
+			name: "settings_branches_local_body_id_fkey"
 		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.orgId],
@@ -734,6 +776,11 @@ export const settingsBranches = pgTable("settings_branches", {
 			columns: [table.parentBranchId],
 			foreignColumns: [table.id],
 			name: "settings_branches_parent_branch_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.wardId],
+			foreignColumns: [settingsWards.id],
+			name: "settings_branches_ward_id_fkey"
 		}).onDelete("set null"),
 	unique("settings_branches_org_code_unique").on(table.orgId, table.branchCode),
 	unique("settings_branches_org_name_unique").on(table.orgId, table.name),
@@ -838,42 +885,6 @@ export const productContents = pgTable("product_contents", {
 		}),
 ]);
 
-export const warehouses = pgTable("warehouses", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	orgId: uuid("org_id").notNull(),
-	name: varchar({ length: 255 }).notNull(),
-	attention: text(),
-	addressStreet1: text("address_street_1"),
-	addressStreet2: text("address_street_2"),
-	city: text(),
-	state: text(),
-	phone: varchar({ length: 50 }),
-	email: varchar({ length: 255 }),
-	isActive: boolean("is_active").default(true).notNull(),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
-	outletId: uuid("outlet_id"),
-	warehouseCode: varchar("warehouse_code", { length: 50 }),
-	branchId: uuid("branch_id"),
-	pincode: varchar({ length: 20 }),
-	country: varchar({ length: 100 }).default('India').notNull(),
-}, (table) => [
-	index("idx_warehouses_branch_id").using("btree", table.branchId.asc().nullsLast().op("uuid_ops")),
-	index("idx_warehouses_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
-	foreignKey({
-			columns: [table.branchId],
-			foreignColumns: [settingsBranches.id],
-			name: "warehouses_branch_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.orgId],
-			foreignColumns: [organization.id],
-			name: "warehouses_org_id_fkey"
-		}),
-	unique("warehouses_org_code_unique").on(table.orgId, table.warehouseCode),
-	unique("warehouses_org_name_unique").on(table.orgId, table.name),
-]);
-
 export const settingsBranchTransactionSeries = pgTable("settings_branch_transaction_series", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	orgId: uuid("org_id").notNull(),
@@ -925,6 +936,77 @@ export const settingsBranchUsers = pgTable("settings_branch_users", {
 			name: "settings_branch_users_org_id_fkey"
 		}).onDelete("cascade"),
 	unique("settings_branch_users_unique").on(table.branchId, table.userId),
+]);
+
+export const settingsWards = pgTable("settings_wards", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	localBodyId: uuid("local_body_id").notNull(),
+	wardNo: integer("ward_no"),
+	name: varchar({ length: 150 }).notNull(),
+	code: varchar({ length: 50 }),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_settings_wards_local_body_id").using("btree", table.localBodyId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("settings_wards_local_body_code_key").using("btree", table.localBodyId.asc().nullsLast().op("text_ops"), table.code.asc().nullsLast().op("text_ops")).where(sql`(code IS NOT NULL)`),
+	uniqueIndex("settings_wards_local_body_name_key").using("btree", table.localBodyId.asc().nullsLast().op("text_ops"), table.name.asc().nullsLast().op("text_ops")),
+	uniqueIndex("settings_wards_local_body_ward_no_key").using("btree", table.localBodyId.asc().nullsLast().op("int4_ops"), table.wardNo.asc().nullsLast().op("uuid_ops")).where(sql`(ward_no IS NOT NULL)`),
+	foreignKey({
+			columns: [table.localBodyId],
+			foreignColumns: [settingsLocalBodies.id],
+			name: "settings_wards_local_body_id_fkey"
+		}).onDelete("cascade"),
+]);
+
+export const warehouses = pgTable("warehouses", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	attention: text(),
+	addressStreet1: text("address_street_1"),
+	addressStreet2: text("address_street_2"),
+	city: text(),
+	state: text(),
+	phone: varchar({ length: 50 }),
+	email: varchar({ length: 255 }),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+	outletId: uuid("outlet_id"),
+	warehouseCode: varchar("warehouse_code", { length: 50 }),
+	branchId: uuid("branch_id"),
+	pincode: varchar({ length: 20 }),
+	country: varchar({ length: 100 }).default('India').notNull(),
+	customerId: uuid("customer_id"),
+	vendorId: uuid("vendor_id"),
+}, (table) => [
+	index("idx_warehouses_branch_id").using("btree", table.branchId.asc().nullsLast().op("uuid_ops")),
+	index("idx_warehouses_customer_id").using("btree", table.customerId.asc().nullsLast().op("uuid_ops")),
+	index("idx_warehouses_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
+	index("idx_warehouses_vendor_id").using("btree", table.vendorId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.branchId],
+			foreignColumns: [settingsBranches.id],
+			name: "warehouses_branch_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.customerId],
+			foreignColumns: [customers.id],
+			name: "warehouses_customer_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.orgId],
+			foreignColumns: [organization.id],
+			name: "warehouses_org_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.vendorId],
+			foreignColumns: [vendors.id],
+			name: "warehouses_vendor_id_fkey"
+		}).onDelete("set null"),
+	unique("warehouses_org_code_unique").on(table.orgId, table.warehouseCode),
+	unique("warehouses_org_name_unique").on(table.orgId, table.name),
 ]);
 
 export const purchasesPurchaseOrders = pgTable("purchases_purchase_orders", {
@@ -1217,6 +1299,25 @@ export const currencies = pgTable("currencies", {
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 }, (table) => [
 	unique("currencies_code_key").on(table.code),
+]);
+
+export const settingsDistricts = pgTable("settings_districts", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	stateId: uuid("state_id").notNull(),
+	name: varchar({ length: 150 }).notNull(),
+	code: varchar({ length: 50 }),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_settings_districts_state_id").using("btree", table.stateId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("settings_districts_state_id_code_key").using("btree", table.stateId.asc().nullsLast().op("uuid_ops"), table.code.asc().nullsLast().op("uuid_ops")).where(sql`(code IS NOT NULL)`),
+	uniqueIndex("settings_districts_state_id_name_key").using("btree", table.stateId.asc().nullsLast().op("text_ops"), table.name.asc().nullsLast().op("text_ops")),
+	foreignKey({
+			columns: [table.stateId],
+			foreignColumns: [states.id],
+			name: "settings_districts_state_id_fkey"
+		}).onDelete("cascade"),
 ]);
 
 export const compositeItemParts = pgTable("composite_item_parts", {
@@ -1999,6 +2100,10 @@ export const organization = pgTable("organization", {
 	paymentStubAddress: text("payment_stub_address"),
 	hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false).notNull(),
 	systemId: varchar("system_id", { length: 20 }).default((nextval(\'organization_system_id_seq').notNull(),
+	baseCurrencyDecimals: smallint("base_currency_decimals"),
+	baseCurrencyFormat: varchar("base_currency_format", { length: 50 }),
+	organizationLanguage: varchar("organization_language", { length: 50 }).default('English'),
+	communicationLanguages: text("communication_languages").array().default(["RAY['English'::tex"]).notNull(),
 }, (table) => [
 	uniqueIndex("organization_system_id_key").using("btree", table.systemId.asc().nullsLast().op("text_ops")),
 	foreignKey({
@@ -2040,6 +2145,48 @@ export const settingsTransactionSeries = pgTable("settings_transaction_series", 
 	index("idx_settings_ts_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
 ]);
 
+export const settingsLocalBodies = pgTable("settings_local_bodies", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	districtId: uuid("district_id").notNull(),
+	name: varchar({ length: 150 }).notNull(),
+	code: varchar({ length: 50 }),
+	bodyType: varchar("body_type", { length: 30 }).notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_settings_local_bodies_district_id").using("btree", table.districtId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("settings_local_bodies_district_type_code_key").using("btree", table.districtId.asc().nullsLast().op("text_ops"), table.bodyType.asc().nullsLast().op("text_ops"), table.code.asc().nullsLast().op("uuid_ops")).where(sql`(code IS NOT NULL)`),
+	uniqueIndex("settings_local_bodies_district_type_name_key").using("btree", table.districtId.asc().nullsLast().op("uuid_ops"), table.bodyType.asc().nullsLast().op("uuid_ops"), table.name.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.districtId],
+			foreignColumns: [settingsDistricts.id],
+			name: "settings_local_bodies_district_id_fkey"
+		}).onDelete("cascade"),
+	check("settings_local_bodies_body_type_check", sql`(body_type)::text = ANY ((ARRAY['grama_panchayat'::character varying, 'municipality'::character varying, 'corporation'::character varying])::text[])`),
+]);
+
+export const settingsUserLocationAccess = pgTable("settings_user_location_access", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").notNull(),
+	userId: uuid("user_id").notNull(),
+	outletId: uuid("outlet_id").notNull(),
+	isDefaultBusiness: boolean("is_default_business").default(false).notNull(),
+	isDefaultWarehouse: boolean("is_default_warehouse").default(false).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_settings_user_location_access_org_user").using("btree", table.orgId.asc().nullsLast().op("uuid_ops"), table.userId.asc().nullsLast().op("uuid_ops")),
+	index("idx_settings_user_location_access_outlet").using("btree", table.outletId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.orgId],
+			foreignColumns: [organization.id],
+			name: "settings_user_location_access_org_id_fkey"
+		}).onDelete("cascade"),
+	unique("settings_user_location_access_unique").on(table.orgId, table.userId, table.outletId),
+	pgPolicy("service_role_full_access", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
+]);
+
 export const accountsManualJournalTagMappings = pgTable("accounts_manual_journal_tag_mappings", {
 	manualJournalItemId: uuid("manual_journal_item_id").notNull(),
 	reportingTagId: uuid("reporting_tag_id").notNull(),
@@ -2077,3 +2224,26 @@ export const auditLogsAll = pgView("audit_logs_all", {	id: uuid(),
 	requestId: text("request_id"),
 	archivedAt: timestamp("archived_at", { withTimezone: true, mode: 'string' }),
 }).as(sql`SELECT audit_logs.id, audit_logs.table_name, audit_logs.schema_name, audit_logs.record_id, audit_logs.record_pk, audit_logs.action, audit_logs.old_values, audit_logs.new_values, audit_logs.user_id, audit_logs.created_at, audit_logs.org_id, audit_logs.outlet_id, audit_logs.actor_name, audit_logs.changed_columns, audit_logs.txid, audit_logs.source, audit_logs.module_name, audit_logs.request_id, NULL::timestamp with time zone AS archived_at FROM audit_logs UNION ALL SELECT audit_logs_archive.id, audit_logs_archive.table_name, audit_logs_archive.schema_name, audit_logs_archive.record_id, audit_logs_archive.record_pk, audit_logs_archive.action, audit_logs_archive.old_values, audit_logs_archive.new_values, audit_logs_archive.user_id, audit_logs_archive.created_at, audit_logs_archive.org_id, audit_logs_archive.outlet_id, audit_logs_archive.actor_name, audit_logs_archive.changed_columns, audit_logs_archive.txid, audit_logs_archive.source, audit_logs_archive.module_name, audit_logs_archive.request_id, audit_logs_archive.archived_at FROM audit_logs_archive`);
+
+export const auditLogsWithBranchSystemId = pgView("audit_logs_with_branch_system_id", {	id: uuid(),
+	tableName: varchar("table_name", { length: 100 }),
+	recordId: uuid("record_id"),
+	action: varchar({ length: 10 }),
+	oldValues: jsonb("old_values"),
+	newValues: jsonb("new_values"),
+	userId: uuid("user_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }),
+	orgId: uuid("org_id"),
+	outletId: uuid("outlet_id"),
+	actorName: text("actor_name"),
+	schemaName: text("schema_name"),
+	recordPk: text("record_pk"),
+	changedColumns: text("changed_columns"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	txid: bigint({ mode: "number" }),
+	source: text(),
+	moduleName: text("module_name"),
+	requestId: text("request_id"),
+	branchSystemId: varchar("branch_system_id", { length: 20 }),
+	branchName: varchar("branch_name", { length: 255 }),
+}).as(sql`SELECT a.id, a.table_name, a.record_id, a.action, a.old_values, a.new_values, a.user_id, a.created_at, a.org_id, a.outlet_id, a.actor_name, a.schema_name, a.record_pk, a.changed_columns, a.txid, a.source, a.module_name, a.request_id, b.system_id AS branch_system_id, b.name AS branch_name FROM audit_logs a LEFT JOIN settings_branches b ON b.id = a.outlet_id`);

@@ -9049,3 +9049,441 @@ Adjusted shared multi-select dropdown row styling so selected values show only t
 - Result: no issues found
 
 Timestamp of Log Update: March 28, 2026 (IST)
+
+## Backend — Org Profile Save Handler String Guard Fix (March 29, 2026)
+
+### Summary
+
+Hardened the org-profile save handler by replacing invalid Dart-style `.isNotEmpty` string checks with valid TypeScript length checks in the timezone and company ID label validation path.
+
+### Why This Change Was Needed
+
+- The backend org save handler contained Dart-style string checks inside TypeScript code.
+- While this was not the watcher restart mechanism itself, it was an avoidable logic/runtime risk in the request path and needed to be corrected while investigating the intermittent save failures.
+
+### Backend Files
+
+- `backend/src/modules/lookups/global-lookups.controller.ts`
+  - Replaced `trim().isNotEmpty` with `trim().length > 0` for timezone validation.
+  - Replaced `trim().isNotEmpty` with `trim().length > 0` for company ID label validation.
+  - Ran Prettier on the file to keep it clean.
+
+### Validation
+
+- `npx prettier --write src/modules/lookups/global-lookups.controller.ts`
+- `npx eslint src/modules/lookups/global-lookups.controller.ts`
+- Result: no issues found for the updated controller file.
+
+Timestamp of Log Update: March 29, 2026 (IST)
+
+## Backend Investigation — Org Profile Save Watch-Restart Trace (March 29, 2026)
+
+### Summary
+
+Ran a live trace against the watched backend process during repeated org-profile saves to determine whether the save request itself was causing the backend restart and `ERR_CONNECTION_REFUSED` window.
+
+### Findings
+
+- Active watch process chain observed:
+  - `cmd.exe` parent launching `node --watch`
+  - watch wrapper process
+  - child runtime process executing `src/main.ts`
+- Sent 3 real `POST /api/v1/lookups/org/00000000-0000-0000-0000-000000000002/save` requests with the current org settings payload.
+- All 3 requests succeeded.
+- Process IDs before and after the requests remained unchanged.
+- A `FileSystemWatcher` trace over `backend/src` captured no file changes during the requests.
+
+### Conclusion
+
+- The org save request is **not** directly triggering the `node --watch` restart.
+- When the issue appears in the user flow, it is more consistent with a backend crash or external file-change event that happens around the same time, not with the request writing anything under `backend/src`.
+- Earlier backend blockers already fixed in this session (missing `smallint` import, invalid TypeScript string guards, missing DB columns before migration application) remain the most plausible causes of the earlier restart window.
+
+### Validation / Trace Commands
+
+- Process and listener inspection on port `3001`
+- Live watched process tree inspection via `Win32_Process`
+- Replayed 3 `POST` save requests with current payload
+- `FileSystemWatcher` trace over `E:\zerpai-new\backend\src`
+
+Timestamp of Log Update: March 29, 2026 (IST)
+
+## Settings — Required Field Validation Aligned with Asterisk Markers (March 29, 2026)
+
+### Summary
+
+Aligned Organization Profile validation with the visible required-field markers so every starred field now has matching save-time validation instead of relying on partial or inconsistent checks.
+
+### Why This Change Was Needed
+
+- The screen already used asterisk markers for required fields, but not every required input had matching validation.
+- This created a mismatch between the UI contract and actual save behavior.
+
+### Frontend Files
+
+- `lib/core/pages/settings_organization_profile_page.dart`
+  - Marked the following rows as required in the shared form-row layer:
+    - `State`
+    - `Base Currency`
+    - `Fiscal Year`
+    - `Organization Language`
+    - `Communication Languages`
+    - `Time Zone`
+    - `Date Format`
+    - `Company ID`
+  - Extended `_saveProfile()` validation to enforce:
+    - organization language selected
+    - at least one communication language selected
+    - `English` remains present in communication languages
+    - time zone selected
+    - date format selected
+    - date separator selected
+    - company ID label selected
+    - company ID value present
+
+### Validation
+
+- `dart format E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- `dart analyze E:\zerpai-new\lib\core\pages\settings_organization_profile_page.dart`
+- Result: no issues found
+
+Timestamp of Log Update: March 29, 2026 (IST)
+
+## Backend Tooling — Continuous Watch Restart Trace Harness (March 29, 2026)
+
+### Summary
+
+Added and launched a dedicated backend watch-trace harness to capture the next real `3001` drop with process restart detection, `backend/src` file-change tracing, and stdout/stderr logs from the watched Nest process.
+
+### Why This Change Was Needed
+
+- Intermittent `ERR_CONNECTION_REFUSED` events on org-profile save were not reproducible in short probes.
+- A persistent trace was needed to capture the next real restart/crash event with enough evidence to identify whether the cause is a watcher restart, external file mutation, or a runtime crash.
+
+### Files / Tooling
+
+- `backend/scripts/trace_backend_watch_restart.ps1`
+  - Starts a traced watched backend on port `3001`
+  - Logs watched process PID changes
+  - Logs `backend/src` file events
+  - Captures backend stdout/stderr separately
+- Active trace session logs:
+  - `backend/logs/backend-watch-trace-20260329-104815.log`
+  - `backend/logs/backend-watch-stdout-20260329-104815.log`
+  - `backend/logs/backend-watch-stderr-20260329-104815.log`
+
+### Initial Trace Result
+
+- The traced backend successfully came back up on `3001`.
+- Current listener PID after takeover: `113704`.
+- Initial verification `GET /api/v1/lookups/org/00000000-0000-0000-0000-000000000002` succeeded after the traced startup.
+- No new restart/crash event has been captured yet in the current trace window.
+
+Timestamp of Log Update: March 29, 2026 (IST)
+
+## 2026-03-29 - Warehouse Parent Branch Made Optional
+
+- Removed the required asterisk from `Parent branch` in [lib/core/pages/settings_warehouses_create_page.dart](E:/zerpai-new/lib/core/pages/settings_warehouses_create_page.dart).
+- Removed stale save-time validation that blocked warehouse creation when no parent branch was selected.
+- Updated the warehouse save payload to include `branch_id` only when a parent branch is actually chosen, keeping the field optional end to end.
+- Validation: `dart format lib/core/pages/settings_warehouses_create_page.dart`; `dart analyze lib/core/pages/settings_warehouses_create_page.dart`.
+
+## 2026-03-29 - Organization Profile Header Kept Fixed While Scrolling
+
+- Updated [lib/core/pages/settings_organization_profile_page.dart](E:/zerpai-new/lib/core/pages/settings_organization_profile_page.dart) so the `Organization Profile` title and system ID badge are rendered outside the main scroll view.
+- Only the form body now scrolls; the page header strip remains fixed at the top of the content area while scrolling.
+- Adjusted body padding so the fixed header and scrollable form keep the same visual alignment and spacing.
+- Validation: `dart format lib/core/pages/settings_organization_profile_page.dart`; `dart analyze lib/core/pages/settings_organization_profile_page.dart`.
+
+## 2026-03-29 - Fixed Headers Across Settings Branch/Warehouse/Location Pages
+
+- Applied the same fixed-header layout treatment used on Organization Profile to the main settings branch, warehouse, and location pages so page titles stay in place while only the page body scrolls.
+- Updated [lib/core/pages/settings_branches_create_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_create_page.dart): `Add Branch` / `Edit Branch` title now sits outside the scroll area.
+- Updated [lib/core/pages/settings_warehouses_create_page.dart](E:/zerpai-new/lib/core/pages/settings_warehouses_create_page.dart): `Add Warehouse` / `Edit Warehouse` title now stays fixed while the form scrolls.
+- Updated [lib/core/pages/settings_locations_create_page.dart](E:/zerpai-new/lib/core/pages/settings_locations_create_page.dart): `Add Location` / `Edit Location` title now stays fixed while the form scrolls.
+- Updated [lib/core/pages/settings_branches_list_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_list_page.dart): page header/action row is fixed; only the table area scrolls.
+- Updated [lib/core/pages/settings_warehouses_list_page.dart](E:/zerpai-new/lib/core/pages/settings_warehouses_list_page.dart): page header/action row is fixed; only the table area scrolls.
+- Updated [lib/core/pages/settings_locations_page.dart](E:/zerpai-new/lib/core/pages/settings_locations_page.dart): page header/action row is fixed; only the table area scrolls.
+- Removed the unused `_kWideBranchSectionWidth` constant from [lib/core/pages/settings_branches_create_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_create_page.dart) while cleaning up the shared layout pass.
+- Validation: `dart format` on all touched settings pages; `dart analyze` on all six settings pages returned no issues.
+
+## 2026-03-29 - Extracted Reusable Settings Fixed Header Layout
+
+- Created [lib/shared/widgets/settings_fixed_header_layout.dart](E:/zerpai-new/lib/shared/widgets/settings_fixed_header_layout.dart) as a reusable settings-page wrapper for a fixed header, constrained-width scrollable body, and optional fixed footer.
+- Documented `SettingsFixedHeaderLayout` in [REUSABLES.md](E:/zerpai-new/REUSABLES.md) so future settings pages can reuse the same pinned-title/pinned-action-row pattern instead of duplicating manual `Column` + `SingleChildScrollView` layout code.
+- Migrated [lib/core/pages/settings_organization_profile_page.dart](E:/zerpai-new/lib/core/pages/settings_organization_profile_page.dart) to the reusable while preserving the fixed bottom save/cancel bar.
+- Migrated [lib/core/pages/settings_branches_create_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_create_page.dart) to the reusable while preserving the sticky bottom action bar.
+- Migrated [lib/core/pages/settings_warehouses_create_page.dart](E:/zerpai-new/lib/core/pages/settings_warehouses_create_page.dart) to the reusable while preserving the sticky bottom action bar.
+- Migrated [lib/core/pages/settings_locations_create_page.dart](E:/zerpai-new/lib/core/pages/settings_locations_create_page.dart) to the reusable for the fixed title + scrollable form layout.
+- Migrated [lib/core/pages/settings_branches_list_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_list_page.dart), [lib/core/pages/settings_warehouses_list_page.dart](E:/zerpai-new/lib/core/pages/settings_warehouses_list_page.dart), and [lib/core/pages/settings_locations_page.dart](E:/zerpai-new/lib/core/pages/settings_locations_page.dart) to the reusable so page headers/action rows stay fixed while only table content scrolls.
+- Validation: `dart format` on the new reusable and all touched settings pages; `dart analyze` on the reusable and all touched settings pages returned no issues.
+
+## 2026-03-29 - Warehouse Create Page Switched From Hardcoded India States To DB Lookups
+
+- Removed the hardcoded `_indianStates` list from [lib/core/pages/settings_warehouses_create_page.dart](E:/zerpai-new/lib/core/pages/settings_warehouses_create_page.dart).
+- Added `_fetchStatesForCountryName(...)` so warehouse state options now always come from the DB-backed `/lookups/countries` + `/lookups/states?countryId=...` flow, including India.
+- Updated `_loadOrgAndBranches()` to resolve the org country and load states from master data instead of seeding the form from a local India-only fallback.
+- Preserved edit-mode state prefill by keeping the saved warehouse `state` value while the lookup-backed options load, instead of dropping it when the option list is initially empty.
+- The warehouse form now correctly reflects the existing `public.states` master table as the source of truth instead of drifting with a hardcoded frontend list.
+- Validation: `dart format lib/core/pages/settings_warehouses_create_page.dart`; `dart analyze lib/core/pages/settings_warehouses_create_page.dart`.
+
+## 2026-03-29 - Branch Create Page Kerala LSGD Address Hierarchy
+
+- Extended [lib/core/pages/settings_branches_create_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_create_page.dart) with DB-backed Kerala-specific address hierarchy fields under the branch address section: `District`, `Local Body Type`, `Local Body Name`, and `Ward`.
+- Added typed UI state and cascading loaders for `_selectedDistrictId`, `_selectedLocalBodyType`, `_selectedLocalBodyId`, and `_selectedWardId`, with parent-change resets so child selections are cleared when the hierarchy changes.
+- Added create/edit-safe lookup loading helpers that resolve seeded master data through the new backend lookup endpoints instead of hardcoded frontend lists.
+- Updated branch save validation so Kerala branch creation requires `District`, `Local Body Type`, and `Local Body Name`, and persists `district_id`, `local_body_id`, and `ward_id` when selected.
+- Added create-flow bootstrap behavior so when the org resolves to India/Kerala, district options are loaded automatically without forcing the user to manually reselect the state.
+- Added backend lookup support in [backend/src/modules/lookups/global-lookups.controller.ts](E:/zerpai-new/backend/src/modules/lookups/global-lookups.controller.ts) for `/lookups/districts`, `/lookups/local-bodies`, and `/lookups/wards`, and branch persistence support in [backend/src/modules/branches/branches.service.ts](E:/zerpai-new/backend/src/modules/branches/branches.service.ts) for `district_id`, `local_body_id`, and `ward_id`.
+- Runtime verification completed against the live backend:
+  - `/lookups/districts?stateId=f521da88-6df4-44e6-9c96-ab419fde4562` returned `14` districts.
+  - `/lookups/local-bodies?districtId=646d5dae-c7a1-48a4-a0e5-d71c759103dc&bodyType=grama_panchayat` returned `73` local bodies.
+  - `/lookups/wards?localBodyId=c9f80f1d-645f-46bb-af5e-f071a73f3277` returned `24` wards; sample row: `1 - KOTTAKKAKOM [G01001001]`.
+- Validation: `dart format lib/core/pages/settings_branches_create_page.dart`; `dart analyze lib/core/pages/settings_branches_create_page.dart`.
+
+## 2026-03-29 - Branch Create Page LSGD Two-Up Layout Trial
+
+- Updated [lib/core/pages/settings_branches_create_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_create_page.dart) to extract the Kerala LSGD address inputs into a dedicated `_buildKeralaLsgdAddressFields()` helper so the layout can be adjusted without touching the lookup logic.
+- Switched the Kerala-only address section to a responsive two-up test layout:
+  - row 1: `District` + `Local Body Type`
+  - row 2: `Local Body Name` + `Ward`
+- Preserved the stacked single-column fallback automatically on narrower widths, so the experiment can be evaluated without breaking smaller layouts.
+- Kept all existing cascading resets and live loaders unchanged; this change is visual/layout-only for the seeded LSGD branch address flow.
+- Validation: `dart format lib/core/pages/settings_branches_create_page.dart`; `dart analyze lib/core/pages/settings_branches_create_page.dart`.
+
+## 2026-03-29 - Branch Create Page LSGD Async Loader Dispose Guards
+
+- Updated [lib/core/pages/settings_branches_create_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_create_page.dart) to add stronger `mounted` guards around the Kerala LSGD async lookup chain after the Flutter web runtime reported `Trying to render a disposed EngineFlutterView.` while district/local-body/ward requests were returning.
+- Added post-await `mounted` checks inside `_bootstrap()` so the page does not continue loading branch bootstrap data after the view has been torn down.
+- Added pre-`setState` `mounted` guards in the async `onChanged` handlers for `State / Union territory`, `District`, `Local Body Type`, and `Local Body Name`, preventing route-change or hot-restart callbacks from trying to update the disposed branch-create view.
+- Kept the existing DB-backed LSGD loader behavior unchanged; this patch is strictly a lifecycle-safety fix for the branch-create page.
+- Validation: `dart format lib/core/pages/settings_branches_create_page.dart`; `dart analyze lib/core/pages/settings_branches_create_page.dart`.
+
+## 2026-03-29 - Branch Create Page Validation And Lookup Errors Now Use Context-Aware Toasts
+
+- Updated [lib/core/pages/settings_branches_create_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_create_page.dart) so save-time form validation failures now surface through `ZerpaiToast.error(...)` instead of silently failing with only field borders or inline text.
+- Added a page-local `_showValidationErrors` flag and switched the main branch form to `AutovalidateMode.onUserInteraction` after the first failed save, so users see inline correction feedback while fixing fields.
+- Added an `onChanged` refresh hook to the required `Branch name` field so its inline validation state clears immediately after a failed save attempt instead of staying stale.
+- Added contextual lookup failure toasts for Kerala LSGD address loaders:
+  - `Failed to load districts for the selected state.`
+  - `Failed to load local bodies for the selected district.`
+  - `Failed to load wards for the selected local body.`
+- This keeps backend/network lookup failures visible in the page context instead of only surfacing as console `NETWORK_ERROR` entries.
+- Validation: `dart format lib/core/pages/settings_branches_create_page.dart`; `dart analyze lib/core/pages/settings_branches_create_page.dart`.
+
+## 2026-03-29 - Branch Create Page Shows Subscription Total And Remaining Days
+
+- Updated [lib/core/pages/settings_branches_create_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_create_page.dart) so the subscription section now computes and displays two read-only values after both dates are selected:
+  - `Total days` as the inclusive duration between `Subscription from` and `Subscription to`
+  - `Remaining days` as the inclusive days left relative to the current date, falling back to `0` after expiry
+- Reused the existing shared `ZerpaiDatePicker` and the page's existing static-field styling instead of introducing a new control pattern.
+- Validation: `dart format lib/core/pages/settings_branches_create_page.dart`; `dart analyze lib/core/pages/settings_branches_create_page.dart`.
+
+## 2026-03-29 - SQL Prepared For Branch System ID Sequence
+
+- Prepared SQL to add a DB-backed `system_id` column to `public.settings_branches` using the same numeric-sequence pattern already used for `organization.system_id`.
+- The proposed SQL:
+  - creates `public.settings_branches_system_id_seq`
+  - starts numbering from `60000000000`
+  - backfills existing branch rows
+  - sets the column `NOT NULL`
+  - adds a unique index on `settings_branches(system_id)`
+- This was provided as migration SQL only and has not yet been applied to the database or wired into backend/frontend branch screens in code.
+
+## 2026-03-29 - Branch Edit LSGD Type Options Now Match District Data
+
+- Updated [lib/core/pages/settings_branches_create_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_create_page.dart) so `Local body type` is no longer sourced from a hardcoded list.
+- The page now loads all DB-backed local bodies for the selected district, derives the available `body_type` values from that response, and only shows the types actually available for that district.
+- Existing edit-mode selections are now normalized against the district dataset, so stale unavailable LSGD types are cleared instead of being shown as valid options.
+- `Local body name` filtering is now applied client-side against the DB-backed district result set, keeping the type selector and name selector in sync.
+- Validation: `dart format lib/core/pages/settings_branches_create_page.dart`; `dart analyze lib/core/pages/settings_branches_create_page.dart`.
+
+## 2026-03-29 - Branch System ID Displayed In Branch UI
+
+- Updated [lib/core/pages/settings_branches_list_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_list_page.dart) to surface `system_id` as its own column in the branches table whenever the backend returns it.
+- Updated [lib/core/pages/settings_branches_create_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_create_page.dart) so edit mode now shows the branch `System ID` inline with the `Edit Branch` heading as a single joined title line, and also as a read-only field in the form.
+- Backend branch reads already use `select("*")` in [backend/src/modules/branches/branches.service.ts](E:/zerpai-new/backend/src/modules/branches/branches.service.ts), so once the DB migration adds `settings_branches.system_id`, the branch API payload includes it without requiring a separate serializer change.
+- Validation: `dart format lib/core/pages/settings_branches_create_page.dart lib/core/pages/settings_branches_list_page.dart`; `dart analyze lib/core/pages/settings_branches_create_page.dart lib/core/pages/settings_branches_list_page.dart`.
+
+## 2026-03-29 - Backend Dev Watcher Switched Away From Raw Node Watch
+
+- Updated [backend/package.json](E:/zerpai-new/backend/package.json) to replace the raw `node --watch -r ts-node/register/transpile-only ...` backend dev scripts with Nest CLI watch mode:
+  - `dev` → `nest start --watch`
+  - `start:dev` → `nest start --watch`
+  - `start:debug` → `nest start --debug --watch`
+- This change was made to reduce the intermittent `ERR_CONNECTION_REFUSED` save failures caused by the backend temporarily dropping port `3001` during dev watcher restarts.
+- Validation: `npm run build` in `backend/` completed successfully.
+
+## 2026-03-29 - Audit Logs Join Confirmed To Use outlet_id
+
+- Verified the live `public.audit_logs` column set and confirmed it does **not** contain `branch_id`.
+- Confirmed that branch/audit joins for exposing branch `system_id` must use `audit_logs.outlet_id` when mapping to `settings_branches.id`.
+- Correct SQL shape recorded for follow-up DB/reporting work:
+  - `LEFT JOIN public.settings_branches b ON b.id = a.outlet_id`
+
+## 2026-03-29 - Branch List Action Menu Expanded And Implemented
+
+- Updated [lib/core/pages/settings_branches_list_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_list_page.dart) so branch rows now use a white `MenuAnchor` action menu instead of the old two-item `PopupMenuButton`.
+- Added the requested branch row actions:
+  - `Edit`
+  - `Associate GSTIN`
+  - `Delete`
+  - `Enable bin locations`
+  - `Associate Contacts`
+- Implemented real behavior for the branch menu actions using existing backend paths and shared controls:
+  - `Edit` routes to the branch edit page
+  - `Associate GSTIN` opens a dialog and updates the branch via `PUT /branches/:id`
+  - `Delete` uses the shared confirmation dialog and deletes via `DELETE /branches/:id?org_id=...`
+  - `Associate Contacts` opens a dialog backed by the org users list and updates `primary_contact_id` via `PUT /branches/:id`
+  - `Enable bin locations` now routes the user into Locations settings instead of remaining a dead placeholder
+- Reused existing project patterns instead of introducing new controls:
+  - `FormDropdown` for dialog selections
+  - `showZerpaiConfirmationDialog()` for confirmation flow
+  - pure white floating surfaces for the row action menu and dialogs
+- Validation: `dart format lib/core/pages/settings_branches_list_page.dart`; `dart analyze lib/core/pages/settings_branches_list_page.dart`.
+
+## 2026-03-29 - Warehouse Row Actions Now Use Top-Centered Settings Modals
+
+- Updated [lib/core/pages/settings_warehouses_list_page.dart](E:/zerpai-new/lib/core/pages/settings_warehouses_list_page.dart) so warehouse rows now expose the same expanded action pattern requested for settings locations:
+  - `Edit`
+  - `Mark as Active` / `Mark as Inactive`
+  - `Delete`
+  - `Enable bin locations` / `Disable bin locations`
+  - `Associate Contacts`
+- Added page-local top-centered warehouse action dialogs with:
+  - `Alignment.topCenter`
+  - `insetPadding: EdgeInsets.zero`
+  - pure white dialog surfaces
+  - explicit header/body/footer sections to match the requested zero-edge settings modal treatment
+- Switched the warehouse bin-locations action away from the generic confirmation helper so it now opens the new top-centered modal and routes into [lib/core/pages/settings_locations_page.dart](E:/zerpai-new/lib/core/pages/settings_locations_page.dart) via `AppRoutes.settingsLocations`.
+- Added a matching top-centered `Associate Customer and Vendor` warehouse action dialog that routes users into Locations settings, where the existing customer/vendor association flow already lives.
+- Validation: `dart format lib/core/pages/settings_warehouses_list_page.dart`; `dart analyze lib/core/pages/settings_warehouses_list_page.dart`.
+
+## 2026-03-29 - Branch And Warehouse Required Validation Aligned With Labels
+
+- Updated [lib/core/pages/settings_branches_create_page.dart](E:/zerpai-new/lib/core/pages/settings_branches_create_page.dart) so conditional required branch fields now validate inline instead of only failing through toast messages:
+  - `Parent branch` now shows inline error text when `This is a child branch` is enabled but no parent branch is selected
+  - Kerala LSGD fields now show inline required errors for `District`, `Local body type`, and `Local body name` when they are mandatory for the selected state
+- Kept the existing required-label pattern based on `ZerpaiFormRow(required: true)` and aligned the save logic to set those conditional dropdown errors before blocking submission.
+- Updated [lib/core/pages/settings_warehouses_create_page.dart](E:/zerpai-new/lib/core/pages/settings_warehouses_create_page.dart) so warehouse create/edit now behaves like branch create on failed saves:
+  - turns on `AutovalidateMode.onUserInteraction` after the first failed save
+  - shows `Please enter a warehouse name.` when the required warehouse name is missing
+  - refreshes inline validation as the user edits the field
+- Validation: `dart format lib/core/pages/settings_branches_create_page.dart lib/core/pages/settings_warehouses_create_page.dart`; `dart analyze lib/core/pages/settings_branches_create_page.dart lib/core/pages/settings_warehouses_create_page.dart`.
+
+## 2026-03-29 - Warehouse Associate Contacts Implemented End To End
+
+- Added a real warehouse contact-association persistence path instead of leaving `Associate Contacts` as a routed placeholder.
+- Backend changes:
+  - Updated [backend/src/modules/warehouses-settings/warehouses-settings.service.ts](E:/zerpai-new/backend/src/modules/warehouses-settings/warehouses-settings.service.ts) to accept and persist `customer_id` and `vendor_id` on the `warehouses` table.
+  - Added UUID normalization for `branch_id`, `customer_id`, and `vendor_id` so empty selections can be safely cleared back to `NULL`.
+  - Updated warehouse reads to return `customer_name` and `vendor_name` alongside the saved IDs by resolving DB-backed display names from `customers` and `vendors`.
+  - Updated [backend/drizzle/schema.ts](E:/zerpai-new/backend/drizzle/schema.ts) to include the new warehouse contact columns and indexes.
+- Database migration:
+  - Added [supabase/migrations/1016_warehouses_contact_associations.sql](E:/zerpai-new/supabase/migrations/1016_warehouses_contact_associations.sql) to add `customer_id` and `vendor_id` to `public.warehouses` with `ON DELETE SET NULL` foreign keys and indexes.
+- Frontend changes:
+  - Updated [lib/core/pages/settings_warehouses_list_page.dart](E:/zerpai-new/lib/core/pages/settings_warehouses_list_page.dart) so `Associate Contacts` now opens a real top-centered `Associate Customer and Vendor` dialog backed by DB data from `GET accountant/contacts?orgId=...`.
+  - The dialog now preselects existing saved customer/vendor associations for the warehouse and persists changes through `PUT /warehouses-settings/:id`.
+  - Warehouse rows now retain the saved `customer_id` and `vendor_id` in page state so the dialog reopens with the current association instead of starting empty every time.
+- Validation: `dart format lib/core/pages/settings_warehouses_list_page.dart`; `dart analyze lib/core/pages/settings_warehouses_list_page.dart`; `npm run build` in `backend/`.
+
+## 2026-03-29 - Org Branding Accent Color Picker Overflow Fixed
+
+- Updated [lib/core/pages/settings_organization_branding_page.dart](E:/zerpai-new/lib/core/pages/settings_organization_branding_page.dart) to stop the custom accent-color picker dialog from overflowing horizontally inside the `ColorPicker` widget.
+- Reworked the custom accent-color picker into a compact popup-card layout closer to the Zoho branding reference instead of using a generic wide dialog treatment.
+- Forced the embedded `ColorPicker` into a portrait layout and rebuilt the popup structure around:
+  - picker area on top
+  - hex input + color preview row
+  - `Swatches` link row
+  - `Apply` then `Cancel` footer actions
+- This removed the internal RenderFlex overflow without leaving the picker as an oversized modal.
+- Explicitly set the dialog `surfaceTintColor` to pure white to keep the floating surface aligned with the repo dialog rule while adjusting the layout.
+- Validation: `dart format lib/core/pages/settings_organization_branding_page.dart`; `dart analyze lib/core/pages/settings_organization_branding_page.dart`.
+
+## 2026-03-29 - Users And Roles Built With DB-Backed User Location Access
+
+- Added end-to-end Users & Roles routing in settings so the sidebar now opens real screens instead of dead placeholders:
+  - [lib/core/routing/app_routes.dart](E:/zerpai-new/lib/core/routing/app_routes.dart)
+  - [lib/core/routing/app_router.dart](E:/zerpai-new/lib/core/routing/app_router.dart)
+- Added the shared Users & Roles settings shell and typed settings models in:
+  - [lib/core/pages/settings_users_roles_support.dart](E:/zerpai-new/lib/core/pages/settings_users_roles_support.dart)
+- Built the Users list/detail experience in:
+  - [lib/core/pages/settings_users_page.dart](E:/zerpai-new/lib/core/pages/settings_users_page.dart)
+  - Includes:
+    - `All Users` status filter menu (`All`, `Inactive`, `Active`)
+    - `Invite User` action
+    - export menu
+    - split detail view for selected users
+    - `More Details` and `Recent Activities` tabs
+    - row actions for `Mark as Active` / `Mark as Inactive` and `Delete`
+- Built the Invite/Edit user form in:
+  - [lib/core/pages/settings_users_form_page.dart](E:/zerpai-new/lib/core/pages/settings_users_form_page.dart)
+  - Includes:
+    - required `Name`, `Email Address`, and `Role`
+    - inline validation and failed-save blocking
+    - DB-backed role loading from the backend role catalog
+    - location access selection with associated-values summary
+- Added the reusable location-access editor in:
+  - [lib/core/pages/settings_user_location_access_editor.dart](E:/zerpai-new/lib/core/pages/settings_user_location_access_editor.dart)
+  - Includes:
+    - searchable business/warehouse tree
+    - multi-select access control
+    - associated-values summary panel
+    - default business and default warehouse selectors
+- Built the Roles screen in:
+  - [lib/core/pages/settings_roles_page.dart](E:/zerpai-new/lib/core/pages/settings_roles_page.dart)
+  - Shows DB-backed role catalog cards with descriptions and user counts.
+- Added backend support for settings users in:
+  - [backend/src/modules/users/users.service.ts](E:/zerpai-new/backend/src/modules/users/users.service.ts)
+  - [backend/src/modules/users/users.controller.ts](E:/zerpai-new/backend/src/modules/users/users.controller.ts)
+  - Added support for:
+    - listing users by org and status
+    - fetching one user with accessible locations/defaults
+    - creating users
+    - updating users
+    - marking active/inactive
+    - deleting users
+    - loading recent activities from audit logs
+    - loading and saving location-access assignments
+    - loading role catalog counts
+- Added audit route mapping coverage for users/settings operations in:
+  - [backend/src/common/interceptors/audit.interceptor.ts](E:/zerpai-new/backend/src/common/interceptors/audit.interceptor.ts)
+- Added DB-backed persistence for user location access in:
+  - [supabase/migrations/1017_settings_user_location_access.sql](E:/zerpai-new/supabase/migrations/1017_settings_user_location_access.sql)
+  - [backend/drizzle/schema.ts](E:/zerpai-new/backend/drizzle/schema.ts)
+- Validation:
+  - `dart format lib/core/pages/settings_users_roles_support.dart lib/core/pages/settings_user_location_access_editor.dart lib/core/pages/settings_users_form_page.dart lib/core/pages/settings_users_page.dart lib/core/pages/settings_roles_page.dart lib/core/routing/app_router.dart lib/core/routing/app_routes.dart`
+  - `dart analyze lib/core/pages/settings_users_roles_support.dart lib/core/pages/settings_user_location_access_editor.dart lib/core/pages/settings_users_form_page.dart lib/core/pages/settings_users_page.dart lib/core/pages/settings_roles_page.dart lib/core/routing/app_router.dart lib/core/routing/app_routes.dart`
+  - `npm run build` in `backend/`
+- Fixed the Users/Locations backend adapter layer after runtime 404s and legacy-table failures:
+  - Registered `OutletsModule` in the app and replaced the old `settings_outlets`-based outlet service with a real adapter over:
+    - `settings_branches`
+    - `warehouses`
+  - Updated:
+    - [backend/src/modules/outlets/outlets.service.ts](E:/zerpai-new/backend/src/modules/outlets/outlets.service.ts)
+    - [backend/src/modules/outlets/outlets.controller.ts](E:/zerpai-new/backend/src/modules/outlets/outlets.controller.ts)
+    - [backend/src/modules/outlets/outlets.module.ts](E:/zerpai-new/backend/src/modules/outlets/outlets.module.ts)
+  - The `/api/v1/outlets` API now returns a unified location list for:
+    - business locations from branches
+    - warehouse locations from warehouses
+  - Added `/api/v1/outlets/:id/contacts` patch support so warehouse contact association works through the location settings UI.
+- Unified Users location loading with the same outlet adapter in:
+  - [backend/src/modules/users/users.service.ts](E:/zerpai-new/backend/src/modules/users/users.service.ts)
+  - [backend/src/modules/users/users.module.ts](E:/zerpai-new/backend/src/modules/users/users.module.ts)
+  - This removed the last `settings_outlets` dependency from the new Users & Roles flow.
+- Added missing public users table migration for persisted settings-user metadata in:
+  - [supabase/migrations/1018_create_public_users_table.sql](E:/zerpai-new/supabase/migrations/1018_create_public_users_table.sql)
+- Runtime verification after rebuild/restart:
+  - `GET /api/v1/outlets?org_id=00000000-0000-0000-0000-000000000002` now succeeds.
+  - `GET /api/v1/users/roles/catalog?org_id=00000000-0000-0000-0000-000000000002` now succeeds.
+  - `GET /api/v1/users?org_id=00000000-0000-0000-0000-000000000002` now succeeds without endpoint or legacy-table errors.
+- Updated the Roles settings UI in:
+  - [lib/core/pages/settings_roles_page.dart](E:/zerpai-new/lib/core/pages/settings_roles_page.dart)
+  - Replaced the earlier card-grid summary with the flatter Zoho-style table/list presentation:
+    - left-aligned `Roles` title
+    - right-aligned `New Role` primary action
+    - light header row with `Role Name` and `Description`
+    - role rows styled as link-like names with plain descriptions
+  - Validation:
+    - `dart format lib/core/pages/settings_roles_page.dart`
+    - `dart analyze lib/core/pages/settings_roles_page.dart`

@@ -1,171 +1,354 @@
 import { Injectable } from "@nestjs/common";
+import { BranchesService } from "../branches/branches.service";
 import { SupabaseService } from "../supabase/supabase.service";
+import { WarehousesSettingsService } from "../warehouses-settings/warehouses-settings.service";
+
+type OutletLocationType = "business" | "warehouse";
 
 @Injectable()
 export class OutletsService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly branchesService: BranchesService,
+    private readonly warehousesSettingsService: WarehousesSettingsService,
+  ) {}
 
-  private async fetchSettingsMap(orgId: string): Promise<Map<string, any>> {
-    const { data } = await this.supabaseService
-      .getClient()
-      .from("settings_locations")
-      .select("outlet_id, location_type, parent_outlet_id, logo_url, is_primary")
-      .eq("org_id", orgId);
-    return new Map((data ?? []).map((s: any) => [s.outlet_id, s]));
+  private normalizeUuid(value: unknown): string | null {
+    const normalized = value?.toString().trim();
+    return normalized ? normalized : null;
   }
 
-  private mergeSettings(outlet: any, settings: any) {
+  private normalizeLocationType(value: unknown): OutletLocationType {
+    return value?.toString().trim().toLowerCase() === "warehouse"
+      ? "warehouse"
+      : "business";
+  }
+
+  private async fetchBranchTransactionSeriesMap(orgId: string, branchIds: string[]) {
+    if (branchIds.length === 0) {
+      return new Map<string, string[]>();
+    }
+
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("settings_branch_transaction_series")
+      .select("branch_id, transaction_series_id")
+      .eq("org_id", orgId)
+      .in("branch_id", branchIds);
+
+    if (error) {
+      throw new Error(
+        `Failed to fetch settings_branch_transaction_series: ${error.message}`,
+      );
+    }
+
+    const seriesMap = new Map<string, string[]>();
+    for (const row of data ?? []) {
+      const branchId = row.branch_id?.toString();
+      const transactionSeriesId = row.transaction_series_id?.toString();
+      if (!branchId || !transactionSeriesId) continue;
+      const current = seriesMap.get(branchId) ?? [];
+      current.push(transactionSeriesId);
+      seriesMap.set(branchId, current);
+    }
+    return seriesMap;
+  }
+
+  private mapBranch(branch: any, transactionSeriesIds: string[] = []) {
     return {
-      ...outlet,
-      location_type: settings?.location_type ?? "business",
-      parent_outlet_id: settings?.parent_outlet_id ?? null,
-      logo_url: settings?.logo_url ?? null,
-      is_primary: settings?.is_primary ?? false,
+      id: branch.id?.toString() ?? "",
+      org_id: branch.org_id?.toString() ?? "",
+      name: (branch.name ?? "").toString(),
+      outlet_code: (branch.branch_code ?? "").toString(),
+      gstin: (branch.gstin ?? "").toString(),
+      gstin_registration_type: branch.gstin_registration_type ?? null,
+      gstin_legal_name: branch.gstin_legal_name ?? null,
+      gstin_trade_name: branch.gstin_trade_name ?? null,
+      gstin_registered_on: branch.gstin_registered_on ?? null,
+      gstin_reverse_charge: branch.gstin_reverse_charge ?? false,
+      gstin_import_export: branch.gstin_import_export ?? false,
+      gstin_import_export_account_id:
+        branch.gstin_import_export_account_id ?? null,
+      email: (branch.email ?? "").toString(),
+      phone: (branch.phone ?? "").toString(),
+      attention: (branch.attention ?? "").toString(),
+      address: (branch.address_street_1 ?? "").toString(),
+      address2: (branch.address_street_2 ?? "").toString(),
+      city: (branch.city ?? "").toString(),
+      state: (branch.state ?? "").toString(),
+      country: (branch.country ?? "India").toString(),
+      pincode: (branch.pincode ?? "").toString(),
+      fax: (branch.fax ?? "").toString(),
+      website: (branch.website ?? "").toString(),
+      is_active: branch.is_active ?? true,
+      location_type: "business",
+      parent_outlet_id: branch.parent_branch_id?.toString() ?? null,
+      logo_url: branch.logo_url ?? null,
+      is_primary: !branch.parent_branch_id,
+      transaction_series_ids: transactionSeriesIds,
+      default_transaction_series_id:
+        branch.default_transaction_series_id?.toString() ?? null,
+      primary_contact_id: branch.primary_contact_id?.toString() ?? null,
+      created_at: branch.created_at ?? null,
+      updated_at: branch.updated_at ?? null,
+    };
+  }
+
+  private mapWarehouse(warehouse: any) {
+    return {
+      id: warehouse.id?.toString() ?? "",
+      org_id: warehouse.org_id?.toString() ?? "",
+      name: (warehouse.name ?? "").toString(),
+      outlet_code: (warehouse.warehouse_code ?? "").toString(),
+      gstin: "",
+      gstin_registration_type: null,
+      gstin_legal_name: null,
+      gstin_trade_name: null,
+      gstin_registered_on: null,
+      gstin_reverse_charge: false,
+      gstin_import_export: false,
+      gstin_import_export_account_id: null,
+      email: (warehouse.email ?? "").toString(),
+      phone: (warehouse.phone ?? "").toString(),
+      attention: (warehouse.attention ?? "").toString(),
+      address: (warehouse.address_street_1 ?? "").toString(),
+      address2: (warehouse.address_street_2 ?? "").toString(),
+      city: (warehouse.city ?? "").toString(),
+      state: (warehouse.state ?? "").toString(),
+      country: (warehouse.country ?? "India").toString(),
+      pincode: (warehouse.pincode ?? "").toString(),
+      fax: "",
+      website: "",
+      is_active: warehouse.is_active ?? true,
+      location_type: "warehouse",
+      parent_outlet_id: warehouse.branch_id?.toString() ?? null,
+      logo_url: null,
+      is_primary: false,
+      transaction_series_ids: [],
+      default_transaction_series_id: null,
+      primary_contact_id: null,
+      customer_id: warehouse.customer_id?.toString() ?? null,
+      vendor_id: warehouse.vendor_id?.toString() ?? null,
+      created_at: warehouse.created_at ?? null,
+      updated_at: warehouse.updated_at ?? null,
+    };
+  }
+
+  private mapBranchPayload(dto: any) {
+    const parentBranchId = this.normalizeUuid(dto.parent_outlet_id);
+    return {
+      org_id: dto.org_id,
+      name: dto.name,
+      branch_code: dto.outlet_code ?? null,
+      email: dto.email ?? null,
+      phone: dto.phone ?? null,
+      attention: dto.attention ?? null,
+      address_street_1: dto.address ?? null,
+      address_street_2: dto.address2 ?? null,
+      city: dto.city ?? null,
+      state: dto.state ?? null,
+      country: dto.country ?? "India",
+      pincode: dto.pincode ?? null,
+      fax: dto.fax ?? null,
+      website: dto.website ?? null,
+      gstin: dto.gstin ?? null,
+      gstin_registration_type: dto.gstin_registration_type ?? null,
+      gstin_legal_name: dto.gstin_legal_name ?? null,
+      gstin_trade_name: dto.gstin_trade_name ?? null,
+      gstin_registered_on: dto.gstin_registered_on ?? null,
+      gstin_reverse_charge: dto.gstin_reverse_charge ?? false,
+      gstin_import_export: dto.gstin_import_export ?? false,
+      gstin_import_export_account_id:
+        dto.gstin_import_export_account_id ??
+        dto.gstin_custom_duty_account_id ??
+        null,
+      gstin_digital_services: dto.gstin_digital_services ?? false,
+      logo_url: dto.logo_url ?? null,
+      is_child_location: parentBranchId != null,
+      parent_branch_id: parentBranchId,
+      transaction_series_ids: Array.isArray(dto.transaction_series_ids)
+        ? dto.transaction_series_ids
+        : [],
+      default_transaction_series_id: dto.default_transaction_series_id ?? null,
+      location_users: Array.isArray(dto.location_users) ? dto.location_users : [],
+      is_active: dto.is_active ?? true,
+    };
+  }
+
+  private mapWarehousePayload(dto: any) {
+    return {
+      org_id: dto.org_id,
+      name: dto.name,
+      warehouse_code: dto.outlet_code ?? null,
+      branch_id: this.normalizeUuid(dto.parent_outlet_id),
+      customer_id: this.normalizeUuid(dto.customer_id),
+      vendor_id: this.normalizeUuid(dto.vendor_id),
+      attention: dto.attention ?? null,
+      address_street_1: dto.address ?? null,
+      address_street_2: dto.address2 ?? null,
+      city: dto.city ?? null,
+      state: dto.state ?? null,
+      pincode: dto.pincode ?? null,
+      country: dto.country ?? "India",
+      phone: dto.phone ?? null,
+      email: dto.email ?? null,
+      is_active: dto.is_active ?? true,
     };
   }
 
   async findAll(orgId: string) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("settings_outlets")
-      .select("*")
-      .eq("org_id", orgId)
-      .order("created_at", { ascending: true });
+    const client = this.supabaseService.getClient();
+    const [branchesRes, warehousesRes] = await Promise.all([
+      client
+        .from("settings_branches")
+        .select("*")
+        .eq("org_id", orgId)
+        .order("created_at", { ascending: true }),
+      client
+        .from("warehouses")
+        .select("*")
+        .eq("org_id", orgId)
+        .order("created_at", { ascending: true }),
+    ]);
 
-    if (error) throw new Error(`Failed to fetch settings_outlets: ${error.message}`);
+    if (branchesRes.error) {
+      throw new Error(
+        `Failed to fetch settings_branches: ${branchesRes.error.message}`,
+      );
+    }
+    if (warehousesRes.error) {
+      throw new Error(`Failed to fetch warehouses: ${warehousesRes.error.message}`);
+    }
 
-    const settingsMap = await this.fetchSettingsMap(orgId);
-    return (data ?? []).map((o: any) => this.mergeSettings(o, settingsMap.get(o.id)));
-  }
+    const branches = branchesRes.data ?? [];
+    const warehouses = warehousesRes.data ?? [];
+    const branchSeriesMap = await this.fetchBranchTransactionSeriesMap(
+      orgId,
+      branches.map((branch: any) => branch.id?.toString()).filter(Boolean),
+    );
 
-  async findOne(id: string, orgId: string) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("settings_outlets")
-      .select("*")
-      .eq("id", id)
-      .eq("org_id", orgId)
-      .single();
-
-    if (error) return null;
-
-    const { data: settings } = await this.supabaseService
-      .getClient()
-      .from("settings_locations")
-      .select("location_type, parent_outlet_id, logo_url, is_primary")
-      .eq("outlet_id", id)
-      .single();
-
-    return this.mergeSettings(data, settings);
-  }
-
-  async create(dto: any) {
-    const { data: outlet, error: outletError } = await this.supabaseService
-      .getClient()
-      .from("settings_outlets")
-      .insert({
-        org_id: dto.org_id,
-        name: dto.name,
-        outlet_code: dto.outlet_code,
-        gstin: dto.gstin ?? null,
-        email: dto.email ?? null,
-        phone: dto.phone ?? null,
-        address: dto.address ?? null,
-        city: dto.city ?? null,
-        state: dto.state ?? null,
-        country: dto.country ?? "India",
-        pincode: dto.pincode ?? null,
-        is_active: dto.is_active ?? true,
-      })
-      .select()
-      .single();
-
-    if (outletError) throw new Error(`Failed to create settings_outlet: ${outletError.message}`);
-
-    const { error: settingsError } = await this.supabaseService
-      .getClient()
-      .from("settings_locations")
-      .insert({
-        outlet_id: outlet.id,
-        org_id: dto.org_id,
-        location_type: dto.location_type ?? "business",
-        parent_outlet_id: dto.parent_outlet_id ?? null,
-        logo_url: dto.logo_url ?? null,
-        is_primary: dto.is_primary ?? false,
-      });
-
-    if (settingsError) throw new Error(`Failed to create location settings: ${settingsError.message}`);
-
-    return this.mergeSettings(outlet, {
-      location_type: dto.location_type ?? "business",
-      parent_outlet_id: dto.parent_outlet_id ?? null,
-      logo_url: dto.logo_url ?? null,
-      is_primary: dto.is_primary ?? false,
+    return [
+      ...branches.map((branch: any) =>
+        this.mapBranch(branch, branchSeriesMap.get(branch.id?.toString() ?? "") ?? []),
+      ),
+      ...warehouses.map((warehouse: any) => this.mapWarehouse(warehouse)),
+    ].sort((a, b) => {
+      const aTime = new Date(a.created_at ?? 0).getTime();
+      const bTime = new Date(b.created_at ?? 0).getTime();
+      if (aTime !== bTime) return aTime - bTime;
+      if (a.location_type !== b.location_type) {
+        return a.location_type === "business" ? -1 : 1;
+      }
+      return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
     });
   }
 
-  async update(id: string, orgId: string, dto: any) {
-    const outletPayload: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    };
-    const outletFields = [
-      "name", "outlet_code", "gstin", "email", "phone",
-      "address", "city", "state", "country", "pincode", "is_active",
-    ];
-    for (const field of outletFields) {
-      if (field in dto) outletPayload[field] = dto[field] ?? null;
-    }
-
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("settings_outlets")
-      .update(outletPayload)
+  async findOne(id: string, orgId: string) {
+    const client = this.supabaseService.getClient();
+    const { data: branch, error: branchError } = await client
+      .from("settings_branches")
+      .select("*")
       .eq("id", id)
       .eq("org_id", orgId)
-      .select()
-      .single();
+      .maybeSingle();
 
-    if (error) throw new Error(`Failed to update settings_outlet: ${error.message}`);
-
-    const settingsFields = ["location_type", "parent_outlet_id", "logo_url", "is_primary"];
-    const hasSettingsUpdate = settingsFields.some((f) => f in dto);
-
-    if (hasSettingsUpdate) {
-      const settingsPayload: Record<string, any> = {
-        outlet_id: id,
-        org_id: orgId,
-        updated_at: new Date().toISOString(),
-      };
-      for (const field of settingsFields) {
-        if (field in dto) settingsPayload[field] = dto[field] ?? null;
-      }
-
-      const { error: settingsError } = await this.supabaseService
-        .getClient()
-        .from("settings_locations")
-        .upsert(settingsPayload, { onConflict: "outlet_id" });
-
-      if (settingsError) throw new Error(`Failed to update location settings: ${settingsError.message}`);
+    if (branchError) {
+      throw new Error(
+        `Failed to fetch settings_branches row: ${branchError.message}`,
+      );
+    }
+    if (branch) {
+      const seriesMap = await this.fetchBranchTransactionSeriesMap(orgId, [id]);
+      return this.mapBranch(branch, seriesMap.get(id) ?? []);
     }
 
-    return data;
+    const { data: warehouse, error: warehouseError } = await client
+      .from("warehouses")
+      .select("*")
+      .eq("id", id)
+      .eq("org_id", orgId)
+      .maybeSingle();
+
+    if (warehouseError) {
+      throw new Error(
+        `Failed to fetch warehouses row: ${warehouseError.message}`,
+      );
+    }
+
+    return warehouse ? this.mapWarehouse(warehouse) : null;
+  }
+
+  async create(dto: any) {
+    const locationType = this.normalizeLocationType(dto.location_type);
+
+    if (locationType === "warehouse") {
+      const created = await this.warehousesSettingsService.create(
+        this.mapWarehousePayload(dto),
+      );
+      return this.findOne(created.id, dto.org_id);
+    }
+
+    const created = await this.branchesService.create(this.mapBranchPayload(dto));
+    return this.findOne(created.id, dto.org_id);
+  }
+
+  async update(id: string, orgId: string, dto: any) {
+    const existing = await this.findOne(id, orgId);
+    if (!existing) {
+      throw new Error("Location not found");
+    }
+
+    const requestedType = dto.location_type
+      ? this.normalizeLocationType(dto.location_type)
+      : (existing.location_type as OutletLocationType);
+
+    if (requestedType !== existing.location_type) {
+      throw new Error("Changing location type is not supported");
+    }
+
+    if (requestedType === "warehouse") {
+      await this.warehousesSettingsService.update(
+        id,
+        orgId,
+        this.mapWarehousePayload({ ...dto, org_id: orgId }),
+      );
+      return this.findOne(id, orgId);
+    }
+
+    await this.branchesService.update(
+      id,
+      orgId,
+      this.mapBranchPayload({ ...dto, org_id: orgId }),
+    );
+    return this.findOne(id, orgId);
+  }
+
+  async updateContacts(id: string, orgId: string, dto: any) {
+    const existing = await this.findOne(id, orgId);
+    if (!existing) {
+      throw new Error("Location not found");
+    }
+    if (existing.location_type !== "warehouse") {
+      throw new Error("Associate Contacts is available only for warehouse locations");
+    }
+
+    await this.warehousesSettingsService.update(id, orgId, {
+      customer_id: this.normalizeUuid(dto.customer_id),
+      vendor_id: this.normalizeUuid(dto.vendor_id),
+    });
+    return this.findOne(id, orgId);
   }
 
   async remove(id: string, orgId: string) {
-    await this.supabaseService
-      .getClient()
-      .from("settings_locations")
-      .delete()
-      .eq("outlet_id", id);
+    const existing = await this.findOne(id, orgId);
+    if (!existing) {
+      throw new Error("Location not found");
+    }
 
-    const { error } = await this.supabaseService
-      .getClient()
-      .from("settings_outlets")
-      .delete()
-      .eq("id", id)
-      .eq("org_id", orgId);
+    if (existing.location_type === "warehouse") {
+      return this.warehousesSettingsService.remove(id, orgId);
+    }
 
-    if (error) throw new Error(`Failed to delete settings_outlet: ${error.message}`);
-    return { success: true };
+    return this.branchesService.remove(id, orgId);
   }
 }

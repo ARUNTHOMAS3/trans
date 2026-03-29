@@ -16,6 +16,7 @@
 | `ZerpaiFormCard` | `form_row.dart` | White bordered card container for horizontal form rows. Wrap `ZerpaiFormRow` children + `kZerpaiFormDivider` separators inside this. |
 | `kZerpaiFormDivider` | `form_row.dart` | Const hairline divider (`height: 1`, `AppTheme.borderLight`) — place between rows inside a `ZerpaiFormCard`. |
 | `SharedFieldLayout` | `inputs/shared_field_layout.dart` | Responsive form field wrapper (horizontal on wide screens, vertical on narrow) with label, tooltip, helper text |
+| `SettingsFixedHeaderLayout` | `settings_fixed_header_layout.dart` | Fixed settings-page header with constrained-width scrollable body and optional footer; keeps titles/action rows pinned while forms and tables scroll |
 | `KeyboardScrollable` | `keyboard_scrollable.dart` | Enables arrow keys, Page Up/Down, Home/End for scroll on nested ScrollViews |
 | `PlaceholderScreen` | `placeholder_screen.dart` | Under-construction screen for unimplemented modules |
 | `UnsavedChangesGuard` | `unsaved_changes_guard.dart` | PopScope wrapper that prompts before leaving dirty forms |

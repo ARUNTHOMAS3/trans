@@ -17,33 +17,112 @@ interface RouteEntry {
 /** URL segment → Supabase table + module mapping for all auditable routes. */
 const ROUTE_TABLE_MAP: RouteEntry[] = [
   // Accountant — order matters: specific sub-routes before catch-all
-  { pattern: /\/accountant\/manual-journals\/[0-9a-fA-F-]{36}/, table: "accounts_manual_journals", module: "accountant" },
-  { pattern: /\/accountant\/recurring-journals\/[0-9a-fA-F-]{36}/, table: "accounts_recurring_journals", module: "accountant" },
-  { pattern: /\/accountant\/journal-templates\/[0-9a-fA-F-]{36}/, table: "accounts_journal_templates", module: "accountant" },
-  { pattern: /\/accountant\/[0-9a-fA-F-]{36}/, table: "accounts", module: "accountant" },
+  {
+    pattern: /\/accountant\/manual-journals\/[0-9a-fA-F-]{36}/,
+    table: "accounts_manual_journals",
+    module: "accountant",
+  },
+  {
+    pattern: /\/accountant\/recurring-journals\/[0-9a-fA-F-]{36}/,
+    table: "accounts_recurring_journals",
+    module: "accountant",
+  },
+  {
+    pattern: /\/accountant\/journal-templates\/[0-9a-fA-F-]{36}/,
+    table: "accounts_journal_templates",
+    module: "accountant",
+  },
+  {
+    pattern: /\/accountant\/[0-9a-fA-F-]{36}/,
+    table: "accounts",
+    module: "accountant",
+  },
   // Products
-  { pattern: /\/products\/[0-9a-fA-F-]{36}/, table: "products", module: "items" },
+  {
+    pattern: /\/products\/[0-9a-fA-F-]{36}/,
+    table: "products",
+    module: "items",
+  },
   // Price lists
-  { pattern: /\/price-lists\/[0-9a-fA-F-]{36}/, table: "price_lists", module: "items" },
+  {
+    pattern: /\/price-lists\/[0-9a-fA-F-]{36}/,
+    table: "price_lists",
+    module: "items",
+  },
   // Sales
-  { pattern: /\/sales\/customers\/[0-9a-fA-F-]{36}/, table: "customers", module: "sales" },
+  {
+    pattern: /\/sales\/customers\/[0-9a-fA-F-]{36}/,
+    table: "customers",
+    module: "sales",
+  },
   { pattern: /^\/api\/v1\/sales$/, table: "sales_orders", module: "sales" },
-  { pattern: /\/sales\/[0-9a-fA-F-]{36}/, table: "sales_orders", module: "sales" },
+  {
+    pattern: /\/sales\/[0-9a-fA-F-]{36}/,
+    table: "sales_orders",
+    module: "sales",
+  },
   // Purchases
-  { pattern: /\/purchase-orders\/[0-9a-fA-F-]{36}/, table: "purchase_orders", module: "purchases" },
-  { pattern: /^\/api\/v1\/purchase-orders$/, table: "purchase_orders", module: "purchases" },
-  { pattern: /\/vendors\/[0-9a-fA-F-]{36}/, table: "vendors", module: "purchases" },
+  {
+    pattern: /\/purchase-orders\/[0-9a-fA-F-]{36}/,
+    table: "purchase_orders",
+    module: "purchases",
+  },
+  {
+    pattern: /^\/api\/v1\/purchase-orders$/,
+    table: "purchase_orders",
+    module: "purchases",
+  },
+  {
+    pattern: /\/vendors\/[0-9a-fA-F-]{36}/,
+    table: "vendors",
+    module: "purchases",
+  },
   { pattern: /^\/api\/v1\/vendors$/, table: "vendors", module: "purchases" },
   // Settings
-  { pattern: /\/branches\/[0-9a-fA-F-]{36}/, table: "settings_branches", module: "settings" },
-  { pattern: /^\/api\/v1\/branches$/, table: "settings_branches", module: "settings" },
-  { pattern: /\/warehouses-settings\/[0-9a-fA-F-]{36}/, table: "settings_warehouses", module: "settings" },
-  { pattern: /^\/api\/v1\/warehouses-settings$/, table: "settings_warehouses", module: "settings" },
-  { pattern: /\/outlets\/[0-9a-fA-F-]{36}/, table: "outlets", module: "settings" },
+  {
+    pattern: /\/branches\/[0-9a-fA-F-]{36}/,
+    table: "settings_branches",
+    module: "settings",
+  },
+  {
+    pattern: /^\/api\/v1\/branches$/,
+    table: "settings_branches",
+    module: "settings",
+  },
+  {
+    pattern: /\/warehouses-settings\/[0-9a-fA-F-]{36}/,
+    table: "settings_warehouses",
+    module: "settings",
+  },
+  {
+    pattern: /^\/api\/v1\/warehouses-settings$/,
+    table: "settings_warehouses",
+    module: "settings",
+  },
+  {
+    pattern: /\/outlets\/[0-9a-fA-F-]{36}/,
+    table: "outlets",
+    module: "settings",
+  },
   { pattern: /^\/api\/v1\/outlets$/, table: "outlets", module: "settings" },
+  {
+    pattern: /\/users\/[0-9a-fA-F-]{36}\/location-access/,
+    table: "users",
+    module: "settings",
+  },
+  { pattern: /\/users\/[0-9a-fA-F-]{36}/, table: "users", module: "settings" },
+  { pattern: /^\/api\/v1\/users$/, table: "users", module: "settings" },
   // Transaction series
-  { pattern: /\/transaction-series\/[0-9a-fA-F-]{36}/, table: "transaction_series", module: "settings" },
-  { pattern: /^\/api\/v1\/transaction-series$/, table: "transaction_series", module: "settings" },
+  {
+    pattern: /\/transaction-series\/[0-9a-fA-F-]{36}/,
+    table: "transaction_series",
+    module: "settings",
+  },
+  {
+    pattern: /^\/api\/v1\/transaction-series$/,
+    table: "transaction_series",
+    module: "settings",
+  },
 ];
 
 const UUID_RE =
@@ -78,7 +157,10 @@ export class AuditInterceptor implements NestInterceptor {
       (request.headers?.["x-actor-name"] as string | undefined) ?? "system";
 
     // DELETE & UPDATE: fetch existing record before handler
-    if ((method === "DELETE" || method === "PUT" || method === "PATCH") && recordId) {
+    if (
+      (method === "DELETE" || method === "PUT" || method === "PATCH") &&
+      recordId
+    ) {
       return from(this.fetchOldValues(entry.table, recordId)).pipe(
         switchMap((oldValues) =>
           next.handle().pipe(
@@ -107,7 +189,10 @@ export class AuditInterceptor implements NestInterceptor {
     if (method === "POST") {
       return next.handle().pipe(
         tap((responseBody) => {
-          const createdId = this.extractCreatedId(responseBody) ?? recordId ?? "00000000-0000-0000-0000-000000000000";
+          const createdId =
+            this.extractCreatedId(responseBody) ??
+            recordId ??
+            "00000000-0000-0000-0000-000000000000";
           this.writeAuditLog({
             table_name: entry.table,
             record_id: createdId,
@@ -146,7 +231,8 @@ export class AuditInterceptor implements NestInterceptor {
     if (typeof body === "object") {
       // { data: { id: '...' } } or { id: '...' }
       const candidate = body?.data?.id ?? body?.id;
-      if (typeof candidate === "string" && UUID_RE.test(candidate)) return candidate;
+      if (typeof candidate === "string" && UUID_RE.test(candidate))
+        return candidate;
     }
     return null;
   }

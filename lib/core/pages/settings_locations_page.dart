@@ -8,6 +8,7 @@ import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
+import 'package:zerpai_erp/shared/widgets/settings_fixed_header_layout.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
@@ -23,25 +24,23 @@ const List<Map<String, String>> _kGstRegTypes = [
 ];
 
 InputDecoration _gstDialogInput(String hint) => InputDecoration(
-      hintText: hint,
-      hintStyle:
-          const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      isDense: true,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: AppTheme.borderColor),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: AppTheme.borderColor),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: AppTheme.primaryBlue),
-      ),
-    );
+  hintText: hint,
+  hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+  isDense: true,
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(4),
+    borderSide: const BorderSide(color: AppTheme.borderColor),
+  ),
+  enabledBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(4),
+    borderSide: const BorderSide(color: AppTheme.borderColor),
+  ),
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(4),
+    borderSide: const BorderSide(color: AppTheme.primaryBlue),
+  ),
+);
 
 // ─── Tree connector painter ───────────────────────────────────────────────────
 
@@ -93,21 +92,28 @@ class _RadioOption extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+            selected
+                ? Icons.radio_button_checked
+                : Icons.radio_button_unchecked,
             size: 18,
             color: selected ? accentColor : AppTheme.textSecondary,
           ),
           const SizedBox(width: 6),
-          Text(label,
-              style: const TextStyle(fontSize: 13, color: AppTheme.textBody)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+          ),
         ],
       ),
     );
   }
 }
 
-Widget _gstDialogRow(
-    {required String label, required Widget child, bool req = false}) {
+Widget _gstDialogRow({
+  required String label,
+  required Widget child,
+  bool req = false,
+}) {
   return Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -122,8 +128,9 @@ Widget _gstDialogRow(
               children: req
                   ? const [
                       TextSpan(
-                          text: ' *',
-                          style: TextStyle(color: AppTheme.errorRed))
+                        text: ' *',
+                        style: TextStyle(color: AppTheme.errorRed),
+                      ),
                     ]
                   : null,
             ),
@@ -174,8 +181,8 @@ const List<_NavSection> _navSections = <_NavSection>[
       _NavBlock(
         title: 'Users & Roles',
         items: <_NavEntry>[
-          _NavEntry(label: 'Users'),
-          _NavEntry(label: 'Roles'),
+          _NavEntry(label: 'Users', route: AppRoutes.settingsUsers),
+          _NavEntry(label: 'Roles', route: AppRoutes.settingsRoles),
           _NavEntry(label: 'User Preferences'),
         ],
       ),
@@ -225,7 +232,10 @@ const List<_NavSection> _navSections = <_NavSection>[
       _NavBlock(
         title: 'General',
         items: <_NavEntry>[
-          _NavEntry(label: 'Customers and Vendors', route: AppRoutes.salesCustomers),
+          _NavEntry(
+            label: 'Customers and Vendors',
+            route: AppRoutes.salesCustomers,
+          ),
           _NavEntry(label: 'Items', route: AppRoutes.itemsReport),
         ],
       ),
@@ -233,7 +243,10 @@ const List<_NavSection> _navSections = <_NavSection>[
         title: 'Inventory',
         items: <_NavEntry>[
           _NavEntry(label: 'Assemblies', route: AppRoutes.assemblies),
-          _NavEntry(label: 'Inventory Adjustments', route: AppRoutes.inventoryAdjustments),
+          _NavEntry(
+            label: 'Inventory Adjustments',
+            route: AppRoutes.inventoryAdjustments,
+          ),
           _NavEntry(label: 'Picklists', route: AppRoutes.picklists),
           _NavEntry(label: 'Packages', route: AppRoutes.packages),
           _NavEntry(label: 'Shipments', route: AppRoutes.shipments),
@@ -282,22 +295,22 @@ class _OutletRow {
   });
 
   factory _OutletRow.fromJson(Map<String, dynamic> j) => _OutletRow(
-        id: (j['id'] ?? '').toString(),
-        name: (j['name'] ?? '').toString(),
-        outletCode: (j['outlet_code'] ?? '').toString(),
-        gstin: (j['gstin'] ?? '').toString(),
-        email: (j['email'] ?? '').toString(),
-        phone: (j['phone'] ?? '').toString(),
-        address: (j['address'] ?? '').toString(),
-        city: (j['city'] ?? '').toString(),
-        state: (j['state'] ?? '').toString(),
-        country: (j['country'] ?? 'India').toString(),
-        pincode: (j['pincode'] ?? '').toString(),
-        isActive: j['is_active'] as bool? ?? true,
-        locationType: (j['location_type'] ?? 'business').toString(),
-        parentOutletId: j['parent_outlet_id']?.toString(),
-        isPrimary: j['is_primary'] as bool? ?? false,
-      );
+    id: (j['id'] ?? '').toString(),
+    name: (j['name'] ?? '').toString(),
+    outletCode: (j['outlet_code'] ?? '').toString(),
+    gstin: (j['gstin'] ?? '').toString(),
+    email: (j['email'] ?? '').toString(),
+    phone: (j['phone'] ?? '').toString(),
+    address: (j['address'] ?? '').toString(),
+    city: (j['city'] ?? '').toString(),
+    state: (j['state'] ?? '').toString(),
+    country: (j['country'] ?? 'India').toString(),
+    pincode: (j['pincode'] ?? '').toString(),
+    isActive: j['is_active'] as bool? ?? true,
+    locationType: (j['location_type'] ?? 'business').toString(),
+    parentOutletId: j['parent_outlet_id']?.toString(),
+    isPrimary: j['is_primary'] as bool? ?? false,
+  );
 
   bool get isWarehouse => locationType == 'warehouse';
 
@@ -359,15 +372,18 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
     });
     try {
       final user = ref.read(authUserProvider);
-      final String orgId =
-          (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
+      final String orgId = (user?.orgId.isNotEmpty == true)
+          ? user!.orgId
+          : _kDevOrgId;
 
       // Load org name for the top bar
       final orgRes = await _apiClient.get('/lookups/org/$orgId');
       if (!mounted) return;
       if (orgRes.success && orgRes.data is Map<String, dynamic>) {
         _organizationName =
-            ((orgRes.data as Map<String, dynamic>)['name'] ?? user?.orgName ?? '')
+            ((orgRes.data as Map<String, dynamic>)['name'] ??
+                    user?.orgName ??
+                    '')
                 .toString()
                 .trim();
       } else {
@@ -478,7 +494,9 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                             decoration: BoxDecoration(
                               color: const Color(0xFFFFF3EE),
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: const Color(0xFFFED7C3)),
+                              border: Border.all(
+                                color: const Color(0xFFFED7C3),
+                              ),
                             ),
                             child: const Icon(
                               LucideIcons.settings2,
@@ -540,7 +558,11 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                icon: const Icon(LucideIcons.x, size: 16, color: AppTheme.errorRed),
+                icon: const Icon(
+                  LucideIcons.x,
+                  size: 16,
+                  color: AppTheme.errorRed,
+                ),
                 label: const Text('Close Settings'),
               ),
             ],
@@ -553,10 +575,9 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
   // ─── Sidebar ───────────────────────────────────────────────────────────────
 
   Widget _buildSidebar() {
-    final String currentPath = GoRouterState.of(context)
-        .uri
-        .path
-        .replaceFirst(RegExp(r'^/\d{10,20}'), '');
+    final String currentPath = GoRouterState.of(
+      context,
+    ).uri.path.replaceFirst(RegExp(r'^/\d{10,20}'), '');
 
     return Container(
       width: 240,
@@ -597,8 +618,9 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
   }
 
   Widget _buildSidebarBlock(_NavBlock block, String currentPath) {
-    final bool hasActiveChild =
-        block.items.any((item) => item.route == currentPath);
+    final bool hasActiveChild = block.items.any(
+      (item) => item.route == currentPath,
+    );
     final bool isExpanded =
         _expandedBlocks.contains(block.title) || hasActiveChild;
 
@@ -699,19 +721,10 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
   // ─── Body ──────────────────────────────────────────────────────────────────
 
   Widget _buildBody() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.space32),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1100),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildBodyHeader(),
-            const SizedBox(height: AppTheme.space24),
-            _buildTable(),
-          ],
-        ),
-      ),
+    return SettingsFixedHeaderLayout(
+      maxWidth: 1100,
+      header: _buildBodyHeader(),
+      body: _buildTable(),
     );
   }
 
@@ -810,7 +823,10 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
           SizedBox(width: AppTheme.space12),
           Expanded(flex: 3, child: Text('NAME', style: style)),
           Expanded(flex: 2, child: Text('GSTIN', style: style)),
-          Expanded(flex: 2, child: Text('DEFAULT TRANSACTION SERIES', style: style)),
+          Expanded(
+            flex: 2,
+            child: Text('DEFAULT TRANSACTION SERIES', style: style),
+          ),
           Expanded(flex: 1, child: Text('TYPE', style: style)),
           Expanded(flex: 1, child: Text('ASSOCIATED ZONES', style: style)),
           Expanded(flex: 2, child: Text('ADDRESS DETAILS', style: style)),
@@ -833,17 +849,32 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
     final rows = <Widget>[];
     for (final parent in parents) {
       final children = childMap[parent.id] ?? [];
-      rows.add(_buildTableRow(parent, isChild: false, hasChildren: children.isNotEmpty));
+      rows.add(
+        _buildTableRow(
+          parent,
+          isChild: false,
+          hasChildren: children.isNotEmpty,
+        ),
+      );
       for (int i = 0; i < children.length; i++) {
-        rows.add(_buildTableRow(children[i],
-            isChild: true, isLastChild: i == children.length - 1));
+        rows.add(
+          _buildTableRow(
+            children[i],
+            isChild: true,
+            isLastChild: i == children.length - 1,
+          ),
+        );
       }
     }
     return rows;
   }
 
-  Widget _buildTableRow(_OutletRow outlet,
-      {bool isChild = false, bool isLastChild = true, bool hasChildren = false}) {
+  Widget _buildTableRow(
+    _OutletRow outlet, {
+    bool isChild = false,
+    bool isLastChild = true,
+    bool hasChildren = false,
+  }) {
     final bool isHovered = _hoveredOutletId == outlet.id;
     final Color accentColor = ref.watch(appBrandingProvider).accentColor;
 
@@ -854,7 +885,9 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
         shape: BoxShape.circle,
         color: outlet.isActive ? const Color(0xFF22A95E) : Colors.transparent,
         border: Border.all(
-          color: outlet.isActive ? const Color(0xFF22A95E) : AppTheme.textSecondary,
+          color: outlet.isActive
+              ? const Color(0xFF22A95E)
+              : AppTheme.textSecondary,
           width: 1.5,
         ),
       ),
@@ -864,171 +897,178 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
       onEnter: (_) => setState(() => _hoveredOutletId = outlet.id),
       onExit: (_) => setState(() => _hoveredOutletId = null),
       child: Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.space20,
-        vertical: AppTheme.space14,
-      ),
-      decoration: BoxDecoration(
-        color: isHovered ? AppTheme.bgLight : Colors.white,
-        border: const Border(bottom: BorderSide(color: AppTheme.borderLight)),
-      ),
-      child: Row(
-        children: [
-          // Leading: tree connector for children, status dot for parents
-          if (isChild) ...[
-            SizedBox(
-              width: 22,
-              height: 20,
-              child: CustomPaint(
-                painter: _TreeLinePainter(isLastChild: isLastChild),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.space20,
+          vertical: AppTheme.space14,
+        ),
+        decoration: BoxDecoration(
+          color: isHovered ? AppTheme.bgLight : Colors.white,
+          border: const Border(bottom: BorderSide(color: AppTheme.borderLight)),
+        ),
+        child: Row(
+          children: [
+            // Leading: tree connector for children, status dot for parents
+            if (isChild) ...[
+              SizedBox(
+                width: 22,
+                height: 20,
+                child: CustomPaint(
+                  painter: _TreeLinePainter(isLastChild: isLastChild),
+                ),
+              ),
+            ] else ...[
+              statusDot,
+              const SizedBox(width: AppTheme.space12),
+            ],
+
+            // Name
+            Expanded(
+              flex: 3,
+              child: isChild
+                  ? Row(
+                      children: [
+                        statusDot,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: RichText(
+                            text: TextSpan(
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.textPrimary,
+                              ),
+                              children: [
+                                TextSpan(text: outlet.name),
+                                if (outlet.isWarehouse)
+                                  const TextSpan(
+                                    text: ' (Warehouse)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w400,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            outlet.name,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (outlet.isPrimary) ...[
+                          const SizedBox(width: 6),
+                          const Icon(
+                            LucideIcons.star,
+                            size: 13,
+                            color: Color(0xFFFFC107),
+                          ),
+                        ],
+                      ],
+                    ),
+            ),
+
+            // GSTIN
+            Expanded(
+              flex: 2,
+              child: outlet.gstin.isNotEmpty
+                  ? Text(
+                      outlet.gstin,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
+                    )
+                  : GestureDetector(
+                      onTap: () => _showAssociateGstinDialog(outlet),
+                      child: Text(
+                        'Associate GSTIN >',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: accentColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+            ),
+
+            // Default Transaction Series (placeholder)
+            const Expanded(
+              flex: 2,
+              child: Text(
+                '—',
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
             ),
-          ] else ...[
-            statusDot,
-            const SizedBox(width: AppTheme.space12),
+
+            // Type
+            Expanded(
+              flex: 1,
+              child: Text(
+                outlet.isWarehouse ? 'Warehouse' : 'Business',
+                style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+              ),
+            ),
+
+            // Associated Zones (placeholder)
+            const Expanded(
+              flex: 1,
+              child: Text(
+                '—',
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              ),
+            ),
+
+            // Address
+            Expanded(
+              flex: 2,
+              child: Text(
+                outlet.addressSummary.isNotEmpty ? outlet.addressSummary : '—',
+                style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+              ),
+            ),
+
+            // Actions + active badge
+            SizedBox(
+              width: 56,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  PopupMenuButton<String>(
+                    icon: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 150),
+                      child: isHovered
+                          ? Icon(
+                              LucideIcons.chevronDown,
+                              key: const ValueKey('chevron'),
+                              size: 16,
+                              color: accentColor,
+                            )
+                          : const Icon(
+                              LucideIcons.moreHorizontal,
+                              key: ValueKey('dots'),
+                              size: 16,
+                              color: AppTheme.textSecondary,
+                            ),
+                    ),
+                    itemBuilder: (_) => _buildMenuItems(outlet),
+                    onSelected: (value) => _onMenuSelected(value, outlet),
+                  ),
+                ],
+              ),
+            ),
           ],
-
-          // Name
-          Expanded(
-            flex: 3,
-            child: isChild
-                ? Row(children: [
-                    statusDot,
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textPrimary,
-                          ),
-                          children: [
-                            TextSpan(text: outlet.name),
-                            if (outlet.isWarehouse)
-                              const TextSpan(
-                                text: ' (Warehouse)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w400,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ])
-                : Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          outlet.name,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                      ),
-                      if (outlet.isPrimary) ...[
-                        const SizedBox(width: 6),
-                        const Icon(LucideIcons.star,
-                            size: 13, color: Color(0xFFFFC107)),
-                      ],
-                    ],
-                  ),
-          ),
-
-          // GSTIN
-          Expanded(
-            flex: 2,
-            child: outlet.gstin.isNotEmpty
-                ? Text(
-                    outlet.gstin,
-                    style: const TextStyle(
-                        fontSize: 13, color: AppTheme.textPrimary),
-                  )
-                : GestureDetector(
-                    onTap: () => _showAssociateGstinDialog(outlet),
-                    child: Text(
-                      'Associate GSTIN >',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: accentColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-          ),
-
-          // Default Transaction Series (placeholder)
-          const Expanded(
-            flex: 2,
-            child: Text(
-              '—',
-              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-            ),
-          ),
-
-          // Type
-          Expanded(
-            flex: 1,
-            child: Text(
-              outlet.isWarehouse ? 'Warehouse' : 'Business',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
-            ),
-          ),
-
-          // Associated Zones (placeholder)
-          const Expanded(
-            flex: 1,
-            child: Text(
-              '—',
-              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-            ),
-          ),
-
-          // Address
-          Expanded(
-            flex: 2,
-            child: Text(
-              outlet.addressSummary.isNotEmpty ? outlet.addressSummary : '—',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
-            ),
-          ),
-
-          // Actions + active badge
-          SizedBox(
-            width: 56,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                PopupMenuButton<String>(
-                  icon: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 150),
-                    child: isHovered
-                        ? Icon(
-                            LucideIcons.chevronDown,
-                            key: const ValueKey('chevron'),
-                            size: 16,
-                            color: accentColor,
-                          )
-                        : const Icon(
-                            LucideIcons.moreHorizontal,
-                            key: ValueKey('dots'),
-                            size: 16,
-                            color: AppTheme.textSecondary,
-                          ),
-                  ),
-                  itemBuilder: (_) => _buildMenuItems(outlet),
-                  onSelected: (value) => _onMenuSelected(value, outlet),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
-    ),
     );
   }
 
@@ -1036,15 +1076,30 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
     return <PopupMenuEntry<String>>[
       const PopupMenuItem(value: 'edit', child: Text('Edit')),
       if (!outlet.isWarehouse && outlet.gstin.isEmpty)
-        const PopupMenuItem(value: 'associate_gstin', child: Text('Associate GSTIN')),
+        const PopupMenuItem(
+          value: 'associate_gstin',
+          child: Text('Associate GSTIN'),
+        ),
       if (!outlet.isActive)
-        const PopupMenuItem(value: 'mark_active', child: Text('Mark as Active')),
+        const PopupMenuItem(
+          value: 'mark_active',
+          child: Text('Mark as Active'),
+        ),
       if (outlet.isActive && outlet.isWarehouse)
-        const PopupMenuItem(value: 'mark_inactive', child: Text('Mark as Inactive')),
+        const PopupMenuItem(
+          value: 'mark_inactive',
+          child: Text('Mark as Inactive'),
+        ),
       const PopupMenuItem(value: 'delete', child: Text('Delete')),
-      const PopupMenuItem(value: 'bin_locations', child: Text('Enable bin locations')),
+      const PopupMenuItem(
+        value: 'bin_locations',
+        child: Text('Enable bin locations'),
+      ),
       if (!outlet.isWarehouse)
-        const PopupMenuItem(value: 'associate_contacts', child: Text('Associate Contacts')),
+        const PopupMenuItem(
+          value: 'associate_contacts',
+          child: Text('Associate Contacts'),
+        ),
     ];
   }
 
@@ -1086,19 +1141,23 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
       if (results[0].success && results[0].data is List) {
         customers = (results[0].data as List)
             .cast<Map<String, dynamic>>()
-            .map((c) => _ContactOption(
-                  id: c['id'].toString(),
-                  name: (c['contact_name'] ?? c['name'] ?? '').toString(),
-                ))
+            .map(
+              (c) => _ContactOption(
+                id: c['id'].toString(),
+                name: (c['contact_name'] ?? c['name'] ?? '').toString(),
+              ),
+            )
             .toList();
       }
       if (results[1].success && results[1].data is List) {
         vendors = (results[1].data as List)
             .cast<Map<String, dynamic>>()
-            .map((v) => _ContactOption(
-                  id: v['id'].toString(),
-                  name: (v['contact_name'] ?? v['name'] ?? '').toString(),
-                ))
+            .map(
+              (v) => _ContactOption(
+                id: v['id'].toString(),
+                name: (v['contact_name'] ?? v['name'] ?? '').toString(),
+              ),
+            )
             .toList();
       }
     } catch (_) {}
@@ -1111,7 +1170,9 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => Dialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: SizedBox(
             width: 480,
             child: Padding(
@@ -1204,8 +1265,9 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                     children: [
                       Consumer(
                         builder: (_, ref, __) {
-                          final accentColor =
-                              ref.watch(appBrandingProvider).accentColor;
+                          final accentColor = ref
+                              .watch(appBrandingProvider)
+                              .accentColor;
                           return ElevatedButton(
                             onPressed: () async {
                               Navigator.pop(ctx);
@@ -1220,17 +1282,22 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                 if (!mounted) return;
                                 if (res.success) {
                                   ZerpaiToast.success(
-                                      context, 'Contacts associated');
+                                    context,
+                                    'Contacts associated',
+                                  );
                                 } else {
                                   ZerpaiToast.error(
                                     context,
-                                    res.message ?? 'Failed to associate contacts',
+                                    res.message ??
+                                        'Failed to associate contacts',
                                   );
                                 }
                               } catch (_) {
                                 if (mounted) {
                                   ZerpaiToast.error(
-                                      context, 'Failed to associate contacts');
+                                    context,
+                                    'Failed to associate contacts',
+                                  );
                                 }
                               }
                             },
@@ -1410,7 +1477,9 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
 
           return Dialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 640),
               child: Column(
@@ -1434,8 +1503,11 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                         ),
                         IconButton(
                           onPressed: () => Navigator.pop(ctx),
-                          icon: const Icon(LucideIcons.x,
-                              size: 18, color: AppTheme.errorRed),
+                          icon: const Icon(
+                            LucideIcons.x,
+                            size: 18,
+                            color: AppTheme.errorRed,
+                          ),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
@@ -1484,16 +1556,18 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                   ? const Text(
                                       'No other GSTINs found in your organization.',
                                       style: TextStyle(
-                                          fontSize: 13,
-                                          color: AppTheme.textSecondary),
+                                        fontSize: 13,
+                                        color: AppTheme.textSecondary,
+                                      ),
                                     )
                                   : FormDropdown<String>(
                                       value: selectedExistingGstin,
                                       items: existingGstins,
                                       displayStringForValue: (g) => g,
                                       hint: 'Select GSTIN',
-                                      onChanged: (g) =>
-                                          setDS(() => selectedExistingGstin = g),
+                                      onChanged: (g) => setDS(
+                                        () => selectedExistingGstin = g,
+                                      ),
                                     ),
                             ),
                           ] else ...[
@@ -1509,10 +1583,12 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                     textCapitalization:
                                         TextCapitalization.characters,
                                     style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppTheme.textPrimary),
+                                      fontSize: 13,
+                                      color: AppTheme.textPrimary,
+                                    ),
                                     decoration: _gstDialogInput(
-                                        'e.g. 27ABCDE1234F2Z5'),
+                                      'e.g. 27ABCDE1234F2Z5',
+                                    ),
                                     onChanged: (_) =>
                                         setDS(() => gstinError = null),
                                   ),
@@ -1535,7 +1611,8 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                           width: 12,
                                           height: 12,
                                           child: CircularProgressIndicator(
-                                              strokeWidth: 1.5),
+                                            strokeWidth: 1.5,
+                                          ),
                                         )
                                       else
                                         GestureDetector(
@@ -1544,8 +1621,10 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                                 .trim()
                                                 .toUpperCase();
                                             if (gstin.length != 15) {
-                                              setDS(() => gstinError =
-                                                  'GSTIN must be exactly 15 characters');
+                                              setDS(
+                                                () => gstinError =
+                                                    'GSTIN must be exactly 15 characters',
+                                              );
                                               return;
                                             }
                                             setDS(() {
@@ -1553,16 +1632,16 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                               fetchError = null;
                                             });
                                             try {
-                                              final res =
-                                                  await _apiClient.get(
+                                              final res = await _apiClient.get(
                                                 '/gst/taxpayer-details',
                                                 queryParameters: {
-                                                  'gstin': gstin
+                                                  'gstin': gstin,
                                                 },
                                               );
                                               if (!ctx.mounted) return;
-                                              final d = res.data
-                                                  as Map<String, dynamic>?;
+                                              final d =
+                                                  res.data
+                                                      as Map<String, dynamic>?;
                                               setDS(() {
                                                 legalNameCtrl.text =
                                                     (d?['legalName'] ?? '')
@@ -1575,8 +1654,9 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                                         .toString();
                                                 if (d?['registrationType'] !=
                                                     null) {
-                                                  regType = d!['registrationType']
-                                                      .toString();
+                                                  regType =
+                                                      d!['registrationType']
+                                                          .toString();
                                                 }
                                                 fetching = false;
                                               });
@@ -1605,10 +1685,13 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                   if (fetchError != null)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 4),
-                                      child: Text(fetchError!,
-                                          style: const TextStyle(
-                                              fontSize: 11,
-                                              color: AppTheme.errorRed)),
+                                      child: Text(
+                                        fetchError!,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.errorRed,
+                                        ),
+                                      ),
                                     ),
                                 ],
                               ),
@@ -1636,7 +1719,9 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                 controller: legalNameCtrl,
                                 decoration: _gstDialogInput('Legal name'),
                                 style: const TextStyle(
-                                    fontSize: 13, color: AppTheme.textPrimary),
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
                               ),
                             ),
                             const SizedBox(height: AppTheme.space16),
@@ -1647,7 +1732,9 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                 controller: tradeNameCtrl,
                                 decoration: _gstDialogInput('Trade name'),
                                 style: const TextStyle(
-                                    fontSize: 13, color: AppTheme.textPrimary),
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
                               ),
                             ),
                             const SizedBox(height: AppTheme.space16),
@@ -1659,7 +1746,9 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                                 decoration: _gstDialogInput('dd-MM-yyyy'),
                                 keyboardType: TextInputType.datetime,
                                 style: const TextStyle(
-                                    fontSize: 13, color: AppTheme.textPrimary),
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
                               ),
                             ),
                             const SizedBox(height: AppTheme.space16),
@@ -1669,32 +1758,39 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(children: [
-                                    SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: Checkbox(
-                                        value: reverseCharge,
-                                        onChanged: (v) => setDS(
-                                            () => reverseCharge = v ?? false),
-                                        materialTapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
+                                  Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: Checkbox(
+                                          value: reverseCharge,
+                                          onChanged: (v) => setDS(
+                                            () => reverseCharge = v ?? false,
+                                          ),
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text(
+                                      const SizedBox(width: 8),
+                                      const Text(
                                         'Enable Reverse Charge in Sales transactions',
                                         style: TextStyle(
-                                            fontSize: 13,
-                                            color: AppTheme.textBody)),
-                                  ]),
+                                          fontSize: 13,
+                                          color: AppTheme.textBody,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                   const SizedBox(height: 4),
-                                  const Text('Know more',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: AppTheme.primaryBlue,
-                                          decoration:
-                                              TextDecoration.underline)),
+                                  const Text(
+                                    'Know more',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.primaryBlue,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1702,27 +1798,32 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
 
                             _gstDialogRow(
                               label: 'Import / Export',
-                              child: Row(children: [
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: Checkbox(
-                                    value: importExport,
-                                    onChanged: (v) =>
-                                        setDS(() => importExport = v ?? false),
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: Checkbox(
+                                      value: importExport,
+                                      onChanged: (v) => setDS(
+                                        () => importExport = v ?? false,
+                                      ),
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Expanded(
-                                  child: Text(
+                                  const SizedBox(width: 8),
+                                  const Expanded(
+                                    child: Text(
                                       'My business is involved in SEZ / Overseas Trading',
                                       style: TextStyle(
-                                          fontSize: 13,
-                                          color: AppTheme.textBody)),
-                                ),
-                              ]),
+                                        fontSize: 13,
+                                        color: AppTheme.textBody,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: AppTheme.space16),
 
@@ -1731,35 +1832,41 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(children: [
-                                    SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: Checkbox(
-                                        value: digitalServices,
-                                        onChanged: (v) => setDS(
-                                            () => digitalServices = v ?? false),
-                                        materialTapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
+                                  Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: Checkbox(
+                                          value: digitalServices,
+                                          onChanged: (v) => setDS(
+                                            () => digitalServices = v ?? false,
+                                          ),
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Expanded(
-                                      child: Text(
+                                      const SizedBox(width: 8),
+                                      const Expanded(
+                                        child: Text(
                                           'Track sale of digital services to overseas customers',
                                           style: TextStyle(
-                                              fontSize: 13,
-                                              color: AppTheme.textBody)),
-                                    ),
-                                  ]),
+                                            fontSize: 13,
+                                            color: AppTheme.textBody,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                   const SizedBox(height: 4),
                                   Text(
                                     digitalServices
                                         ? 'If you disable this option, any digital service created by you will be considered as a service.'
                                         : 'Enabling this option will let you record and track export of digital services to individuals.',
                                     style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.textSecondary),
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondary,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1782,10 +1889,13 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                             if (addNew) {
                               gstin = gstinCtrl.text.trim().toUpperCase();
                               final rx = RegExp(
-                                  r'^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$');
+                                r'^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$',
+                              );
                               if (gstin.isEmpty || !rx.hasMatch(gstin)) {
-                                setDS(() => gstinError =
-                                    'Enter a valid 15-character GSTIN');
+                                setDS(
+                                  () => gstinError =
+                                      'Enter a valid 15-character GSTIN',
+                                );
                                 return;
                               }
                             } else {
@@ -1802,26 +1912,38 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
                             backgroundColor: accentColor,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6)),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
                           ),
-                          child: const Text('Save',
-                              style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w600)),
+                          child: const Text(
+                            'Save',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 12),
                         OutlinedButton(
                           onPressed: () => Navigator.pop(ctx),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6)),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
                             side: const BorderSide(color: AppTheme.borderColor),
                           ),
-                          child: const Text('Cancel',
-                              style: TextStyle(color: AppTheme.textBody)),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(color: AppTheme.textBody),
+                          ),
                         ),
                       ],
                     ),
@@ -1887,11 +2009,18 @@ class _SettingsLocationsPageState extends ConsumerState<SettingsLocationsPage> {
       child: Center(
         child: Column(
           children: [
-            const Icon(LucideIcons.alertCircle, size: 32, color: AppTheme.errorRed),
+            const Icon(
+              LucideIcons.alertCircle,
+              size: 32,
+              color: AppTheme.errorRed,
+            ),
             const SizedBox(height: AppTheme.space12),
             Text(
               _error ?? 'Failed to load locations',
-              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 13,
+              ),
             ),
             const SizedBox(height: AppTheme.space12),
             TextButton(onPressed: _load, child: const Text('Retry')),

@@ -19,6 +19,13 @@ class AppRoutes {
   static const String settingsWarehouseCreate = '/settings/warehouses/create';
   static const String settingsWarehouseEdit = '/settings/warehouses/:id/edit';
 
+  // Users & Roles
+  static const String settingsUsers = '/settings/users';
+  static const String settingsUserInvite = '/settings/users/new';
+  static const String settingsUserDetail = '/settings/users/:id';
+  static const String settingsUserEdit = '/settings/users/:id/edit';
+  static const String settingsRoles = '/settings/roles';
+
   // Items
   static const String itemsReport = '/items/report';
   static const String itemsCreate = '/items/create';

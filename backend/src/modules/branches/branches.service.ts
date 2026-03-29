@@ -298,6 +298,9 @@ export class BranchesService {
         address_street_2: dto.address_street_2 ?? null,
         city: dto.city ?? null,
         state: dto.state ?? null,
+        district_id: this.normalizeUuid(dto.district_id),
+        local_body_id: this.normalizeUuid(dto.local_body_id),
+        ward_id: this.normalizeUuid(dto.ward_id),
         pincode: dto.pincode ?? null,
         country: dto.country ?? "India",
         is_child_location: dto.is_child_location ?? false,
@@ -338,7 +341,7 @@ export class BranchesService {
       "name", "branch_code", "branch_type",
       "email", "phone", "fax", "website",
       "attention", "address_street_1", "address_street_2",
-      "city", "state", "pincode", "country",
+      "city", "state", "district_id", "local_body_id", "ward_id", "pincode", "country",
       "gstin", "gstin_registration_type",
       "is_child_location", "parent_branch_id", "primary_contact_id",
       "gstin_legal_name", "gstin_trade_name", "gstin_registered_on",
@@ -363,6 +366,15 @@ export class BranchesService {
       payload.primary_contact_id = this.normalizeUuid(
         payload.primary_contact_id,
       );
+    }
+    if ("district_id" in payload) {
+      payload.district_id = this.normalizeUuid(payload.district_id);
+    }
+    if ("local_body_id" in payload) {
+      payload.local_body_id = this.normalizeUuid(payload.local_body_id);
+    }
+    if ("ward_id" in payload) {
+      payload.ward_id = this.normalizeUuid(payload.ward_id);
     }
     if ("gstin_import_export_account_id" in payload) {
       payload.gstin_import_export_account_id = this.normalizeUuid(
