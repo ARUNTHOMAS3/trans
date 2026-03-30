@@ -720,6 +720,27 @@ class _PurchasesPurchaseReceivesCreateScreenState
               style: TextStyle(fontSize: 13, color: _textPrimary),
             ),
           ),
+          const Spacer(),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                LucideIcons.package,
+                size: 20,
+                color: Colors.black,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Total Items Selected : ${_items.length}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                  fontFamily: 'Inter',
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
