@@ -517,7 +517,7 @@ class _InventoryPicklistsCreateScreenState
                                 vertical: 8,
                               ),
                               color: isSelected
-                                  ? const Color(0xFF3B82F6).withOpacity(0.1)
+                                  ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
                                   : (isHovered
                                       ? const Color(0xFF3B82F6)
                                       : Colors.transparent),
@@ -2049,90 +2049,72 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
         children: [
           Row(
             children: [
+              // Customer Name filter
               Expanded(
-                child: Consumer(
-                  builder: (context, ref, _) {
-                    final customersAsync = ref.watch(customersProvider);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Customer Name', style: TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 8),
-                        FormDropdown<dynamic>(
-                          hint: 'Click or Type to select',
-                          isMultiSelect: true,
-                          selectedValues: customersAsync.maybeWhen(
-                            data: (list) => list.where((c) => selectedCustomerId.contains(c['id'])).toList(),
-                            orElse: () => [],
-                          ),
-                          items: customersAsync.maybeWhen(data: (list) => list, orElse: () => []),
-                          displayStringForValue: (val) => val?['display_name'] ?? val?['company_name'] ?? '',
-                          onChanged: (_) {}, // Single select callback not used
-                          onMultiChanged: (vals) => setState(() {
-                            selectedCustomerId = vals.map((v) => v['id'].toString()).toSet();
-                          }),
-                        ),
-                      ],
-                    );
-                  },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Customer Name', style: TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    FormDropdown<dynamic>(
+                      value: null,
+                      hint: 'Click or Type to select',
+                      multiSelect: true,
+                      selectedValues: const [],
+                      items: const [],
+                      displayStringForValue: (val) => val?['display_name'] ?? val?['company_name'] ?? '',
+                      onChanged: (_) {},
+                      onSelectedValuesChanged: (vals) => setState(() {
+                        selectedCustomerId = vals.map((v) => v['id'].toString()).toSet();
+                      }),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 24),
+              // Items filter
               Expanded(
-                child: Consumer(
-                  builder: (context, ref, _) {
-                    final productsAsync = ref.watch(productsLookupProvider);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Items', style: TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 8),
-                        FormDropdown<dynamic>(
-                          hint: 'Click or Type to select',
-                          isMultiSelect: true,
-                          selectedValues: productsAsync.maybeWhen(
-                            data: (list) => list.where((p) => selectedProductId.contains(p['id'])).toList(),
-                            orElse: () => [],
-                          ),
-                          items: productsAsync.maybeWhen(data: (list) => list, orElse: () => []),
-                          displayStringForValue: (val) => val?['product_name'] ?? '',
-                          onChanged: (_) {},
-                          onMultiChanged: (vals) => setState(() {
-                            selectedProductId = vals.map((v) => v['id'].toString()).toSet();
-                          }),
-                        ),
-                      ],
-                    );
-                  },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Items', style: TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    FormDropdown<dynamic>(
+                      value: null,
+                      hint: 'Click or Type to select',
+                      multiSelect: true,
+                      selectedValues: const [],
+                      items: const [],
+                      displayStringForValue: (val) => val?['product_name'] ?? '',
+                      onChanged: (_) {},
+                      onSelectedValuesChanged: (vals) => setState(() {
+                        selectedProductId = vals.map((v) => v['id'].toString()).toSet();
+                      }),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 24),
+              // Sales Orders filter
               Expanded(
-                child: Consumer(
-                  builder: (context, ref, _) {
-                    final salesAsync = ref.watch(salesOrdersProvider);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Sales Orders', style: TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 8),
-                        FormDropdown<dynamic>(
-                          hint: 'Click or Type to select',
-                          isMultiSelect: true,
-                          selectedValues: salesAsync.maybeWhen(
-                            data: (list) => list.where((s) => selectedSalesOrderId.contains(s['id'])).toList(),
-                            orElse: () => [],
-                          ),
-                          items: salesAsync.maybeWhen(data: (list) => list, orElse: () => []),
-                          displayStringForValue: (val) => val?['sale_number'] ?? '',
-                          onChanged: (_) {},
-                          onMultiChanged: (vals) => setState(() {
-                            selectedSalesOrderId = vals.map((v) => v['id'].toString()).toSet();
-                          }),
-                        ),
-                      ],
-                    );
-                  },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Sales Orders', style: TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    FormDropdown<dynamic>(
+                      value: null,
+                      hint: 'Click or Type to select',
+                      multiSelect: true,
+                      selectedValues: const [],
+                      items: const [],
+                      displayStringForValue: (val) => val?['sale_number'] ?? '',
+                      onChanged: (_) {},
+                      onSelectedValuesChanged: (vals) => setState(() {
+                        selectedSalesOrderId = vals.map((v) => v['id'].toString()).toSet();
+                      }),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -2147,7 +2129,7 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
               elevation: 0,
             ),
-            child: isSearching 
+            child: isSearching
               ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : const Text('Search', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
           ),
@@ -3161,92 +3143,97 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
                     style: TextStyle(fontSize: 14, color: textPrimary),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Auto generate option
-                  InkWell(
-                    onTap: () => setState(() => _isAuto = true),
-                    child: Row(
+                  RadioGroup<bool>(
+                    groupValue: _isAuto,
+                    onChanged: (val) => setState(() => _isAuto = val!),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Radio<bool>(
-                          value: true,
-                          groupValue: _isAuto,
-                          onChanged: (val) => setState(() => _isAuto = val!),
-                          activeColor: const Color(0xFF3B82F6),
+                        InkWell(
+                          onTap: () => setState(() => _isAuto = true),
+                          child: Row(
+                            children: [
+                              Radio<bool>(
+                                value: true,
+                                activeColor: const Color(0xFF3B82F6),
+                              ),
+                              const Text(
+                                'Continue auto-generating picklist numbers',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: textPrimary),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(LucideIcons.info, size: 14, color: textSecondary),
+                            ],
+                          ),
                         ),
-                        const Text(
-                          'Continue auto-generating picklist numbers',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: textPrimary),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(LucideIcons.info, size: 14, color: textSecondary),
-                      ],
-                    ),
-                  ),
-                  
-                  if (_isAuto) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(left: 48, top: 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+
+                        if (_isAuto) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(left: 48, top: 12),
+                            child: Row(
                               children: [
-                                const Text('Prefix', style: TextStyle(fontSize: 12, color: textSecondary)),
-                                const SizedBox(height: 6),
-                                TextField(
-                                  controller: _prefixCtrl,
-                                  style: const TextStyle(fontSize: 13),
-                                  decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: borderCol)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: borderCol)),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Prefix', style: TextStyle(fontSize: 12, color: textSecondary)),
+                                      const SizedBox(height: 6),
+                                      TextField(
+                                        controller: _prefixCtrl,
+                                        style: const TextStyle(fontSize: 13),
+                                        decoration: InputDecoration(
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: borderCol)),
+                                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: borderCol)),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Next Number', style: TextStyle(fontSize: 12, color: textSecondary)),
-                                const SizedBox(height: 6),
-                                TextField(
-                                  controller: _numberCtrl,
-                                  style: const TextStyle(fontSize: 13),
-                                  decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: borderCol)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: borderCol)),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  flex: 2,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Next Number', style: TextStyle(fontSize: 12, color: textSecondary)),
+                                      const SizedBox(height: 6),
+                                      TextField(
+                                        controller: _numberCtrl,
+                                        style: const TextStyle(fontSize: 13),
+                                        decoration: InputDecoration(
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: borderCol)),
+                                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: borderCol)),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                  ],
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Manual option
-                  InkWell(
-                    onTap: () => setState(() => _isAuto = false),
-                    child: Row(
-                      children: [
-                        Radio<bool>(
-                          value: false,
-                          groupValue: _isAuto,
-                          onChanged: (val) => setState(() => _isAuto = val!),
-                          activeColor: const Color(0xFF3B82F6),
-                        ),
-                        const Text(
-                          'Enter picklist numbers manually',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: textPrimary),
+
+                        const SizedBox(height: 16),
+
+                        // Manual option
+                        InkWell(
+                          onTap: () => setState(() => _isAuto = false),
+                          child: Row(
+                            children: [
+                              Radio<bool>(
+                                value: false,
+                                activeColor: const Color(0xFF3B82F6),
+                              ),
+                              const Text(
+                                'Enter picklist numbers manually',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: textPrimary),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -3301,12 +3288,10 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
 class _PicklistZTooltip extends StatefulWidget {
   final String message;
   final Widget? child;
-  final double maxWidth;
 
   const _PicklistZTooltip({
     required this.message,
     this.child,
-    this.maxWidth = 250,
   });
 
   @override
@@ -3363,7 +3348,7 @@ class _PicklistZTooltipState extends State<_PicklistZTooltip> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: widget.maxWidth,
+                          width: 250.0,
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           decoration: BoxDecoration(
                             color: const Color(0xFF1F2937),

@@ -120,7 +120,6 @@ class PurchaseReceivesNotifier
           'local-pr-${now.microsecondsSinceEpoch}',
       createdAt: receive.createdAt ?? now,
       updatedAt: now,
-      quantity: receive.totalQuantity,
     );
 
     try {

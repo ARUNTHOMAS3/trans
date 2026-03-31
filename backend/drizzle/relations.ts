@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { products, batches, taxGroups, taxGroupTaxes, associateTaxes, countries, states, customers, salesPaymentLinks, accounts, purchasesPurchaseOrderItems, purchasesPurchaseOrders, brands, buyingRules, categories, manufacturers, vendors, racks, schedules, storageLocations, units, purchasesPurchaseOrderAttachments, salesOrders, paymentTerms, priceLists, tdsRates, salesOrderItems, accountsFiscalYears, accountsManualJournals, accountsRecurringJournals, salesOrderAttachments, settingsTransactionSeries, settingsBranches, settingsDistricts, settingsLocalBodies, organization, settingsWards, accountTransactions, accountsManualJournalAttachments, contents, productContents, strengths, settingsBranchTransactionSeries, settingsBranchUsers, warehouses, shipmentPreferences, vendorContactPersons, salesPayments, compositeItemParts, compositeItems, vendorBankAccounts, tdsSections, uqc, accountsRecurringJournalItems, timezones, tdsGroups, tdsGroupItems, accountsJournalTemplateItems, accountsJournalTemplates, accountsManualJournalItems, productOutletInventorySettings, reorderTerms, compositeItemOutletInventorySettings, priceListItems, itemVendorMappings, priceListVolumeRanges, customerContactPersons, currencies, settingsBranding, settingsUserLocationAccess, users, accountsManualJournalTagMappings, accountsReportingTags } from "./schema";
+import { products, batches, taxGroups, taxGroupTaxes, associateTaxes, countries, states, customers, salesPaymentLinks, accounts, purchasesPurchaseOrderItems, purchasesPurchaseOrders, brands, buyingRules, categories, manufacturers, vendors, racks, schedules, storageLocations, units, purchasesPurchaseOrderAttachments, salesOrders, paymentTerms, priceLists, tdsRates, salesOrderItems, accountsFiscalYears, accountsManualJournals, accountsRecurringJournals, salesOrderAttachments, settingsTransactionSeries, settingsBranches, settingsDistricts, settingsLocalBodies, organization, settingsWards, accountTransactions, accountsManualJournalAttachments, contents, productContents, strengths, settingsBranchTransactionSeries, settingsBranchUsers, warehouses, shipmentPreferences, vendorContactPersons, salesPayments, compositeItemParts, compositeItems, vendorBankAccounts, tdsSections, uqc, accountsRecurringJournalItems, timezones, tdsGroups, tdsGroupItems, accountsJournalTemplateItems, accountsJournalTemplates, accountsManualJournalItems, productOutletInventorySettings, reorderTerms, compositeItemOutletInventorySettings, priceListItems, itemVendorMappings, priceListVolumeRanges, customerContactPersons, currencies, settingsBranding, settingsUserLocationAccess, users, settingsRoles, accountsManualJournalTagMappings, accountsReportingTags } from "./schema";
 
 export const batchesRelations = relations(batches, ({one, many}) => ({
 	product: one(products, {
@@ -525,6 +525,7 @@ export const organizationRelations = relations(organization, ({one, many}) => ({
 	settingsBrandings: many(settingsBranding),
 	settingsUserLocationAccesses: many(settingsUserLocationAccess),
 	users: many(users),
+	settingsRoles: many(settingsRoles),
 }));
 
 export const settingsWardsRelations = relations(settingsWards, ({one, many}) => ({
@@ -867,6 +868,13 @@ export const settingsUserLocationAccessRelations = relations(settingsUserLocatio
 export const usersRelations = relations(users, ({one}) => ({
 	organization: one(organization, {
 		fields: [users.orgId],
+		references: [organization.id]
+	}),
+}));
+
+export const settingsRolesRelations = relations(settingsRoles, ({one}) => ({
+	organization: one(organization, {
+		fields: [settingsRoles.orgId],
 		references: [organization.id]
 	}),
 }));

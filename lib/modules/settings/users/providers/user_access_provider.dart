@@ -1,73 +1,86 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/pages/settings_users_roles_support.dart';
 
 class UserAccessState {
+  final bool isLoading;
+  final String? error;
   final List<SettingsRoleRecord> roles;
   final List<SettingsLocationRecord> branches;
   final List<SettingsLocationRecord> warehouses;
   final Set<String> selectedOutletIds;
   final String? defaultBranchId;
   final String? defaultWarehouseId;
-  final bool isLoading;
-  final String? error;
 
   UserAccessState({
+    this.isLoading = false,
+    this.error,
     this.roles = const [],
     this.branches = const [],
     this.warehouses = const [],
     this.selectedOutletIds = const {},
     this.defaultBranchId,
     this.defaultWarehouseId,
-    this.isLoading = false,
-    this.error,
   });
 
   UserAccessState copyWith({
+    bool? isLoading,
+    String? error,
     List<SettingsRoleRecord>? roles,
     List<SettingsLocationRecord>? branches,
     List<SettingsLocationRecord>? warehouses,
     Set<String>? selectedOutletIds,
     String? defaultBranchId,
     String? defaultWarehouseId,
-    bool? isLoading,
-    String? error,
   }) {
     return UserAccessState(
+      isLoading: isLoading ?? this.isLoading,
+      error: error ?? this.error,
       roles: roles ?? this.roles,
       branches: branches ?? this.branches,
       warehouses: warehouses ?? this.warehouses,
       selectedOutletIds: selectedOutletIds ?? this.selectedOutletIds,
       defaultBranchId: defaultBranchId ?? this.defaultBranchId,
       defaultWarehouseId: defaultWarehouseId ?? this.defaultWarehouseId,
-      isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
     );
   }
 }
 
 class UserAccessNotifier extends StateNotifier<UserAccessState> {
-  UserAccessNotifier(this._apiClient) : super(UserAccessState());
+  UserAccessNotifier() : super(UserAccessState());
 
-  final ApiClient _apiClient;
+  bool get isValid {
+    final hasSelectedOutlets = state.selectedOutletIds.isNotEmpty;
+    final hasDefaultBranch = state.defaultBranchId != null;
+    final hasDefaultWarehouse = state.defaultWarehouseId != null;
+    return hasSelectedOutlets && hasDefaultBranch && hasDefaultWarehouse;
+  }
 
   Future<void> init(String orgId) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
     try {
-      final rolesRes = await _apiClient.get('users/roles/catalog', queryParameters: {'org_id': orgId});
-      final locationsRes = await _apiClient.get('outlets', queryParameters: {'org_id': orgId});
+      // Mock data for consistency
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      final mockBranches = [
+        SettingsLocationRecord(id: 'br1', name: 'New York Branch', locationType: 'business', isPrimary: true),
+        SettingsLocationRecord(id: 'br2', name: 'California Branch', locationType: 'business'),
+      ];
+      
+      final mockWarehouses = [
+        SettingsLocationRecord(id: 'wh1', name: 'NY Warehouse', locationType: 'warehouse'),
+        SettingsLocationRecord(id: 'wh2', name: 'SF Warehouse', locationType: 'warehouse'),
+      ];
 
-      final roles = (rolesRes.data as List).map((e) => SettingsRoleRecord.fromJson(e)).toList();
-      final allLocations = (locationsRes.data as List).map((e) => SettingsLocationRecord.fromJson(e)).toList();
-
-      final branches = allLocations.where((l) => l.isBusiness).toList();
-      final warehouses = allLocations.where((l) => l.isWarehouse).toList();
+      final mockRoles = [
+        const SettingsRoleRecord(id: 'admin', label: 'Admin', description: 'Full access', userCount: 5),
+        const SettingsRoleRecord(id: 'manager', label: 'Manager', description: 'Limited manage access', userCount: 12),
+      ];
 
       state = state.copyWith(
-        roles: roles,
-        branches: branches,
-        warehouses: warehouses,
         isLoading: false,
+        branches: mockBranches,
+        warehouses: mockWarehouses,
+        roles: mockRoles,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -75,60 +88,54 @@ class UserAccessNotifier extends StateNotifier<UserAccessState> {
   }
 
   void toggleOutlet(String id) {
-    final selected = Set<String>.from(state.selectedOutletIds);
-    if (selected.contains(id)) {
-      selected.remove(id);
-      // Clear defaults if removed
+    final next = Set<String>.from(state.selectedOutletIds);
+    if (next.contains(id)) {
+      next.remove(id);
       if (state.defaultBranchId == id) state = state.copyWith(defaultBranchId: null);
       if (state.defaultWarehouseId == id) state = state.copyWith(defaultWarehouseId: null);
     } else {
-      selected.add(id);
+      next.add(id);
     }
-    state = state.copyWith(selectedOutletIds: selected);
+    state = state.copyWith(selectedOutletIds: next);
   }
 
-  void selectAllWarehousesForBranch(String branchId) {
-    final selected = Set<String>.from(state.selectedOutletIds);
-    final relatedWarehouses = state.warehouses.where((w) => w.parentOutletId == branchId);
-    
-    selected.add(branchId);
-    for (final w in relatedWarehouses) {
-      selected.add(w.id);
-    }
-    state = state.copyWith(selectedOutletIds: selected);
-  }
-
-  void selectVisible(List<String> ids) {
-    final selected = Set<String>.from(state.selectedOutletIds);
-    selected.addAll(ids);
-    state = state.copyWith(selectedOutletIds: selected);
-  }
-
-  void toggleAll(bool selectAll) {
-    if (selectAll) {
-      final all = <String>{};
-      for (final b in state.branches) {
-        all.add(b.id);
-      }
-      for (final w in state.warehouses) {
-        all.add(w.id);
-      }
-      state = state.copyWith(selectedOutletIds: all);
-    } else {
+  void toggleAll(bool select) {
+    if (!select) {
+      // Deselect all
       state = state.copyWith(
         selectedOutletIds: const {},
         defaultBranchId: null,
         defaultWarehouseId: null,
       );
+    } else {
+      // Select all (though UI calls selectVisible for selective select all)
+      final all = {...state.branches, ...state.warehouses}.map((e) => e.id).toSet();
+      state = state.copyWith(selectedOutletIds: all);
     }
   }
 
-  void setDefaultBranch(String? id) => state = state.copyWith(defaultBranchId: id);
-  void setDefaultWarehouse(String? id) => state = state.copyWith(defaultWarehouseId: id);
+  void selectVisible(List<String> ids) {
+    final next = Set<String>.from(state.selectedOutletIds);
+    next.addAll(ids);
+    state = state.copyWith(selectedOutletIds: next);
+  }
 
-  bool get isValid => state.defaultBranchId != null && state.defaultWarehouseId != null;
+  void setDefaultBranch(String? id) {
+    state = state.copyWith(defaultBranchId: id);
+  }
+
+  void setDefaultWarehouse(String? id) {
+    state = state.copyWith(defaultWarehouseId: id);
+  }
 }
 
-final userAccessProvider = StateNotifierProvider.autoDispose<UserAccessNotifier, UserAccessState>((ref) {
-  return UserAccessNotifier(ApiClient());
+enum RoleGroupType {
+  financial,
+  hr,
+  operation,
+  admin,
+}
+
+final userAccessProvider = StateNotifierProvider<UserAccessNotifier, UserAccessState>((ref) {
+  return UserAccessNotifier();
 });

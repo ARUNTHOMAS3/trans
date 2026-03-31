@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:collection/collection.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:zerpai_erp/core/pages/settings_users_roles_support.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
+import 'package:zerpai_erp/core/pages/settings_users_roles_support.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
+import 'package:collection/collection.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import '../providers/user_access_provider.dart';
 
 // ─── Design tokens (local, matching HTML reference) ──────────────────────────
@@ -24,8 +24,6 @@ const _kOutlineVariant = Color(0xFFB3B1B4);
 const _kOnSurfaceVariant = Color(0xFF5F5F61);
 const _kPrimaryContainer = Color(0xFFD6E3FF);
 const _kOnPrimaryContainer = Color(0xFF00519E);
-const _kSecondaryContainer = Color(0xFFD8E3F5);
-const _kOnSecondaryContainer = Color(0xFF485361);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -460,14 +458,14 @@ class _SettingsUsersUserCreationState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Left: tree panel
-              Expanded(child: _buildTreePanel(state, notifier)),
+              Flexible(flex: 3, child: _buildTreePanel(state, notifier)),
 
               // Center: bridge column
               _buildBridgeColumn(state, notifier),
 
               // Right: associated values
-              SizedBox(
-                width: 320,
+              Flexible(
+                flex: 2,
                 child: _buildAssociatedValuesPanel(state, notifier),
               ),
             ],
@@ -492,41 +490,31 @@ class _SettingsUsersUserCreationState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Search bar row + Select All
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+            ),
             child: Row(
               children: [
-                // Search field
+                const Icon(LucideIcons.search,
+                    size: 13, color: _kOnSurfaceVariant),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Container(
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: _kSurfaceContainerLowest,
-                      borderRadius: const BorderRadius.all(_kRadiusSm),
-                      border: Border.all(color: _kOutlineVariant.withValues(alpha: 0.4)),
-                    ),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 10),
-                        const Icon(LucideIcons.search,
-                            size: 13, color: _kOnSurfaceVariant),
-                        const SizedBox(width: 7),
-                        Expanded(
-                          child: TextField(
-                            controller: _locationSearchController,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppTheme.textPrimary),
-                            decoration: const InputDecoration(
-                              hintText: 'Type to search Locations',
-                              hintStyle: TextStyle(
-                                  fontSize: 13, color: _kOnSurfaceVariant),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                        ),
-                      ],
+                  child: TextField(
+                    controller: _locationSearchController,
+                    style: const TextStyle(
+                        fontSize: 13, color: AppTheme.textPrimary),
+                    decoration: const InputDecoration(
+                      hintText: 'Type to search Locations',
+                      hintStyle: TextStyle(
+                          fontSize: 13, color: _kOnSurfaceVariant),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
                 ),
@@ -622,6 +610,8 @@ class _SettingsUsersUserCreationState
 
   // ─── Associated Values panel (right) ─────────────────────────────────────────
 
+  bool _locationsGroupExpanded = true;
+
   Widget _buildAssociatedValuesPanel(
       UserAccessState state, UserAccessNotifier notifier) {
     // Build ordered selected items (branches first, then their warehouses)
@@ -633,7 +623,6 @@ class _SettingsUsersUserCreationState
         if (state.selectedOutletIds.contains(w.id)) selectedItems.add(w);
       }
     }
-    // Unparented warehouses
     for (final w in state.warehouses) {
       if (state.selectedOutletIds.contains(w.id) &&
           !selectedItems.contains(w)) {
@@ -646,43 +635,54 @@ class _SettingsUsersUserCreationState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // ── Header ────────────────────────────────────────────────
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: _kSurfaceContainerHigh.withValues(alpha: 0.5),
-              border: const Border(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              color: _kSurfaceContainerLow,
+              border: Border(
                   bottom: BorderSide(color: Color(0xFFE8E6E9))),
             ),
             child: Row(
               children: [
+                // Blue circle checkmark icon
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.primaryBlue,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check,
+                      size: 12, color: Colors.white),
+                ),
+                const SizedBox(width: 8),
                 const Text(
                   'ASSOCIATED VALUES',
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: _kOnSurfaceVariant,
-                    letterSpacing: 0.8,
+                    color: AppTheme.textPrimary,
+                    letterSpacing: 0.6,
                   ),
                 ),
                 const Spacer(),
                 if (selectedItems.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: _kPrimaryContainer,
-                      borderRadius:
-                          const BorderRadius.all(Radius.circular(20)),
+                    width: 20,
+                    height: 20,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE53935),
+                      shape: BoxShape.circle,
                     ),
-                    child: Text(
-                      '${selectedItems.length} SELECTED',
-                      style: const TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
-                        color: _kOnPrimaryContainer,
-                        letterSpacing: 0.3,
+                    child: Center(
+                      child: Text(
+                        '${selectedItems.length}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -690,155 +690,92 @@ class _SettingsUsersUserCreationState
             ),
           ),
 
-          // Items list or empty state
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                if (selectedItems.isEmpty) _buildEmptyState(),
-                for (final item in selectedItems) ...[
-                  _buildSelectedItemCard(item, notifier),
-                  const SizedBox(height: 8),
-                ],
-                if (selectedItems.isNotEmpty)
-                  _buildAddMoreHint(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSelectedItemCard(
-      SettingsLocationRecord item, UserAccessNotifier notifier) {
-    final isWarehouse = item.isWarehouse;
-    return _HoverCard(
-      child: (hovered) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _kSurfaceContainerLow,
-          borderRadius: const BorderRadius.all(_kRadiusMd),
-          border: Border.all(
-            color: hovered
-                ? _kPrimaryContainer
-                : Colors.transparent,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: isWarehouse
-                    ? _kSecondaryContainer
-                    : _kPrimaryContainer,
-                borderRadius: const BorderRadius.all(_kRadiusSm),
-              ),
-              child: Icon(
-                isWarehouse
-                    ? LucideIcons.warehouse
-                    : LucideIcons.building2,
-                size: 14,
-                color: isWarehouse
-                    ? _kOnSecondaryContainer
-                    : _kOnPrimaryContainer,
+          // ── Locations group row ────────────────────────────────────
+          if (selectedItems.isNotEmpty) ...[
+            InkWell(
+              onTap: () =>
+                  setState(() => _locationsGroupExpanded = !_locationsGroupExpanded),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: const BoxDecoration(
+                  border: Border(
+                      bottom: BorderSide(color: Color(0xFFEEEEEE))),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _locationsGroupExpanded
+                          ? LucideIcons.chevronUp
+                          : LucideIcons.chevronDown,
+                      size: 14,
+                      color: _kOnSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Locations',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: _kSurfaceContainerHigh,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${selectedItems.length}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: _kOnSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.name,
+            if (_locationsGroupExpanded)
+              for (int i = 0; i < selectedItems.length; i++)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                        bottom: BorderSide(color: Color(0xFFEEEEEE))),
+                  ),
+                  child: Text(
+                    '${i + 1}. ${selectedItems[i].name}',
                     style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
                       color: AppTheme.textPrimary,
                     ),
                   ),
-                  Text(
-                    isWarehouse ? 'Sub-Location' : 'Entity Root',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: _kOnSurfaceVariant,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (hovered)
-              GestureDetector(
-                onTap: () => notifier.toggleOutlet(item.id),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(
-                    LucideIcons.x,
-                    size: 14,
+                ),
+          ],
+
+          if (selectedItems.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Center(
+                child: Text(
+                  'No locations selected',
+                  style: TextStyle(
+                    fontSize: 12,
                     color: _kOnSurfaceVariant.withValues(alpha: 0.6),
                   ),
                 ),
               ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Container(
-      height: 120,
-      decoration: BoxDecoration(
-        border: Border.all(
-            color: _kOutlineVariant.withValues(alpha: 0.3),
-            style: BorderStyle.solid),
-        borderRadius: const BorderRadius.all(_kRadiusMd),
-      ),
-      child: const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.plusCircle,
-                size: 24, color: _kOutlineVariant),
-            SizedBox(height: 6),
-            Text(
-              'ADD LOCATIONS FROM THE LEFT PANE',
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w500,
-                color: _kOutlineVariant,
-                letterSpacing: 0.5,
-              ),
-              textAlign: TextAlign.center,
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddMoreHint() {
-    return Container(
-      height: 80,
-      decoration: BoxDecoration(
-        border: Border.all(
-            color: _kOutlineVariant.withValues(alpha: 0.2),
-            style: BorderStyle.solid),
-        borderRadius: const BorderRadius.all(_kRadiusMd),
-      ),
-      child: const Center(
-        child: Text(
-          'ADD MORE LOCATIONS FROM THE LEFT PANE',
-          style: TextStyle(
-            fontSize: 9.5,
-            fontWeight: FontWeight.w500,
-            color: _kOutlineVariant,
-            letterSpacing: 0.5,
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -957,9 +894,7 @@ class _SettingsUsersUserCreationState
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                loc.isWarehouse
-                    ? '${loc.name} (Warehouse)'
-                    : loc.name,
+                loc.name,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: isSelected
@@ -990,7 +925,7 @@ class _SettingsUsersUserCreationState
             top: BorderSide(color: AppTheme.borderLight)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           TextButton(
             onPressed: () => context.go(AppRoutes.settingsUsers),
