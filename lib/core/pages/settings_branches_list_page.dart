@@ -623,7 +623,7 @@ class _SettingsBranchesListPageState
 
   Widget _buildBody() {
     return SettingsFixedHeaderLayout(
-      maxWidth: 1100,
+      maxWidth: double.infinity,
       header: _buildHeader(),
       body: _buildTable(),
     );
@@ -720,13 +720,13 @@ class _SettingsBranchesListPageState
         children: [
           SizedBox(width: 20),
           SizedBox(width: AppTheme.space12),
-          Expanded(flex: 3, child: Text('NAME', style: style)),
-          Expanded(flex: 2, child: Text('SYSTEM ID', style: style)),
-          Expanded(flex: 2, child: Text('BRANCH CODE', style: style)),
-          Expanded(flex: 2, child: Text('GSTIN', style: style)),
-          Expanded(flex: 2, child: Text('BRANCH TYPE', style: style)),
-          Expanded(flex: 2, child: Text('ADDRESS DETAILS', style: style)),
-          Expanded(flex: 3, child: Text('SUBSCRIPTION PERIOD', style: style)),
+          Expanded(flex: 4, child: Text('NAME', style: style)),
+          SizedBox(width: 120, child: Text('SYSTEM ID', style: style)),
+          SizedBox(width: 130, child: Text('BRANCH CODE', style: style)),
+          Expanded(flex: 3, child: Text('GSTIN', style: style)),
+          SizedBox(width: 110, child: Text('BRANCH TYPE', style: style)),
+          Expanded(flex: 3, child: Text('ADDRESS DETAILS', style: style)),
+          SizedBox(width: 170, child: Text('SUBSCRIPTION PERIOD', style: style)),
           SizedBox(width: 48),
         ],
       ),
@@ -770,7 +770,7 @@ class _SettingsBranchesListPageState
             const SizedBox(width: AppTheme.space12),
             // Name
             Expanded(
-              flex: 3,
+              flex: 4,
               child: Row(
                 children: [
                   Flexible(
@@ -794,8 +794,8 @@ class _SettingsBranchesListPageState
                 ],
               ),
             ),
-            Expanded(
-              flex: 2,
+            SizedBox(
+              width: 120,
               child: Text(
                 branch.systemId.isNotEmpty ? branch.systemId : '—',
                 style: const TextStyle(
@@ -805,8 +805,8 @@ class _SettingsBranchesListPageState
               ),
             ),
             // Branch code
-            Expanded(
-              flex: 2,
+            SizedBox(
+              width: 130,
               child: Text(
                 branch.outletCode.isNotEmpty ? branch.outletCode : '—',
                 style: const TextStyle(
@@ -817,7 +817,7 @@ class _SettingsBranchesListPageState
             ),
             // GSTIN
             Expanded(
-              flex: 2,
+              flex: 3,
               child: branch.gstin.isNotEmpty
                   ? Text(
                       branch.gstin,
@@ -839,8 +839,8 @@ class _SettingsBranchesListPageState
                     ),
             ),
             // Branch Type
-            Expanded(
-              flex: 2,
+            SizedBox(
+              width: 110,
               child: branch.branchTypeLabel.isNotEmpty
                   ? Text(
                       branch.branchTypeLabel,
@@ -860,15 +860,15 @@ class _SettingsBranchesListPageState
             ),
             // Address
             Expanded(
-              flex: 2,
+              flex: 3,
               child: Text(
                 branch.addressSummary.isNotEmpty ? branch.addressSummary : '—',
                 style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
               ),
             ),
             // Subscription Period
-            Expanded(
-              flex: 3,
+            SizedBox(
+              width: 170,
               child: branch.subscriptionPeriod.isNotEmpty
                   ? Text(
                       branch.subscriptionPeriod,

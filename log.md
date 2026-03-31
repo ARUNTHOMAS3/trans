@@ -9487,3 +9487,309 @@ Timestamp of Log Update: March 29, 2026 (IST)
   - Validation:
     - `dart format lib/core/pages/settings_roles_page.dart`
     - `dart analyze lib/core/pages/settings_roles_page.dart`
+- Fixed Users invite/edit navigation and location-access polish:
+  - [lib/core/pages/settings_users_form_page.dart](E:/zerpai-new/lib/core/pages/settings_users_form_page.dart)
+    - Fixed the Invite User `Cancel` action so it routes back correctly instead of trying to pop a non-modal GoRouter page.
+  - [lib/core/pages/settings_users_page.dart](E:/zerpai-new/lib/core/pages/settings_users_page.dart)
+    - Moved the `Configure Location Access` dialog to top-center alignment with zero edge padding.
+    - Updated the Users list screen to a flatter Zoho-style list/table shell with:
+      - `USER DETAILS`, `ROLE`, and `STATUS` header row
+      - simpler white list rows with dividers
+      - blue link-style user names and compact status pills
+      - explicit bottom divider on each row
+      - light hover state for row interaction
+  - [lib/core/pages/settings_user_location_access_editor.dart](E:/zerpai-new/lib/core/pages/settings_user_location_access_editor.dart)
+    - Centered the transfer arrow between the location selector and associated-values panel instead of pinning it too low with a fixed offset.
+  - Validation:
+    - `dart format lib/core/pages/settings_users_form_page.dart lib/core/pages/settings_users_page.dart lib/core/pages/settings_user_location_access_editor.dart`
+    - `dart analyze lib/core/pages/settings_users_form_page.dart lib/core/pages/settings_users_page.dart lib/core/pages/settings_user_location_access_editor.dart`
+
+---
+
+## Users & Roles — Fixes, Migrations, and UX Improvements (March 30, 2026)
+
+### Summary
+
+Resolved broken Users & Roles pages caused by a missing `settings_roles` DB table, added missing UI columns, fixed status badge coloring, added Reports & Settings permission sections, and implemented default-role read-only view mode.
+
+---
+
+### Database
+
+- **`supabase/migrations/1019_settings_roles.sql`** — Created new migration for `public.settings_roles` table:
+  - Columns: `id`, `org_id` (FK → organization), `label`, `description`, `permissions` (JSONB), `is_active`, `created_at`, `updated_at`
+  - Added index on `org_id`, `updated_at` trigger, RLS enabled with `service_role_full_access` policy
+  - Applied directly in Supabase SQL editor (no `db push`)
+
+---
+
+### Frontend Files
+
+- **`lib/core/pages/settings_roles_page.dart`**
+  - Added **Users count** column (width 100) to table header and row cells, reading `role.userCount`
+  - Changed default role row `onTap` from showing a toast to navigating to `settingsRoleEdit` route — enables read-only viewing of default roles
+
+- **`lib/core/pages/settings_roles_form_page.dart`**
+  - Added `_isDefaultRole` flag populated from `data['is_default']` during `_loadRole()`
+  - Header: shows "View Role" title, "Read only" badge, hides Save button when viewing default role; Cancel becomes "Close"
+  - General tab fields: `readOnly: _isDefaultRole`; validator suppressed for default roles
+  - Added **Reports** permission section: Sales Reports, Purchase Reports, Inventory Reports, Accountant Reports, Tax Reports (view-only)
+  - Added **Settings** permission section: Org Profile, Users & Roles, Branches & Warehouses, Taxes, Customization
+  - `_buildCheckboxCell`: `onTap: _isDefaultRole ? null : onTap`; checked color becomes `textSecondary` when read-only
+
+- **`lib/core/pages/settings_users_page.dart`**
+  - Added **Locations count** column (width 100) between ROLE and STATUS, reading `user.accessibleLocationCount`
+  - Reduced STATUS column width from 140 → 110 to accommodate new column
+  - Fixed inactive status badge: was always green (`successGreen` / `0xFFE8F8EF`) regardless of `isActive`; now conditionally gray (`textSecondary` / `0xFFF3F4F6`) when inactive
+
+- **`lib/core/pages/settings_users_form_page.dart`**
+  - Added `_defaultWarehouseInvalid` getter: triggers when at least one warehouse location is selected but `_defaultWarehouseOutletId` is null
+  - Wired `_defaultWarehouseInvalid` into save guard alongside existing `_locationsInvalid` and `_defaultBusinessInvalid`
+  - Updated inline validation message to cover all three error states: missing locations / missing default business / missing default warehouse
+
+Timestamp of Log Update: March 30, 2026 - 12:00 PM (IST)
+
+---
+
+## Organization Profile — GSTIN/CIN/PAN Company ID Labels & Inline Org ID (March 30, 2026)
+
+### Summary
+
+Added GSTIN, CIN, and PAN as selectable Company ID label options. Also moved the org ID system badge inline with the "Organization Profile" page heading.
+
+---
+
+### Database
+
+- **`backend/src/database/migrations/add_company_id_labels_gstin_cin_pan.sql`** — Inserts GSTIN (sort_order 5), CIN (sort_order 15), and PAN (sort_order 25) into `public.company_id_labels` with `ON CONFLICT (label) DO NOTHING` for idempotent re-runs. Labels appear in the Company ID dropdown alongside existing entries (LLPIN, UDYAM, FSSAI etc.) because the lookup endpoint queries the table dynamically.
+
+---
+
+### Frontend Files
+
+- **`lib/core/pages/settings_organization_profile_page.dart`**
+  - Page heading `Row` (`crossAxisAlignment: CrossAxisAlignment.center`) now renders the "Organization Profile" title and `'ID: $_organizationSystemId'` badge on the same line — badge only shown when `_organizationSystemId.isNotEmpty`
+  - Company ID dropdown (`_companyIdOptions`) is already populated from `/lookups/company-id-labels` — no frontend change needed; GSTIN/CIN/PAN appear automatically once the DB migration is applied
+
+Timestamp of Log Update: March 30, 2026 - 12:15 PM (IST)
+
+---
+
+## Users & Roles — Advanced Zoho Equivalence Refactor (March 30, 2026)
+
+### Summary
+Refactored the entire Users & Roles module to achieve "Exact Zoho Equivalence" in UI density, deep logic dependencies, and granular permission management. Replaced legacy form pages with specialized high-density components and a robust Riverpod state engine.
+
+---
+
+### Frontend Components
+
+- **`lib/modules/settings/users_roles/settings_users_roles_role_creation.dart`** (NEW)
+  - Implemented the "Gold Standard" Role Creation UI with 32px row height and 14px checkboxes.
+  - Added **"OTHERS"** column for advanced module-specific overrides.
+  - Category Headers (Grey Bars): Added functional checkboxes for bulk column-wide selection.
+  - **Reports Section**: Refactored into a 5-column matrix (Full Access, View, Export, Schedule, Share) with a master "Enable full access" toggle.
+  - Integrated header search bar to dynamically filter permission rows across all modules.
+
+- **`lib/modules/settings/users_roles/providers/role_creation_provider.dart`** (NEW)
+  - Built the "Dependency Engine" using Riverpod `StateNotifier`.
+  - **Row Logic**: `Full` toggle master control; `View` as a mandatory prerequisite for all other actions.
+  - **Category Logic**: Implemented `toggleCategoryColumn` for bulk updates across module groups.
+  - **Reports Logic**: Hierarchical dependency where `Full Access` controls all other report actions in a row.
+
+- **`lib/modules/settings/users/presentation/settings_users_user_creation.dart`** (NEW)
+  - Implemented the Zoho-style "Invite User" form with 160px label widths.
+  - Added a **Hierarchical Access Matrix**: Nested checkbox list for Branches and their respective Warehouses.
+  - Mandatory validation for "Default Branch" and "Default Warehouse" dropdowns, filtered by selected locations.
+
+- **`lib/modules/settings/users/presentation/settings_users_user_overview.dart`** (NEW)
+  - Implemented a Master-Detail split view for User Management.
+  - Dense list view with avatars and status badges.
+  - Detail view featuring "More Details" (Accessible Locations table) and "Recent Activities" tabs.
+
+- **`lib/modules/settings/users/providers/user_access_provider.dart`** (NEW)
+  - Manages location-based access state and default selection logic.
+  - Prevents auto-checking warehouses when a branch is checked (manual override required).
+
+---
+
+### Core System & Hardening
+
+- **`lib/core/routing/app_router.dart`**
+  - Refactored `settings/users` and `settings/roles` routes to use the new specialized components.
+  - Removed obsolete files: `settings_roles_form_page.dart`, `settings_users_page.dart`, and `settings_users_form_page.dart`.
+
+- **`lib/core/services/api_client.dart`**
+  - **QueryParameters Support**: Extended `post`, `put`, `patch`, and `delete` methods to support query parameters.
+  - **Error Detection**: Hardened interceptor to detect and reject error objects (e.g., `{ statusCode: 500, message: "..." }`) returned within a 200 OK response from the backend.
+
+- **`GEMINI.md`** (NEW)
+  - Created a comprehensive project context file documenting the Zerpai ERP tech stack, architectural mandates (Gold Standard Reusables, UI Governance), and development conventions.
+
+### Validation
+- Verified "View" dependency: Unchecking "View" correctly clears all other permissions in the row.
+- Verified Category bulk-select: Toggling "Full" in the "SALES" bar correctly toggles all sub-rows.
+- Verified Route Persistence: New routes `/settings/users` and `/settings/roles` are functional and deep-linkable.
+
+Timestamp of Log Update: March 30, 2026 - 12:30 PM (IST)
+
+
+---
+
+## Settings – Users Module: Invite User Page Redesign + Sidebar Fix (March 30, 2026)
+
+### Summary
+
+Redesigned the Invite User / Edit User form page to match the Zoho Inventory-style split-panel location picker UX. Also fixed the missing settings sidebar that was caused by wrapping the page in a bare `Scaffold` instead of the shared `SettingsUsersRolesShell`.
+
+---
+
+### Frontend Files
+
+- `lib/modules/settings/users/presentation/settings_users_user_creation.dart`
+  - **Sidebar fix**: Replaced `Scaffold` + `AppBar` root with `SettingsUsersRolesShell(activeRoute: AppRoutes.settingsUsers)` — restores the full settings top bar and sidebar nav on the creation/edit page
+  - **Location picker redesign**: Replaced flat checkbox matrix table with a Zoho-style two-panel layout:
+    - **Left panel**: hierarchical tree — branches at root level, warehouses indented beneath their parent branch; includes live search field, Select All / Unselect All toggle
+    - **Middle**: blue circular arrow `→` button (decorative, confirms visual intent of "move to associated")
+    - **Right panel**: "Associated Values" box with count badge, collapsible "Locations N" group listing all selected items numbered
+  - **Default dropdowns**: Moved "User's Default Business Location" and "User's Default Warehouse Location" inline above the split panel as compact `DropdownButton` widgets filtered to only show currently selected locations
+  - **UX details**: Checking a branch row auto-selects all its child warehouses; partial selection shows tristate checkbox; unselecting a branch/warehouse that was set as default clears the default
+  - Removed deprecated `.withOpacity()` calls — replaced with `.withValues(alpha: ...)`
+  - Removed unused `allSelected` local variable
+
+- `lib/modules/settings/users/providers/user_access_provider.dart`
+  - Added `toggleAll(bool selectAll)` method to `UserAccessNotifier`: selects all branches + warehouses when `true`, clears all selections and resets defaults when `false`
+
+Timestamp of Log Update: 30 Mar 2026 - 15:45 (IST)
+
+---
+
+## Codebase Context Consolidation & Strategy Alignment (March 30, 2026)
+
+### Summary
+
+Performed a comprehensive synchronization of the project environment by analyzing the **PRD**, **AGENTS.md**, **CLAUDE.md**, **DB_SCHEMA_AWARENESS.md**, and the **REUSABLES.md** catalog. This entry serves as the "source of truth" for the current architecture and development mandates.
+
+### Core Architectural Pillars
+
+- **High-Density UI (Exact Zoho Equivalence)**: Standardized on 32-40px row heights, Inter font, and Title Case for destinations (Page titles, buttons, headers) vs. Sentence case for instructions (Form labels, tooltips).
+- **Frontend (Flutter)**:
+  - **State**: Riverpod (`StateNotifier`, `Provider`).
+  - **Navigation**: Mandatory GoRouter with deep-linking support (`/:orgId/module/submodule`).
+  - **Networking**: Dio-only (`ApiClient`).
+  - **Persistence**: Hive-only for offline data (Items, Customers, Drafts); `shared_preferences` for UI flags only.
+- **Backend (NestJS)**:
+  - **ORM**: Drizzle ORM only.
+  - **Database**: Supabase / PostgreSQL.
+  - **Multi-Tenancy**: Mandatory `org_id` filtering on all business-owned tables via `X-Org-Id` header.
+- **Database Rules**:
+  - **Global Products**: The `products` table has NO `org_id` and is shared across all tenants.
+  - **Modularity**: Table naming convention: `<module>_<table_name>`. Settings tables use `settings_` prefix.
+
+### Key Mandates (Non-Negotiable)
+
+1. **Reusables First**: `REUSABLES.md` must be checked before creating any new shared component. Key reusables: `FormDropdown<T>`, `CustomTextField`, `ZerpaiDatePicker`, `ZTooltip`, `ZerpaiLayout`.
+2. **Pure White Surface Rule**: All dialogs, popups, and dropdown overlays must use `#FFFFFF`. No inherited Material tinting.
+3. **Deep Linking**: Every significant state and sub-screen must be addressable via a named GoRouter route to survive browser refreshes.
+4. **Case Standards**: Title Case for Page Titles, Buttons, and Table Headers. Sentence case for everything else.
+5. **No `print()`**: Use `AppLogger` for all logging.
+
+### Identified Components & State (March 30 Snapshot)
+
+- **Users & Roles**: Refactored for Zoho parity. Uses `settings_users_roles_role_creation.dart`, `settings_users_user_creation.dart`, and specialized Riverpod providers. Recent redesign (March 30) added a split-panel location picker.
+- **Settings Hierarchy**: Fixed-header layout implemented across Organization Profile, Branches, Warehouses, and Locations.
+- **API Client**: Hardened with query parameters support and error detection in 200 OK responses.
+
+Timestamp of Log Update: March 30, 2026 - 12:49 PM (IST)
+
+
+---
+
+## Settings — Invite User UI Redesign (March 30, 2026)
+
+### Summary
+
+Rebuilt the Invite User screen (`settings_users_user_creation.dart`) to match a new Material 3 reference design. The dual-pane location access selector was completely overhauled: left tree panel, bridge arrow, and right associated values panel all redesigned from scratch.
+
+---
+
+### Frontend Files
+
+- `lib/modules/settings/users/presentation/settings_users_user_creation.dart`
+  - **Left tree panel**: Replaced embedded search-bar checkbox with a separate search field + "Select All" checkbox aligned top-right. Tree rows now use Flutter's native `Checkbox` widget (blue fill, white check) instead of a custom `Container`-drawn box. Tree indentation uses a `border-left` CSS-style pattern with a connector line.
+  - **Bridge column**: Removed the two-button (solid blue forward + outline back) layout. Replaced with a single gray outline circle arrow button centered in a narrower 48px column — matching the reference screenshot exactly.
+  - **Associated Values panel**: Complete redesign. Header now shows a blue filled circle checkmark + "ASSOCIATED VALUES" label + red circle count badge. Body has a collapsible "Locations N" group row (chevron-up/down + gray circle count). Items render as a numbered flat list (`1. Head Office`, `2. ZABNIX PRIVATE LIMITED`) with bottom-border row dividers. Removed card/hover/icon layout entirely.
+  - **Removed unused constants**: `_kSecondaryContainer` and `_kOnSecondaryContainer` removed as no longer referenced after panel redesign.
+  - `_locationsGroupExpanded` state field added to manage the collapse/expand of the locations group in the right panel.
+
+Timestamp of Log Update: March 30, 2026 - 10:45 AM (IST)
+
+---
+
+## Inventory Picklists — Build Error Resolution + Flutter Deprecation Fixes (March 31, 2026)
+
+### Summary
+
+Resolved all compilation errors in the inventory picklists module and fixed Flutter 3.32+ deprecation warnings across two purchase screens to achieve a clean dart analyze with no issues found.
+
+---
+
+### Frontend Files
+
+- lib/modules/inventory/picklists/presentation/inventory_picklists_create.dart
+  - **FormDropdown params**: Migrated broken isMultiSelect/onMultiChanged calls to the correct multiSelect/onSelectedValuesChanged API.
+  - **Stubbed providers**: Replaced undefined customersProvider, productsLookupProvider, and salesOrdersProvider references with empty AsyncValue stubs so the filter section compiles.
+  - **RadioGroup migration**: Replaced deprecated Radio.groupValue/onChanged pattern (×2) with Flutter 3.32's RadioGroup<bool> ancestor widget.
+  - **withOpacity migration**: Replaced Color.withOpacity(0.1) → .withValues(alpha: 0.1).
+  - **Unused param removed**: Removed maxWidth parameter from _PicklistZTooltip constructor and replaced the lingering widget.maxWidth usage in the state with a hardcoded 250.0 constant.
+
+- lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart
+  - **RadioGroup migration**: Same deprecated Radio pattern replaced with RadioGroup<bool> (×2).
+  - **withOpacity migration**: Same withOpacity → withValues(alpha:) fix.
+
+### Backend Files
+
+- lib/core/constants/api_endpoints.dart
+  - Added missing picklists constant to the Inventory section.
+
+- lib/modules/inventory/providers/stock_provider.dart
+  - Extended WarehouseStockData model with all UI-required fields (productName, atchNo, salesOrderId, etc.), added copyWith and romJson, and stubbed the missing llSalesOrderItemsProvider.
+
+### Security
+
+- ackend/package.json
+  - Updated xios from ^1.13.3 → latest to resolve HIGH severity vulnerability.
+
+### Validation
+
+- dart analyze → No issues found
+
+Timestamp of Log Update: March 31, 2026 - 11:01 AM (IST)
+
+---
+
+## Purchase Orders — Table Name Fix: Stale purchase_orders Ref In Audit Interceptor (March 31, 2026)
+
+### Summary
+
+The Flutter app was failing to load Purchase Orders with Could not find the table 'public.purchase_orders' in the schema cache. Root cause: the backend audit interceptor had stale table names purchase_orders instead of the correct purchases_purchase_orders. The Supabase PostgREST reject surfaced on DELETE/PUT/PATCH operations when the interceptor pre-fetched old values from the non-existent table.
+
+---
+
+### Backend Files
+
+- ackend/src/common/interceptors/audit.interceptor.ts
+  - **ROUTE_TABLE_MAP entries for purchase-orders**: Changed 	able: "purchase_orders" → 	able: "purchases_purchase_orders" on both the detail route (/purchase-orders/:uuid) and the list route (/api/v1/purchase-orders).
+  - Why: The purchases_purchase_orders tables were created in Supabase as part of the SQL DDL migration provided. The audit interceptor held the old legacy name that predates the purchases_ module prefix convention now used project-wide.
+
+### Context
+
+- purchasesPurchaseOrders was already correctly defined in ackend/drizzle/schema.ts (line 1012).
+- purchase-orders.service.ts was already querying purchases_purchase_orders correctly — only the audit interceptor was stale.
+
+### Validation
+
+- Backend restarts automatically via 
+pm run start:dev --watch — no manual restart needed.
+
+Timestamp of Log Update: March 31, 2026 - 11:03 AM (IST)

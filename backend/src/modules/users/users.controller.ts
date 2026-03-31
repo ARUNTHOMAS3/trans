@@ -57,6 +57,68 @@ export class UsersController {
     }
   }
 
+  @Get("roles/:id")
+  async getRole(@Param("id") id: string, @Query("org_id") orgId: string) {
+    if (!orgId) {
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: "org_id is required",
+      };
+    }
+    try {
+      const data = await this.usersService.getRole(id, orgId);
+      if (!data) {
+        return { statusCode: HttpStatus.NOT_FOUND, message: "Role not found" };
+      }
+      return data;
+    } catch (error: any) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
+  @Post("roles")
+  async createRole(@Body() body: any) {
+    const orgId = body?.org_id?.toString();
+    if (!orgId) {
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: "org_id is required",
+      };
+    }
+    try {
+      const data = await this.usersService.createRole(orgId, body);
+      return { data, message: "Role created successfully" };
+    } catch (error: any) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
+  @Put("roles/:id")
+  async updateRole(@Param("id") id: string, @Body() body: any) {
+    const orgId = body?.org_id?.toString();
+    if (!orgId) {
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: "org_id is required",
+      };
+    }
+    try {
+      const data = await this.usersService.updateRole(id, orgId, body);
+      return { data, message: "Role updated successfully" };
+    } catch (error: any) {
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      };
+    }
+  }
+
   @Post()
   async create(@Body() body: any) {
     try {

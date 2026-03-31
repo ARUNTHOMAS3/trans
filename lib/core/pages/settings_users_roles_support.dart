@@ -35,6 +35,8 @@ class SettingsUserRecord {
     this.accessibleLocations = const <SettingsLocationRecord>[],
     this.defaultBusinessOutletId,
     this.defaultWarehouseOutletId,
+    this.roleLabelOverride,
+    this.roleIsDefault = false,
   });
 
   final String id;
@@ -47,17 +49,24 @@ class SettingsUserRecord {
   final List<SettingsLocationRecord> accessibleLocations;
   final String? defaultBusinessOutletId;
   final String? defaultWarehouseOutletId;
+  final String? roleLabelOverride;
+  final bool roleIsDefault;
 
   String get statusLabel => isActive ? 'Active' : 'Inactive';
 
   String get roleLabel {
+    if (roleLabelOverride?.trim().isNotEmpty == true) {
+      return roleLabelOverride!.trim();
+    }
     switch (role.trim().toLowerCase()) {
       case 'admin':
         return 'Admin';
       case 'manager':
         return 'Manager';
-      default:
+      case 'staff':
         return 'Staff';
+      default:
+        return role;
     }
   }
 
@@ -86,6 +95,8 @@ class SettingsUserRecord {
       accessibleLocations: accessibleLocations,
       defaultBusinessOutletId: json['default_business_outlet_id']?.toString(),
       defaultWarehouseOutletId: json['default_warehouse_outlet_id']?.toString(),
+      roleLabelOverride: json['role_label']?.toString(),
+      roleIsDefault: json['role_is_default'] == true,
     );
   }
 }
@@ -135,12 +146,16 @@ class SettingsRoleRecord {
     required this.label,
     required this.description,
     required this.userCount,
+    this.isDefault = false,
+    this.permissions,
   });
 
   final String id;
   final String label;
   final String description;
   final int userCount;
+  final bool isDefault;
+  final Map<String, dynamic>? permissions;
 
   factory SettingsRoleRecord.fromJson(Map<String, dynamic> json) {
     return SettingsRoleRecord(
@@ -150,6 +165,10 @@ class SettingsRoleRecord {
       userCount: json['user_count'] is num
           ? (json['user_count'] as num).toInt()
           : 0,
+      isDefault: json['is_default'] == true,
+      permissions: json['permissions'] is Map
+          ? Map<String, dynamic>.from(json['permissions'] as Map)
+          : null,
     );
   }
 }

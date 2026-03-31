@@ -159,27 +159,45 @@ class ApiClient {
         },
 
         onResponse: (response, handler) {
-          final data = response.data;
+          var data = response.data;
 
           if (data is Map) {
             // Format 1: Standard wrapper with data and meta
             if (data.containsKey('data') && data.containsKey('meta')) {
               response.extra['meta'] = data['meta'];
               response.extra['message'] = data['message'];
-              response.data = data['data'];
+              data = data['data']; // Use temporary var to check for inner errors
+              response.data = data;
             }
             // Format 2: Success/Data wrapper
             else if (data.containsKey('success')) {
               if (data['success'] == true) {
                 response.extra['success'] = true;
                 response.extra['message'] = data['message'];
-                response.data = data['data'];
+                data = data['data'];
+                response.data = data;
               } else {
                 return handler.reject(
                   DioException(
                     requestOptions: response.requestOptions,
                     response: response,
                     error: data['message'] ?? 'API failed',
+                    type: DioExceptionType.badResponse,
+                  ),
+                );
+              }
+            }
+
+            // Global Check: Many of our controllers return { statusCode, message } on error
+            // instead of throwing, which StandardResponseInterceptor then wraps.
+            if (data is Map && data.containsKey('statusCode')) {
+              final int? innerStatus = int.tryParse(data['statusCode'].toString());
+              if (innerStatus != null && innerStatus >= 400) {
+                return handler.reject(
+                  DioException(
+                    requestOptions: response.requestOptions,
+                    response: response,
+                    error: data['message'] ?? 'Server error $innerStatus',
                     type: DioExceptionType.badResponse,
                   ),
                 );
@@ -284,8 +302,19 @@ class ApiClient {
 
   Dio get dio => _dio;
 
-  String _normalizePath(String path) {
-    return path.startsWith('/') ? path.substring(1) : path;
+  String _normalizePath(String path, [Map<String, dynamic>? queryParameters]) {
+    var normalized = path.startsWith('/') ? path.substring(1) : path;
+    if (queryParameters != null && queryParameters.isNotEmpty) {
+      final uri = Uri(path: normalized, queryParameters: queryParameters.map((k, v) => MapEntry(k, v?.toString())));
+      // Uri.toString() includes a leading slash if we are not careful, 
+      // but dio handles paths relative to baseUrl.
+      // We want to return the query string part if present.
+      final queryString = uri.query;
+      if (queryString.isNotEmpty) {
+        normalized = '$normalized?$queryString';
+      }
+    }
+    return normalized;
   }
 
   /// ------------------------------
@@ -296,17 +325,17 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     bool useCache = true,
   }) async {
-    final normalizedPath = _normalizePath(path);
-    final key = _generateCacheKey('GET', normalizedPath, queryParameters);
+    final normalizedPathWithoutQuery = path.startsWith('/') ? path.substring(1) : path;
+    final key = _generateCacheKey('GET', normalizedPathWithoutQuery, queryParameters);
 
     if (useCache) {
       final cached = _getCachedResponse(key);
       if (cached != null) {
-        if (kDebugMode) debugPrint('⚡ Cache Hit: $normalizedPath');
+        if (kDebugMode) debugPrint('⚡ Cache Hit: $normalizedPathWithoutQuery');
         return Response(
           data: cached.data,
           statusCode: cached.statusCode,
-          requestOptions: RequestOptions(path: normalizedPath),
+          requestOptions: RequestOptions(path: normalizedPathWithoutQuery),
         );
       }
     } else {
@@ -315,7 +344,7 @@ class ApiClient {
     }
 
     final response = await _dio.get(
-      normalizedPath,
+      normalizedPathWithoutQuery,
       queryParameters: queryParameters,
     );
 
@@ -331,32 +360,32 @@ class ApiClient {
   /// Derive the base resource path from a URL to invalidate related cache.
   /// e.g. "accountant/some-id/status" → "accountant"
   void _invalidateCacheForPath(String path) {
-    final normalizedPath = _normalizePath(path);
+    final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
     // Extract first path segment as the resource key
     final base = normalizedPath.split('/').first;
     _responseCache.removeWhere((key, _) => key.contains(base));
   }
 
-  Future<Response> post(String path, {dynamic data}) async {
-    final response = await _dio.post(_normalizePath(path), data: data);
+  Future<Response> post(String path, {dynamic data, Map<String, dynamic>? queryParameters}) async {
+    final response = await _dio.post(_normalizePath(path, queryParameters), data: data);
     _invalidateCacheForPath(path);
     return response;
   }
 
-  Future<Response> put(String path, {dynamic data}) async {
-    final response = await _dio.put(_normalizePath(path), data: data);
+  Future<Response> put(String path, {dynamic data, Map<String, dynamic>? queryParameters}) async {
+    final response = await _dio.put(_normalizePath(path, queryParameters), data: data);
     _invalidateCacheForPath(path);
     return response;
   }
 
-  Future<Response> patch(String path, {dynamic data}) async {
-    final response = await _dio.patch(_normalizePath(path), data: data);
+  Future<Response> patch(String path, {dynamic data, Map<String, dynamic>? queryParameters}) async {
+    final response = await _dio.patch(_normalizePath(path, queryParameters), data: data);
     _invalidateCacheForPath(path);
     return response;
   }
 
-  Future<Response> delete(String path, {dynamic data}) async {
-    final response = await _dio.delete(_normalizePath(path), data: data);
+  Future<Response> delete(String path, {dynamic data, Map<String, dynamic>? queryParameters}) async {
+    final response = await _dio.delete(_normalizePath(path, queryParameters), data: data);
     _invalidateCacheForPath(path);
     return response;
   }

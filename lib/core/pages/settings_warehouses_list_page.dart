@@ -587,7 +587,7 @@ class _SettingsWarehousesListPageState
 
   Widget _buildBody() {
     return SettingsFixedHeaderLayout(
-      maxWidth: 1100,
+      maxWidth: double.infinity,
       header: _buildHeader(),
       body: _buildTable(),
     );
@@ -684,10 +684,10 @@ class _SettingsWarehousesListPageState
         children: [
           SizedBox(width: 20),
           SizedBox(width: AppTheme.space12),
-          Expanded(flex: 3, child: Text('NAME', style: style)),
-          Expanded(flex: 2, child: Text('WAREHOUSE CODE', style: style)),
+          Expanded(flex: 4, child: Text('NAME', style: style)),
+          SizedBox(width: 180, child: Text('WAREHOUSE CODE', style: style)),
           Expanded(flex: 3, child: Text('PARENT BRANCH', style: style)),
-          Expanded(flex: 3, child: Text('ADDRESS DETAILS', style: style)),
+          Expanded(flex: 4, child: Text('ADDRESS DETAILS', style: style)),
           SizedBox(width: 48),
         ],
       ),
@@ -731,7 +731,7 @@ class _SettingsWarehousesListPageState
             const SizedBox(width: AppTheme.space12),
             // Name
             Expanded(
-              flex: 3,
+              flex: 4,
               child: Text(
                 warehouse.name,
                 style: const TextStyle(
@@ -742,8 +742,8 @@ class _SettingsWarehousesListPageState
               ),
             ),
             // Warehouse code
-            Expanded(
-              flex: 2,
+            SizedBox(
+              width: 180,
               child: Text(
                 warehouse.warehouseCode.isNotEmpty
                     ? warehouse.warehouseCode
@@ -764,7 +764,7 @@ class _SettingsWarehousesListPageState
             ),
             // Address
             Expanded(
-              flex: 3,
+              flex: 4,
               child: Text(
                 warehouse.addressSummary.isNotEmpty
                     ? warehouse.addressSummary
