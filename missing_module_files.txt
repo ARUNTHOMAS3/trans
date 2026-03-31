@@ -1,0 +1,9 @@
+﻿lib/modules/inventory/models/warehouse_model.dart
+lib/modules/inventory/packages/presentation/inventory_packages_create.dart
+lib/modules/inventory/packages/presentation/inventory_packages_list.dart
+lib/modules/inventory/providers/warehouse_provider.dart
+lib/modules/inventory/repositories/warehouse_repository.dart
+lib/modules/purchases/purchase_receives.zip
+lib/modules/purchases/purchase_receives/data/purchase_receive_repository.dart
+lib/modules/purchases/purchase_receives/data/purchase_receive_repository_impl.dart
+lib/modules/purchases/purchase_receives/providers/purchase_receives_provider.dart

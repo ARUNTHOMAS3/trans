@@ -1,0 +1,6 @@
+﻿lib/modules/inventory/picklists/data/inventory_picklist_repository.dart
+lib/modules/inventory/picklists/data/inventory_picklist_repository_impl.dart
+lib/modules/inventory/picklists/models/inventory_picklist_model.dart
+lib/modules/inventory/picklists/presentation/inventory_picklists_create.dart
+lib/modules/inventory/picklists/presentation/inventory_picklists_list.dart
+lib/modules/inventory/picklists/providers/inventory_picklists_provider.dart

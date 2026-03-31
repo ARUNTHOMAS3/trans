@@ -1,0 +1,7 @@
+﻿backend/drizzle/manual_migration_purchase_receives.sql
+lib/modules/purchases/purchase_receives.zip
+lib/modules/purchases/purchase_receives/data/purchase_receive_repository.dart
+lib/modules/purchases/purchase_receives/data/purchase_receive_repository_impl.dart
+lib/modules/purchases/purchase_receives/models/purchases_purchase_receives_model.dart
+lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart
+lib/modules/purchases/purchase_receives/providers/purchase_receives_provider.dart
