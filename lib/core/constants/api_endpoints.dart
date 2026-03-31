@@ -26,6 +26,7 @@ class ApiEndpoints {
   static const String inventory = 'inventory';
   static const String assemblies = 'assemblies';
   static const String stockMovements = 'stock-movements';
+  static const String picklists = 'picklists';
 
   // Accounts endpoints
   static const String chartOfAccounts = 'accountant';

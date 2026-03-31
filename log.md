@@ -9723,3 +9723,73 @@ Rebuilt the Invite User screen (`settings_users_user_creation.dart`) to match a 
   - `_locationsGroupExpanded` state field added to manage the collapse/expand of the locations group in the right panel.
 
 Timestamp of Log Update: March 30, 2026 - 10:45 AM (IST)
+
+---
+
+## Inventory Picklists — Build Error Resolution + Flutter Deprecation Fixes (March 31, 2026)
+
+### Summary
+
+Resolved all compilation errors in the inventory picklists module and fixed Flutter 3.32+ deprecation warnings across two purchase screens to achieve a clean dart analyze with no issues found.
+
+---
+
+### Frontend Files
+
+- lib/modules/inventory/picklists/presentation/inventory_picklists_create.dart
+  - **FormDropdown params**: Migrated broken isMultiSelect/onMultiChanged calls to the correct multiSelect/onSelectedValuesChanged API.
+  - **Stubbed providers**: Replaced undefined customersProvider, productsLookupProvider, and salesOrdersProvider references with empty AsyncValue stubs so the filter section compiles.
+  - **RadioGroup migration**: Replaced deprecated Radio.groupValue/onChanged pattern (×2) with Flutter 3.32's RadioGroup<bool> ancestor widget.
+  - **withOpacity migration**: Replaced Color.withOpacity(0.1) → .withValues(alpha: 0.1).
+  - **Unused param removed**: Removed maxWidth parameter from _PicklistZTooltip constructor and replaced the lingering widget.maxWidth usage in the state with a hardcoded 250.0 constant.
+
+- lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart
+  - **RadioGroup migration**: Same deprecated Radio pattern replaced with RadioGroup<bool> (×2).
+  - **withOpacity migration**: Same withOpacity → withValues(alpha:) fix.
+
+### Backend Files
+
+- lib/core/constants/api_endpoints.dart
+  - Added missing picklists constant to the Inventory section.
+
+- lib/modules/inventory/providers/stock_provider.dart
+  - Extended WarehouseStockData model with all UI-required fields (productName, atchNo, salesOrderId, etc.), added copyWith and romJson, and stubbed the missing llSalesOrderItemsProvider.
+
+### Security
+
+- ackend/package.json
+  - Updated xios from ^1.13.3 → latest to resolve HIGH severity vulnerability.
+
+### Validation
+
+- dart analyze → No issues found
+
+Timestamp of Log Update: March 31, 2026 - 11:01 AM (IST)
+
+---
+
+## Purchase Orders — Table Name Fix: Stale purchase_orders Ref In Audit Interceptor (March 31, 2026)
+
+### Summary
+
+The Flutter app was failing to load Purchase Orders with Could not find the table 'public.purchase_orders' in the schema cache. Root cause: the backend audit interceptor had stale table names purchase_orders instead of the correct purchases_purchase_orders. The Supabase PostgREST reject surfaced on DELETE/PUT/PATCH operations when the interceptor pre-fetched old values from the non-existent table.
+
+---
+
+### Backend Files
+
+- ackend/src/common/interceptors/audit.interceptor.ts
+  - **ROUTE_TABLE_MAP entries for purchase-orders**: Changed 	able: "purchase_orders" → 	able: "purchases_purchase_orders" on both the detail route (/purchase-orders/:uuid) and the list route (/api/v1/purchase-orders).
+  - Why: The purchases_purchase_orders tables were created in Supabase as part of the SQL DDL migration provided. The audit interceptor held the old legacy name that predates the purchases_ module prefix convention now used project-wide.
+
+### Context
+
+- purchasesPurchaseOrders was already correctly defined in ackend/drizzle/schema.ts (line 1012).
+- purchase-orders.service.ts was already querying purchases_purchase_orders correctly — only the audit interceptor was stale.
+
+### Validation
+
+- Backend restarts automatically via 
+pm run start:dev --watch — no manual restart needed.
+
+Timestamp of Log Update: March 31, 2026 - 11:03 AM (IST)

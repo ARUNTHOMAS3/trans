@@ -64,12 +64,12 @@ const ROUTE_TABLE_MAP: RouteEntry[] = [
   // Purchases
   {
     pattern: /\/purchase-orders\/[0-9a-fA-F-]{36}/,
-    table: "purchase_orders",
+    table: "purchases_purchase_orders",
     module: "purchases",
   },
   {
     pattern: /^\/api\/v1\/purchase-orders$/,
-    table: "purchase_orders",
+    table: "purchases_purchase_orders",
     module: "purchases",
   },
   {
