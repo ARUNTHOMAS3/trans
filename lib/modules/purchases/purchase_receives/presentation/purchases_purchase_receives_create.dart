@@ -109,14 +109,16 @@ class _BatchItemRowController {
 // ═════════════════════════════════════════════════════════════════════════════
 // MAIN WIDGET
 // ═════════════════════════════════════════════════════════════════════════════
-class PurchaseReceiveCreateScreen extends ConsumerStatefulWidget {
-  const PurchaseReceiveCreateScreen({super.key});
+class PurchasesPurchaseReceivesCreateScreen extends ConsumerStatefulWidget {
+  const PurchasesPurchaseReceivesCreateScreen({super.key});
 
   @override
-  ConsumerState<PurchaseReceiveCreateScreen> createState() => _PRCreateState();
+  ConsumerState<PurchasesPurchaseReceivesCreateScreen> createState() =>
+      _PRCreateState();
 }
 
-class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
+class _PRCreateState
+    extends ConsumerState<PurchasesPurchaseReceivesCreateScreen> {
   final _receiveNumberCtrl = TextEditingController();
   final _receivedDateCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
@@ -195,7 +197,10 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: 460),
                   margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFDECEA),
                     border: Border.all(color: const Color(0xFFF5C2C7)),
@@ -236,7 +241,11 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                       ),
                       InkWell(
                         onTap: _dismissTopError,
-                        child: const Icon(Icons.close, size: 16, color: _dangerRed),
+                        child: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: _dangerRed,
+                        ),
                       ),
                     ],
                   ),
@@ -399,25 +408,6 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
       _selectedPONumber != null &&
       _selectedPONumber!.isNotEmpty;
 
-  void _showSelectBatchDialog(int itemIndex) {
-    if (itemIndex >= _items.length) return;
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => _SelectBatchDialog(
-        item: _items[itemIndex],
-        itemIndex: itemIndex,
-        onBatchesUpdated: (index, batches) {
-          setState(() {
-            if (index < _items.length) {
-              _items[index] = _items[index].copyWith(batches: batches);
-            }
-          });
-        },
-      ),
-    );
-  }
-
   void _displayFilePopupOverlay() {
     if (_filePopupOverlayEntry != null) return;
 
@@ -425,122 +415,137 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
       builder: (context) => CompositedTransformFollower(
         link: _filePopupLayerLink,
         showWhenUnlinked: false,
-        targetAnchor: Alignment.topLeft,
-        followerAnchor: Alignment.bottomLeft,
-        offset: const Offset(0, -8),
-        child: Material(
-          color: Colors.transparent,
-          elevation: 8,
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.3,
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _fieldBorder),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+        targetAnchor: Alignment.bottomLeft,
+        followerAnchor: Alignment.topLeft,
+        offset: const Offset(0, 8),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            color: Colors.transparent,
+            elevation: 8,
+            child: IntrinsicWidth(
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 200, maxWidth: 450),
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: (_uploadedFiles.isEmpty
-                    ? 56
-                    : (_uploadedFiles.length > 3 ? 3 : _uploadedFiles.length) * 56),
-              ),
-              child: Scrollbar(
-                controller: _attachmentListScrollController,
-                thumbVisibility: _uploadedFiles.length > 3,
-                child: ListView.builder(
-                  controller: _attachmentListScrollController,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: _uploadedFiles.length,
-                  itemBuilder: (context, index) {
-                    final file = _uploadedFiles[index];
-                    final fileSizeKb = file.size / 1024;
-                    final isHovered = _hoveredAttachmentIndex == index;
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: (_uploadedFiles.isEmpty
+                        ? 56
+                        : (_uploadedFiles.length > 3
+                                  ? 3
+                                  : _uploadedFiles.length) *
+                              56),
+                  ),
+                  child: Scrollbar(
+                    controller: _attachmentListScrollController,
+                    thumbVisibility: _uploadedFiles.length > 3,
+                    child: SingleChildScrollView(
+                      controller: _attachmentListScrollController,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: List.generate(_uploadedFiles.length, (index) {
+                          final file = _uploadedFiles[index];
+                          final fileSizeKb = file.size / 1024;
+                          final isHovered = _hoveredAttachmentIndex == index;
 
-                    return MouseRegion(
-                      onEnter: (_) => setState(() => _hoveredAttachmentIndex = index),
-                      onExit: (_) => setState(() {
-                        if (_hoveredAttachmentIndex == index) {
-                          _hoveredAttachmentIndex = null;
-                        }
-                      }),
-                      child: Container(
-                        height: 56,
-                        margin: const EdgeInsets.symmetric(horizontal: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: isHovered ? const Color(0xFF3B82F6) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(top: 3),
-                              child: Icon(
-                                LucideIcons.image,
-                                size: 16,
-                                color: isHovered
-                                    ? Colors.white
-                                    : const Color(0xFF3B82F6),
+                          return MouseRegion(
+                            onEnter: (_) =>
+                                setState(() => _hoveredAttachmentIndex = index),
+                            onExit: (_) => setState(() {
+                              if (_hoveredAttachmentIndex == index) {
+                                _hoveredAttachmentIndex = null;
+                              }
+                            }),
+                            child: Container(
+                              height: 56,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              decoration: BoxDecoration(
+                                color: isHovered
+                                    ? const Color(0xFF3B82F6)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Text(
-                                    file.name,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: isHovered ? Colors.white : _textPrimary,
-                                      fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w500,
+                                  Icon(
+                                    LucideIcons.image,
+                                    size: 16,
+                                    color: isHovered
+                                        ? Colors.white
+                                        : const Color(0xFF3B82F6),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Flexible(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          file.name,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: isHovered
+                                                ? Colors.white
+                                                : const Color(0xFF111827),
+                                            fontFamily: 'Inter',
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'File Size: ${fileSizeKb.toStringAsFixed(2)} KB',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isHovered
+                                                ? const Color(0xFFEAF2FF)
+                                                : const Color(0xFF6B7280),
+                                            fontFamily: 'Inter',
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'File Size: ${fileSizeKb.toStringAsFixed(2)} KB',
-                                    style: TextStyle(
-                                      fontSize: 12,
+                                  const SizedBox(width: 12),
+                                  InkWell(
+                                    onTap: () => _removeUploadedFile(index),
+                                    child: Icon(
+                                      LucideIcons.trash2,
+                                      size: 15,
                                       color: isHovered
-                                          ? const Color(0xFFEAF2FF)
-                                          : const Color(0xFF667085),
-                                      fontFamily: 'Inter',
+                                          ? Colors.white
+                                          : const Color(0xFF3B82F6),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            InkWell(
-                              onTap: () => _removeUploadedFile(index),
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Icon(
-                                  LucideIcons.trash2,
-                                  size: 15,
-                                  color: isHovered
-                                      ? Colors.white
-                                      : const Color(0xFF3B82F6),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                          );
+                        }),
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -683,35 +688,62 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
     }
   }
 
-  void _onPOSelected(PurchaseOrder po) {
+  Future<void> _onPOSelected(PurchaseOrder po) async {
     setState(() {
       _selectedPO = po;
       _selectedPONumber = po.orderNumber;
       _selectedPOId = po.id;
       _isManualMode = false;
-
-      _clearAllRows();
-
-      if (po.items.isNotEmpty) {
-        for (var poItem in po.items) {
-          _items.add(
-            PurchaseReceiveItem(
-              itemId: poItem.productId,
-              itemName: poItem.productName ?? '',
-              description: poItem.description,
-              ordered: poItem.quantity,
-              received: 0,
-              inTransit: 0,
-              quantityToReceive: poItem.quantity,
-            ),
-          );
-          final ctrl = _ReceiveItemRowController();
-          ctrl.qtyCtrl.text = poItem.quantity.toString();
-          _rowControllers.add(ctrl);
-          _preferredBins.add(null);
-        }
-      }
+      _isLoadingPOs = true; // Show loading while fetching details
     });
+
+    try {
+      // Fetch full PO details including line items
+      final fullPO = await ref.read(purchaseOrderProvider(po.id!).future);
+
+      if (!mounted) return;
+
+      setState(() {
+        _selectedPO = fullPO ?? po;
+        _isLoadingPOs = false;
+        _clearAllRows();
+
+        if (fullPO != null && fullPO.items.isNotEmpty) {
+          for (var poItem in fullPO.items) {
+            _items.add(
+              PurchaseReceiveItem(
+                itemId: poItem.productId,
+                itemName: poItem.productName ?? poItem.itemCode ?? '',
+                description: poItem.description,
+                ordered: poItem.quantity,
+                received: 0,
+                inTransit: 0,
+                quantityToReceive: poItem.quantity,
+              ),
+            );
+            final ctrl = _ReceiveItemRowController();
+            ctrl.qtyCtrl.text = poItem.quantity.toString();
+            _rowControllers.add(ctrl);
+            _preferredBins.add(null);
+          }
+        } else if (fullPO != null && fullPO.items.isEmpty) {
+          AppLogger.warning(
+            'Selected Purchase Order has no items.',
+            module: 'purchases',
+          );
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingPOs = false);
+        _showTopError('Failed to load items for this Purchase Order');
+      }
+      AppLogger.error(
+        'Failed to fetch PO details in Purchase Receive',
+        error: e,
+        module: 'purchases',
+      );
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -730,7 +762,7 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
             child: SizedBox(
               width: 420,
               child: FormDropdown<Vendor>(
-                menuMaxHeight: 400,
+                // menuMaxHeight removed
                 value: ref
                     .read(vendorProvider)
                     .vendors
@@ -769,9 +801,6 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
             child: SizedBox(
               width: 420,
               child: FormDropdown<PurchaseOrder>(
-                menuMaxHeight: (_vendorPOs.length <= 3
-                    ? (_vendorPOs.length * 60.0 + 58)
-                    : (3 * 60.0 + 58)),
                 itemEstimatedHeight: 60.0,
                 value: _selectedPO,
                 items: _vendorPOs,
@@ -792,9 +821,7 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                       horizontal: 12,
                       vertical: 6,
                     ),
-                    constraints: const BoxConstraints(
-                      minHeight: 60,
-                    ),
+                    constraints: const BoxConstraints(minHeight: 60),
                     decoration: BoxDecoration(
                       color: showHover
                           ? const Color(0xFF3B82F6)
@@ -819,7 +846,9 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                                   fontSize: 13,
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w500,
-                                  color: showHover ? Colors.white : _textPrimary,
+                                  color: showHover
+                                      ? Colors.white
+                                      : _textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -902,7 +931,7 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                   suffixIcon: ZTooltip(
                     message:
                         'Click here to enable or disable autogeneration of Purchase Receive numbers.',
-                    placement: ZTooltipPlacement.topCenter,
+                    // placement removed
                     child: InkWell(
                       onTap: _showPurchaseReceivePreferencesDialog,
                       child: const Icon(
@@ -1118,9 +1147,9 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildItemsTable() {
     if (_isManualMode) {
-      return _buildManualItemsTable();   // ✅ Manual table
+      return _buildManualItemsTable(); // ✅ Manual table
     } else {
-      return _buildItemsTableNormal();   // ✅ PO table (default)
+      return _buildItemsTableNormal(); // ✅ PO table (default)
     }
   }
 
@@ -1142,7 +1171,11 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
     );
   }
 
-  Widget _buildDropdownOverlayItem(String label, bool isSelected, bool isHovered) {
+  Widget _buildDropdownOverlayItem(
+    String label,
+    bool isSelected,
+    bool isHovered,
+  ) {
     final showHover = isHovered;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1197,71 +1230,77 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  // Table Header
-                  Container(
-                decoration: const BoxDecoration(
-                  color: _tableHeaderBg,
-                  border: Border(
-                    top: BorderSide(color: _borderCol),
-                    bottom: BorderSide(color: _borderCol),
-                    left: BorderSide(color: _borderCol),
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Row(
-                  children: [
-                    _tableHeaderCell('ITEMS & DESCRIPTION', flex: 4),
-                    _tableHeaderCell(
-                      'ORDERED',
-                      flex: 1,
-                      align: TextAlign.center,
-                    ),
-                    _tableHeaderCell(
-                      'RECEIVED',
-                      flex: 1,
-                      align: TextAlign.center,
-                    ),
-                    _tableHeaderCell(
-                      'IN TRANSIT',
-                      flex: 1,
-                      align: TextAlign.center,
-                    ),
-                    if (_binMode == 'item')
-                      _tableHeaderCell(
-                        'BIN',
-                        flex: 2,
-                        align: TextAlign.center,
+                    // Table Header
+                    Container(
+                      decoration: const BoxDecoration(
+                        color: _tableHeaderBg,
+                        border: Border(
+                          top: BorderSide(color: _borderCol),
+                          bottom: BorderSide(color: _borderCol),
+                          left: BorderSide(color: _borderCol),
+                        ),
                       ),
-                    _tableHeaderCell(
-                      'QUANTITY TO RECEIVE',
-                      flex: 2,
-                      align: TextAlign.center,
-                      isLastColumn: _binMode == 'item' ? false : true,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        children: [
+                          _tableHeaderCell('ITEMS & DESCRIPTION', flex: 4),
+                          _tableHeaderCell(
+                            'ORDERED',
+                            flex: 1,
+                            align: TextAlign.center,
+                          ),
+                          _tableHeaderCell(
+                            'RECEIVED',
+                            flex: 1,
+                            align: TextAlign.center,
+                          ),
+                          _tableHeaderCell(
+                            'IN TRANSIT',
+                            flex: 1,
+                            align: TextAlign.center,
+                          ),
+                          if (_binMode == 'item')
+                            _tableHeaderCell(
+                              'BIN',
+                              flex: 2,
+                              align: TextAlign.center,
+                            ),
+                          _tableHeaderCell(
+                            'QUANTITY TO RECEIVE',
+                            flex: 2,
+                            align: TextAlign.center,
+                            isLastColumn: _binMode == 'item' ? false : true,
+                          ),
+                          _tableHeaderCell(
+                            '',
+                            fixedWidth: 40,
+                            isLastColumn: true,
+                          ),
+                        ],
+                      ),
                     ),
-                    _tableHeaderCell('', fixedWidth: 40, isLastColumn: true),
+
+                    // Table Rows
+                    if (_isLoadingPOs)
+                      _buildLoadingRow()
+                    else if (_items.isEmpty)
+                      _buildEmptyRow()
+                    else
+                      ..._items.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final item = entry.value;
+                        return _buildItemRow(index, item);
+                      }),
+
+                    // Bottom border
+                    Container(
+                      height: 1,
+                      width: double.infinity,
+                      color: _borderCol,
+                    ),
                   ],
                 ),
               ),
-
-              // Table Rows
-              if (_items.isEmpty)
-                _buildEmptyRow()
-              else
-                ..._items.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final item = entry.value;
-                  return _buildItemRow(index, item);
-                }),
-
-              // Bottom border
-                Container(
-                  height: 1,
-                  width: double.infinity,
-                  color: _borderCol,
-                ),
-                ],
-              ),
-            ),
               // Insert New Row Button
               const SizedBox(height: 12),
               Align(
@@ -1333,14 +1372,22 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                             align: TextAlign.center,
                             isLastColumn: _binMode == 'item' ? false : true,
                           ),
-                          _tableHeaderCell('', fixedWidth: 40, isLastColumn: true),
+                          _tableHeaderCell(
+                            '',
+                            fixedWidth: 40,
+                            isLastColumn: true,
+                          ),
                         ],
                       ),
                     ),
 
                     // Table Rows
                     if (_items.isEmpty)
-                      _buildManualRow(0, PurchaseReceiveItem(), isEphemeral: true)
+                      _buildManualRow(
+                        0,
+                        PurchaseReceiveItem(),
+                        isEphemeral: true,
+                      )
                     else
                       ..._items.asMap().entries.map((entry) {
                         final index = entry.key;
@@ -1466,10 +1513,7 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _buildQtyCircleButton(
-              icon: LucideIcons.minus,
-              onTap: onDecrement,
-            ),
+            _buildQtyCircleButton(icon: LucideIcons.minus, onTap: onDecrement),
             const SizedBox(width: 8),
             MouseRegion(
               onEnter: (_) {
@@ -1499,7 +1543,9 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                     controller: controller,
                     textAlign: TextAlign.center,
                     textAlignVertical: TextAlignVertical.center,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
                     ],
@@ -1521,7 +1567,10 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: _focusBorder, width: 1.2),
+                        borderSide: const BorderSide(
+                          color: _focusBorder,
+                          width: 1.2,
+                        ),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -1530,10 +1579,7 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            _buildQtyCircleButton(
-              icon: LucideIcons.plus,
-              onTap: onIncrement,
-            ),
+            _buildQtyCircleButton(icon: LucideIcons.plus, onTap: onIncrement),
           ],
         ),
       ),
@@ -1678,6 +1724,21 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
     );
   }
 
+  Widget _buildLoadingRow() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _borderCol)),
+      ),
+      child: const SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(strokeWidth: 2, color: _focusBorder),
+      ),
+    );
+  }
+
   Widget _buildManualRow(
     int index,
     PurchaseReceiveItem item, {
@@ -1689,16 +1750,17 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
     final poItems = (_selectedPO?.items ?? <PurchaseOrderItem>[])
         .map((e) => e)
         .toList();
-    final selectedIds = _items
-      .map((e) => e.itemId)
-      .whereType<String>()
-      .toSet();
+    final selectedIds = _items.map((e) => e.itemId).whereType<String>().toSet();
     final availablePoItems = poItems.where((poItem) {
       return !selectedIds.contains(poItem.productId) ||
-        poItem.productId == item.itemId;
+          poItem.productId == item.itemId;
     }).toList();
-    final selectedItem = poItems.where((it) => it.productId == item.itemId).firstOrNull;
-    final selectedBin = index < _preferredBins.length ? _preferredBins[index] : null;
+    final selectedItem = poItems
+        .where((it) => it.productId == item.itemId)
+        .firstOrNull;
+    final selectedBin = index < _preferredBins.length
+        ? _preferredBins[index]
+        : null;
 
     return Container(
       decoration: const BoxDecoration(
@@ -1720,12 +1782,55 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                 items: availablePoItems,
                 hint: 'Type or click to select an item',
                 showSearch: true,
+                maxVisibleItems: 3,
                 displayStringForValue: (poItem) =>
-                    poItem.productName ?? poItem.description ?? 'Unnamed item',
+                    poItem.productName ?? poItem.itemCode ?? 'Unnamed item',
                 searchStringForValue: (poItem) =>
-                    '${poItem.productName ?? ''} ${poItem.description ?? ''}',
+                    '${poItem.productName ?? ''} ${poItem.itemCode ?? ''}',
+                itemBuilder: (poItem, isSelected, isHovered) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isHovered
+                          ? const Color(0xFF3B82F6)
+                          : (isSelected
+                                ? const Color(0xFFF3F4F6)
+                                : Colors.white),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          poItem.productName ?? 'Unnamed item',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: isHovered ? Colors.white : _textPrimary,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                        if (poItem.itemCode != null)
+                          Text(
+                            poItem.itemCode!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isHovered
+                                  ? const Color(0xFFEAF2FF)
+                                  : _hintColor,
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
                 onChanged: (poItem) {
-                  if (poItem == null || isEphemeral || index >= _items.length) return;
+                  if (poItem == null || isEphemeral || index >= _items.length)
+                    return;
                   setState(() {
                     _items[index] = _items[index].copyWith(
                       itemId: poItem.productId,
@@ -1803,34 +1908,45 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                     child: SizedBox(
                       height: 44,
                       child: FormDropdown<String>(
-                      value: selectedBin,
-                      items: _manualBinList,
-                      hint: 'Select Bin',
-                      showSearch: true,
-                      border: Border.all(
-                        color: (_hoveredBinFields.contains('manual-bin-$index') ||
-                                _focusedBinFields.contains('manual-bin-$index'))
-                            ? _focusBorder
-                            : Colors.transparent,
-                        width: (_hoveredBinFields.contains('manual-bin-$index') ||
-                                _focusedBinFields.contains('manual-bin-$index'))
-                            ? 1.2
-                            : 1,
-                      ),
-                      itemBuilder: (item, isSelected, isHovered) {
-                        return _buildDropdownOverlayItem(
-                          item,
-                          isSelected,
-                          isHovered,
-                        );
-                      },
-                      onChanged: (bin) {
-                        if (isEphemeral || index >= _preferredBins.length) return;
-                        setState(() {
-                          _preferredBins[index] = bin;
-                          _focusedBinFields.remove('manual-bin-$index');
-                        });
-                      },
+                        value: selectedBin,
+                        items: _manualBinList,
+                        hint: 'Select Bin',
+                        showSearch: true,
+                        border: Border.all(
+                          color:
+                              (_hoveredBinFields.contains(
+                                    'manual-bin-$index',
+                                  ) ||
+                                  _focusedBinFields.contains(
+                                    'manual-bin-$index',
+                                  ))
+                              ? _focusBorder
+                              : Colors.transparent,
+                          width:
+                              (_hoveredBinFields.contains(
+                                    'manual-bin-$index',
+                                  ) ||
+                                  _focusedBinFields.contains(
+                                    'manual-bin-$index',
+                                  ))
+                              ? 1.2
+                              : 1,
+                        ),
+                        itemBuilder: (item, isSelected, isHovered) {
+                          return _buildDropdownOverlayItem(
+                            item,
+                            isSelected,
+                            isHovered,
+                          );
+                        },
+                        onChanged: (bin) {
+                          if (isEphemeral || index >= _preferredBins.length)
+                            return;
+                          setState(() {
+                            _preferredBins[index] = bin;
+                            _focusedBinFields.remove('manual-bin-$index');
+                          });
+                        },
                       ),
                     ),
                   ),
@@ -1990,10 +2106,12 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
           _tableBodyCell(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: const Text(
-                '0',
+              child: Text(
+                item.received.toStringAsFixed(
+                  item.received == item.received.roundToDouble() ? 0 : 2,
+                ),
                 textAlign: TextAlign.right,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 13,
                   color: _textPrimary,
                   fontFamily: 'Inter',
@@ -2005,10 +2123,12 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
           _tableBodyCell(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: const Text(
-                '0',
+              child: Text(
+                item.inTransit.toStringAsFixed(
+                  item.inTransit == item.inTransit.roundToDouble() ? 0 : 2,
+                ),
                 textAlign: TextAlign.right,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 13,
                   color: _textPrimary,
                   fontFamily: 'Inter',
@@ -2045,34 +2165,38 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                     child: SizedBox(
                       height: 44,
                       child: FormDropdown<String>(
-                      value: index < _preferredBins.length ? _preferredBins[index] : null,
-                      items: _manualBinList,
-                      hint: 'Select Bin',
-                      showSearch: true,
-                      border: Border.all(
-                        color: (_hoveredBinFields.contains('po-bin-$index') ||
-                                _focusedBinFields.contains('po-bin-$index'))
-                            ? _focusBorder
-                            : Colors.transparent,
-                        width: (_hoveredBinFields.contains('po-bin-$index') ||
-                                _focusedBinFields.contains('po-bin-$index'))
-                            ? 1.2
-                            : 1,
-                      ),
-                      itemBuilder: (item, isSelected, isHovered) {
-                        return _buildDropdownOverlayItem(
-                          item,
-                          isSelected,
-                          isHovered,
-                        );
-                      },
-                      onChanged: (bin) {
-                        if (index >= _preferredBins.length) return;
-                        setState(() {
-                          _preferredBins[index] = bin;
-                          _focusedBinFields.remove('po-bin-$index');
-                        });
-                      },
+                        value: index < _preferredBins.length
+                            ? _preferredBins[index]
+                            : null,
+                        items: _manualBinList,
+                        hint: 'Select Bin',
+                        showSearch: true,
+                        border: Border.all(
+                          color:
+                              (_hoveredBinFields.contains('po-bin-$index') ||
+                                  _focusedBinFields.contains('po-bin-$index'))
+                              ? _focusBorder
+                              : Colors.transparent,
+                          width:
+                              (_hoveredBinFields.contains('po-bin-$index') ||
+                                  _focusedBinFields.contains('po-bin-$index'))
+                              ? 1.2
+                              : 1,
+                        ),
+                        itemBuilder: (item, isSelected, isHovered) {
+                          return _buildDropdownOverlayItem(
+                            item,
+                            isSelected,
+                            isHovered,
+                          );
+                        },
+                        onChanged: (bin) {
+                          if (index >= _preferredBins.length) return;
+                          setState(() {
+                            _preferredBins[index] = bin;
+                            _focusedBinFields.remove('po-bin-$index');
+                          });
+                        },
                       ),
                     ),
                   ),
@@ -2214,7 +2338,10 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                             }
                           },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: _fieldBorder),
@@ -2260,7 +2387,10 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
                     }
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: _linkBlue,
                       borderRadius: BorderRadius.circular(6),
@@ -2315,117 +2445,92 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
       ),
       child: Row(
         children: [
-          ElevatedButton(
-            onPressed: (_isSaving || !_hasValidSelection
-                ? null
-                : () async {
-                  _validatePickList();
-                  if (_validationErrors.isNotEmpty) return;
-                  
-                  setState(() => _isSaving = true);
-                  // Simulate API call
-                  await Future.delayed(const Duration(seconds: 1));
-                  if (mounted) {
-                    setState(() => _isSaving = false);
-                    context.pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Purchase receive saved successfully'),
-                        backgroundColor: _greenBtn,
-                      ),
-                    );
-                  }
-                }),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: (_hasValidSelection)
-                  ? _greenBtn
-                  : const Color(0xFFE5E7EB),
-              foregroundColor: (_hasValidSelection)
-                  ? Colors.white
-                  : const Color(0xFF9CA3AF),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-              elevation: 0,
-            ),
-            child: _isSaving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text(
-                    'Save as Received',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-          ),
-          const SizedBox(width: 16),
+          // Save as Draft
           OutlinedButton(
-            onPressed: () => context.pop(),
+            onPressed: _isSaving || !_hasValidSelection
+                ? null
+                : () => _handleSave('draft'),
             style: OutlinedButton.styleFrom(
               foregroundColor: _textPrimary,
-              side: const BorderSide(color: _borderCol),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              side: const BorderSide(color: _fieldBorder),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
             child: const Text(
-              'Cancel',
+              'Save as Draft',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w500,
                 fontFamily: 'Inter',
               ),
             ),
           ),
-          const Spacer(),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                LucideIcons.package,
-                size: 20,
-                color: Colors.black,
+          const SizedBox(width: 10),
+
+          // Save as Received (primary green)
+          ElevatedButton(
+            onPressed: _isSaving || !_hasValidSelection
+                ? null
+                : () => _handleSave('received'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _greenBtn,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
               ),
-              const SizedBox(width: 8),
-              Text(
-                'Total Items Selected : ${_items.length}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                  fontFamily: 'Inter',
-                ),
+            ),
+            child: const Text(
+              'Save as Received',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Inter',
               ),
-            ],
+            ),
           ),
+          const SizedBox(width: 10),
+
+          // Cancel
+          TextButton(
+            onPressed: () => context.pop(),
+            style: TextButton.styleFrom(
+              foregroundColor: _textPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                fontFamily: 'Inter',
+              ),
+            ),
+          ),
+
+          if (_isSaving) ...[
+            const SizedBox(width: 16),
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ],
         ],
       ),
     );
   }
-
-  void _validatePickList() {
-    _validationErrors.clear();
-  }
-
-  List<String> _validationErrors = [];
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SHARED FORM BUILDERS
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildFormRow({
     required String label,
-    required bool isRequired,
     required Widget child,
+    bool isRequired = false,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2458,471 +2563,176 @@ class _PRCreateState extends ConsumerState<PurchaseReceiveCreateScreen> {
       ],
     );
   }
+
+  // Removed _buildDropdownField as it was replaced by FormDropdown
+  // SAVE HANDLER
+  // ═══════════════════════════════════════════════════════════════════════════
+  void _handleSave(String status) async {
+    // STEP 1: Validate required fields FIRST
+    List<String> missingFields = [];
+
+    if (_selectedVendorName == null || _selectedVendorName!.isEmpty) {
+      missingFields.add('Vendor');
+    }
+
+    if (_selectedPONumber == null || _selectedPONumber!.isEmpty) {
+      missingFields.add('Purchase Order');
+    }
+
+    if (_items.isEmpty) {
+      missingFields.add('Item');
+    } else {
+      for (int i = 0; i < _items.length; i++) {
+        final item = _items[i];
+        if (item.itemId == null || item.itemId!.isEmpty) {
+          missingFields.add('Item in row ${i + 1}');
+        }
+        if (item.quantityToReceive <= 0) {
+          missingFields.add('Quantity in row ${i + 1}');
+        }
+      }
+    }
+
+    // If missing fields → SHOW SPECIFIC MESSAGE
+    if (missingFields.isNotEmpty) {
+      final message =
+          'Please fill required fields: ${missingFields.join(', ')}';
+      _showTopError(message);
+      return;
+    }
+
+    // STEP 2: Check quantity mismatch ONLY if required fields are valid
+    bool hasMismatch = false;
+    for (int i = 0; i < _items.length; i++) {
+      final item = _items[i];
+      final totalBatchQty = item.batches.fold<double>(
+        0,
+        (sum, b) => sum + b.quantity + b.foc,
+      );
+      if (totalBatchQty != item.quantityToReceive) {
+        hasMismatch = true;
+        break;
+      }
+    }
+
+    if (hasMismatch) {
+      _showTopError(
+        "There's a mismatch between the quantity entered in the line item and the total quantity across all batches.",
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    // Build the model
+    final receive = PurchaseReceive(
+      purchaseReceiveNumber: _receiveNumberCtrl.text,
+      receivedDate: DateFormat('dd-MM-yyyy').parse(_receivedDateCtrl.text),
+      vendorName: _selectedVendorName,
+      purchaseOrderId: _selectedPOId,
+      purchaseOrderNumber: _selectedPONumber,
+      status: status,
+      notes: _notesCtrl.text,
+      items: _items,
+    );
+
+    AppLogger.info(
+      'Saving Purchase Receive...',
+      data: {'status': status, 'receiveNumber': receive.purchaseReceiveNumber},
+      module: 'purchases',
+    );
+
+    final success = await ref
+        .read(purchaseReceivesProvider.notifier)
+        .createReceive(receive);
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'received'
+                ? 'Purchase receive saved successfully'
+                : 'Purchase receive saved as draft',
+          ),
+          backgroundColor: _greenBtn,
+        ),
+      );
+      context.pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save purchase receive. Please try again.'),
+          backgroundColor: _dangerRed,
+        ),
+      );
+    }
+  }
+
+  void _showSelectBatchDialog(int itemIndex) {
+    final item = _items[itemIndex];
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => _SelectBatchDialog(
+        itemName: item.itemName,
+        initialBatches: item.batches,
+        // Total in batch dialog must follow current Quantity Out in line item.
+        ordered: item.quantityToReceive,
+        warehouseName:
+            _selectedPO?.vendorName ??
+            _selectedVendorName ??
+            'ZABNIX PRIVATE LIMITED',
+        onSave: (newBatches) {
+          setState(() {
+            final totalQty = newBatches.fold<double>(
+              0,
+              (sum, b) => sum + b.quantity,
+            );
+            final totalFoc = newBatches.fold<double>(
+              0,
+              (sum, b) => sum + b.foc,
+            );
+            final combinedQty = totalQty + totalFoc;
+
+            _items[itemIndex] = item.copyWith(
+              batches: newBatches,
+              quantityToReceive: combinedQty,
+            );
+            _rowControllers[itemIndex].qtyCtrl.text = combinedQty.toString();
+          });
+        },
+      ),
+    );
+  }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// BATCH SELECTION DIALOG
-// ═════════════════════════════════════════════════════════════════════════════
 class _SelectBatchDialog extends StatefulWidget {
-  final PurchaseReceiveItem item;
-  final int itemIndex;
-  final Function(int, List<BatchInfo>) onBatchesUpdated;
+  final String itemName;
+  final String warehouseName;
+  final double ordered;
+  final List<BatchInfo> initialBatches;
+  final Function(List<BatchInfo>) onSave;
 
   const _SelectBatchDialog({
-    required this.item,
-    required this.itemIndex,
-    required this.onBatchesUpdated,
+    required this.itemName,
+    required this.warehouseName,
+    required this.ordered,
+    required this.initialBatches,
+    required this.onSave,
   });
 
   @override
   State<_SelectBatchDialog> createState() => _SelectBatchDialogState();
 }
 
-class _SelectBatchDialogState extends State<_SelectBatchDialog> {
-  late final List<_BatchItemRowController> _batchRows;
-
-  @override
-  void initState() {
-    super.initState();
-    _batchRows = widget.item.batches
-        .map((batch) => _BatchItemRowController(initial: batch))
-        .toList();
-    if (_batchRows.isEmpty) {
-      _batchRows.add(_BatchItemRowController());
-    }
-  }
-
-  @override
-  void dispose() {
-    for (var row in _batchRows) {
-      row.dispose();
-    }
-    super.dispose();
-  }
-
-  void _addBatchRow() {
-    setState(() {
-      _batchRows.add(_BatchItemRowController());
-    });
-  }
-
-  void _removeBatchRow(int index) {
-    if (_batchRows.length > 1) {
-      setState(() {
-        _batchRows[index].dispose();
-        _batchRows.removeAt(index);
-      });
-    }
-  }
-
-  void _onSave() {
-    final batches = _batchRows
-        .map((row) => row.toBatchInfo())
-        .where((batch) => batch.batchNo.isNotEmpty)
-        .toList();
-
-    widget.onBatchesUpdated(widget.itemIndex, batches);
-    Navigator.of(context).pop();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      backgroundColor: Colors.white,
-      elevation: 8,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900, maxHeight: 600),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  const Text(
-                    'Batch Management',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: _textPrimary,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(LucideIcons.x, size: 20, color: _hintColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Item Info
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: _fieldBorder),
-                ),
-                child: Text(
-                  'Item: ${widget.item.itemName}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: _textPrimary,
-                    fontFamily: 'Inter',
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Batch Table
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            border: Border.fromBorderSide(
-                              BorderSide(color: _borderCol),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              // Header
-                              Container(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                decoration: const BoxDecoration(
-                                  color: _tableHeaderBg,
-                                  border: Border(
-                                    bottom: BorderSide(color: _borderCol),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    _headerCell('Batch No.', flex: 2),
-                                    _headerCell('Unit Pack', flex: 1),
-                                    _headerCell('MRP', flex: 1),
-                                    _headerCell('PTR', flex: 1),
-                                    _headerCell('Quantity', flex: 1),
-                                    _headerCell('FOC', flex: 1),
-                                    _headerCell('Mfg Date', flex: 1),
-                                    _headerCell('Exp. Date', flex: 1),
-                                    _headerCell('', fixedWidth: 40),
-                                  ],
-                                ),
-                              ),
-                              // Rows
-                              ..._batchRows.asMap().entries.map((entry) {
-                                return _buildBatchRow(entry.key, entry.value);
-                              }),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: _addBatchRow,
-                        style: TextButton.styleFrom(
-                          foregroundColor: _linkBlue,
-                        ),
-                        child: const Text('+ Add Batch Row'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Action Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _greenBtn,
-                    ),
-                    onPressed: _onSave,
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _headerCell(String label, {int flex = 1, double? fixedWidth}) {
-    final content = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF6B7280),
-          fontFamily: 'Inter',
-        ),
-      ),
-    );
-    if (fixedWidth != null) return SizedBox(width: fixedWidth, child: content);
-    return Expanded(flex: flex, child: content);
-  }
-
-  Widget _buildBatchRow(int index, _BatchItemRowController ctrl) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _borderCol)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextField(
-                controller: ctrl.batchNoCtrl,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: _fieldBorder),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                ),
-                style: const TextStyle(fontSize: 12, fontFamily: 'Inter'),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextField(
-                controller: ctrl.unitPackCtrl,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: _fieldBorder),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                ),
-                style: const TextStyle(fontSize: 12, fontFamily: 'Inter'),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextField(
-                controller: ctrl.mrpCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
-                ],
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: _fieldBorder),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                ),
-                style: const TextStyle(fontSize: 12, fontFamily: 'Inter'),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextField(
-                controller: ctrl.ptrCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
-                ],
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: _fieldBorder),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                ),
-                style: const TextStyle(fontSize: 12, fontFamily: 'Inter'),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextField(
-                controller: ctrl.qtyCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
-                ],
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: _fieldBorder),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                ),
-                style: const TextStyle(fontSize: 12, fontFamily: 'Inter'),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextField(
-                controller: ctrl.focCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
-                ],
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: _fieldBorder),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                ),
-                style: const TextStyle(fontSize: 12, fontFamily: 'Inter'),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextField(
-                controller: ctrl.mfgDateCtrl,
-                readOnly: true,
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: ctrl.mfgDate ?? DateTime.now(),
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime.now(),
-                  );
-                  if (picked != null) {
-                    setState(() {
-                      ctrl.mfgDate = picked;
-                      ctrl.mfgDateCtrl.text =
-                          DateFormat('dd-MM-yyyy').format(picked);
-                    });
-                  }
-                },
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: _fieldBorder),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  hintText: 'dd-MM-yyyy',
-                  hintStyle: const TextStyle(fontSize: 12),
-                ),
-                style: const TextStyle(fontSize: 12, fontFamily: 'Inter'),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextField(
-                controller: ctrl.expDateCtrl,
-                readOnly: true,
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: ctrl.expDate ?? DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) {
-                    setState(() {
-                      ctrl.expDate = picked;
-                      ctrl.expDateCtrl.text =
-                          DateFormat('dd-MM-yyyy').format(picked);
-                    });
-                  }
-                },
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: _fieldBorder),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  hintText: 'dd-MM-yyyy',
-                  hintStyle: const TextStyle(fontSize: 12),
-                ),
-                style: const TextStyle(fontSize: 12, fontFamily: 'Inter'),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 40,
-            child: InkWell(
-              onTap: () => _removeBatchRow(index),
-              child: const Icon(LucideIcons.x, size: 16, color: _dangerRed),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// PREFERENCES DIALOG
-// ═════════════════════════════════════════════════════════════════════════════
 class _PurchaseReceivePreferencesDialog extends StatefulWidget {
   final bool initialAutoGenerate;
   final String initialPrefix;
   final int initialNextNumber;
-  final Function(bool, String, int) onSave;
+  final void Function(bool isAuto, String prefix, int nextNum) onSave;
 
   const _PurchaseReceivePreferencesDialog({
     required this.initialAutoGenerate,
@@ -2933,61 +2743,578 @@ class _PurchaseReceivePreferencesDialog extends StatefulWidget {
 
   @override
   State<_PurchaseReceivePreferencesDialog> createState() =>
-      _PreferencesDialogState();
+      _PurchaseReceivePreferencesDialogState();
 }
 
-class _PreferencesDialogState extends State<_PurchaseReceivePreferencesDialog> {
-  late bool _autoGenerate;
-  late String _prefix;
-  late int _nextNumber;
-  final _prefixCtrl = TextEditingController();
-  final _nextNumCtrl = TextEditingController();
+class _PurchaseReceivePreferencesDialogState
+    extends State<_PurchaseReceivePreferencesDialog> {
+  late bool _isAuto;
+  late TextEditingController _prefixCtrl;
+  late TextEditingController _numberCtrl;
 
   @override
   void initState() {
     super.initState();
-    _autoGenerate = widget.initialAutoGenerate;
-    _prefix = widget.initialPrefix;
-    _nextNumber = widget.initialNextNumber;
-    _prefixCtrl.text = _prefix;
-    _nextNumCtrl.text = _nextNumber.toString();
+    _isAuto = widget.initialAutoGenerate;
+    _prefixCtrl = TextEditingController(text: widget.initialPrefix);
+    _numberCtrl = TextEditingController(
+      text: widget.initialNextNumber.toString().padLeft(5, '0'),
+    );
   }
 
   @override
   void dispose() {
     _prefixCtrl.dispose();
-    _nextNumCtrl.dispose();
+    _numberCtrl.dispose();
     super.dispose();
   }
 
-  void _onSave() {
-    final updatedPrefix = _prefixCtrl.text.isNotEmpty ? _prefixCtrl.text : 'PR-';
-    final updatedNextNumber =
-        int.tryParse(_nextNumCtrl.text) ?? widget.initialNextNumber;
+  @override
+  Widget build(BuildContext context) {
+    const textPrimary = Color(0xFF1F2937);
+    const textSecondary = Color(0xFF6B7280);
+    const borderCol = Color(0xFFE5E7EB);
+    const greenBtn = Color(0xFF22A95E);
 
-    widget.onSave(_autoGenerate, updatedPrefix, updatedNextNumber);
-    Navigator.pop(context);
+    return Dialog(
+      backgroundColor: Colors.white,
+      alignment: Alignment.topCenter,
+      insetPadding: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: SizedBox(
+        width: 600,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Configure Purchase Receive# Preferences',
+                    style: TextStyle(
+                      fontSize: 32 / 2,
+                      fontWeight: FontWeight.w500,
+                      color: textPrimary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(
+                      LucideIcons.x,
+                      size: 18,
+                      color: Color(0xFFEF4444),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: borderCol),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Your purchase receive numbers are set on auto-generate mode to save',
+                    style: TextStyle(
+                      fontSize: 27 / 2,
+                      color: textPrimary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'your time. Are you sure about changing this setting?',
+                    style: TextStyle(
+                      fontSize: 27 / 2,
+                      color: textPrimary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: () => setState(() => _isAuto = true),
+                    child: Row(
+                      children: [
+                        Radio<bool>(
+                          value: true,
+                          groupValue: _isAuto,
+                          onChanged: (val) => setState(() => _isAuto = val!),
+                          activeColor: const Color(0xFF3B82F6),
+                        ),
+                        const Text(
+                          'Continue auto-generating purchase receive numbers',
+                          style: TextStyle(
+                            fontSize: 25 / 2,
+                            color: textPrimary,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(
+                          LucideIcons.info,
+                          size: 12,
+                          color: textSecondary,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_isAuto) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        left: 46,
+                        top: 6,
+                        right: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Prefix',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: textSecondary,
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                TextField(
+                                  controller: _prefixCtrl,
+                                  style: const TextStyle(
+                                    fontSize: 22 / 2,
+                                    color: textPrimary,
+                                    fontFamily: 'Inter',
+                                  ),
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 12,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                      borderSide: const BorderSide(
+                                        color: borderCol,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                      borderSide: const BorderSide(
+                                        color: borderCol,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                      borderSide: const BorderSide(
+                                        color: _focusBorder,
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 30),
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Next Number',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: textSecondary,
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                TextField(
+                                  controller: _numberCtrl,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  style: const TextStyle(
+                                    fontSize: 22 / 2,
+                                    color: textPrimary,
+                                    fontFamily: 'Inter',
+                                  ),
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 12,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                      borderSide: const BorderSide(
+                                        color: borderCol,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                      borderSide: const BorderSide(
+                                        color: borderCol,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                      borderSide: const BorderSide(
+                                        color: _focusBorder,
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  InkWell(
+                    onTap: () => setState(() => _isAuto = false),
+                    child: Row(
+                      children: [
+                        Radio<bool>(
+                          value: false,
+                          groupValue: _isAuto,
+                          onChanged: (val) => setState(() => _isAuto = val!),
+                          activeColor: const Color(0xFF3B82F6),
+                        ),
+                        const Text(
+                          'Enter purchase receive numbers manually',
+                          style: TextStyle(
+                            fontSize: 25 / 2,
+                            color: textPrimary,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: borderCol),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
+              child: Row(
+                children: [
+                  SizedBox(
+                    height: 32,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final nextNum =
+                            int.tryParse(_numberCtrl.text) ??
+                            widget.initialNextNumber;
+                        widget.onSave(_isAuto, _prefixCtrl.text, nextNum);
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: greenBtn,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                      ),
+                      child: const Text(
+                        'Save',
+                        style: TextStyle(
+                          fontSize: 22 / 2,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    height: 32,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: textPrimary,
+                        backgroundColor: const Color(0xFFF3F4F6),
+                        side: const BorderSide(color: Color(0xFFD1D5DB)),
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 22 / 2,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectBatchDialogState extends State<_SelectBatchDialog> {
+  final List<_BatchItemRowController> _rows = [];
+  bool _showMfgDetails = false;
+  bool _showFoc = false;
+  bool _overwriteLineItem = false;
+  String? _dialogErrorMessage;
+  static const String _quantityMismatchMessage =
+      'There\'s a mismatch between the quantity entered in the line item and the total quantity across all batches. Click the checkbox to overwrite the quantity in the line item.';
+  final TextInputFormatter _numericInputFormatter =
+      TextInputFormatter.withFunction((oldValue, newValue) {
+        final text = newValue.text;
+        if (text.isEmpty || RegExp(r'^\d*\.?\d*$').hasMatch(text)) {
+          return newValue;
+        }
+        return oldValue;
+      });
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialBatches.isEmpty) {
+      final firstRow = _BatchItemRowController();
+      firstRow.qtyCtrl.text = widget.ordered.toString();
+      _rows.add(firstRow);
+    } else {
+      for (var b in widget.initialBatches) {
+        _rows.add(_BatchItemRowController(initial: b));
+        if (b.manufactureDate != null ||
+            b.expiryDate != null ||
+            b.manufactureBatch.isNotEmpty) {
+          _showMfgDetails = true;
+        }
+        if (b.foc > 0) {
+          _showFoc = true;
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    for (var r in _rows) {
+      r.dispose();
+    }
+    super.dispose();
+  }
+
+  void _addRow() {
+    setState(() {
+      _rows.add(_BatchItemRowController());
+    });
+  }
+
+  void _removeRow(int index) {
+    setState(() {
+      _rows[index].dispose();
+      _rows.removeAt(index);
+    });
+  }
+
+  double get _totalQuantityOut => _rows.fold<double>(
+    0,
+    (sum, row) => sum + (double.tryParse(row.qtyCtrl.text.trim()) ?? 0),
+  );
+
+  double get _quantityToBeAdded =>
+      (widget.ordered - _totalQuantityOut).clamp(0, widget.ordered);
+
+  String _fmtQty(double value) {
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(2);
+  }
+
+  String? _validateRequiredFields(_BatchItemRowController row, int rowIndex) {
+    final rowLabel = 'Row ${rowIndex + 1}';
+    final batchNo = row.batchNoCtrl.text.trim();
+    final unitPack = row.unitPackCtrl.text.trim();
+    final mrp = row.mrpCtrl.text.trim();
+    final expiryDate = row.expDateCtrl.text.trim();
+    final quantity = row.qtyCtrl.text.trim();
+
+    if (batchNo.isEmpty) {
+      return '$rowLabel: Batch No is required';
+    }
+    if (unitPack.isEmpty) {
+      return '$rowLabel: Unit Pack is required';
+    }
+    if (double.tryParse(unitPack) == null) {
+      return '$rowLabel: Unit Pack must be a valid number';
+    }
+    if (mrp.isEmpty) {
+      return '$rowLabel: MRP is required';
+    }
+    if (double.tryParse(mrp) == null) {
+      return '$rowLabel: MRP must be a valid number';
+    }
+    if (expiryDate.isEmpty || row.expDate == null) {
+      return '$rowLabel: Expiry Date is required';
+    }
+    if (quantity.isEmpty) {
+      return '$rowLabel: Quantity is required';
+    }
+    final parsedQty = double.tryParse(quantity);
+    if (parsedQty == null || parsedQty <= 0) {
+      return '$rowLabel: Quantity must be greater than 0';
+    }
+
+    return null;
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    required int flex,
+    bool isNumeric = false,
+    bool readOnly = false,
+    ValueChanged<String>? onChanged,
+  }) {
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: SizedBox(
+          height: 44,
+          child: TextField(
+            controller: controller,
+            readOnly: readOnly,
+            textAlign: isNumeric ? TextAlign.left : TextAlign.left,
+            textAlignVertical: TextAlignVertical.center,
+            keyboardType: isNumeric
+                ? const TextInputType.numberWithOptions(decimal: true)
+                : null,
+            onChanged: onChanged,
+            inputFormatters: isNumeric ? [_numericInputFormatter] : [],
+            style: const TextStyle(
+              fontSize: 13,
+              color: _textPrimary,
+              fontFamily: 'Inter',
+            ),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: Colors.white,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 12,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(color: _fieldBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(color: _focusBorder, width: 1.5),
+              ),
+              hintText: hint,
+              hintStyle: const TextStyle(color: _hintColor, fontSize: 13),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDatePicker({
+    required TextEditingController controller,
+    required GlobalKey targetKey,
+    required int flex,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: SizedBox(
+          height: 44,
+          child: TextField(
+            key: targetKey,
+            controller: controller,
+            readOnly: true,
+            onTap: onTap,
+            textAlignVertical: TextAlignVertical.center,
+            style: const TextStyle(
+              fontSize: 13,
+              color: _textPrimary,
+              fontFamily: 'Inter',
+            ),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: _bgWhite,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(color: _fieldBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(color: _focusBorder, width: 1.2),
+              ),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 32,
+                maxHeight: 44,
+              ),
+              suffixIcon: const Icon(
+                LucideIcons.calendar,
+                size: 14,
+                color: _hintColor,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       backgroundColor: Colors.white,
-      elevation: 8,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
+      alignment: Alignment.topCenter,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 0),
+      child: Container(
+        width: _showMfgDetails ? 1150 : 820,
+        padding: const EdgeInsets.all(0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
+              child: Row(
                 children: [
                   const Text(
-                    'Purchase Receive Number Preferences',
+                    'Select Batch',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -2998,164 +3325,487 @@ class _PreferencesDialogState extends State<_PurchaseReceivePreferencesDialog> {
                   const Spacer(),
                   InkWell(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(LucideIcons.x, size: 20, color: _hintColor),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blue),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 16,
+                        color: _dangerRed,
+                      ),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-              // Auto-Generate Toggle
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: _fieldBorder),
-                ),
-                child: Row(
-                  children: [
-                    Checkbox(
-                      value: _autoGenerate,
-                      onChanged: (val) {
-                        setState(() => _autoGenerate = val ?? false);
-                      },
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Auto-generate Purchase Receive numbers',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: _textPrimary,
-                          fontFamily: 'Inter',
+            ),
+            const Divider(height: 1, color: _borderCol),
+            if (_dialogErrorMessage != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFDECEC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFF9D3D3)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 3),
+                        child: Text(
+                          '•',
+                          style: TextStyle(fontSize: 16, color: _textPrimary),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          _quantityMismatchMessage,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: _textPrimary,
+                            fontFamily: 'Inter',
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => setState(() => _dialogErrorMessage = null),
+                        child: const Padding(
+                          padding: EdgeInsets.only(left: 8, top: 2),
+                          child: Icon(
+                            LucideIcons.x,
+                            size: 16,
+                            color: _dangerRed,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 20),
-              if (_autoGenerate) ...[
-                // Prefix
-                Text(
-                  'Number Prefix',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: _labelColor,
-                    fontFamily: 'Inter',
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _prefixCtrl,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: _textPrimary,
-                    fontFamily: 'Inter',
-                  ),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: _bgWhite,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.home, size: 16, color: _hintColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Location : ${widget.warehouseName}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF4B5563),
+                      fontFamily: 'Inter',
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(color: _fieldBorder),
-                      borderRadius: BorderRadius.circular(4),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  const Text(
+                    'BATCH DETAILS',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _textPrimary,
+                      fontFamily: 'Inter',
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(
-                        color: _focusBorder,
-                        width: 1.5,
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Item: ${widget.itemName}',
+                    style: const TextStyle(fontSize: 12, color: _hintColor),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Total Quantity : ${_fmtQty(widget.ordered)} | Quantity to be added : ${_fmtQty(_quantityToBeAdded)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: _textPrimary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: Checkbox(
+                      value: _showMfgDetails,
+                      onChanged: (val) =>
+                          setState(() => _showMfgDetails = val ?? false),
+                      activeColor: _greenBtn,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                // Next Number
-                Text(
-                  'Next Number',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: _labelColor,
-                    fontFamily: 'Inter',
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _nextNumCtrl,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: _textPrimary,
-                    fontFamily: 'Inter',
-                  ),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: _bgWhite,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Manufacture Details',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _textPrimary,
+                      fontFamily: 'Inter',
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(color: _fieldBorder),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(
-                        color: _focusBorder,
-                        width: 1.5,
+                  ),
+                  const SizedBox(width: 32),
+                  SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: Checkbox(
+                      value: _showFoc,
+                      onChanged: (val) =>
+                          setState(() => _showFoc = val ?? false),
+                      activeColor: _greenBtn,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(4),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'FOC',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _textPrimary,
+                      fontFamily: 'Inter',
+                    ),
                   ),
-                  child: Text(
-                    'Preview: ${_prefixCtrl.text}${(int.tryParse(_nextNumCtrl.text) ?? _nextNumber).toString().padLeft(5, '0')}',
+                  const Spacer(),
+                  SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: Checkbox(
+                      value: _overwriteLineItem,
+                      onChanged: (val) =>
+                          setState(() => _overwriteLineItem = val ?? false),
+                      activeColor: _greenBtn,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Overwrite the line item with ${_fmtQty(_totalQuantityOut)} quantities',
                     style: const TextStyle(
                       fontSize: 13,
                       color: _textPrimary,
                       fontFamily: 'Inter',
                     ),
                   ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              // Action Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF9FAFB),
+                border: Border(bottom: BorderSide(color: _borderCol)),
+              ),
+              child: Row(
                 children: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 12),
+                  _headerCell('BATCH NO*', 15),
+                  _headerCell('UNIT PACK*', 15),
+                  _headerCell('MRP*', 15),
+                  _headerCell('PTR', 15),
+                  _headerCell('EXPIRY DATE*', 15),
+                  if (_showMfgDetails) ...[
+                    _headerCell('MANUFACTURED DATE', 15),
+                    _headerCell('MANUFACTURER BATCH', 15),
+                  ],
+                  _headerCell('QUANTITY*', 15),
+                  if (_showFoc) _headerCell('FOC', 15),
+                  const SizedBox(width: 32),
+                ],
+              ),
+            ),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.4,
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 8,
+                ),
+                itemCount: _rows.length,
+                itemBuilder: (context, index) {
+                  final row = _rows[index];
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            _buildTextField(
+                              controller: row.batchNoCtrl,
+                              hint: 'Batch No',
+                              flex: 15,
+                            ),
+                            _buildTextField(
+                              controller: row.unitPackCtrl,
+                              hint: 'Pack',
+                              flex: 15,
+                              isNumeric: true,
+                            ),
+                            _buildTextField(
+                              controller: row.mrpCtrl,
+                              hint: '0',
+                              flex: 15,
+                              isNumeric: true,
+                            ),
+                            _buildTextField(
+                              controller: row.ptrCtrl,
+                              hint: '0',
+                              flex: 15,
+                              isNumeric: true,
+                            ),
+                            _buildDatePicker(
+                              controller: row.expDateCtrl,
+                              targetKey: row.expKey,
+                              flex: 15,
+                              onTap: () async {
+                                final picked = await ZerpaiDatePicker.show(
+                                  context,
+                                  initialDate: row.expDate ?? DateTime.now(),
+                                  targetKey: row.expKey,
+                                );
+                                if (picked != null) {
+                                  setState(() {
+                                    row.expDate = picked;
+                                    row.expDateCtrl.text = DateFormat(
+                                      'dd-MM-yyyy',
+                                    ).format(picked);
+                                  });
+                                }
+                              },
+                            ),
+                            if (_showMfgDetails) ...[
+                              _buildDatePicker(
+                                controller: row.mfgDateCtrl,
+                                targetKey: row.mfgKey,
+                                flex: 15,
+                                onTap: () async {
+                                  final picked = await ZerpaiDatePicker.show(
+                                    context,
+                                    initialDate: row.mfgDate ?? DateTime.now(),
+                                    targetKey: row.mfgKey,
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      row.mfgDate = picked;
+                                      row.mfgDateCtrl.text = DateFormat(
+                                        'dd-MM-yyyy',
+                                      ).format(picked);
+                                    });
+                                  }
+                                },
+                              ),
+                              _buildTextField(
+                                controller: row.mfgBatchCtrl,
+                                hint: 'Mfg Batch',
+                                flex: 15,
+                              ),
+                            ],
+                            _buildTextField(
+                              controller: row.qtyCtrl,
+                              hint: '0',
+                              flex: 15,
+                              isNumeric: true,
+                              onChanged: (_) {
+                                setState(() {
+                                  _dialogErrorMessage = null;
+                                });
+                              },
+                            ),
+                            if (_showFoc)
+                              _buildTextField(
+                                controller: row.focCtrl,
+                                hint: '0',
+                                flex: 15,
+                                isNumeric: true,
+                              ),
+                            SizedBox(
+                              width: 32,
+                              child: IconButton(
+                                icon: const Icon(
+                                  LucideIcons.xCircle,
+                                  size: 16,
+                                  color: _dangerRed,
+                                ),
+                                onPressed: () => _removeRow(index),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (index < _rows.length - 1)
+                        const Divider(height: 1, color: _borderCol),
+                    ],
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: InkWell(
+                onTap: _addRow,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.plus,
+                      size: 16,
+                      color: Colors.blue.shade600,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'New Row',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.blue.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Divider(height: 1, color: _borderCol),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                children: [
                   ElevatedButton(
+                    onPressed: () {
+                      for (var i = 0; i < _rows.length; i++) {
+                        final validationMessage = _validateRequiredFields(
+                          _rows[i],
+                          i,
+                        );
+                        if (validationMessage != null) {
+                          setState(() {
+                            _dialogErrorMessage = validationMessage;
+                          });
+                          return;
+                        }
+                      }
+
+                      final results = _rows
+                          .map((r) => r.toBatchInfo())
+                          .toList();
+                      final totalQty = results.fold<double>(
+                        0,
+                        (sum, b) => sum + b.quantity,
+                      );
+
+                      if (!_overwriteLineItem && totalQty != widget.ordered) {
+                        setState(() {
+                          _dialogErrorMessage = _quantityMismatchMessage;
+                        });
+                        return;
+                      }
+
+                      setState(() {
+                        _dialogErrorMessage = null;
+                      });
+                      widget.onSave(results);
+                      Navigator.pop(context);
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _greenBtn,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
-                    onPressed: _onSave,
                     child: const Text(
                       'Save',
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _textPrimary,
+                      side: const BorderSide(color: _fieldBorder),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _headerCell(
+    String text,
+    int flex, {
+    TextAlign alignment = TextAlign.center,
+  }) {
+    final bool isMandatory = text.contains('*');
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Text(
+          text,
+          textAlign: alignment,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: isMandatory ? const Color(0xFFD32F2F) : _textPrimary,
+            fontFamily: 'Inter',
           ),
         ),
       ),

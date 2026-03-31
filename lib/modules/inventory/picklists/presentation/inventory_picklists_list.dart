@@ -4,54 +4,37 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
-import '../models/purchases_purchase_receives_model.dart';
-import '../providers/purchase_receives_provider.dart';
+import '../models/inventory_picklist_model.dart';
+import '../providers/inventory_picklists_provider.dart';
 
-class PurchasesPurchaseReceivesListScreen extends ConsumerStatefulWidget {
-  const PurchasesPurchaseReceivesListScreen({super.key});
+class InventoryPicklistsListScreen extends ConsumerStatefulWidget {
+  const InventoryPicklistsListScreen({super.key});
 
   @override
-  ConsumerState<PurchasesPurchaseReceivesListScreen> createState() => _PurchasesPurchaseReceivesListScreenState();
+  ConsumerState<InventoryPicklistsListScreen> createState() => _InventoryPicklistsListScreenState();
 }
 
-class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesPurchaseReceivesListScreen> {
+class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklistsListScreen> {
   String _selectedView = 'All';
   final Set<String> _selectedIds = {};
   List<String> _visibleColumns = [
     'date',
-    'pr#',
-    'po#',
-    'vendor',
+    'picklist#',
     'status',
-    'billed',
-    'qty',
-  ];
-
-  List<String> _allColumns = [
-    'date',
-    'pr#',
-    'po#',
-    'vendor',
-    'status',
-    'billed',
-    'qty',
-    'created_time',
-    'modified_time',
+    'assignee',
+    'location',
   ];
 
   final Map<String, String> _columnLabels = {
     'date': 'DATE',
-    'pr#': 'PURCHASE RECEIVE#',
-    'po#': 'PURCHASE ORDER#',
-    'vendor': 'VENDOR NAME',
+    'picklist#': 'PICKLIST#',
     'status': 'STATUS',
-    'billed': 'BILLED',
-    'qty': 'QUANTITY',
+    'assignee': 'ASSIGNEE',
+    'location': 'LOCATION',
+    'notes': 'NOTES',
     'created_time': 'CREATED TIME',
     'modified_time': 'LAST MODIFIED TIME',
   };
-
-  final List<String> _lockedColumns = ['date', 'pr#', 'status']; // Prevent these columns from being hidden
 
   void _toggleSelection(String id) {
     if (id.isEmpty) return;
@@ -64,15 +47,15 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
     });
   }
 
-  void _toggleAll(List<PurchaseReceive> receives) {
+  void _toggleAll(List<Picklist> picklists) {
     setState(() {
-      if (_selectedIds.length == receives.length) {
+      if (_selectedIds.length == picklists.length) {
         _selectedIds.clear();
       } else {
         _selectedIds.clear();
-        for (final r in receives) {
-          if (r.id != null) {
-            _selectedIds.add(r.id!);
+        for (final p in picklists) {
+          if (p.id != null) {
+            _selectedIds.add(p.id!);
           }
         }
       }
@@ -146,98 +129,48 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
                     const SizedBox(height: 16),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxHeight: 400),
-                      child: ReorderableListView(
-                        shrinkWrap: true,
-                        buildDefaultDragHandles: false,
-                        onReorder: (int oldIndex, int newIndex) {
-                          setDialogState(() {
-                            if (newIndex > oldIndex) {
-                              newIndex -= 1;
-                            }
-                            final String item = _allColumns.removeAt(oldIndex);
-                            _allColumns.insert(newIndex, item);
-
-                            // Reorder visible columns to match the general order
-                            _visibleColumns.sort((a, b) => _allColumns.indexOf(a).compareTo(_allColumns.indexOf(b)));
-                          });
-                        },
-                        children: _allColumns.map((colKey) {
-                          final isVisible = _visibleColumns.contains(colKey);
-                          final isLocked = _lockedColumns.contains(colKey);
-                          final label = _columnLabels[colKey]!;
-
-                          return InkWell(
-                            key: ValueKey(colKey),
-                            onTap: () {
-                              if (isLocked) return;
-
-                              setDialogState(() {
-                                if (isVisible) {
-                                  if (_visibleColumns.length > 1) {
-                                    _visibleColumns.remove(colKey);
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: _columnLabels.entries.map((entry) {
+                            final isVisible = _visibleColumns.contains(entry.key);
+                            return InkWell(
+                              onTap: () {
+                                setDialogState(() {
+                                  if (isVisible) {
+                                    if (_visibleColumns.length > 1) {
+                                      _visibleColumns.remove(entry.key);
+                                    }
+                                  } else {
+                                    _visibleColumns.add(entry.key);
                                   }
-                                } else {
-                                  _visibleColumns.add(colKey);
-                                  _visibleColumns.sort((a, b) => _allColumns.indexOf(a).compareTo(_allColumns.indexOf(b)));
-                                }
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                              decoration: BoxDecoration(
-                                color: isLocked ? const Color(0xFFF9FAFB) : Colors.transparent,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                children: [
-                                  // Drag icon
-                                  ReorderableDragStartListener(
-                                    index: _allColumns.indexOf(colKey),
-                                    child: const MouseRegion(
-                                      cursor: SystemMouseCursors.grab,
-                                      child: Icon(LucideIcons.gripVertical, size: 16, color: Color(0xFFD1D5DB)),
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Row(
+                                  children: [
+                                    const Icon(LucideIcons.gripVertical, size: 16, color: Color(0xFFD1D5DB)),
+                                    const SizedBox(width: 8),
+                                    Icon(
+                                      isVisible ? LucideIcons.checkSquare : LucideIcons.square,
+                                      size: 18,
+                                      color: isVisible ? const Color(0xFF0088FF) : const Color(0xFFD1D5DB),
                                     ),
-                                  ),
-                                  const SizedBox(width: 10),
-
-                                  // 🔒 LOCK OR CHECKBOX
-                                  if (isLocked)
-                                    const Icon(LucideIcons.lock, size: 18, color: Color(0xFF9CA3AF))
-                                  else
-                                    Container(
-                                      width: 18,
-                                      height: 18,
-                                      decoration: BoxDecoration(
-                                        color: isVisible ? const Color(0xFF3B82F6) : Colors.white,
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                          color: isVisible ? const Color(0xFF3B82F6) : const Color(0xFFD1D5DB),
-                                          width: 1.5,
-                                        ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      entry.value,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: isVisible ? const Color(0xFF1F2937) : const Color(0xFF6B7280),
+                                        fontWeight: isVisible ? FontWeight.w500 : FontWeight.normal,
                                       ),
-                                      child: isVisible
-                                          ? const Icon(Icons.check, size: 14, color: Colors.white)
-                                          : null,
                                     ),
-
-                                  const SizedBox(width: 12),
-
-                                  // Label
-                                  Text(
-                                    label,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: isLocked
-                                          ? const Color(0xFF9CA3AF)
-                                          : const Color(0xFF1F2937),
-                                      fontWeight: isVisible ? FontWeight.w500 : FontWeight.normal,
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-                        }).toList(),
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -282,7 +215,7 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
 
   @override
   Widget build(BuildContext context) {
-    final receivesAsync = ref.watch(purchaseReceivesProvider);
+    final picklistsAsync = ref.watch(picklistsProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -309,8 +242,8 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
           ),
           
           Expanded(
-            child: receivesAsync.when(
-              data: (state) => _buildTable(state.receives),
+            child: picklistsAsync.when(
+              data: (picklists) => _buildTable(picklists),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, stack) => Center(child: Text('Error: $err')),
             ),
@@ -328,27 +261,21 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
         surfaceTintColor: WidgetStatePropertyAll(Colors.white),
         padding: WidgetStatePropertyAll(EdgeInsets.zero),
         elevation: WidgetStatePropertyAll(8),
-        shape: WidgetStatePropertyAll(RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(4)),
-        )),
       ),
       builder: (context, controller, child) {
         return InkWell(
           onTap: () {
-            if (controller.isOpen) {
-              controller.close();
-            } else {
-              controller.open();
-            }
+            if (controller.isOpen) controller.close();
+            else controller.open();
           },
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                _selectedView == 'All' ? 'All Purchase Receives' : _selectedView,
+                _selectedView == 'All' ? 'All Picklists' : _selectedView,
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 20, 
+                  fontWeight: FontWeight.bold,
                   color: Color(0xFF1F2937),
                   fontFamily: 'Inter',
                 ),
@@ -361,22 +288,19 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
       },
       menuChildren: [
         _buildViewMenuItem('All'),
-        _buildViewMenuItem('In Transit'),
-        _buildViewMenuItem('Received'),
-        _buildViewMenuItem('Billed'),
-        _buildViewMenuItem('Partially Billed'),
-        const Divider(height: 1, indent: 0, endIndent: 0, color: Color(0xFFF3F4F6)),
+        _buildViewMenuItem('Yet to Start'),
+        _buildViewMenuItem('In Progress'),
+        _buildViewMenuItem('On Hold'),
+        _buildViewMenuItem('Completed'),
+        const Divider(height: 1, color: Color(0xFFF3F4F6)),
         MenuItemButton(
           onPressed: () {},
           style: _menuItemButtonStyle(),
           child: const Row(
             children: [
               Icon(LucideIcons.plusCircle, size: 16, color: Color(0xFF0088FF)),
-              const SizedBox(width: 12),
-              Text(
-                'New Custom View',
-                style: TextStyle(color: Color(0xFF0088FF), fontSize: 13, fontWeight: FontWeight.w500),
-              ),
+              SizedBox(width: 12),
+              Text('New Custom View', style: TextStyle(color: Color(0xFF0088FF), fontSize: 13)),
             ],
           ),
         ),
@@ -387,25 +311,12 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
   Widget _buildViewMenuItem(String label) {
     final isActive = _selectedView == label;
     return MenuItemButton(
-      onPressed: () {
-        setState(() {
-          _selectedView = label;
-        });
-      },
+      onPressed: () => setState(() => _selectedView = label),
       style: _menuItemButtonStyle(isActive: isActive),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-          Icon(
-            LucideIcons.star,
-            size: 14,
-            color: isActive ? Colors.white70 : const Color(0xFFD1D5DB),
-          ),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
+          Icon(LucideIcons.star, size: 14, color: isActive ? Colors.white70 : const Color(0xFFD1D5DB)),
         ],
       ),
     );
@@ -431,7 +342,7 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
   Widget _buildNewButton() {
     final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '0000000000';
     return ElevatedButton(
-      onPressed: () => context.push('/$orgId/purchases/purchase-receives/create'),
+      onPressed: () => context.push('/$orgId/inventory/picklists/create'),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF22A95E),
         foregroundColor: Colors.white,
@@ -473,11 +384,8 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
         builder: (context, controller, child) {
           return IconButton(
             onPressed: () {
-              if (controller.isOpen) {
-                controller.close();
-              } else {
-                controller.open();
-              }
+              if (controller.isOpen) controller.close();
+              else controller.open();
             },
             icon: const Icon(LucideIcons.moreHorizontal, size: 16, color: Color(0xFF6B7280)),
             padding: EdgeInsets.zero,
@@ -485,7 +393,6 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
           );
         },
         menuChildren: [
-          // Sort by Submenu
           SubmenuButton(
             menuStyle: const MenuStyle(
               backgroundColor: WidgetStatePropertyAll(Colors.white),
@@ -496,8 +403,7 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
             style: _menuItemButtonStyle(isHeader: true),
             menuChildren: [
               _buildSortMenuItem('Date'),
-              _buildSortMenuItem('Purchase Receive#'),
-              _buildSortMenuItem('Purchase Order#'),
+              _buildSortMenuItem('Picklist#'),
               _buildSortMenuItem('Created Time', isActive: true),
               _buildSortMenuItem('Last Modified Time'),
             ],
@@ -511,52 +417,18 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
               ],
             ),
           ),
-
-          _buildMenuItem(
-            icon: LucideIcons.download,
-            label: 'Import Purchase Receives',
-            onPressed: () {},
+          const Divider(height: 1, color: Color(0xFFF3F4F6)),
+          MenuItemButton(
+            onPressed: () => ref.read(picklistsProvider.notifier).refresh(),
+            style: _menuItemButtonStyle(),
+            child: const Row(
+              children: [
+                Icon(LucideIcons.refreshCw, size: 18),
+                SizedBox(width: 15),
+                Text('Refresh List', style: TextStyle(fontSize: 14)),
+              ],
+            ),
           ),
-
-          _buildMenuItem(
-            icon: LucideIcons.upload,
-            label: 'Export Purchase Receives',
-            onPressed: () {},
-          ),
-
-          const Divider(height: 1, indent: 0, endIndent: 0, color: Color(0xFFF3F4F6)),
-
-          _buildMenuItem(
-            icon: LucideIcons.settings,
-            label: 'Preferences',
-            onPressed: () {},
-          ),
-
-          const Divider(height: 1, indent: 0, endIndent: 0, color: Color(0xFFF3F4F6)),
-
-          _buildMenuItem(
-            icon: LucideIcons.refreshCw,
-            label: 'Refresh List',
-            onPressed: () {},
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return MenuItemButton(
-      onPressed: onPressed,
-      style: _menuItemButtonStyle(),
-      child: Row(
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 15),
-          Text(label, style: const TextStyle(fontSize: 14)),
         ],
       ),
     );
@@ -579,8 +451,8 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
     return ButtonStyle(
       overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       backgroundColor: WidgetStateProperty.resolveWith((states) {
-        if (isActive) return const Color(0xFF3B82F6);
-        if (states.contains(WidgetState.hovered)) return const Color(0xFF3B82F6);
+        if (isActive) return const Color(0xFF0088FF);
+        if (states.contains(WidgetState.hovered)) return const Color(0xFF0088FF);
         return isHeader ? Colors.transparent : Colors.white;
       }),
       foregroundColor: WidgetStateProperty.resolveWith((states) {
@@ -589,7 +461,7 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
       }),
       iconColor: WidgetStateProperty.resolveWith((states) {
         if (isActive || states.contains(WidgetState.hovered)) return Colors.white;
-        return const Color(0xFF3B82F6); // Keep icons blue by default for a premium look
+        return const Color(0xFF0088FF);
       }),
       padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
       minimumSize: const WidgetStatePropertyAll(Size(240, 44)),
@@ -598,7 +470,7 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
     );
   }
 
-  Widget _buildTable(List<PurchaseReceive> receives) {
+  Widget _buildTable(List<Picklist> picklists) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
@@ -620,25 +492,23 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const SizedBox(width: 8), // Minimal leading edge gap
+                      const SizedBox(width: 8),
                       _buildConfigIcon(),
                       const SizedBox(width: 12),
-                      _buildSelectAllCheckbox(receives),
+                      _buildSelectAllCheckbox(picklists),
                       const SizedBox(width: 12),
                       ..._visibleColumns.map((colId) {
-                        final label = _columnLabels[colId] ?? '';
                         final width = _getCalculatedColumnWidth(colId, screenWidth);
-                        final isRightAlign = colId == 'qty';
-                        return _buildHeaderCell(label, width: width, align: isRightAlign ? TextAlign.right : TextAlign.left);
+                        return _buildHeaderCell(_columnLabels[colId]!, width: width);
                       }),
                     ],
                   ),
                 ),
                 // Table Body
-                if (receives.isEmpty)
+                if (picklists.isEmpty)
                   _buildEmptyState(screenWidth)
                 else
-                  ...receives.map((receive) => _buildRow(receive, screenWidth)),
+                  ...picklists.map((p) => _buildRow(p, screenWidth)),
               ],
             ),
           ),
@@ -648,17 +518,16 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
   }
 
   double _getCalculatedColumnWidth(String colId, double screenWidth) {
-    const staticWidth = 84.0; // Padding, Config icon (16), gap(12), checkbox(18), gap(12), gap(12) + some safety
+    const staticWidth = 84.0;
     final visibleCols = _visibleColumns;
 
     final Map<String, (double min, double flex)> metrics = {
       'date': (102.0, 1.0),
-      'pr#': (120.0, 2.0),
-      'po#': (120.0, 2.0),
-      'vendor': (180.0, 4.0),
-      'status': (110.0, 1.0),
-      'billed': (90.0, 1.0),
-      'qty': (80.0, 1.0),
+      'picklist#': (120.0, 2.0),
+      'status': (140.0, 2.0),
+      'assignee': (160.0, 3.0),
+      'location': (200.0, 4.0),
+      'notes': (150.0, 2.0),
       'created_time': (160.0, 1.5),
       'modified_time': (160.0, 1.5),
     };
@@ -676,7 +545,6 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
     final m = metrics[colId] ?? (150.0, 1.5);
 
     if (totalFlex == 0) return m.$1;
-
     return m.$1 + (m.$2 / totalFlex) * extraSpace;
   }
 
@@ -709,27 +577,16 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
             ],
           ),
         ),
-        MenuItemButton(
-          onPressed: () {},
-          style: _menuItemButtonStyle(),
-          child: const Row(
-            children: [
-              Icon(LucideIcons.alignLeft, size: 18),
-              SizedBox(width: 12),
-              Text('Clip Text'),
-            ],
-          ),
-        ),
       ],
     );
   }
 
-  Widget _buildSelectAllCheckbox(List<PurchaseReceive> receives) {
-    final isAllSelected = receives.isNotEmpty && _selectedIds.length == receives.length;
-    final isPartiallySelected = _selectedIds.isNotEmpty && _selectedIds.length < receives.length;
+  Widget _buildSelectAllCheckbox(List<Picklist> picklists) {
+    final isAllSelected = picklists.isNotEmpty && _selectedIds.length == picklists.length;
+    final isPartiallySelected = _selectedIds.isNotEmpty && _selectedIds.length < picklists.length;
 
     return InkWell(
-      onTap: () => _toggleAll(receives),
+      onTap: () => _toggleAll(picklists),
       child: _buildCheckboxWidget(isAllSelected, isPartially: isPartiallySelected),
     );
   }
@@ -763,13 +620,12 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
     );
   }
 
-  Widget _buildHeaderCell(String text, {double? width, TextAlign? align}) {
+  Widget _buildHeaderCell(String text, {double? width}) {
     return Container(
       width: width,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Text(
         text,
-        textAlign: align,
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
@@ -781,12 +637,8 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
     );
   }
 
-  Widget _buildConfigIconPlaceHolder() {
-    return const SizedBox(width: 16); // Width of the sliders icon
-  }
-
-  Widget _buildRow(PurchaseReceive receive, double minWidth) {
-    final isSelected = _selectedIds.contains(receive.id);
+  Widget _buildRow(Picklist picklist, double minWidth) {
+    final isSelected = _selectedIds.contains(picklist.id);
 
     return Container(
       constraints: BoxConstraints(minWidth: minWidth),
@@ -797,87 +649,59 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
       padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
         children: [
-          const SizedBox(width: 8), // Minimal leading edge gap
-          _buildConfigIconPlaceHolder(),
+          const SizedBox(width: 8),
+          const SizedBox(width: 16), // Slider placeholder
           const SizedBox(width: 12),
           InkWell(
-            onTap: () => _toggleSelection(receive.id ?? ''),
+            onTap: () => _toggleSelection(picklist.id ?? ''),
             child: _buildCheckboxWidget(isSelected),
           ),
           const SizedBox(width: 12),
           ..._visibleColumns.map((colId) {
             final width = _getCalculatedColumnWidth(colId, minWidth);
-            return _buildCell(receive, colId, width: width);
+            return _buildCell(picklist, colId, width: width);
           }),
         ],
       ),
     );
   }
 
-  Widget _buildCell(PurchaseReceive receive, String colId, {double? width}) {
-    final totalQty = receive.items.fold<double>(0, (prev, item) => prev + item.quantityToReceive);
-    
+  Widget _buildCell(Picklist picklist, String colId, {double? width}) {
     Widget content;
-    TextAlign align = TextAlign.left;
-
     switch (colId) {
       case 'date':
         content = Text(
-          DateFormat('dd-MM-yyyy').format(receive.receivedDate ?? DateTime.now()),
+          DateFormat('dd-MM-yyyy').format(picklist.date ?? DateTime.now()),
           style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937), fontFamily: 'Inter'),
         );
         break;
-      case 'pr#':
+      case 'picklist#':
         content = Text(
-          receive.purchaseReceiveNumber,
+          picklist.picklistNumber,
           style: const TextStyle(fontSize: 13, color: Color(0xFF0088FF), fontWeight: FontWeight.w500, fontFamily: 'Inter'),
         );
         break;
-      case 'po#':
-        content = Text(
-          receive.purchaseOrderNumber ?? '-',
-          style: const TextStyle(fontSize: 13, color: Color(0xFF0088FF), fontFamily: 'Inter'),
-        );
-        break;
-      case 'vendor':
-        content = Text(
-          receive.vendorName ?? '-',
-          style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937), fontFamily: 'Inter'),
-        );
-        break;
       case 'status':
+        final isCompleted = picklist.status == 'Completed';
         content = Text(
-          receive.status.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF22A95E),
+          picklist.status,
+          style: TextStyle(
+            fontSize: 13,
+            color: isCompleted ? const Color(0xFF22A95E) : const Color(0xFF6B7280),
             fontFamily: 'Inter',
-            letterSpacing: 0.3,
           ),
         );
         break;
-      case 'billed':
-        content = const Center(child: Icon(Icons.circle, size: 8, color: Color(0xFFE5E7EB)));
-        break;
-      case 'qty':
-        align = TextAlign.right;
+      case 'assignee':
         content = Text(
-          totalQty.toStringAsFixed(2),
-          textAlign: TextAlign.right,
+          picklist.assignee ?? 'Unassigned',
           style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937), fontFamily: 'Inter'),
         );
         break;
-      case 'created_time':
+      case 'location':
         content = Text(
-          DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.now()), // Placeholder
-          style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280), fontFamily: 'Inter'),
-        );
-        break;
-      case 'modified_time':
-        content = Text(
-          DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.now()), // Placeholder
-          style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280), fontFamily: 'Inter'),
+          picklist.location ?? '-',
+          style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937), fontFamily: 'Inter'),
         );
         break;
       default:
@@ -887,10 +711,7 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
     return Container(
       width: width,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: DefaultTextStyle.merge(
-        child: content,
-        textAlign: align,
-      ),
+      child: content,
     );
   }
 
@@ -905,7 +726,7 @@ class _PurchasesPurchaseReceivesListScreenState extends ConsumerState<PurchasesP
           Icon(LucideIcons.package, size: 48, color: Color(0xFFE5E7EB)),
           SizedBox(height: 16),
           Text(
-            'No purchase receives found',
+            'No picklists found',
             style: TextStyle(fontSize: 14, color: Color(0xFF6B7280), fontFamily: 'Inter'),
           ),
         ],

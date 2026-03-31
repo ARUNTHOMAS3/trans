@@ -17,11 +17,11 @@ export class PurchaseOrdersService {
 
     let query = this.supabaseService
       .getClient()
-      .from("purchase_orders")
+      .from("purchases_purchase_orders")
       .select(
         `
         *,
-        vendor:vendors(name, company_name)
+        vendor:vendors(display_name, company_name)
       `,
         { count: "exact" },
       )
@@ -57,12 +57,12 @@ export class PurchaseOrdersService {
   async findOne(id: string) {
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("purchase_orders")
+      .from("purchases_purchase_orders")
       .select(
         `
         *,
         vendor:vendors(*),
-        purchase_order_items(*)
+        items:purchases_purchase_order_items(*, product:products(*))
       `,
       )
       .eq("id", id)
@@ -78,7 +78,7 @@ export class PurchaseOrdersService {
   async create(createPurchaseOrderDto: CreatePurchaseOrderDto) {
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("purchase_orders")
+      .from("purchases_purchase_orders")
       .insert([createPurchaseOrderDto])
       .select()
       .single();
@@ -93,7 +93,7 @@ export class PurchaseOrdersService {
   async update(id: string, updatePurchaseOrderDto: UpdatePurchaseOrderDto) {
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("purchase_orders")
+      .from("purchases_purchase_orders")
       .update(updatePurchaseOrderDto)
       .eq("id", id)
       .select()
@@ -113,7 +113,7 @@ export class PurchaseOrdersService {
   async remove(id: string) {
     const { error } = await this.supabaseService
       .getClient()
-      .from("purchase_orders")
+      .from("purchases_purchase_orders")
       .delete()
       .eq("id", id);
 

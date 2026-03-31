@@ -56,9 +56,19 @@ class PurchaseOrderItem {
   });
 
   factory PurchaseOrderItem.fromJson(Map<String, dynamic> json) {
+    final productData = json['product'] as Map<String, dynamic>? ?? 
+                        json['products'] as Map<String, dynamic>?;
+    
     return PurchaseOrderItem(
       id: json['id'] as String?,
       productId: json['product_id'] as String? ?? '',
+      productName: productData?['product_name'] as String? ?? 
+                   productData?['productName'] as String? ?? 
+                   productData?['name'] as String? ?? 
+                   json['product_name'] as String? ?? 
+                   json['productName'] as String?,
+      itemCode: productData?['sku'] as String? ?? json['item_code'] as String?,
+      hsnCode: productData?['hsn_code'] as String? ?? json['hsn_code'] as String?,
       description: json['description'] as String?,
       accountId: json['account_id'] as String?,
       quantity: (json['quantity'] as num?)?.toDouble() ?? 1.0,
@@ -222,7 +232,10 @@ class PurchaseOrder {
   });
 
   factory PurchaseOrder.fromJson(Map<String, dynamic> json) {
-    final rawItems = json['items'] as List<dynamic>? ?? [];
+    final rawItems = json['items'] as List<dynamic>? ?? 
+                    json['purchases_purchase_order_items'] as List<dynamic>? ??
+                    json['purchase_order_items'] as List<dynamic>? ?? 
+                    [];
     return PurchaseOrder(
       id: json['id'] as String?,
       orgId: json['org_id'] as String?,

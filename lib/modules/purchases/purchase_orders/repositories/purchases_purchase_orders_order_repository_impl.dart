@@ -45,7 +45,10 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
       final response = await _apiClient.get(
         '${ApiEndpoints.purchaseOrders}/$id',
       );
-      return PurchaseOrder.fromJson(response.data);
+      final data = response.data is Map && response.data.containsKey('data')
+          ? response.data['data']
+          : response.data;
+      return PurchaseOrder.fromJson(data);
     } catch (e) {
       return null;
     }
