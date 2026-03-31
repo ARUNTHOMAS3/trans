@@ -11,6 +11,13 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
+import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
+import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
+import 'package:zerpai_erp/modules/auth/models/user_model.dart';
+import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 
 const _textPrimary = Color(0xFF1F2937);
 const _textSecondary = Color(0xFF6B7280);
@@ -48,11 +55,14 @@ class _InventoryPicklistsCreateScreenState
             _focusedQtyFieldKeys.contains('${rowKey}_picked_mobile');
         final isMatched = (picked - toPick).abs() < 0.0001;
         if (picked > (toPick + 0.0001) && !isFocused && !isMatched) {
-          _validationErrors.add('• Please make sure that you have entered all the batches for the item "${item.productName}".');
+          _validationErrors.add(
+            'Please make sure that you have entered batch reference numbers for all the items.',
+          );
         }
       }
     });
   }
+
   final GlobalKey _dateFieldKey = GlobalKey();
 
   String? _selectedGroup;
@@ -66,20 +76,37 @@ class _InventoryPicklistsCreateScreenState
   final Map<String, int> _savedBatchCounts = <String, int>{};
   final Set<String> _hoveredQtyFieldKeys = <String>{};
   final Set<String> _focusedQtyFieldKeys = <String>{};
+  final Set<String> _hoveredAssigneeFieldKeys = <String>{};
+  final Map<String, String?> _itemGroupAssigneeByProductId =
+      <String, String?>{};
+  final Map<String, String?> _salesOrderGroupAssigneeByOrderNumber =
+      <String, String?>{};
 
   // Picklist Numbering Preferences
   bool _isAutoGenerate = true;
   String _picklistPrefix = 'PL-';
   int _nextNumber = 17;
 
+  // Batch data persistence
+  final Map<String, List<Map<String, String>>> _savedBatchData =
+      <String, List<Map<String, String>>>{};
+
   bool get _isFormValid =>
+      _picklistNumberCtrl.text.trim().isNotEmpty &&
+      _selectedGroup != null &&
+      _selectedWarehouse != null &&
+      _selectedAssignee != null;
+
+  bool get _hasMandatoryFieldsForItemSelection =>
       _picklistNumberCtrl.text.trim().isNotEmpty &&
       _selectedGroup != null &&
       _selectedWarehouse != null;
 
-    bool get _allBatchesAdded =>
+  bool get _allBatchesAdded =>
       _selectedItems.isNotEmpty &&
-      _selectedItems.every((item) => _savedBatchKeys.contains(_buildRowKey(item)));
+      _selectedItems.every(
+        (item) => _savedBatchKeys.contains(_buildRowKey(item)),
+      );
 
   @override
   void initState() {
@@ -114,10 +141,7 @@ class _InventoryPicklistsCreateScreenState
         .toSet()
         .toList();
 
-    final dropdownRefs = {
-      'REF-2024-001',
-      ...existingBatches,
-    }.toList();
+    final dropdownRefs = {'REF-2024-001', ...existingBatches}.toList();
 
     final result = await showDialog<_PicklistBatchDialogResult>(
       context: context,
@@ -127,6 +151,7 @@ class _InventoryPicklistsCreateScreenState
         warehouseName: _selectedWarehouse?.name ?? 'ZABNIX PRIVATE LIMITED',
         totalQuantity: item.quantityToPick ?? 1,
         existingBatchRefs: dropdownRefs,
+        savedBatchData: _savedBatchData[_buildRowKey(item)],
       ),
     );
     if (!mounted || result == null) return;
@@ -134,6 +159,7 @@ class _InventoryPicklistsCreateScreenState
     setState(() {
       _savedBatchKeys.add(rowKey);
       _savedBatchCounts[rowKey] = result.batchCount;
+      _savedBatchData[rowKey] = result.batchDataList ?? [];
       final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == rowKey);
       if (idx != -1) {
         _selectedItems[idx] = _selectedItems[idx].copyWith(
@@ -159,56 +185,82 @@ class _InventoryPicklistsCreateScreenState
         _hoveredQtyFieldKeys.contains(fieldKey) ||
         _focusedQtyFieldKeys.contains(fieldKey);
 
-    return Center(
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hoveredQtyFieldKeys.add(fieldKey)),
-        onExit: (_) => setState(() => _hoveredQtyFieldKeys.remove(fieldKey)),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          width: 80,
-          height: 32,
-          decoration: BoxDecoration(
-            color: (hasError || showPermanentBorder || showBlueOutline) ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: hasError ? _dangerRed : (showPermanentBorder || showBlueOutline ? _focusBorder : Colors.transparent),
-              width: (hasError || showPermanentBorder || showBlueOutline) ? 1.2 : 0,
-            ),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoveredQtyFieldKeys.add(fieldKey)),
+      onExit: (_) => setState(() => _hoveredQtyFieldKeys.remove(fieldKey)),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        width: 80,
+        height: 32,
+        decoration: BoxDecoration(
+          color: (hasError || showBlueOutline)
+              ? Colors.white
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: hasError
+                ? _dangerRed
+                : (showBlueOutline ? _focusBorder : Colors.transparent),
+            width: (hasError || showBlueOutline) ? 1.2 : 0,
           ),
-          child: Focus(
-            onFocusChange: (hasFocus) {
-              setState(() {
-                if (hasFocus) {
-                  _focusedQtyFieldKeys.add(fieldKey);
-                } else {
-                  _focusedQtyFieldKeys.remove(fieldKey);
-                }
-              });
-            },
-            child: TextField(
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 13,
-                color: _textPrimary,
-                fontFamily: 'Inter',
-              ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                isDense: true,
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              ),
-              controller: TextEditingController(text: initialValue.toInt().toString())
-                ..selection = TextSelection.collapsed(offset: initialValue.toInt().toString().length),
-              onChanged: onChanged,
-              onSubmitted: onChanged,
+        ),
+
+        child: Focus(
+          onFocusChange: (hasFocus) {
+            setState(() {
+              if (hasFocus) {
+                _focusedQtyFieldKeys.add(fieldKey);
+              } else {
+                _focusedQtyFieldKeys.remove(fieldKey);
+              }
+            });
+          },
+          child: TextField(
+            textAlign: TextAlign.right,
+            textAlignVertical: TextAlignVertical.center,
+            strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
+            style: const TextStyle(
+              fontSize: 13,
+              color: _textPrimary,
+              fontFamily: 'Inter',
             ),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              isDense: false,
+              filled: false,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 12,
+              ),
+              constraints: const BoxConstraints(minHeight: 32, maxHeight: 32),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide.none,
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide.none,
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide.none,
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            controller:
+                TextEditingController(text: initialValue.toInt().toString())
+                  ..selection = TextSelection.collapsed(
+                    offset: initialValue.toInt().toString().length,
+                  ),
+            onChanged: onChanged,
+            onSubmitted: onChanged,
           ),
         ),
       ),
@@ -272,13 +324,39 @@ class _InventoryPicklistsCreateScreenState
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _validationErrors.map((e) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Text(
-                      e,
-                      style: const TextStyle(color: Color(0xFF991B1B), fontSize: 13, fontWeight: FontWeight.w500),
-                    ),
-                  )).toList(),
+                  children: _validationErrors
+                      .map(
+                        (e) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.only(right: 8, top: 2),
+                                child: Text(
+                                  '•',
+                                  style: TextStyle(
+                                    color: Color(0xFF991B1B),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  e,
+                                  style: const TextStyle(
+                                    color: Color(0xFF991B1B),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
               ),
             ),
@@ -321,7 +399,8 @@ class _InventoryPicklistsCreateScreenState
                           borderRadius: BorderRadius.circular(4),
                         ),
                         suffixIcon: _PicklistZTooltip(
-                          message: 'Click here to enable or disable auto-generation of numbers.',
+                          message:
+                              'Click here to enable or disable auto-generation of numbers.',
                           child: InkWell(
                             onTap: _showPicklistPreferencesDialog,
                             child: const Icon(
@@ -416,10 +495,10 @@ class _InventoryPicklistsCreateScreenState
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: isSelected
+                          color: isHovered
                               ? const Color(0xFF3B82F6)
-                              : (isHovered
-                                    ? const Color(0xFF3B82F6)
+                              : (isSelected
+                                    ? const Color(0xFFF3F4F6)
                                     : Colors.transparent),
                           borderRadius: BorderRadius.circular(4),
                         ),
@@ -434,16 +513,20 @@ class _InventoryPicklistsCreateScreenState
                                 fontWeight: isSelected
                                     ? FontWeight.w500
                                     : FontWeight.normal,
-                                color: isSelected
+                                color: isHovered
                                     ? Colors.white
-                                    : const Color(0xFF1F2937),
+                                    : (isSelected
+                                          ? const Color(0xFF1F2937)
+                                          : const Color(0xFF1F2937)),
                               ),
                             ),
                             if (isSelected)
-                              const Icon(
+                              Icon(
                                 LucideIcons.check,
                                 size: 16,
-                                color: Colors.white,
+                                color: isHovered
+                                    ? Colors.white
+                                    : const Color(0xFF1F2937),
                               ),
                           ],
                         ),
@@ -456,37 +539,33 @@ class _InventoryPicklistsCreateScreenState
                 ),
                 const SizedBox(height: 20),
 
-                if (_selectedGroup == 'No Grouping' || _selectedGroup == null) ...[
+                if (_selectedGroup == 'No Grouping' ||
+                    _selectedGroup == null) ...[
                   _buildFormRow(
                     label: 'Assignee',
                     isRequired: false,
                     child: SizedBox(
                       width: 350,
-                      child: FormDropdown<String>(
-                        value: _selectedAssignee,
-                        items: const [],
-                        hint: 'Select User',
-                        displayStringForValue: (s) => s,
-                        searchStringForValue: (s) => s,
-                        itemBuilder: (item, isSelected, isHovered) => Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          color: isHovered
-                              ? const Color(0xFF3B82F6)
-                              : Colors.transparent,
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontFamily: 'Inter',
+                      child: Consumer(
+                        builder: (context, ref, _) {
+                          final usersAsync = ref.watch(allUsersProvider);
+                          return FormDropdown<User>(
+                            hint: 'Select User',
+                            value: usersAsync.maybeWhen(
+                              data: (users) => users
+                                  .where((u) => u.id == _selectedAssignee)
+                                  .firstOrNull,
+                              orElse: () => null,
                             ),
-                          ),
-                        ),
-                        onChanged: (val) {
-                          if (val != null)
-                            setState(() => _selectedAssignee = val);
+                            items: usersAsync.maybeWhen(
+                              data: (users) => users,
+                              orElse: () => [],
+                            ),
+                            onChanged: (val) =>
+                                setState(() => _selectedAssignee = val?.id),
+                            displayStringForValue: (user) => user.fullName,
+                            searchStringForValue: (user) => user.fullName,
+                          );
                         },
                       ),
                     ),
@@ -502,38 +581,43 @@ class _InventoryPicklistsCreateScreenState
                     child: Consumer(
                       builder: (context, ref, _) {
                         final warehousesAsync = ref.watch(warehousesProvider);
-                        
+
                         return warehousesAsync.when(
                           data: (warehouses) => FormDropdown<Warehouse>(
                             value: _selectedWarehouse,
                             items: warehouses,
                             hint: 'Select or type to search',
                             showSearch: true,
+                            maxVisibleItems: 4,
                             displayStringForValue: (w) => w.name,
                             searchStringForValue: (w) => w.name,
-                            itemBuilder: (item, isSelected, isHovered) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              color: isSelected
-                                  ? const Color(0xFF3B82F6).withOpacity(0.1)
-                                  : (isHovered
+                            itemBuilder: (item, isSelected, isHovered) =>
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  color: isHovered
                                       ? const Color(0xFF3B82F6)
-                                      : Colors.transparent),
-                              child: Text(
-                                item.name,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontFamily: 'Inter',
-                                  color: isSelected && !isHovered
-                                      ? const Color(0xFF3B82F6)
-                                      : (isHovered ? Colors.white : const Color(0xFF1F2937)),
+                                      : (isSelected
+                                            ? const Color(0xFFF3F4F6)
+                                            : Colors.transparent),
+                                  child: Text(
+                                    item.name,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontFamily: 'Inter',
+                                      color: isHovered
+                                          ? Colors.white
+                                          : (isSelected
+                                                ? const Color(0xFF1F2937)
+                                                : const Color(0xFF1F2937)),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
                             onChanged: (val) {
-                              if (val != null) setState(() => _selectedWarehouse = val);
+                              if (val != null)
+                                setState(() => _selectedWarehouse = val);
                             },
                           ),
                           loading: () => Container(
@@ -548,21 +632,27 @@ class _InventoryPicklistsCreateScreenState
                                 SizedBox(
                                   width: 12,
                                   height: 12,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                                 SizedBox(width: 12),
-                                Text('Loading warehouses...', style: TextStyle(fontSize: 13, color: _textSecondary)),
+                                Text(
+                                  'Loading warehouses...',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: _textSecondary,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                          error: (err, stack) => FormDropdown<String>(
-                            value: null,
-                            items: const [],
-                            hint: 'Error loading warehouses',
-                            displayStringForValue: (s) => s,
-                            searchStringForValue: (s) => s,
-                            itemBuilder: (_, __, ___) => const SizedBox.shrink(),
-                            onChanged: (_) {},
+                          error: (err, stack) => Text(
+                            'Error loading warehouses: $err',
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 12,
+                            ),
                           ),
                         );
                       },
@@ -576,9 +666,9 @@ class _InventoryPicklistsCreateScreenState
                 const SizedBox(height: 40),
 
                 Opacity(
-                  opacity: _isFormValid ? 1.0 : 0.3,
+                  opacity: _hasMandatoryFieldsForItemSelection ? 1.0 : 0.3,
                   child: IgnorePointer(
-                    ignoring: !_isFormValid,
+                    ignoring: !_hasMandatoryFieldsForItemSelection,
                     child: _buildItemSelectionArea(),
                   ),
                 ),
@@ -709,20 +799,38 @@ class _InventoryPicklistsCreateScreenState
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: _isFormValid ? _showAddItemsDialog : null,
+                      onPressed: _hasMandatoryFieldsForItemSelection
+                          ? _showAddItemsDialog
+                          : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isFormValid ? const Color(0xFFEAF3FF) : const Color(0xFFF3F4F6),
-                        foregroundColor: _isFormValid ? const Color(0xFF2563EB) : const Color(0xFF9CA3AF),
-                        side: BorderSide(color: _isFormValid ? const Color(0xFFD6E6FF) : Colors.transparent),
+                        backgroundColor: _hasMandatoryFieldsForItemSelection
+                            ? const Color(0xFFEAF3FF)
+                            : const Color(0xFFF3F4F6),
+                        foregroundColor: _hasMandatoryFieldsForItemSelection
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFF9CA3AF),
+                        side: BorderSide(
+                          color: _hasMandatoryFieldsForItemSelection
+                              ? const Color(0xFFD6E6FF)
+                              : Colors.transparent,
+                        ),
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(LucideIcons.plus, size: 16),
                           SizedBox(width: 8),
-                          Text('Add Items', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          Text(
+                            'Add Items',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -736,14 +844,17 @@ class _InventoryPicklistsCreateScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: MediaQuery.of(context).size.width * 0.5,
+                width: MediaQuery.of(context).size.width * 0.7,
                 child: _buildSelectedItemsTable(),
               ),
               const SizedBox(height: 12),
               TextButton.icon(
                 onPressed: _showAddItemsDialog,
                 icon: const Icon(LucideIcons.plus, size: 14),
-                label: const Text('Add More Items', style: TextStyle(fontSize: 13)),
+                label: const Text(
+                  'Add More Items',
+                  style: TextStyle(fontSize: 13),
+                ),
                 style: TextButton.styleFrom(foregroundColor: _focusBorder),
               ),
             ],
@@ -772,19 +883,73 @@ class _InventoryPicklistsCreateScreenState
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.only(left: 16, right: 0, top: 10, bottom: 10),
+            padding: const EdgeInsets.only(
+              left: 16,
+              right: 0,
+              top: 10,
+              bottom: 10,
+            ),
             decoration: const BoxDecoration(
               color: Color(0xFFF9FAFB),
               border: Border(bottom: BorderSide(color: _borderCol)),
             ),
             child: IntrinsicHeight(
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Expanded(flex: 4, child: Text('ITEM DETAILS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary))),
+                  const Expanded(
+                    flex: 4,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Text(
+                        'ITEM DETAILS',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
                   const VerticalDivider(width: 1, color: _borderCol),
-                  const Expanded(flex: 2, child: Text('SALES ORDER#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary), textAlign: TextAlign.center)),
+                  const Expanded(
+                    flex: 2,
+                    child: Text(
+                      'SALES ORDER#',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                   const VerticalDivider(width: 1, color: _borderCol),
-                  const Expanded(flex: 1, child: Text('QTY ORDERED', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary), textAlign: TextAlign.center)),
+                  const Expanded(
+                    flex: 1,
+                    child: Text(
+                      'QTY ORDERED',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const VerticalDivider(width: 1, color: _borderCol),
+                  const Expanded(
+                    flex: 1,
+                    child: Text(
+                      'PREFERRED BIN',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                   const VerticalDivider(width: 1, color: _borderCol),
                   Expanded(
                     flex: 2,
@@ -792,11 +957,23 @@ class _InventoryPicklistsCreateScreenState
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('QTY TO PICK', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary)),
+                          const Text(
+                            'QTY TO PICK',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _textSecondary,
+                            ),
+                          ),
                           const SizedBox(width: 4),
                           const _PicklistZTooltip(
-                            message: "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
-                            child: Icon(LucideIcons.info, size: 12, color: _textSecondary),
+                            message:
+                                "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
+                            child: Icon(
+                              LucideIcons.info,
+                              size: 12,
+                              color: _textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -804,17 +981,29 @@ class _InventoryPicklistsCreateScreenState
                   ),
                   const VerticalDivider(width: 1, color: _borderCol),
                   Expanded(
-                    flex: 1,
+                    flex: 2,
                     child: Center(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text('QTY PICKED', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary)),
+                          const Text(
+                            'QTY PICKED',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _textSecondary,
+                            ),
+                          ),
                           const SizedBox(width: 4),
                           const _PicklistZTooltip(
-                            message: "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
-                            child: Icon(LucideIcons.info, size: 12, color: _textSecondary),
+                            message:
+                                "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
+                            child: Icon(
+                              LucideIcons.info,
+                              size: 12,
+                              color: _textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -831,46 +1020,80 @@ class _InventoryPicklistsCreateScreenState
             itemCount: _selectedItems.length,
             itemBuilder: (context, index) {
               final item = _selectedItems[index];
+              final rowKey = _buildRowKey(item);
               final available = item.availableQuantity;
 
               return Container(
-                padding: const EdgeInsets.only(left: 16, right: 0, top: 8, bottom: 8),
-                decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: _borderCol))),
+                key: ValueKey(rowKey),
+                padding: const EdgeInsets.only(left: 16, right: 0),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: _borderCol)),
+                ),
                 child: IntrinsicHeight(
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
                         flex: 4,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(item.productName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                            Text('Unit: ${item.unitTitle ?? "pcs"}', style: const TextStyle(fontSize: 11, color: _textSecondary)),
+                            Text(
+                              item.productName,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              'Unit: ${item.unitTitle ?? "pcs"}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: _textSecondary,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       const VerticalDivider(width: 1, color: _borderCol),
                       Expanded(
                         flex: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 2),
+                        child: Center(
                           child: Text(
                             item.salesOrderNumber ?? '--',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 13, color: _textPrimary),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: _textPrimary,
+                            ),
                           ),
                         ),
                       ),
                       const VerticalDivider(width: 1, color: _borderCol),
                       Expanded(
                         flex: 1,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 2),
+                        child: Center(
                           child: Text(
                             '${item.quantityOrdered?.toInt() ?? 1}',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 13, color: _textPrimary),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: _textPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const VerticalDivider(width: 1, color: _borderCol),
+                      Expanded(
+                        flex: 1,
+                        child: Center(
+                          child: Text(
+                            item.preferredBin ?? 'N/A',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: _textPrimary,
+                            ),
                           ),
                         ),
                       ),
@@ -881,18 +1104,19 @@ class _InventoryPicklistsCreateScreenState
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             _buildQuantityField(
-                              fieldKey: '${_buildRowKey(item)}_to_pick_main',
+                              fieldKey: '${rowKey}_to_pick_main',
                               initialValue: item.quantityToPick ?? 1.0,
                               onChanged: (val) {
                                 final d = double.tryParse(val);
                                 if (d != null) {
                                   setState(() {
-                                    final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == _buildRowKey(item));
+                                    final idx = _selectedItems.indexWhere(
+                                      (e) => _buildRowKey(e) == rowKey,
+                                    );
                                     if (idx != -1) {
                                       final normalizedToPick = d < 0 ? 0.0 : d;
                                       _selectedItems[idx] = item.copyWith(
                                         quantityToPick: normalizedToPick,
-                                        quantityPicked: normalizedToPick,
                                       );
                                     }
                                   });
@@ -915,37 +1139,45 @@ class _InventoryPicklistsCreateScreenState
                       ),
                       const VerticalDivider(width: 1, color: _borderCol),
                       Expanded(
-                        flex: 1,
+                        flex: 2,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             _buildQuantityField(
-                              fieldKey: '${_buildRowKey(item)}_picked_main',
+                              fieldKey: '${rowKey}_picked_main',
                               initialValue: _currentPickedQty(item),
-                              hasError: _currentPickedQty(item) > (_currentQtyToPick(item) + 0.0001),
-                              showPermanentBorder: (_currentPickedQty(item) - _currentQtyToPick(item)).abs() < 0.0001,
+                              hasError:
+                                  _currentPickedQty(item) >
+                                  (_currentQtyToPick(item) + 0.0001),
+                              showPermanentBorder:
+                                  (_currentPickedQty(item) -
+                                          _currentQtyToPick(item))
+                                      .abs() <
+                                  0.0001,
                               onChanged: (val) {
                                 final d = double.tryParse(val);
                                 if (d != null) {
                                   setState(() {
-                                    final maxAllowed = _currentQtyToPick(item);
                                     final nonNegative = d < 0 ? 0.0 : d;
-                                    final adjusted = nonNegative > maxAllowed ? maxAllowed : nonNegative;
-                                    final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == _buildRowKey(item));
+                                    final idx = _selectedItems.indexWhere(
+                                      (e) => _buildRowKey(e) == rowKey,
+                                    );
                                     if (idx != -1) {
-                                      _selectedItems[idx] = item.copyWith(quantityPicked: adjusted);
+                                      _selectedItems[idx] = item.copyWith(
+                                        quantityPicked: nonNegative,
+                                      );
                                     }
                                   });
                                 }
                               },
                             ),
                             if (_currentPickedQty(item) > 0) ...[
-                              if (_savedBatchKeys.contains(_buildRowKey(item))) ...[
+                              if (_savedBatchKeys.contains(rowKey)) ...[
                                 const SizedBox(height: 6),
                                 InkWell(
                                   onTap: () => _showSelectBatchesDialog(item),
                                   child: Text(
-                                    '${_currentPickedQty(item).toInt()} pcs taken from\n${_savedBatchCounts[_buildRowKey(item)] ?? 1} ${(_savedBatchCounts[_buildRowKey(item)] ?? 1) == 1 ? 'batch' : 'batches'}.',
+                                    '${_currentPickedQty(item).toInt()} pcs taken from\n${_savedBatchCounts[rowKey] ?? 1} ${(_savedBatchCounts[rowKey] ?? 1) == 1 ? 'batch' : 'batches'}.',
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       fontSize: 11,
@@ -960,7 +1192,7 @@ class _InventoryPicklistsCreateScreenState
                                 InkWell(
                                   onTap: () => _showSelectBatchesDialog(item),
                                   child: Text(
-                                    'Add Batches',
+                                    'Select Batch and Bin',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 11,
@@ -978,11 +1210,16 @@ class _InventoryPicklistsCreateScreenState
                       SizedBox(
                         width: 40,
                         child: InkWell(
-                          onTap: () => setState(() => _selectedItems.removeAt(index)),
+                          onTap: () =>
+                              setState(() => _selectedItems.removeAt(index)),
                           borderRadius: BorderRadius.circular(4),
                           child: const Padding(
                             padding: EdgeInsets.all(8),
-                            child: Icon(LucideIcons.x, size: 16, color: _dangerRed),
+                            child: Icon(
+                              LucideIcons.x,
+                              size: 16,
+                              color: _dangerRed,
+                            ),
                           ),
                         ),
                       ),
@@ -1012,7 +1249,10 @@ class _InventoryPicklistsCreateScreenState
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Text('Total Items: ${grouped.length}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          child: Text(
+            'Total Items: ${grouped.length}',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
         ),
         Container(
           decoration: BoxDecoration(
@@ -1022,64 +1262,164 @@ class _InventoryPicklistsCreateScreenState
           ),
           child: Column(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF9FAFB),
-                  border: Border(bottom: BorderSide(color: _borderCol)),
-                ),
-                child: Row(
-                  children: [
-                    const Expanded(flex: 4, child: Text('ITEMS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary))),
-                    const VerticalDivider(width: 1, color: _borderCol),
-                    const Expanded(flex: 2, child: Padding(
-                      padding: EdgeInsets.only(left: 12),
-                      child: Text('ASSIGNEE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary)),
-                    )),
-                    const VerticalDivider(width: 1, color: _borderCol),
-                    const Expanded(flex: 3, child: Padding(
-                      padding: EdgeInsets.only(left: 12),
-                      child: Text('ORDER#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary)),
-                    )),
-                    const VerticalDivider(width: 1, color: _borderCol),
-                    const Expanded(flex: 1, child: Text('QTY ORDERED', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary), textAlign: TextAlign.center)),
-                    const VerticalDivider(width: 1, color: _borderCol),
-                    Expanded(
-                      flex: 2,
-                      child: Center(
+              IntrinsicHeight(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF9FAFB),
+                    border: Border(bottom: BorderSide(color: _borderCol)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        flex: 6,
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text('QTY TO PICK', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary)),
-                            const SizedBox(width: 4),
-                            const _PicklistZTooltip(
-                              message: "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
-                              child: Icon(LucideIcons.info, size: 12, color: _textSecondary),
+                            const Expanded(
+                              flex: 4,
+                              child: Text(
+                                'ITEMS',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: _textSecondary,
+                                ),
+                              ),
                             ),
+                            const VerticalDivider(width: 1, color: _borderCol),
+                            const Expanded(
+                              flex: 2,
+                              child: Center(
+                                child: Text(
+                                  'ASSIGNEE',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const VerticalDivider(width: 1, color: _borderCol),
                           ],
                         ),
                       ),
-                    ),
-                    const VerticalDivider(width: 1, color: _borderCol),
-                    Expanded(
-                      flex: 1,
-                      child: Center(
+                      Expanded(
+                        flex: 8,
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('QTY PICKED', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary)),
-                            const SizedBox(width: 4),
-                            const _PicklistZTooltip(
-                              message: "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
-                              child: Icon(LucideIcons.info, size: 12, color: _textSecondary),
+                            Expanded(
+                              flex: 1,
+                              child: Center(
+                                child: Text(
+                                  'SALES ORDER#',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                              ),
                             ),
+                            const VerticalDivider(width: 1, color: _borderCol),
+                            Expanded(
+                              flex: 1,
+                              child: Center(
+                                child: Text(
+                                  'QTY ORDERED',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textSecondary,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            const VerticalDivider(width: 1, color: _borderCol),
+                            Expanded(
+                              flex: 2,
+                              child: Center(
+                                child: Text(
+                                  'PREFERRED BIN',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textSecondary,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            const VerticalDivider(width: 1, color: _borderCol),
+                            Expanded(
+                              flex: 2,
+                              child: Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text(
+                                      'QTY TO PICK',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: _textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const _PicklistZTooltip(
+                                      message:
+                                          "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
+                                      child: Icon(
+                                        LucideIcons.info,
+                                        size: 12,
+                                        color: _textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const VerticalDivider(width: 1, color: _borderCol),
+                            Expanded(
+                              flex: 2,
+                              child: Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Text(
+                                      'QTY PICKED',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: _textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const _PicklistZTooltip(
+                                      message:
+                                          "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
+                                      child: Icon(
+                                        LucideIcons.info,
+                                        size: 12,
+                                        color: _textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 40),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 40),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               ListView.builder(
@@ -1092,7 +1432,10 @@ class _InventoryPicklistsCreateScreenState
                   final firstItem = itemsInGroup.first;
 
                   return Container(
-                    decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: _borderCol))),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: _borderCol)),
+                    ),
                     child: IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1101,38 +1444,157 @@ class _InventoryPicklistsCreateScreenState
                           Expanded(
                             flex: 6, // 4 + 2
                             child: Container(
-                              decoration: const BoxDecoration(border: Border(right: BorderSide(color: _borderCol))),
-                              padding: const EdgeInsets.only(left: 16, right: 0, top: 12, bottom: 12),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  right: BorderSide(color: _borderCol),
+                                ),
+                              ),
+                              padding: const EdgeInsets.only(
+                                left: 0,
+                                right: 0,
+                                top: 12,
+                                bottom: 12,
+                              ),
                               child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Expanded(
                                     flex: 4,
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text(firstItem.productName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                        Text(
+                                          firstItem.productName,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
                                         const SizedBox(height: 4),
-                                        Text('Total Orders: ${itemsInGroup.length}', style: const TextStyle(fontSize: 11, color: _textSecondary)),
+                                        Text(
+                                          'Total Orders: ${itemsInGroup.length}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: _textSecondary,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
-                                  const VerticalDivider(width: 1, color: _borderCol),
+                                  const VerticalDivider(
+                                    width: 1,
+                                    color: _borderCol,
+                                  ),
                                   Expanded(
                                     flex: 2,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(left: 12),
-                                      child: FormDropdown<String>(
-                                        value: null,
-                                        items: const ['User 1', 'User 2', 'User 3'],
-                                        hint: 'Select User',
-                                        displayStringForValue: (s) => s,
-                                        searchStringForValue: (s) => s,
-                                        itemBuilder: (item, isSelected, isHovered) => Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          child: Text(item, style: const TextStyle(fontSize: 13)),
+                                    child: Center(
+                                      child: MouseRegion(
+                                        onEnter: (_) => setState(
+                                          () => _hoveredAssigneeFieldKeys.add(
+                                            'item_assignee_$productId',
+                                          ),
                                         ),
-                                        onChanged: (val) {},
+                                        onExit: (_) => setState(
+                                          () => _hoveredAssigneeFieldKeys
+                                              .remove('item_assignee_$productId'),
+                                        ),
+                                        child: Consumer(
+                                          builder: (context, ref, _) {
+                                            final usersAsync = ref.watch(
+                                              allUsersProvider,
+                                            );
+                                            final assigneeOptions =
+                                                usersAsync.maybeWhen(
+                                                  data: (users) => users
+                                                      .map((u) => u.fullName)
+                                                      .where(
+                                                        (name) =>
+                                                            name.trim().isNotEmpty,
+                                                      )
+                                                      .toList(),
+                                                  orElse: () => <String>[],
+                                                );
+                                            const fallbackAssignees = <String>[
+                                              'User 1',
+                                              'User 2',
+                                              'User 3',
+                                            ];
+                                            final assigneeItems =
+                                                assigneeOptions.isNotEmpty
+                                                ? assigneeOptions
+                                                : fallbackAssignees;
+
+                                            return FormDropdown<String>(
+                                              hint: 'Select User',
+                                              value: assigneeItems.contains(
+                                                _itemGroupAssigneeByProductId[
+                                                    productId],
+                                              )
+                                                  ? _itemGroupAssigneeByProductId[
+                                                        productId]
+                                                  : null,
+                                              items: assigneeItems,
+                                              border: Border.all(
+                                                color:
+                                                    _hoveredAssigneeFieldKeys
+                                                            .contains(
+                                                              'item_assignee_$productId',
+                                                            )
+                                                        ||
+                                                        _itemGroupAssigneeByProductId[
+                                                                productId] !=
+                                                            null
+                                                    ? const Color(0xFF3B82F6)
+                                                    : Colors.transparent,
+                                              ),
+                                              fillColor: Colors.transparent,
+                                                displayStringForValue: (name) =>
+                                                  name,
+                                                searchStringForValue: (name) =>
+                                                  name,
+                                              itemBuilder:
+                                                  (
+                                                    item,
+                                                    isSelected,
+                                                    isHovered,
+                                                  ) => Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 8,
+                                                        ),
+                                                    color: isHovered
+                                                        ? const Color(
+                                                            0xFF3B82F6,
+                                                          )
+                                                        : (isSelected
+                                                              ? const Color(
+                                                                  0xFFF3F4F6,
+                                                                )
+                                                              : Colors
+                                                                    .transparent),
+                                                    child: Text(
+                                                      item,
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        color: isHovered
+                                                            ? Colors.white
+                                                            : const Color(
+                                                                0xFF1F2937,
+                                                              ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              onChanged: (val) => setState(
+                                                () =>
+                                                    _itemGroupAssigneeByProductId[
+                                                      productId
+                                                    ] = val,
+                                              ),
+                                            );
+                                          },
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -1142,65 +1604,107 @@ class _InventoryPicklistsCreateScreenState
                           ),
                           // Right side rows for each order
                           Expanded(
-                            flex: 7, // 3 + 1 + 2 + 1
+                            flex: 8, // 3 + 1 + 1 + 2 + 1
                             child: Column(
                               children: itemsInGroup.map((item) {
                                 final isLast = item == itemsInGroup.last;
                                 final available = item.availableQuantity;
 
                                 return Container(
-                                  padding: const EdgeInsets.only(left: 16, right: 0, top: 8, bottom: 8),
-                                  decoration: BoxDecoration(
-                                    border: isLast ? null : const Border(bottom: BorderSide(color: _borderCol)),
+                                  padding: const EdgeInsets.only(
+                                    left: 0,
+                                    right: 0,
+                                    top: 8,
+                                    bottom: 8,
                                   ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        flex: 3,
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(top: 2),
+                                  decoration: BoxDecoration(
+                                    border: isLast
+                                        ? null
+                                        : const Border(
+                                            bottom: BorderSide(
+                                              color: _borderCol,
+                                            ),
+                                          ),
+                                  ),
+                                  child: IntrinsicHeight(
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(
+                                        flex: 1,
+                                        child: Center(
                                           child: Text(
                                             item.salesOrderNumber ?? '--',
                                             textAlign: TextAlign.center,
-                                            style: const TextStyle(fontSize: 13, color: _textPrimary),
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: _textPrimary,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                      const VerticalDivider(width: 1, color: _borderCol),
+                                      const VerticalDivider(
+                                        width: 1,
+                                        color: _borderCol,
+                                      ),
                                       Expanded(
                                         flex: 1,
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(top: 2),
+                                        child: Center(
                                           child: Text(
                                             '${item.quantityOrdered?.toInt() ?? 1}',
                                             textAlign: TextAlign.center,
-                                            style: const TextStyle(fontSize: 13),
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                      const VerticalDivider(width: 1, color: _borderCol),
+                                      const VerticalDivider(
+                                        width: 1,
+                                        color: _borderCol,
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Center(
+                                          child: Text(
+                                            item.preferredBin ?? 'N/A',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: _textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const VerticalDivider(
+                                        width: 1,
+                                        color: _borderCol,
+                                      ),
                                       Expanded(
                                         flex: 2,
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
                                           children: [
                                             _buildQuantityField(
-                                              fieldKey: '${_buildRowKey(item)}_to_pick_compact',
-                                              initialValue: item.quantityToPick ?? 1.0,
+                                              fieldKey:
+                                                  '${_buildRowKey(item)}_to_pick_compact',
+                                              initialValue:
+                                                  item.quantityToPick ?? 1.0,
                                               onChanged: (val) {
                                                 final d = double.tryParse(val);
                                                 if (d != null) {
                                                   setState(() {
-                                                    final idx = _selectedItems.indexOf(item);
+                                                    final idx = _selectedItems
+                                                        .indexOf(item);
                                                     if (idx != -1) {
-                                                      final normalizedToPick = d < 0 ? 0.0 : d;
-                                                      final currentPicked = _selectedItems[idx].quantityPicked ?? 0;
-                                                      final adjustedPicked = currentPicked > normalizedToPick ? normalizedToPick : currentPicked;
-                                                      _selectedItems[idx] = item.copyWith(
-                                                        quantityToPick: normalizedToPick,
-                                                        quantityPicked: adjustedPicked,
-                                                      );
+                                                      final normalizedToPick =
+                                                          d < 0 ? 0.0 : d;
+                                                      _selectedItems[idx] = item
+                                                          .copyWith(
+                                                            quantityToPick:
+                                                                normalizedToPick,
+                                                          );
                                                     }
                                                   });
                                                 }
@@ -1212,7 +1716,10 @@ class _InventoryPicklistsCreateScreenState
                                               textAlign: TextAlign.center,
                                               style: TextStyle(
                                                 fontSize: 10,
-                                                color: available >= (item.quantityToPick ?? 1.0)
+                                                color:
+                                                    available >=
+                                                        (item.quantityToPick ??
+                                                            1.0)
                                                     ? _textSecondary
                                                     : _dangerRed,
                                               ),
@@ -1220,44 +1727,69 @@ class _InventoryPicklistsCreateScreenState
                                           ],
                                         ),
                                       ),
-                                      const VerticalDivider(width: 1, color: _borderCol),
+                                      const VerticalDivider(
+                                        width: 1,
+                                        color: _borderCol,
+                                      ),
                                       Expanded(
-                                        flex: 1,
+                                        flex: 2,
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
                                           children: [
                                             _buildQuantityField(
-                                              fieldKey: '${_buildRowKey(item)}_picked_compact',
-                                              initialValue: _currentPickedQty(item),
-                                              hasError: _currentPickedQty(item) > (_currentQtyToPick(item) + 0.0001),
-                                              showPermanentBorder: (_currentPickedQty(item) - _currentQtyToPick(item)).abs() < 0.0001,
+                                              fieldKey:
+                                                  '${_buildRowKey(item)}_picked_compact',
+                                              initialValue: _currentPickedQty(
+                                                item,
+                                              ),
+                                              hasError:
+                                                  _currentPickedQty(item) >
+                                                  (_currentQtyToPick(item) +
+                                                      0.0001),
+                                              showPermanentBorder:
+                                                  (_currentPickedQty(item) -
+                                                          _currentQtyToPick(
+                                                            item,
+                                                          ))
+                                                      .abs() <
+                                                  0.0001,
                                               onChanged: (val) {
                                                 final d = double.tryParse(val);
                                                 if (d != null) {
                                                   setState(() {
-                                                    final idx = _selectedItems.indexOf(item);
+                                                    final nonNegative = d < 0 ? 0.0 : d;
+                                                    final idx = _selectedItems
+                                                        .indexOf(item);
                                                     if (idx != -1) {
-                                                      final maxAllowed = _currentQtyToPick(item);
-                                                      final nonNegative = d < 0 ? 0.0 : d;
-                                                      final adjusted = nonNegative > maxAllowed ? maxAllowed : nonNegative;
-                                                      _selectedItems[idx] = item.copyWith(quantityPicked: adjusted);
+                                                      _selectedItems[idx] = item
+                                                          .copyWith(
+                                                            quantityPicked: nonNegative,
+                                                          );
                                                     }
                                                   });
                                                 }
                                               },
                                             ),
-                                            if (_currentPickedQty(item) > 0) ...[
-                                              if (_savedBatchKeys.contains(_buildRowKey(item))) ...[
+                                            if (_currentPickedQty(item) >
+                                                0) ...[
+                                              if (_savedBatchKeys.contains(
+                                                _buildRowKey(item),
+                                              )) ...[
                                                 const SizedBox(height: 6),
                                                 InkWell(
-                                                  onTap: () => _showSelectBatchesDialog(item),
+                                                  onTap: () =>
+                                                      _showSelectBatchesDialog(
+                                                        item,
+                                                      ),
                                                   child: Text(
                                                     '${_currentPickedQty(item).toInt()} pcs taken from\n${_savedBatchCounts[_buildRowKey(item)] ?? 1} ${(_savedBatchCounts[_buildRowKey(item)] ?? 1) == 1 ? 'batch' : 'batches'}.',
                                                     textAlign: TextAlign.center,
                                                     style: const TextStyle(
                                                       fontSize: 11,
                                                       color: Color(0xFF2563EB),
-                                                      fontWeight: FontWeight.w500,
+                                                      fontWeight:
+                                                          FontWeight.w500,
                                                       fontFamily: 'Inter',
                                                     ),
                                                   ),
@@ -1265,14 +1797,20 @@ class _InventoryPicklistsCreateScreenState
                                               ] else ...[
                                                 const SizedBox(height: 6),
                                                 InkWell(
-                                                  onTap: () => _showSelectBatchesDialog(item),
+                                                  onTap: () =>
+                                                      _showSelectBatchesDialog(
+                                                        item,
+                                                      ),
                                                   child: Text(
-                                                    'Add Batches',
+                                                    'Select Batch and Bin',
                                                     textAlign: TextAlign.center,
                                                     style: TextStyle(
                                                       fontSize: 11,
-                                                      color: Colors.orange.shade700,
-                                                      fontWeight: FontWeight.w500,
+                                                      color: Colors
+                                                          .orange
+                                                          .shade700,
+                                                      fontWeight:
+                                                          FontWeight.w500,
                                                       fontFamily: 'Inter',
                                                     ),
                                                   ),
@@ -1285,15 +1823,24 @@ class _InventoryPicklistsCreateScreenState
                                       SizedBox(
                                         width: 40,
                                         child: InkWell(
-                                          onTap: () => setState(() => _selectedItems.remove(item)),
-                                          borderRadius: BorderRadius.circular(4),
+                                          onTap: () => setState(
+                                            () => _selectedItems.remove(item),
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                           child: const Padding(
                                             padding: EdgeInsets.all(8),
-                                            child: Icon(LucideIcons.x, size: 16, color: _dangerRed),
+                                            child: Icon(
+                                              LucideIcons.x,
+                                              size: 16,
+                                              color: _dangerRed,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ],
+                                  ),
                                   ),
                                 );
                               }).toList(),
@@ -1328,7 +1875,10 @@ class _InventoryPicklistsCreateScreenState
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Text('Total Sales Orders: ${grouped.length}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          child: Text(
+            'Total Sales Orders: ${grouped.length}',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
         ),
         Container(
           decoration: BoxDecoration(
@@ -1338,64 +1888,167 @@ class _InventoryPicklistsCreateScreenState
           ),
           child: Column(
             children: [
-              Container(
-                padding: const EdgeInsets.only(left: 16, right: 0, top: 10, bottom: 10),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF9FAFB),
-                  border: Border(bottom: BorderSide(color: _borderCol)),
-                ),
-                child: Row(
-                  children: [
-                    const Expanded(flex: 3, child: Text('ORDER#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary))),
-                    const VerticalDivider(width: 1, color: _borderCol),
-                    const Expanded(flex: 2, child: Padding(
-                      padding: EdgeInsets.only(left: 12),
-                      child: Text('ASSIGNEE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary)),
-                    )),
-                    const VerticalDivider(width: 1, color: _borderCol),
-                    const Expanded(flex: 4, child: Padding(
-                      padding: EdgeInsets.only(left: 12),
-                      child: Text('ITEMS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary)),
-                    )),
-                    const VerticalDivider(width: 1, color: _borderCol),
-                    const Expanded(flex: 1, child: Text('QTY ORDERED', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary), textAlign: TextAlign.center)),
-                    const VerticalDivider(width: 1, color: _borderCol),
-                    Expanded(
-                      flex: 2,
-                      child: Center(
+              IntrinsicHeight(
+                child: Container(
+                  padding: const EdgeInsets.only(
+                    left: 16,
+                    right: 0,
+                    top: 10,
+                    bottom: 10,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF9FAFB),
+                    border: Border(bottom: BorderSide(color: _borderCol)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        flex: 5,
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text('QTY TO PICK', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary)),
-                            const SizedBox(width: 4),
-                            const _PicklistZTooltip(
-                              message: "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
-                              child: Icon(LucideIcons.info, size: 12, color: _textSecondary),
+                            const Expanded(
+                              flex: 3,
+                              child: Text(
+                                'SALES ORDER#',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: _textSecondary,
+                                ),
+                              ),
                             ),
+                            const VerticalDivider(width: 1, color: _borderCol),
+                            const Expanded(
+                              flex: 2,
+                              child: Center(
+                                child: Text(
+                                  'ASSIGNEE',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const VerticalDivider(width: 1, color: _borderCol),
                           ],
                         ),
                       ),
-                    ),
-                    const VerticalDivider(width: 1, color: _borderCol),
-                    Expanded(
-                      flex: 1,
-                      child: Center(
+                      Expanded(
+                        flex: 9,
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('QTY PICKED', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textSecondary)),
-                            const SizedBox(width: 4),
-                            const _PicklistZTooltip(
-                              message: "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
-                              child: Icon(LucideIcons.info, size: 12, color: _textSecondary),
+                            const Expanded(
+                              flex: 3,
+                              child: Padding(
+                                padding: EdgeInsets.only(left: 12),
+                                child: Text(
+                                  'ITEMS',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                              ),
                             ),
+                            const VerticalDivider(width: 1, color: _borderCol),
+                            Expanded(
+                              flex: 1,
+                              child: Center(
+                                child: Text(
+                                  'QTY ORDERED',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textSecondary,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            const VerticalDivider(width: 1, color: _borderCol),
+                            Expanded(
+                              flex: 1,
+                              child: Center(
+                                child: Text(
+                                  'PREFERRED BIN',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textSecondary,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            const VerticalDivider(width: 1, color: _borderCol),
+                            Expanded(
+                              flex: 2,
+                              child: Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text(
+                                      'QTY TO PICK',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: _textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const _PicklistZTooltip(
+                                      message:
+                                          "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
+                                      child: Icon(
+                                        LucideIcons.info,
+                                        size: 12,
+                                        color: _textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const VerticalDivider(width: 1, color: _borderCol),
+                            Expanded(
+                              flex: 2,
+                              child: Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Text(
+                                      'QTY PICKED',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: _textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const _PicklistZTooltip(
+                                      message:
+                                          "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
+                                      child: Icon(
+                                        LucideIcons.info,
+                                        size: 12,
+                                        color: _textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 40),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 40),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               ListView.builder(
@@ -1408,7 +2061,10 @@ class _InventoryPicklistsCreateScreenState
                   final firstItem = itemsInGroup.first;
 
                   return Container(
-                    decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: _borderCol))),
+                    padding: const EdgeInsets.only(left: 16, right: 0),
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: _borderCol)),
+                    ),
                     child: IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1417,39 +2073,164 @@ class _InventoryPicklistsCreateScreenState
                           Expanded(
                             flex: 5,
                             child: Container(
-                              decoration: const BoxDecoration(border: Border(right: BorderSide(color: _borderCol))),
-                              padding: const EdgeInsets.only(left: 16, right: 0, top: 12, bottom: 12),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  right: BorderSide(color: _borderCol),
+                                ),
+                              ),
+                              padding: const EdgeInsets.only(
+                                left: 0,
+                                right: 0,
+                                top: 12,
+                                bottom: 12,
+                              ),
                               child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Expanded(
                                     flex: 3,
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text(so, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                        Text(
+                                          so,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
                                         const SizedBox(height: 4),
-                                        Text('Customer: ${firstItem.customerName ?? "Unknown"}', style: const TextStyle(fontSize: 11, color: _textSecondary)),
-                                        Text('Total Items: ${itemsInGroup.length}', style: const TextStyle(fontSize: 11, color: _textSecondary)),
+                                        Text(
+                                          'Customer: ${firstItem.customerName ?? "Unknown"}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: _textSecondary,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Total Items: ${itemsInGroup.length}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: _textSecondary,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
-                                  const VerticalDivider(width: 1, color: _borderCol),
+                                  const VerticalDivider(
+                                    width: 1,
+                                    color: _borderCol,
+                                  ),
                                   Expanded(
                                     flex: 2,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(left: 12),
-                                      child: FormDropdown<String>(
-                                        value: null,
-                                        items: const ['User 1', 'User 2', 'User 3'],
-                                        hint: 'Select User',
-                                        displayStringForValue: (s) => s,
-                                        searchStringForValue: (s) => s,
-                                        itemBuilder: (item, isSelected, isHovered) => Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          child: Text(item, style: const TextStyle(fontSize: 13)),
+                                    child: Center(
+                                      child: MouseRegion(
+                                        onEnter: (_) => setState(
+                                          () => _hoveredAssigneeFieldKeys.add(
+                                            'so_assignee_$so',
+                                          ),
                                         ),
-                                        onChanged: (val) {},
+                                        onExit: (_) => setState(
+                                          () => _hoveredAssigneeFieldKeys
+                                              .remove('so_assignee_$so'),
+                                        ),
+                                        child: Consumer(
+                                          builder: (context, ref, _) {
+                                            final usersAsync = ref.watch(
+                                              allUsersProvider,
+                                            );
+                                            final assigneeOptions =
+                                                usersAsync.maybeWhen(
+                                                  data: (users) => users
+                                                      .map((u) => u.fullName)
+                                                      .where(
+                                                        (name) =>
+                                                            name.trim().isNotEmpty,
+                                                      )
+                                                      .toList(),
+                                                  orElse: () => <String>[],
+                                                );
+                                            const fallbackAssignees = <String>[
+                                              'User 1',
+                                              'User 2',
+                                              'User 3',
+                                            ];
+                                            final assigneeItems =
+                                                assigneeOptions.isNotEmpty
+                                                ? assigneeOptions
+                                                : fallbackAssignees;
+
+                                            return FormDropdown<String>(
+                                              hint: 'Select User',
+                                              value: assigneeItems.contains(
+                                                _salesOrderGroupAssigneeByOrderNumber[
+                                                    so],
+                                              )
+                                                  ? _salesOrderGroupAssigneeByOrderNumber[
+                                                        so]
+                                                  : null,
+                                              items: assigneeItems,
+                                              border: Border.all(
+                                                color:
+                                                    _hoveredAssigneeFieldKeys
+                                                            .contains(
+                                                              'so_assignee_$so',
+                                                            )
+                                                        ||
+                                                        _salesOrderGroupAssigneeByOrderNumber[
+                                                                so] !=
+                                                            null
+                                                    ? const Color(0xFF3B82F6)
+                                                    : Colors.transparent,
+                                              ),
+                                              fillColor: Colors.transparent,
+                                                displayStringForValue: (name) =>
+                                                  name,
+                                                searchStringForValue: (name) =>
+                                                  name,
+                                              itemBuilder:
+                                                  (
+                                                    item,
+                                                    isSelected,
+                                                    isHovered,
+                                                  ) => Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 8,
+                                                        ),
+                                                    color: isHovered
+                                                        ? const Color(
+                                                            0xFF3B82F6,
+                                                          )
+                                                        : (isSelected
+                                                              ? const Color(
+                                                                  0xFFF3F4F6,
+                                                                )
+                                                              : Colors
+                                                                    .transparent),
+                                                    child: Text(
+                                                      item,
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        color: isHovered
+                                                            ? Colors.white
+                                                            : const Color(
+                                                                0xFF1F2937,
+                                                              ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              onChanged: (val) => setState(
+                                                () =>
+                                                    _salesOrderGroupAssigneeByOrderNumber[
+                                                      so
+                                                    ] = val,
+                                              ),
+                                            );
+                                          },
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -1459,64 +2240,119 @@ class _InventoryPicklistsCreateScreenState
                           ),
                           // Right side rows for each item
                           Expanded(
-                            flex: 8, // 4 + 1 + 2 + 1
+                            flex: 9, // 4 + 1 + 1 + 2 + 1
                             child: Column(
                               children: itemsInGroup.map((item) {
                                 final isLast = item == itemsInGroup.last;
                                 final available = item.availableQuantity;
 
                                 return Container(
-                                  padding: const EdgeInsets.only(left: 16, right: 0, top: 8, bottom: 8),
-                                  decoration: BoxDecoration(
-                                    border: isLast ? null : const Border(bottom: BorderSide(color: _borderCol)),
+                                  padding: const EdgeInsets.only(
+                                    left: 0,
+                                    right: 0,
+                                    top: 8,
+                                    bottom: 8,
                                   ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        flex: 4,
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(item.productName, style: const TextStyle(fontSize: 13, color: _textPrimary)),
-                                            Text('Unit: ${item.unitTitle ?? "pcs"}', style: const TextStyle(fontSize: 11, color: _textSecondary)),
-                                          ],
-                                        ),
-                                      ),
-                                      const VerticalDivider(width: 1, color: _borderCol),
-                                      Expanded(
-                                        flex: 1,
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(top: 2),
-                                          child: Text(
-                                            '${item.quantityOrdered?.toInt() ?? 1}',
-                                            textAlign: TextAlign.center,
-                                            style: const TextStyle(fontSize: 13),
+                                  decoration: BoxDecoration(
+                                    border: isLast
+                                        ? null
+                                        : const Border(
+                                            bottom: BorderSide(
+                                              color: _borderCol,
+                                            ),
+                                          ),
+                                  ),
+                                  child: IntrinsicHeight(
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(
+                                          flex: 3,
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(left: 12),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                              Text(
+                                                item.productName,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color: _textPrimary,
+                                                ),
+                                              ),
+                                              Text(
+                                                'Unit: ${item.unitTitle ?? "pcs"}',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: _textSecondary,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ),
-                                      const VerticalDivider(width: 1, color: _borderCol),
+                                      const VerticalDivider(
+                                        width: 1,
+                                        color: _borderCol,
+                                      ),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Center(
+                                          child: Text(
+                                            '${item.quantityOrdered?.toInt() ?? 1}',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const VerticalDivider(
+                                        width: 1,
+                                        color: _borderCol,
+                                      ),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Center(
+                                          child: Text(
+                                            item.preferredBin ?? 'N/A',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: _textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const VerticalDivider(
+                                        width: 1,
+                                        color: _borderCol,
+                                      ),
                                       Expanded(
                                         flex: 2,
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
                                           children: [
                                             _buildQuantityField(
-                                              fieldKey: '${_buildRowKey(item)}_to_pick_mobile',
-                                              initialValue: item.quantityToPick ?? 1.0,
+                                              fieldKey:
+                                                  '${_buildRowKey(item)}_to_pick_mobile',
+                                              initialValue:
+                                                  item.quantityToPick ?? 1.0,
                                               onChanged: (val) {
                                                 final d = double.tryParse(val);
                                                 if (d != null) {
                                                   setState(() {
-                                                    final idx = _selectedItems.indexOf(item);
+                                                    final idx = _selectedItems
+                                                        .indexOf(item);
                                                     if (idx != -1) {
-                                                      final normalizedToPick = d < 0 ? 0.0 : d;
-                                                      final currentPicked = _selectedItems[idx].quantityPicked ?? 0;
-                                                      final adjustedPicked = currentPicked > normalizedToPick ? normalizedToPick : currentPicked;
-                                                      _selectedItems[idx] = item.copyWith(
-                                                        quantityToPick: normalizedToPick,
-                                                        quantityPicked: adjustedPicked,
-                                                      );
+                                                      final normalizedToPick =
+                                                          d < 0 ? 0.0 : d;
+                                                      _selectedItems[idx] = item
+                                                          .copyWith(
+                                                            quantityToPick:
+                                                                normalizedToPick,
+                                                          );
                                                     }
                                                   });
                                                 }
@@ -1528,7 +2364,10 @@ class _InventoryPicklistsCreateScreenState
                                               textAlign: TextAlign.center,
                                               style: TextStyle(
                                                 fontSize: 10,
-                                                color: available >= (item.quantityToPick ?? 1.0)
+                                                color:
+                                                    available >=
+                                                        (item.quantityToPick ??
+                                                            1.0)
                                                     ? _textSecondary
                                                     : _dangerRed,
                                               ),
@@ -1536,44 +2375,69 @@ class _InventoryPicklistsCreateScreenState
                                           ],
                                         ),
                                       ),
-                                      const VerticalDivider(width: 1, color: _borderCol),
+                                      const VerticalDivider(
+                                        width: 1,
+                                        color: _borderCol,
+                                      ),
                                       Expanded(
-                                        flex: 1,
+                                        flex: 2,
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
                                           children: [
                                             _buildQuantityField(
-                                              fieldKey: '${_buildRowKey(item)}_picked_mobile',
-                                              initialValue: _currentPickedQty(item),
-                                              hasError: _currentPickedQty(item) > (_currentQtyToPick(item) + 0.0001),
-                                              showPermanentBorder: (_currentPickedQty(item) - _currentQtyToPick(item)).abs() < 0.0001,
+                                              fieldKey:
+                                                  '${_buildRowKey(item)}_picked_mobile',
+                                              initialValue: _currentPickedQty(
+                                                item,
+                                              ),
+                                              hasError:
+                                                  _currentPickedQty(item) >
+                                                  (_currentQtyToPick(item) +
+                                                      0.0001),
+                                              showPermanentBorder:
+                                                  (_currentPickedQty(item) -
+                                                          _currentQtyToPick(
+                                                            item,
+                                                          ))
+                                                      .abs() <
+                                                  0.0001,
                                               onChanged: (val) {
                                                 final d = double.tryParse(val);
                                                 if (d != null) {
                                                   setState(() {
-                                                    final idx = _selectedItems.indexOf(item);
+                                                    final nonNegative = d < 0 ? 0.0 : d;
+                                                    final idx = _selectedItems
+                                                        .indexOf(item);
                                                     if (idx != -1) {
-                                                      final maxAllowed = _currentQtyToPick(item);
-                                                      final nonNegative = d < 0 ? 0.0 : d;
-                                                      final adjusted = nonNegative > maxAllowed ? maxAllowed : nonNegative;
-                                                      _selectedItems[idx] = item.copyWith(quantityPicked: adjusted);
+                                                      _selectedItems[idx] = item
+                                                          .copyWith(
+                                                            quantityPicked: nonNegative,
+                                                          );
                                                     }
                                                   });
                                                 }
                                               },
                                             ),
-                                            if (_currentPickedQty(item) > 0) ...[
-                                              if (_savedBatchKeys.contains(_buildRowKey(item))) ...[
+                                            if (_currentPickedQty(item) >
+                                                0) ...[
+                                              if (_savedBatchKeys.contains(
+                                                _buildRowKey(item),
+                                              )) ...[
                                                 const SizedBox(height: 6),
                                                 InkWell(
-                                                  onTap: () => _showSelectBatchesDialog(item),
+                                                  onTap: () =>
+                                                      _showSelectBatchesDialog(
+                                                        item,
+                                                      ),
                                                   child: Text(
                                                     '${_currentPickedQty(item).toInt()} pcs taken from\n${_savedBatchCounts[_buildRowKey(item)] ?? 1} ${(_savedBatchCounts[_buildRowKey(item)] ?? 1) == 1 ? 'batch' : 'batches'}.',
                                                     textAlign: TextAlign.center,
                                                     style: const TextStyle(
                                                       fontSize: 11,
                                                       color: Color(0xFF2563EB),
-                                                      fontWeight: FontWeight.w500,
+                                                      fontWeight:
+                                                          FontWeight.w500,
                                                       fontFamily: 'Inter',
                                                     ),
                                                   ),
@@ -1581,14 +2445,20 @@ class _InventoryPicklistsCreateScreenState
                                               ] else ...[
                                                 const SizedBox(height: 6),
                                                 InkWell(
-                                                  onTap: () => _showSelectBatchesDialog(item),
+                                                  onTap: () =>
+                                                      _showSelectBatchesDialog(
+                                                        item,
+                                                      ),
                                                   child: Text(
-                                                    'Add Batches',
+                                                    'Select Batch and Bin',
                                                     textAlign: TextAlign.center,
                                                     style: TextStyle(
                                                       fontSize: 11,
-                                                      color: Colors.orange.shade700,
-                                                      fontWeight: FontWeight.w500,
+                                                      color: Colors
+                                                          .orange
+                                                          .shade700,
+                                                      fontWeight:
+                                                          FontWeight.w500,
                                                       fontFamily: 'Inter',
                                                     ),
                                                   ),
@@ -1601,15 +2471,24 @@ class _InventoryPicklistsCreateScreenState
                                       SizedBox(
                                         width: 40,
                                         child: InkWell(
-                                          onTap: () => setState(() => _selectedItems.remove(item)),
-                                          borderRadius: BorderRadius.circular(4),
+                                          onTap: () => setState(
+                                            () => _selectedItems.remove(item),
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                           child: const Padding(
                                             padding: EdgeInsets.all(8),
-                                            child: Icon(LucideIcons.x, size: 16, color: _dangerRed),
+                                            child: Icon(
+                                              LucideIcons.x,
+                                              size: 16,
+                                              color: _dangerRed,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ],
+                                  ),
                                   ),
                                 );
                               }).toList(),
@@ -1677,29 +2556,41 @@ class _InventoryPicklistsCreateScreenState
       child: Row(
         children: [
           ElevatedButton(
-            onPressed: (_isSaving || !_isFormValid || _selectedItems.isEmpty || !_allBatchesAdded) ? null : () async {
-              _validatePickList();
-              if (_validationErrors.isNotEmpty) return;
-              
-              setState(() => _isSaving = true);
-              // Simulate API call
-              await Future.delayed(const Duration(seconds: 1));
-              if (mounted) {
-                setState(() => _isSaving = false);
-                context.pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Picklist generated successfully'),
-                    backgroundColor: _greenBtn,
-                  ),
-                );
-              }
-            },
+            onPressed:
+                (_isSaving ||
+                    !_isFormValid ||
+                    _selectedItems.isEmpty ||
+                    !_allBatchesAdded)
+                ? null
+                : () async {
+                    _validatePickList();
+                    if (_validationErrors.isNotEmpty) return;
+
+                    setState(() => _isSaving = true);
+                    // Simulate API call
+                    await Future.delayed(const Duration(seconds: 1));
+                    if (mounted) {
+                      setState(() => _isSaving = false);
+                      context.pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Picklist generated successfully'),
+                          backgroundColor: _greenBtn,
+                        ),
+                      );
+                    }
+                  },
             style: ElevatedButton.styleFrom(
-              backgroundColor: (_isFormValid && _selectedItems.isNotEmpty && _allBatchesAdded)
+              backgroundColor:
+                  (_isFormValid &&
+                      _selectedItems.isNotEmpty &&
+                      _allBatchesAdded)
                   ? _greenBtn
                   : const Color(0xFFE5E7EB),
-              foregroundColor: (_isFormValid && _selectedItems.isNotEmpty && _allBatchesAdded)
+              foregroundColor:
+                  (_isFormValid &&
+                      _selectedItems.isNotEmpty &&
+                      _allBatchesAdded)
                   ? Colors.white
                   : const Color(0xFF9CA3AF),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -1750,11 +2641,7 @@ class _InventoryPicklistsCreateScreenState
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                LucideIcons.package,
-                size: 20,
-                color: Colors.black,
-              ),
+              const Icon(LucideIcons.package, size: 20, color: Colors.black),
               const SizedBox(width: 8),
               Text(
                 'Total Items Selected : ${_selectedItems.length}',
@@ -1774,40 +2661,32 @@ class _InventoryPicklistsCreateScreenState
 
   void _showAddItemsDialog() {
     if (_selectedWarehouse == null) return;
-    final warehouseId = _selectedWarehouse!.id;
-    
+    final warehouseId = _selectedWarehouse!.outletId ?? _selectedWarehouse!.id;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return Consumer(
           builder: (context, ref, _) {
-            final stocksAsync = ref.watch(stockByWarehouseProvider(warehouseId));
-            
-            return stocksAsync.when(
-              data: (allItems) {
-                // Merge warehouse items with all Sales Order items here
-                final List<WarehouseStockData> allMergedItems = [...allItems];
-                final soItemsAsync = ref.watch(allSalesOrderItemsProvider);
-                soItemsAsync.whenData((soItems) {
-                  for (var item in soItems) {
-                    allMergedItems.add(item);
-                  }
-                });
+            final stocksAsync = ref.watch(
+              stockByWarehouseProvider(warehouseId),
+            );
 
-                return _AddItemsDialogContent(
-                  warehouseItems: allMergedItems, // Pass allMergedItems here
-                  warehouseName: _selectedWarehouse!.name,
-                  initialGrouping: _selectedGroup ?? 'No Grouping',
-                  onGroupingChanged: (val) => setState(() => _selectedGroup = val),
-                  onItemsSelected: (selected) {
-                    setState(() {
-                      _selectedItems = selected;
-                    });
-                    Navigator.pop(dialogContext);
-                  },
-                );
-              },
+            return stocksAsync.when(
+              data: (allItems) => _AddItemsDialogContent(
+                warehouseItems: allItems,
+                warehouseName: _selectedWarehouse!.name,
+                initialGrouping: _selectedGroup ?? 'No Grouping',
+                onGroupingChanged: (val) =>
+                    setState(() => _selectedGroup = val),
+                onItemsSelected: (selected) {
+                  setState(() {
+                    _selectedItems = selected;
+                  });
+                  Navigator.pop(dialogContext);
+                },
+              ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, stack) => AlertDialog(
                 title: const Text('Error'),
@@ -1848,38 +2727,76 @@ class _AddItemsDialogContent extends StatefulWidget {
 
 class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
   final Set<String> selectedRowKeys = {};
+  bool _isCustomerFilterHovered = false;
+  bool _isItemsFilterHovered = false;
+  bool _isSalesOrdersFilterHovered = false;
 
   String _buildRowKey(WarehouseStockData item) {
     return '${item.productId}_${item.batchNo ?? ''}_${item.salesOrderId ?? ''}';
   }
-  
+
   late String _currentGrouping;
   String searchQuery = '';
   int activeTab = 0; // 0 = All Items, 1 = Selected Items
+  bool _showFilters = true;
 
   @override
   void initState() {
     super.initState();
     _currentGrouping = widget.initialGrouping;
+
+    // Populate filters from data
+    final distinctCustomers = <String, String>{};
+    final distinctItems = <String, String>{};
+    final distinctOrders = <String, String>{};
+
+    for (var item in widget.warehouseItems) {
+      if (item.customerId != null && item.customerName != null) {
+        distinctCustomers[item.customerId!] = item.customerName!;
+      }
+      distinctItems[item.productId] = item.productName;
+      if (item.salesOrderId != null && item.salesOrderNumber != null) {
+        distinctOrders[item.salesOrderId!] = item.salesOrderNumber!;
+      }
+    }
+
+    customers = distinctCustomers.entries
+        .map((e) => {'id': e.key, 'name': e.value})
+        .toList();
+    items = distinctItems.entries
+        .map((e) => {'id': e.key, 'name': e.value})
+        .toList();
+    salesOrders = distinctOrders.entries
+        .map((e) => {'id': e.key, 'number': e.value})
+        .toList();
   }
-  
+
   // Real filter data
   List<dynamic> customers = [];
   List<dynamic> items = [];
   List<dynamic> salesOrders = [];
-  
+
   bool isLoadingFilters = false;
 
   bool isSearching = false;
 
   // Selection states
-  Set<String> selectedCustomerId = {};
-  Set<String> selectedProductId = {};
-  Set<String> selectedSalesOrderId = {};
+  Set<String> _selectedCustomerId = <String>{};
+  Set<String> _selectedProductId = <String>{};
+  Set<String> _selectedSalesOrderId = <String>{};
+  Set<String> _appliedCustomerId = <String>{};
+  Set<String> _appliedProductId = <String>{};
+  Set<String> _appliedSalesOrderId = <String>{};
 
   void _onSearch() async {
-    setState(() => isSearching = true);
+    setState(() {
+      isSearching = true;
+      _appliedCustomerId = Set<String>.from(_selectedCustomerId);
+      _appliedProductId = Set<String>.from(_selectedProductId);
+      _appliedSalesOrderId = Set<String>.from(_selectedSalesOrderId);
+    });
     await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
     setState(() => isSearching = false);
   }
 
@@ -1893,84 +2810,119 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, child) {
-        // The allMergedItems should be passed from the parent, not re-calculated here
-        // However, the current structure merges SO items here.
-        // For now, we'll keep the merging logic here to align with the original intent
-        // but ideally, allMergedItems would be passed directly to the widget.
-        final List<WarehouseStockData> allMergedItems = [...widget.warehouseItems];
-        final soItemsAsync = ref.watch(allSalesOrderItemsProvider);
-        soItemsAsync.whenData((soItems) {
-          // Add SO items
-          for (var item in soItems) {
-            // Avoid duplicates if warehouseItems already contains SO items
-            if (!allMergedItems.any((e) => e.productId == item.productId && e.batchNo == item.batchNo)) {
-              allMergedItems.add(item);
-            }
-          }
-        });
+  Border _buildFilterFieldBorder({
+    required bool isHovered,
+    required bool hasValue,
+  }) {
+    return Border.all(
+      color: (isHovered || hasValue)
+          ? const Color(0xFF3B82F6)
+          : const Color(0xFFE5E7EB),
+    );
+  }
 
-        final filteredItems = allMergedItems.where((item) {
-          // Apply Text Search
-          if (searchQuery.isNotEmpty) {
-            final query = searchQuery.toLowerCase();
-            if (!item.productName.toLowerCase().contains(query) &&
-                !item.productCode.toLowerCase().contains(query)) {
-              return false;
-            }
-          }
+  Widget _buildFilterDropdownItem({
+    required String label,
+    required bool isSelected,
+    required bool isHovered,
+  }) {
+    final bool selectedAndHovered = isSelected && isHovered;
 
-          // Apply Filters (INCLUSIVE: show items that match the selected options)
-          if (selectedCustomerId.isNotEmpty) {
-            if (!selectedCustomerId.contains(item.customerId)) return false;
-          }
-          if (selectedProductId.isNotEmpty) {
-            if (!selectedProductId.contains(item.productId)) return false;
-          }
-          if (selectedSalesOrderId.isNotEmpty) {
-            if (!selectedSalesOrderId.contains(item.salesOrderId)) return false;
-          }
-
-
-          return true;
-        }).toList();
-
-        return Dialog(
-          alignment: Alignment.topCenter,
-          backgroundColor: Colors.white,
-          insetPadding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-          child: SizedBox(
-            width: 1200,
-            height: 750,
-            child: Column(
-              children: [
-                // Header Section
-                _buildDialogHeader(),
-                
-                // Filter Section
-                _buildFilterSection(),
-                
-                // Tabs & Group By
-                _buildTabsAndGroupBy(filteredItems.length),
-                
-                // Table
-                Expanded(
-                  child: activeTab == 0
-                      ? _buildItemsTable(filteredItems)
-                      : _buildSelectedItemsTable(allMergedItems), // Pass allMergedItems
-                ),
-                
-                // Footer
-                _buildDialogFooter(allMergedItems), // Pass allMergedItems
-              ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: selectedAndHovered
+            ? const Color(0xFF3B82F6)
+            : (isSelected ? const Color(0xFFF3F4F6) : Colors.white),
+        borderRadius: BorderRadius.circular(4),
+        border: (!isSelected && isHovered)
+            ? Border.all(color: const Color(0xFFE5E7EB))
+            : null,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                color: selectedAndHovered ? Colors.white : const Color(0xFF1F2937),
+              ),
             ),
           ),
-        );
-      },
+          if (isSelected)
+            const Icon(
+              Icons.close,
+              size: 14,
+              color: Color(0xFFEF4444),
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Only use warehouse items passed from parent to avoid async merge freezes
+    final List<WarehouseStockData> displayItems = [...widget.warehouseItems];
+
+    final filteredItems = displayItems.where((item) {
+      // Apply Text Search
+      if (searchQuery.isNotEmpty) {
+        final query = searchQuery.toLowerCase();
+        if (!item.productName.toLowerCase().contains(query) &&
+            !item.productCode.toLowerCase().contains(query)) {
+          return false;
+        }
+      }
+
+      // Apply Filters (INCLUSIVE: show items that match the selected options)
+      if (_appliedCustomerId.isNotEmpty) {
+        if (!_appliedCustomerId.contains(item.customerId)) return false;
+      }
+      if (_appliedProductId.isNotEmpty) {
+        if (!_appliedProductId.contains(item.productId)) return false;
+      }
+      if (_appliedSalesOrderId.isNotEmpty) {
+        if (!_appliedSalesOrderId.contains(item.salesOrderId)) return false;
+      }
+
+      return true;
+    }).toList();
+
+    return Dialog(
+      alignment: Alignment.topCenter,
+      backgroundColor: Colors.white,
+      insetPadding: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      child: SizedBox(
+        width: 1200,
+        height: 750,
+        child: Column(
+          children: [
+            // Header Section
+            _buildDialogHeader(),
+
+            // Filter Section
+            _buildFilterSection(),
+
+            // Tabs & Group By
+            _buildTabsAndGroupBy(filteredItems.length),
+
+            // Table
+            Expanded(
+              child: activeTab == 0
+                  ? _buildItemsTable(filteredItems)
+                  : _buildSelectedItemsTable(displayItems),
+            ),
+
+            // Footer
+            _buildDialogFooter(displayItems),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2000,7 +2952,15 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                 ),
               ),
               const SizedBox(width: 4),
-              const Icon(LucideIcons.info, size: 14, color: Color(0xFF9CA3AF)),
+              const _PicklistZTooltip(
+                message:
+                    'Only items from this location can be added to the picklist.',
+                child: Icon(
+                  LucideIcons.info,
+                  size: 14,
+                  color: Color(0xFF9CA3AF),
+                ),
+              ),
             ],
           ),
           const SizedBox(width: 24),
@@ -2013,15 +2973,23 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
             ),
           ),
           const SizedBox(width: 24),
-          OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(LucideIcons.filter, size: 14),
-            label: const Text('Filter'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF333333),
-              side: const BorderSide(color: Color(0xFFD1D5DB)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          _PicklistZTooltip(
+            message: 'Toggle filter view',
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() => _showFilters = !_showFilters),
+              icon: const Icon(LucideIcons.filter, size: 14),
+              label: const Text('Filter'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF333333),
+                side: const BorderSide(color: Color(0xFFD1D5DB)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 24),
@@ -2042,6 +3010,7 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
   }
 
   Widget _buildFilterSection() {
+    if (!_showFilters) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Column(
@@ -2052,25 +3021,57 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
               Expanded(
                 child: Consumer(
                   builder: (context, ref, _) {
-                    final customersAsync = ref.watch(customersProvider);
+                    final customersAsync = ref.watch(salesCustomersProvider);
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Customer Name', style: TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 8),
-                        FormDropdown<dynamic>(
-                          hint: 'Click or Type to select',
-                          isMultiSelect: true,
-                          selectedValues: customersAsync.maybeWhen(
-                            data: (list) => list.where((c) => selectedCustomerId.contains(c['id'])).toList(),
-                            orElse: () => [],
+                        const Text(
+                          'Customer Name',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF4B5563),
+                            fontWeight: FontWeight.w500,
                           ),
-                          items: customersAsync.maybeWhen(data: (list) => list, orElse: () => []),
-                          displayStringForValue: (val) => val?['display_name'] ?? val?['company_name'] ?? '',
-                          onChanged: (_) {}, // Single select callback not used
-                          onMultiChanged: (vals) => setState(() {
-                            selectedCustomerId = vals.map((v) => v['id'].toString()).toSet();
-                          }),
+                        ),
+                        const SizedBox(height: 8),
+                        MouseRegion(
+                          onEnter: (_) =>
+                              setState(() => _isCustomerFilterHovered = true),
+                          onExit: (_) =>
+                              setState(() => _isCustomerFilterHovered = false),
+                          child: FormDropdown<SalesCustomer>(
+                            hint: 'Click or Type to select',
+                            multiSelect: true,
+                            value: null,
+                            onChanged: (_) {},
+                            border: _buildFilterFieldBorder(
+                              isHovered: _isCustomerFilterHovered,
+                              hasValue: _selectedCustomerId.isNotEmpty,
+                            ),
+                            selectedValues: customersAsync.maybeWhen(
+                              data: (list) => list
+                                  .where((c) => _selectedCustomerId.contains(c.id))
+                                  .toList(),
+                              orElse: () => [],
+                            ),
+                            items: customersAsync.maybeWhen(
+                              data: (list) => list,
+                              orElse: () => [],
+                            ),
+                            onSelectedValuesChanged: (vals) => setState(() {
+                              _selectedCustomerId = vals.map((v) => v.id).toSet();
+                            }),
+                            displayStringForValue: (val) => val.displayName,
+                            showSearch: true,
+                            searchStringForValue: (val) => val.displayName,
+                            hideSelectedItemsInMultiSelect: false,
+                            itemBuilder: (item, isSelected, isHovered) =>
+                                _buildFilterDropdownItem(
+                                  label: item.displayName,
+                                  isSelected: isSelected,
+                                  isHovered: isHovered,
+                                ),
+                          ),
                         ),
                       ],
                     );
@@ -2081,25 +3082,57 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
               Expanded(
                 child: Consumer(
                   builder: (context, ref, _) {
-                    final productsAsync = ref.watch(productsLookupProvider);
+                    final productsAsync = ref.watch(itemsControllerProvider);
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Items', style: TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 8),
-                        FormDropdown<dynamic>(
-                          hint: 'Click or Type to select',
-                          isMultiSelect: true,
-                          selectedValues: productsAsync.maybeWhen(
-                            data: (list) => list.where((p) => selectedProductId.contains(p['id'])).toList(),
-                            orElse: () => [],
+                        const Text(
+                          'Items',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF4B5563),
+                            fontWeight: FontWeight.w500,
                           ),
-                          items: productsAsync.maybeWhen(data: (list) => list, orElse: () => []),
-                          displayStringForValue: (val) => val?['product_name'] ?? '',
-                          onChanged: (_) {},
-                          onMultiChanged: (vals) => setState(() {
-                            selectedProductId = vals.map((v) => v['id'].toString()).toSet();
-                          }),
+                        ),
+                        const SizedBox(height: 8),
+                        MouseRegion(
+                          onEnter: (_) =>
+                              setState(() => _isItemsFilterHovered = true),
+                          onExit: (_) =>
+                              setState(() => _isItemsFilterHovered = false),
+                          child: FormDropdown<Item>(
+                            hint: 'Click or Type to select',
+                            multiSelect: true,
+                            value: null,
+                            onChanged: (_) {},
+                            border: _buildFilterFieldBorder(
+                              isHovered: _isItemsFilterHovered,
+                              hasValue: _selectedProductId.isNotEmpty,
+                            ),
+                            selectedValues: _selectedProductId.isEmpty
+                                ? []
+                                : productsAsync.items
+                                      .where(
+                                        (p) => _selectedProductId.contains(p.id),
+                                      )
+                                      .toList(),
+                            items: productsAsync.items,
+                            onSelectedValuesChanged: (vals) => setState(() {
+                              _selectedProductId = vals
+                                  .map((v) => v.id ?? '')
+                                  .toSet();
+                            }),
+                            displayStringForValue: (val) => val.productName,
+                            showSearch: true,
+                            searchStringForValue: (val) => val.productName,
+                            hideSelectedItemsInMultiSelect: false,
+                            itemBuilder: (item, isSelected, isHovered) =>
+                                _buildFilterDropdownItem(
+                                  label: item.productName,
+                                  isSelected: isSelected,
+                                  isHovered: isHovered,
+                                ),
+                          ),
                         ),
                       ],
                     );
@@ -2110,25 +3143,62 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
               Expanded(
                 child: Consumer(
                   builder: (context, ref, _) {
-                    final salesAsync = ref.watch(salesOrdersProvider);
+                    final soAsync = ref.watch(salesOrderControllerProvider);
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Sales Orders', style: TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 8),
-                        FormDropdown<dynamic>(
-                          hint: 'Click or Type to select',
-                          isMultiSelect: true,
-                          selectedValues: salesAsync.maybeWhen(
-                            data: (list) => list.where((s) => selectedSalesOrderId.contains(s['id'])).toList(),
-                            orElse: () => [],
+                        const Text(
+                          'Sales Orders',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF4B5563),
+                            fontWeight: FontWeight.w500,
                           ),
-                          items: salesAsync.maybeWhen(data: (list) => list, orElse: () => []),
-                          displayStringForValue: (val) => val?['sale_number'] ?? '',
-                          onChanged: (_) {},
-                          onMultiChanged: (vals) => setState(() {
-                            selectedSalesOrderId = vals.map((v) => v['id'].toString()).toSet();
-                          }),
+                        ),
+                        const SizedBox(height: 8),
+                        MouseRegion(
+                          onEnter: (_) =>
+                              setState(() => _isSalesOrdersFilterHovered = true),
+                          onExit: (_) => setState(
+                            () => _isSalesOrdersFilterHovered = false,
+                          ),
+                          child: FormDropdown<SalesOrder>(
+                            hint: 'Click or Type to select',
+                            multiSelect: true,
+                            value: null,
+                            onChanged: (_) {},
+                            border: _buildFilterFieldBorder(
+                              isHovered: _isSalesOrdersFilterHovered,
+                              hasValue: _selectedSalesOrderId.isNotEmpty,
+                            ),
+                            selectedValues: soAsync.maybeWhen(
+                              data: (list) => list
+                                  .where(
+                                    (s) => _selectedSalesOrderId.contains(s.id),
+                                  )
+                                  .toList(),
+                              orElse: () => [],
+                            ),
+                            items: soAsync.maybeWhen(
+                              data: (list) => list,
+                              orElse: () => [],
+                            ),
+                            onSelectedValuesChanged: (vals) => setState(() {
+                              _selectedSalesOrderId = vals
+                                  .map((v) => v.id)
+                                  .toSet();
+                            }),
+                            displayStringForValue: (val) => val.saleNumber,
+                            showSearch: true,
+                            searchStringForValue: (val) => val.saleNumber,
+                            hideSelectedItemsInMultiSelect: false,
+                            itemBuilder: (item, isSelected, isHovered) =>
+                                _buildFilterDropdownItem(
+                                  label: item.saleNumber,
+                                  isSelected: isSelected,
+                                  isHovered: isHovered,
+                                ),
+                          ),
                         ),
                       ],
                     );
@@ -2144,12 +3214,24 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
               backgroundColor: const Color(0xFF22A95E),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
               elevation: 0,
             ),
-            child: isSearching 
-              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('Search', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            child: isSearching
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text(
+                    'Search',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
           ),
         ],
       ),
@@ -2164,13 +3246,24 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
       ),
       child: Row(
         children: [
-          _buildTab('All Items($allCount)', activeTab == 0, () => setState(() => activeTab = 0)),
+          _buildTab(
+            'All Items($allCount)',
+            activeTab == 0,
+            () => setState(() => activeTab = 0),
+          ),
           const SizedBox(width: 24),
-          _buildTab('Selected Items(${selectedRowKeys.length})', activeTab == 1, () => setState(() => activeTab = 1)),
+          _buildTab(
+            'Selected Items(${selectedRowKeys.length})',
+            activeTab == 1,
+            () => setState(() => activeTab = 1),
+          ),
           const Spacer(),
           Row(
             children: [
-              const Text('Group By: ', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+              const Text(
+                'Group By: ',
+                style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              ),
               SizedBox(
                 width: 140,
                 height: 40,
@@ -2179,17 +3272,43 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                   items: const ['No Grouping', 'By Item', 'By Sales Orders'],
                   hint: 'No Grouping',
                   showSearch: false,
+                  maxVisibleItems: 3,
                   displayStringForValue: (s) => s,
                   searchStringForValue: (s) => s,
                   itemBuilder: (item, isSelected, isHovered) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    color: isHovered ? const Color(0xFF3B82F6) : Colors.transparent,
-                    child: Text(
-                      item,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isHovered ? Colors.white : const Color(0xFF374151),
-                      ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    color: isHovered
+                        ? const Color(0xFF3B82F6)
+                        : (isSelected
+                              ? const Color(0xFFF3F4F6)
+                              : Colors.transparent),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          item,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected
+                                ? FontWeight.w500
+                                : FontWeight.normal,
+                            color: isHovered
+                                ? Colors.white
+                                : const Color(0xFF374151),
+                          ),
+                        ),
+                        if (isSelected)
+                          Icon(
+                            Icons.check,
+                            size: 14,
+                            color: isHovered
+                                ? Colors.white
+                                : const Color(0xFF374151),
+                          ),
+                      ],
                     ),
                   ),
                   onChanged: (val) {
@@ -2214,7 +3333,10 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(color: isActive ? const Color(0xFF3B82F6) : Colors.transparent, width: 2),
+            bottom: BorderSide(
+              color: isActive ? const Color(0xFF3B82F6) : Colors.transparent,
+              width: 2,
+            ),
           ),
         ),
         child: Text(
@@ -2230,6 +3352,27 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
   }
 
   Widget _buildItemsTable(List<WarehouseStockData> items) {
+    // Determine the flat list to render based on grouping logic
+    final flatList = <dynamic>[];
+
+    if (_currentGrouping == 'No Grouping' || _currentGrouping.isEmpty) {
+      flatList.addAll(items);
+    } else {
+      // Grouping by "By Item" or "By Sales Orders"
+      final groupedItems = <String, List<WarehouseStockData>>{};
+      for (var item in items) {
+        String key = _currentGrouping == 'By Item'
+            ? item.productName
+            : (item.salesOrderNumber ?? 'No Sales Order');
+        groupedItems.putIfAbsent(key, () => []).add(item);
+      }
+
+      for (var entry in groupedItems.entries) {
+        flatList.add({'isHeader': true, 'title': entry.key});
+        flatList.addAll(entry.value);
+      }
+    }
+
     return Column(
       children: [
         Container(
@@ -2244,32 +3387,78 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                 width: 20,
                 height: 20,
                 child: Checkbox(
-                  value: items.isNotEmpty && selectedRowKeys.length == items.length,
+                  value:
+                      items.isNotEmpty &&
+                      selectedRowKeys.length == items.length,
                   onChanged: (val) => _toggleSelectAll(items),
                   activeColor: const Color(0xFF3B82F6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                   side: const BorderSide(color: Color(0xFFD1D5DB)),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(flex: 3, child: _headerCell('ITEM DETAILS')),
-              Expanded(flex: 2, child: _headerCell('SKU')),
-              Expanded(flex: 2, child: _headerCell('SALES ORDER#', hasSort: true)),
-              Expanded(flex: 2, child: _headerCell('CUSTOMER NAME')),
-              Expanded(flex: 2, child: _headerCell('QUANTITY ORDERED', align: TextAlign.center)),
-              Expanded(flex: 2, child: _headerCell('QUANTITY TO PICK', align: TextAlign.center)),
-              Expanded(flex: 2, child: _headerCell('QUANTITY PICKED', align: TextAlign.center)),
+              Expanded(flex: 2, child: _headerCell('ORDER #', hasSort: true)),
+              Expanded(flex: 2, child: _headerCell('CUSTOMER')),
+              Expanded(
+                flex: 2,
+                child: _headerCell('QTY ORDERED', align: TextAlign.center),
+              ),
+              Expanded(flex: 2, child: _headerCell('PREFERRED BIN')),
+              Expanded(
+                flex: 2,
+                child: _headerCell('TO PICK', align: TextAlign.center),
+              ),
+              Expanded(
+                flex: 2,
+                child: _headerCell('PICKED', align: TextAlign.center),
+              ),
             ],
           ),
         ),
         Expanded(
           child: ListView.builder(
-            itemCount: items.length,
+            itemCount: flatList.length,
             itemBuilder: (context, index) {
-              final item = items[index];
-              final isSelected = selectedRowKeys.contains(_buildRowKey(item));
+              final itemOrHeader = flatList[index];
+
+              if (itemOrHeader is Map) {
+                // Header row
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEFF6FF),
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                  ),
+                  child: Text(
+                    itemOrHeader['title'] as String,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1E3A8A),
+                    ),
+                  ),
+                );
+              }
+
+              // Normal item row
+              final item = itemOrHeader as WarehouseStockData;
+              final rowKey = _buildRowKey(item);
+              final isSelected = selectedRowKeys.contains(rowKey);
+
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                key: ValueKey(rowKey),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 decoration: const BoxDecoration(
                   border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
                 ),
@@ -2277,18 +3466,78 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                   children: [
                     _buildTableCheckbox(isSelected, () {
                       setState(() {
-                        if (isSelected) selectedRowKeys.remove(_buildRowKey(item));
-                        else selectedRowKeys.add(_buildRowKey(item));
+                        if (isSelected) {
+                          selectedRowKeys.remove(rowKey);
+                        } else {
+                          selectedRowKeys.add(rowKey);
+                        }
                       });
                     }),
                     const SizedBox(width: 12),
-                    Expanded(flex: 3, child: Text(item.productName, style: const TextStyle(fontSize: 13, color: Color(0xFF333333)))),
-                    Expanded(flex: 2, child: Text(item.productCode, style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)))),
-                    Expanded(flex: 2, child: Text('SO-${10000 + index}', style: const TextStyle(fontSize: 13, color: Color(0xFF333333)))),
-                    Expanded(flex: 2, child: Text('CUS-${index + 1}', style: const TextStyle(fontSize: 13, color: Color(0xFF333333)))),
-                    Expanded(flex: 2, child: Text('10', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13))),
-                    Expanded(flex: 2, child: Text('1', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13))),
-                    Expanded(flex: 2, child: Text('9', textAlign: TextAlign.center, style: const TextStyle(fontSize: 13))),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        item.productName,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        item.salesOrderNumber ?? '-',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        item.customerName ?? 'Walk-in',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '${item.quantityOrdered?.toInt() ?? 0}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        item.preferredBin ?? 'N/A',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '${item.quantityToPick?.toInt() ?? 0}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '${item.quantityPicked?.toInt() ?? 0}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -2300,8 +3549,10 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
   }
 
   Widget _buildSelectedItemsTable(List<WarehouseStockData> allMergedItems) {
-    final selectedItems = allMergedItems.where((item) => selectedRowKeys.contains(_buildRowKey(item))).toList();
-    
+    final selectedItems = allMergedItems
+        .where((item) => selectedRowKeys.contains(_buildRowKey(item)))
+        .toList();
+
     if (selectedItems.isEmpty) {
       return const Center(
         child: Text(
@@ -2310,25 +3561,44 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
         ),
       );
     }
-    
+
     return _buildItemsTable(selectedItems);
   }
 
   Widget _headerCell(String text, {bool hasSort = false, TextAlign? align}) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: align == TextAlign.center
           ? MainAxisAlignment.center
           : (align == TextAlign.right
-              ? MainAxisAlignment.end
-              : MainAxisAlignment.start),
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start),
       children: [
         Text(
           text,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)),
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF6B7280),
+          ),
         ),
         if (hasSort) ...[
           const SizedBox(width: 4),
-          const Icon(LucideIcons.arrowDown, size: 10, color: Color(0xFF9CA3AF)),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                LucideIcons.chevronUp,
+                size: 8,
+                color: Color(0xFF9CA3AF),
+              ),
+              Icon(
+                LucideIcons.chevronDown,
+                size: 8,
+                color: Color(0xFF9CA3AF),
+              ),
+            ],
+          ),
         ],
       ],
     );
@@ -2358,17 +3628,24 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
         children: [
           ElevatedButton(
             onPressed: () {
-              final selectedItems = allMergedItems.where((e) => selectedRowKeys.contains(_buildRowKey(e))).toList();
+              final selectedItems = allMergedItems
+                  .where((e) => selectedRowKeys.contains(_buildRowKey(e)))
+                  .toList();
               widget.onItemsSelected(selectedItems);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF22A95E),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
               elevation: 0,
             ),
-            child: const Text('Add Items', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            child: const Text(
+              'Add Items',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
           ),
           const SizedBox(width: 12),
           OutlinedButton(
@@ -2377,9 +3654,14 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
               foregroundColor: const Color(0xFF374151),
               side: const BorderSide(color: Color(0xFFD1D5DB)),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
-            child: const Text('Cancel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
           ),
         ],
       ),
@@ -2443,6 +3725,7 @@ class _DashedBorderPainter extends CustomPainter {
 }
 
 class _PicklistBatchRowController {
+  final TextEditingController binLocationCtrl = TextEditingController();
   final TextEditingController batchRefCtrl = TextEditingController();
   final TextEditingController batchNoCtrl = TextEditingController();
   final TextEditingController unitPackCtrl = TextEditingController();
@@ -2459,6 +3742,7 @@ class _PicklistBatchRowController {
   DateTime? mfgDate;
 
   void dispose() {
+    binLocationCtrl.dispose();
     batchRefCtrl.dispose();
     batchNoCtrl.dispose();
     unitPackCtrl.dispose();
@@ -2476,11 +3760,13 @@ class _PicklistBatchDialogResult {
   final bool overwriteLineItem;
   final int batchCount;
   final double appliedQuantity;
+  final List<Map<String, String>>? batchDataList;
 
   const _PicklistBatchDialogResult({
     required this.overwriteLineItem,
     required this.batchCount,
     required this.appliedQuantity,
+    this.batchDataList,
   });
 }
 
@@ -2489,24 +3775,38 @@ class _PicklistSelectBatchesDialog extends StatefulWidget {
   final String warehouseName;
   final double totalQuantity;
   final List<String> existingBatchRefs;
+  final List<Map<String, String>>? savedBatchData;
 
   const _PicklistSelectBatchesDialog({
     required this.itemName,
     required this.warehouseName,
     required this.totalQuantity,
     required this.existingBatchRefs,
+    this.savedBatchData,
   });
 
   @override
-  State<_PicklistSelectBatchesDialog> createState() => _PicklistSelectBatchesDialogState();
+  State<_PicklistSelectBatchesDialog> createState() =>
+      _PicklistSelectBatchesDialogState();
 }
 
-class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDialog> {
+class _PicklistSelectBatchesDialogState
+    extends State<_PicklistSelectBatchesDialog> {
   static const double _batchDropdownHeight = 38;
   static const double _batchTextFieldHeight = 38;
   final List<_PicklistBatchRowController> _rows = [];
+  final Set<int> _hoveredFocRows = <int>{};
+  final List<String> _mockBinLocations = const <String>[
+    'A1-R1-S1',
+    'A1-R1-S2',
+    'A1-R2-S1',
+    'B1-R1-S1',
+    'B1-R2-S3',
+    'C1-R4-S2',
+  ];
   bool _overwriteLineItem = false;
   bool _showMfgDetails = false;
+  bool _showFocColumn = false;
   String? _dialogErrorMessage;
   static const String _quantityMismatchMessage =
       'There\'s a mismatch between the quantity entered in the line item and the total quantity across all batches. Click the checkbox to overwrite the quantity in the line item.';
@@ -2514,9 +3814,28 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
   @override
   void initState() {
     super.initState();
-    final firstRow = _PicklistBatchRowController();
-    firstRow.qtyOutCtrl.text = widget.totalQuantity.toInt().toString();
-    _rows.add(firstRow);
+    if (widget.savedBatchData != null && widget.savedBatchData!.isNotEmpty) {
+      for (var batchData in widget.savedBatchData!) {
+        final row = _PicklistBatchRowController();
+        row.binLocationCtrl.text = batchData['binLocation'] ?? '';
+        row.batchRefCtrl.text = batchData['batchRef'] ?? '';
+        row.batchNoCtrl.text = batchData['batchNo'] ?? '';
+        row.unitPackCtrl.text = batchData['unitPack'] ?? '';
+        row.mrpCtrl.text = batchData['mrp'] ?? '';
+        row.ptrCtrl.text = batchData['ptr'] ?? '';
+        row.expDateCtrl.text = batchData['expDate'] ?? '';
+        row.mfgDateCtrl.text = batchData['mfgDate'] ?? '';
+        row.mfgBatchCtrl.text = batchData['mfgBatch'] ?? '';
+        row.qtyOutCtrl.text =
+            batchData['qtyOut'] ?? widget.totalQuantity.toInt().toString();
+        row.focCtrl.text = batchData['foc'] ?? '';
+        _rows.add(row);
+      }
+    } else {
+      final firstRow = _PicklistBatchRowController();
+      firstRow.qtyOutCtrl.text = widget.totalQuantity.toInt().toString();
+      _rows.add(firstRow);
+    }
   }
 
   @override
@@ -2564,7 +3883,11 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
     });
   }
 
-  Widget _headerCell(String text, int flex, {TextAlign alignment = TextAlign.center}) {
+  Widget _headerCell(
+    String text,
+    int flex, {
+    TextAlign alignment = TextAlign.center,
+  }) {
     final isRequired = text.contains('*');
     return Expanded(
       flex: flex,
@@ -2594,14 +3917,23 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
       flex: flex,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: SizedBox(
-          height: _batchTextFieldHeight,
+        child: Container(
           child: TextField(
             controller: controller,
-            keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : null,
-            inputFormatters: isNumber ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))] : [],
+            keyboardType: isNumber
+                ? const TextInputType.numberWithOptions(decimal: true)
+                : null,
+            inputFormatters: isNumber
+                ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
+                : [],
             textAlign: isNumber ? TextAlign.right : TextAlign.left,
-            style: const TextStyle(fontSize: 13, color: _textPrimary, fontFamily: 'Inter'),
+            textAlignVertical: TextAlignVertical.center,
+            strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
+            style: const TextStyle(
+              fontSize: 13,
+              color: _textPrimary,
+              fontFamily: 'Inter',
+            ),
             onChanged: (_) => setState(() {
               _dialogErrorMessage = null;
             }),
@@ -2611,8 +3943,14 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
               hintStyle: const TextStyle(color: _textSecondary, fontSize: 13),
               filled: true,
               fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-              constraints: const BoxConstraints(minHeight: _batchTextFieldHeight, maxHeight: _batchTextFieldHeight),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 12,
+              ),
+              constraints: const BoxConstraints(
+                minHeight: _batchTextFieldHeight,
+                maxHeight: _batchTextFieldHeight,
+              ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
                 borderSide: const BorderSide(color: _borderCol),
@@ -2645,17 +3983,38 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
             key: anchorKey,
             controller: controller,
             readOnly: true,
-            style: const TextStyle(fontSize: 13, color: _textPrimary, fontFamily: 'Inter'),
+            textAlignVertical: TextAlignVertical.center,
+            strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
+            style: const TextStyle(
+              fontSize: 13,
+              color: _textPrimary,
+              fontFamily: 'Inter',
+            ),
             decoration: InputDecoration(
               isDense: false,
               hintText: '',
               hintStyle: const TextStyle(color: _textSecondary, fontSize: 13),
               filled: true,
               fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-              constraints: const BoxConstraints(minHeight: _batchTextFieldHeight, maxHeight: _batchTextFieldHeight),
-              suffixIcon: const Icon(LucideIcons.calendar, size: 14, color: _textSecondary),
-              suffixIconConstraints: const BoxConstraints(minWidth: 32, maxWidth: 32, minHeight: _batchTextFieldHeight, maxHeight: _batchTextFieldHeight),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 12,
+              ),
+              constraints: const BoxConstraints(
+                minHeight: _batchTextFieldHeight,
+                maxHeight: _batchTextFieldHeight,
+              ),
+              suffixIcon: const Icon(
+                LucideIcons.calendar,
+                size: 14,
+                color: _textSecondary,
+              ),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 32,
+                maxWidth: 32,
+                minHeight: _batchTextFieldHeight,
+                maxHeight: _batchTextFieldHeight,
+              ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
                 borderSide: const BorderSide(color: _borderCol),
@@ -2682,6 +4041,74 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
     );
   }
 
+  Widget _buildFocInput(_PicklistBatchRowController row, int index) {
+    final isHovered = _hoveredFocRows.contains(index);
+    return Expanded(
+      flex: 15,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hoveredFocRows.add(index)),
+          onExit: (_) => setState(() => _hoveredFocRows.remove(index)),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            height: _batchTextFieldHeight,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isHovered ? _focusBorder : _borderCol,
+                width: isHovered ? 1.4 : 1,
+              ),
+            ),
+            child: TextField(
+              controller: row.focCtrl,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+              ],
+              textAlign: TextAlign.right,
+              textAlignVertical: TextAlignVertical.center,
+              strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
+              style: const TextStyle(
+                fontSize: 13,
+                color: _textPrimary,
+                fontFamily: 'Inter',
+              ),
+              decoration: InputDecoration(
+                isDense: false,
+                hintText: '0',
+                hintStyle: const TextStyle(color: _textSecondary, fontSize: 13),
+                filled: false,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 12,
+                ),
+                constraints: const BoxConstraints(
+                  minHeight: _batchTextFieldHeight,
+                  maxHeight: _batchTextFieldHeight,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onChanged: (_) => setState(() {
+                _dialogErrorMessage = null;
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -2690,7 +4117,9 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 0),
       child: SizedBox(
-        width: _showMfgDetails ? 1150 : 900,
+        width: _showMfgDetails
+            ? (_showFocColumn ? 1480 : 1320)
+            : (_showFocColumn ? 1320 : 1160),
         height: MediaQuery.of(context).size.height * 0.86,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2717,7 +4146,11 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                         border: Border.all(color: Colors.blue),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Icon(LucideIcons.x, size: 16, color: _dangerRed),
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 16,
+                        color: _dangerRed,
+                      ),
                     ),
                   ),
                 ],
@@ -2729,18 +4162,29 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFDECEC),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFFF9D3D3)),
                   ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.only(top: 3),
-                        child: Text('•', style: TextStyle(fontSize: 16, color: _textPrimary)),
+                      SizedBox(
+                        width: 16,
+                        child: Text(
+                          '•',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 25,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -2757,8 +4201,12 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                       InkWell(
                         onTap: () => setState(() => _dialogErrorMessage = null),
                         child: const Padding(
-                          padding: EdgeInsets.only(left: 8, top: 2),
-                          child: Icon(LucideIcons.x, size: 16, color: _dangerRed),
+                          padding: EdgeInsets.only(left: 8),
+                          child: Icon(
+                            LucideIcons.x,
+                            size: 16,
+                            color: _dangerRed,
+                          ),
                         ),
                       ),
                     ],
@@ -2773,7 +4221,11 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                   const SizedBox(width: 8),
                   Text(
                     'Location : ${widget.warehouseName.toUpperCase()}',
-                    style: const TextStyle(fontSize: 13, color: _textPrimary, fontFamily: 'Inter'),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: _textPrimary,
+                      fontFamily: 'Inter',
+                    ),
                   ),
                 ],
               ),
@@ -2796,20 +4248,32 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                   Expanded(
                     child: Text(
                       'Item: ${widget.itemName}',
-                      style: const TextStyle(fontSize: 13, color: _textSecondary, fontFamily: 'Inter'),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: _textSecondary,
+                        fontFamily: 'Inter',
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Text(
                     'Total Quantity : ${widget.totalQuantity.toInt()}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: _textPrimary),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _textPrimary,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   const Text('|', style: TextStyle(color: _textSecondary)),
                   const SizedBox(width: 8),
                   Text(
                     'Quantity to be added : ${_quantityToBeAdded.toInt()}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: _textPrimary),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _textPrimary,
+                    ),
                   ),
                 ],
               ),
@@ -2824,13 +4288,38 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                     width: 18,
                     child: Checkbox(
                       value: _showMfgDetails,
-                      onChanged: (val) => setState(() => _showMfgDetails = val ?? false),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      onChanged: (val) =>
+                          setState(() => _showMfgDetails = val ?? false),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       activeColor: _greenBtn,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text('Manufacture Details', style: TextStyle(fontSize: 13, color: _textPrimary)),
+                  const Text(
+                    'Manufacture Details',
+                    style: TextStyle(fontSize: 13, color: _textPrimary),
+                  ),
+                  const SizedBox(width: 24),
+                  SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: Checkbox(
+                      value: _showFocColumn,
+                      onChanged: (val) =>
+                          setState(() => _showFocColumn = val ?? false),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      activeColor: _greenBtn,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'FOC',
+                    style: TextStyle(fontSize: 13, color: _textPrimary),
+                  ),
                   const Spacer(),
                   SizedBox(
                     height: 18,
@@ -2841,7 +4330,9 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                         _overwriteLineItem = val ?? false;
                         _dialogErrorMessage = null;
                       }),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       activeColor: _greenBtn,
                     ),
                   ),
@@ -2866,7 +4357,12 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
               ),
               child: Row(
                 children: [
-                  _headerCell('BATCH REFERENCE*', 15, alignment: TextAlign.center),
+                  _headerCell('BIN LOCATION*', 15),
+                  _headerCell(
+                    'BATCH REFERENCE*',
+                    15,
+                    alignment: TextAlign.center,
+                  ),
                   _headerCell('BATCH NO*', 15),
                   _headerCell('UNIT PACK*', 15),
                   _headerCell('MRP*', 15),
@@ -2877,16 +4373,22 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                     _headerCell('MANUFACTURING BATCH', 15),
                   ],
                   _headerCell('QUANTITY OUT*', 15),
+                  if (_showFocColumn) _headerCell('FOC', 15),
                   const SizedBox(width: 24),
                 ],
               ),
             ),
             // ── Batch rows ──
             ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.28),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.28,
+              ),
               child: ListView.builder(
                 shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 0,
+                ),
                 itemCount: _rows.length,
                 itemBuilder: (context, index) {
                   final row = _rows[index];
@@ -2897,19 +4399,96 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Batch Reference — always a FormDropdown
                             Expanded(
                               flex: 15,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
                                 child: SizedBox(
                                   height: _batchDropdownHeight,
                                   child: FormDropdown<String>(
                                     height: _batchDropdownHeight,
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(color: _borderCol),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    value: widget.existingBatchRefs.contains(row.batchRefCtrl.text.trim())
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                    value:
+                                        _mockBinLocations.contains(
+                                          row.binLocationCtrl.text.trim(),
+                                        )
+                                        ? row.binLocationCtrl.text.trim()
+                                        : null,
+                                    items: _mockBinLocations,
+                                    hint: 'Select Bin',
+                                    showSearch: true,
+                                    maxVisibleItems: 4,
+                                    menuMaxHeight: 220,
+                                    displayStringForValue: (v) => v,
+                                    searchStringForValue: (v) => v,
+                                    itemBuilder:
+                                        (
+                                          item,
+                                          isSelected,
+                                          isHovered,
+                                        ) => Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                          color: isHovered
+                                              ? const Color(0xFF3B82F6)
+                                              : (isSelected
+                                                    ? const Color(0xFFF3F4F6)
+                                                    : Colors.transparent),
+                                          child: Text(
+                                            item,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: isHovered
+                                                  ? Colors.white
+                                                  : (isSelected
+                                                        ? const Color(
+                                                            0xFF1F2937,
+                                                          )
+                                                        : const Color(
+                                                            0xFF1F2937,
+                                                          )),
+                                            ),
+                                          ),
+                                        ),
+                                    onChanged: (val) {
+                                      setState(() {
+                                        row.binLocationCtrl.text = val ?? '';
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Batch Reference — always a FormDropdown
+                            Expanded(
+                              flex: 15,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                child: SizedBox(
+                                  height: _batchDropdownHeight,
+                                  child: FormDropdown<String>(
+                                    height: _batchDropdownHeight,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: _borderCol),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                    value:
+                                        widget.existingBatchRefs.contains(
+                                          row.batchRefCtrl.text.trim(),
+                                        )
                                         ? row.batchRefCtrl.text.trim()
                                         : null,
                                     items: widget.existingBatchRefs,
@@ -2917,10 +4496,37 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                                     showSearch: true,
                                     displayStringForValue: (v) => v,
                                     searchStringForValue: (v) => v,
-                                    itemBuilder: (item, isSelected, isHovered) => Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      child: Text(item, style: const TextStyle(fontSize: 13)),
-                                    ),
+                                    itemBuilder:
+                                        (
+                                          item,
+                                          isSelected,
+                                          isHovered,
+                                        ) => Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                          color: isHovered
+                                              ? const Color(0xFF3B82F6)
+                                              : (isSelected
+                                                    ? const Color(0xFFF3F4F6)
+                                                    : Colors.transparent),
+                                          child: Text(
+                                            item,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: isHovered
+                                                  ? Colors.white
+                                                  : (isSelected
+                                                        ? const Color(
+                                                            0xFF1F2937,
+                                                          )
+                                                        : const Color(
+                                                            0xFF1F2937,
+                                                          )),
+                                            ),
+                                          ),
+                                        ),
                                     onChanged: (val) {
                                       setState(() {
                                         row.batchRefCtrl.text = val ?? '';
@@ -2930,16 +4536,37 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                                 ),
                               ),
                             ),
-                            _buildInput(controller: row.batchNoCtrl, flex: 15, hint: 'Batch No', isNumber: true),
-                            _buildInput(controller: row.unitPackCtrl, flex: 15, hint: 'Pack', isNumber: true),
-                            _buildInput(controller: row.mrpCtrl, flex: 15, hint: '0', isNumber: true),
-                            _buildInput(controller: row.ptrCtrl, flex: 15, hint: '0', isNumber: true),
+                            _buildInput(
+                              controller: row.batchNoCtrl,
+                              flex: 15,
+                              hint: 'Batch No',
+                              isNumber: true,
+                            ),
+                            _buildInput(
+                              controller: row.unitPackCtrl,
+                              flex: 15,
+                              hint: 'Pack',
+                              isNumber: true,
+                            ),
+                            _buildInput(
+                              controller: row.mrpCtrl,
+                              flex: 15,
+                              hint: '0',
+                              isNumber: true,
+                            ),
+                            _buildInput(
+                              controller: row.ptrCtrl,
+                              flex: 15,
+                              hint: '0',
+                              isNumber: true,
+                            ),
                             _buildDatePicker(
                               controller: row.expDateCtrl,
                               anchorKey: row.expKey,
                               flex: 15,
                               currentDate: row.expDate,
-                              onDateChanged: (d) => setState(() => row.expDate = d),
+                              onDateChanged: (d) =>
+                                  setState(() => row.expDate = d),
                             ),
                             if (_showMfgDetails) ...[
                               _buildDatePicker(
@@ -2947,17 +4574,32 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                                 anchorKey: row.mfgKey,
                                 flex: 15,
                                 currentDate: row.mfgDate,
-                                onDateChanged: (d) => setState(() => row.mfgDate = d),
+                                onDateChanged: (d) =>
+                                    setState(() => row.mfgDate = d),
                               ),
-                              _buildInput(controller: row.mfgBatchCtrl, flex: 15, hint: 'Mfg Batch'),
+                              _buildInput(
+                                controller: row.mfgBatchCtrl,
+                                flex: 15,
+                                hint: 'Mfg Batch',
+                              ),
                             ],
-                            _buildInput(controller: row.qtyOutCtrl, flex: 15, hint: '0', isNumber: true),
+                            _buildInput(
+                              controller: row.qtyOutCtrl,
+                              flex: 15,
+                              hint: '0',
+                              isNumber: true,
+                            ),
+                            if (_showFocColumn) _buildFocInput(row, index),
                             SizedBox(
                               width: 24,
                               child: IconButton(
                                 onPressed: () => _removeRow(index),
                                 padding: EdgeInsets.zero,
-                                icon: const Icon(LucideIcons.xCircle, size: 14, color: _dangerRed),
+                                icon: const Icon(
+                                  LucideIcons.xCircle,
+                                  size: 14,
+                                  color: _dangerRed,
+                                ),
                               ),
                             ),
                           ],
@@ -2979,7 +4621,11 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(LucideIcons.plusCircle, size: 14, color: Colors.blue.shade600),
+                        Icon(
+                          LucideIcons.plusCircle,
+                          size: 14,
+                          color: Colors.blue.shade600,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'New Row',
@@ -3011,12 +4657,45 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                     onPressed: () {
                       for (var i = 0; i < _rows.length; i++) {
                         final row = _rows[i];
-                        if (row.batchNoCtrl.text.isEmpty ||
-                            row.unitPackCtrl.text.isEmpty ||
-                            row.mrpCtrl.text.isEmpty ||
-                            row.expDate == null) {
+                        if (row.binLocationCtrl.text.isEmpty) {
                           setState(() {
-                            _dialogErrorMessage = '• Please fill in all mandatory fields in Row ${i + 1}.';
+                            _dialogErrorMessage =
+                                'Please select Bin Location in Row ${i + 1}.';
+                          });
+                          return;
+                        }
+                        if (row.batchRefCtrl.text.isEmpty) {
+                          setState(() {
+                            _dialogErrorMessage =
+                                'Please select Batch Reference in Row ${i + 1}.';
+                          });
+                          return;
+                        }
+                        if (row.batchNoCtrl.text.isEmpty) {
+                          setState(() {
+                            _dialogErrorMessage =
+                                'Please enter Batch No in Row ${i + 1}.';
+                          });
+                          return;
+                        }
+                        if (row.unitPackCtrl.text.isEmpty) {
+                          setState(() {
+                            _dialogErrorMessage =
+                                'Please enter Unit Pack in Row ${i + 1}.';
+                          });
+                          return;
+                        }
+                        if (row.mrpCtrl.text.isEmpty) {
+                          setState(() {
+                            _dialogErrorMessage =
+                                'Please enter MRP in Row ${i + 1}.';
+                          });
+                          return;
+                        }
+                        if (row.expDate == null) {
+                          setState(() {
+                            _dialogErrorMessage =
+                                'Please select Expiry Date in Row ${i + 1}.';
                           });
                           return;
                         }
@@ -3029,14 +4708,35 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                         return;
                       }
 
+                      final batchDataList = _rows
+                          .map(
+                            (row) => {
+                              'binLocation': row.binLocationCtrl.text,
+                              'batchRef': row.batchRefCtrl.text,
+                              'batchNo': row.batchNoCtrl.text,
+                              'unitPack': row.unitPackCtrl.text,
+                              'mrp': row.mrpCtrl.text,
+                              'ptr': row.ptrCtrl.text,
+                              'expDate': row.expDateCtrl.text,
+                              'mfgDate': row.mfgDateCtrl.text,
+                              'mfgBatch': row.mfgBatchCtrl.text,
+                              'qtyOut': row.qtyOutCtrl.text,
+                              'foc': row.focCtrl.text,
+                            },
+                          )
+                          .toList();
+
                       Navigator.pop(
                         context,
                         _PicklistBatchDialogResult(
                           overwriteLineItem: _overwriteLineItem,
-                          batchCount: _batchCount > 0 ? _batchCount : _rows.length,
+                          batchCount: _batchCount > 0
+                              ? _batchCount
+                              : _rows.length,
                           appliedQuantity: _overwriteLineItem
                               ? _totalQuantityOut
                               : widget.totalQuantity,
+                          batchDataList: batchDataList,
                         ),
                       );
                     },
@@ -3044,10 +4744,21 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                       backgroundColor: _greenBtn,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
-                    child: const Text('Save', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    child: const Text(
+                      'Save',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   OutlinedButton(
@@ -3055,10 +4766,21 @@ class _PicklistSelectBatchesDialogState extends State<_PicklistSelectBatchesDial
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _textPrimary,
                       side: const BorderSide(color: _borderCol),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -3084,10 +4806,12 @@ class _PicklistPreferencesDialog extends StatefulWidget {
   });
 
   @override
-  State<_PicklistPreferencesDialog> createState() => __PicklistPreferencesDialogState();
+  State<_PicklistPreferencesDialog> createState() =>
+      __PicklistPreferencesDialogState();
 }
 
-class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog> {
+class __PicklistPreferencesDialogState
+    extends State<_PicklistPreferencesDialog> {
   late bool _isAuto;
   late TextEditingController _prefixCtrl;
   late TextEditingController _numberCtrl;
@@ -3097,7 +4821,9 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
     super.initState();
     _isAuto = widget.initialAutoGenerate;
     _prefixCtrl = TextEditingController(text: widget.initialPrefix);
-    _numberCtrl = TextEditingController(text: widget.initialNextNumber.toString().padLeft(5, '0'));
+    _numberCtrl = TextEditingController(
+      text: widget.initialNextNumber.toString().padLeft(5, '0'),
+    );
   }
 
   @override
@@ -3134,11 +4860,19 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
                 children: [
                   const Text(
                     'Configure Picklist# Preferences',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: textPrimary),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(LucideIcons.x, size: 20, color: Color(0xFFEF4444)),
+                    icon: const Icon(
+                      LucideIcons.x,
+                      size: 20,
+                      color: Color(0xFFEF4444),
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -3146,7 +4880,7 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
               ),
             ),
             const Divider(height: 1, color: borderCol),
-            
+
             Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -3161,7 +4895,7 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
                     style: TextStyle(fontSize: 14, color: textPrimary),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Auto generate option
                   InkWell(
                     onTap: () => setState(() => _isAuto = true),
@@ -3175,14 +4909,22 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
                         ),
                         const Text(
                           'Continue auto-generating picklist numbers',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: textPrimary),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: textPrimary,
+                          ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(LucideIcons.info, size: 14, color: textSecondary),
+                        const Icon(
+                          LucideIcons.info,
+                          size: 14,
+                          color: textSecondary,
+                        ),
                       ],
                     ),
                   ),
-                  
+
                   if (_isAuto) ...[
                     Padding(
                       padding: const EdgeInsets.only(left: 48, top: 12),
@@ -3192,15 +4934,34 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Prefix', style: TextStyle(fontSize: 12, color: textSecondary)),
+                                const Text(
+                                  'Prefix',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: textSecondary,
+                                  ),
+                                ),
                                 const SizedBox(height: 6),
                                 TextField(
                                   controller: _prefixCtrl,
                                   style: const TextStyle(fontSize: 13),
                                   decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: borderCol)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: borderCol)),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                      borderSide: const BorderSide(
+                                        color: borderCol,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                      borderSide: const BorderSide(
+                                        color: borderCol,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -3212,15 +4973,34 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Next Number', style: TextStyle(fontSize: 12, color: textSecondary)),
+                                const Text(
+                                  'Next Number',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: textSecondary,
+                                  ),
+                                ),
                                 const SizedBox(height: 6),
                                 TextField(
                                   controller: _numberCtrl,
                                   style: const TextStyle(fontSize: 13),
                                   decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: borderCol)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: borderCol)),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                      borderSide: const BorderSide(
+                                        color: borderCol,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                      borderSide: const BorderSide(
+                                        color: borderCol,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -3230,9 +5010,9 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
                       ),
                     ),
                   ],
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Manual option
                   InkWell(
                     onTap: () => setState(() => _isAuto = false),
@@ -3246,7 +5026,11 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
                         ),
                         const Text(
                           'Enter picklist numbers manually',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: textPrimary),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: textPrimary,
+                          ),
                         ),
                       ],
                     ),
@@ -3254,27 +5038,40 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
                 ],
               ),
             ),
-            
+
             const Divider(height: 1, color: borderCol),
-            
+
             Padding(
               padding: const EdgeInsets.all(20),
               child: Row(
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      final nextNum = int.tryParse(_numberCtrl.text) ?? widget.initialNextNumber;
+                      final nextNum =
+                          int.tryParse(_numberCtrl.text) ??
+                          widget.initialNextNumber;
                       widget.onSave(_isAuto, _prefixCtrl.text, nextNum);
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: greenBtn,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       elevation: 0,
                     ),
-                    child: const Text('Save', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    child: const Text(
+                      'Save',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   OutlinedButton(
@@ -3283,10 +5080,21 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
                       foregroundColor: textPrimary,
                       backgroundColor: const Color(0xFFF3F4F6),
                       side: BorderSide.none,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -3301,13 +5109,8 @@ class __PicklistPreferencesDialogState extends State<_PicklistPreferencesDialog>
 class _PicklistZTooltip extends StatefulWidget {
   final String message;
   final Widget? child;
-  final double maxWidth;
 
-  const _PicklistZTooltip({
-    required this.message,
-    this.child,
-    this.maxWidth = 250,
-  });
+  const _PicklistZTooltip({required this.message, this.child});
 
   @override
   State<_PicklistZTooltip> createState() => _PicklistZTooltipState();
@@ -3346,9 +5149,9 @@ class _PicklistZTooltipState extends State<_PicklistZTooltip> {
             CompositedTransformFollower(
               link: _layerLink,
               showWhenUnlinked: false,
-              targetAnchor: Alignment.topCenter,
-              followerAnchor: Alignment.bottomCenter,
-              offset: const Offset(0, -8),
+              targetAnchor: Alignment.bottomCenter,
+              followerAnchor: Alignment.topCenter,
+              offset: const Offset(0, 8),
               child: FractionalTranslation(
                 translation: const Offset(0, 0),
                 child: MouseRegion(
@@ -3362,9 +5165,16 @@ class _PicklistZTooltipState extends State<_PicklistZTooltip> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        CustomPaint(
+                          size: const Size(10, 6),
+                          painter: _PicklistTooltipArrowPainter(),
+                        ),
                         Container(
-                          width: widget.maxWidth,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          constraints: const BoxConstraints(maxWidth: 220),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF1F2937),
                             borderRadius: BorderRadius.circular(6),
@@ -3386,10 +5196,6 @@ class _PicklistZTooltipState extends State<_PicklistZTooltip> {
                               height: 1.4,
                             ),
                           ),
-                        ),
-                        CustomPaint(
-                          size: const Size(10, 6),
-                          painter: _PicklistTooltipArrowPainter(),
                         ),
                       ],
                     ),
@@ -3423,7 +5229,9 @@ class _PicklistZTooltipState extends State<_PicklistZTooltip> {
           _isHovering = false;
           _hideTooltip();
         },
-        child: widget.child ?? const Icon(LucideIcons.helpCircle, size: 14, color: _textSecondary),
+        child:
+            widget.child ??
+            const Icon(LucideIcons.helpCircle, size: 14, color: _textSecondary),
       ),
     );
   }
@@ -3437,9 +5245,9 @@ class _PicklistTooltipArrowPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..lineTo(size.width, 0)
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(0, size.height)
+      ..lineTo(size.width, size.height)
       ..close();
 
     canvas.drawPath(path, paint);

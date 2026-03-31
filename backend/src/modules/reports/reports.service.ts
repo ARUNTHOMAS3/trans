@@ -33,7 +33,9 @@ export class ReportsService {
     if (accError) throw accError;
 
     // 2. Get Transaction Balances
-    let txQuery = supabase.from("account_transactions").select("account_id, debit, credit");
+    let txQuery = supabase
+      .from("account_transactions")
+      .select("account_id, debit, credit");
     if (orgId) txQuery = txQuery.eq("org_id", orgId);
     if (outletId) txQuery = txQuery.eq("outlet_id", outletId);
 
@@ -54,7 +56,7 @@ export class ReportsService {
     accounts?.forEach((acc) => {
       const bal = balances.get(acc.id) || 0;
       const type = acc.account_type?.toLowerCase();
-      
+
       if (type === "accounts receivable" || type === "accounts_receivable") {
         totalReceivables += bal;
       } else if (type === "accounts payable" || type === "accounts_payable") {
@@ -107,12 +109,16 @@ export class ReportsService {
         .eq("contact_type", "customer")
         .filter("transaction_type", "in", '("invoice", "sales_receipt")');
 
-    if (customerError) console.warn("Error fetching top customers:", customerError);
+    if (customerError)
+      console.warn("Error fetching top customers:", customerError);
 
     const customerMap = new Map<string, number>();
     topCustomersData?.forEach((c) => {
       if (c.contact_id) {
-        customerMap.set(c.contact_id, (customerMap.get(c.contact_id) || 0) + Number(c.credit || 0));
+        customerMap.set(
+          c.contact_id,
+          (customerMap.get(c.contact_id) || 0) + Number(c.credit || 0),
+        );
       }
     });
 
@@ -122,12 +128,16 @@ export class ReportsService {
 
     const topCustomers = await Promise.all(
       topCustomerIds.map(async (id) => {
-        const { data } = await supabase.from("customers").select("display_name").eq("id", id).single();
+        const { data } = await supabase
+          .from("customers")
+          .select("display_name")
+          .eq("id", id)
+          .single();
         return {
           name: data?.display_name || "Unknown Customer",
           amount: customerMap.get(id) || 0,
         };
-      })
+      }),
     );
 
     const inventoryConditions: any[] = [];
@@ -154,7 +164,9 @@ export class ReportsService {
       LIMIT 5
     `;
 
-    const topItemsRows = (await db.execute(topItemsQuery)) as Array<Record<string, unknown>>;
+    const topItemsRows = (await db.execute(topItemsQuery)) as Array<
+      Record<string, unknown>
+    >;
     const topItems = topItemsRows.map((row) => ({
       id: String(row.id ?? ""),
       name: String(row.name ?? "Unknown Item"),
@@ -203,8 +215,14 @@ export class ReportsService {
     const result = await db.execute(query);
     const rows = result as any[];
 
-    const report = { operatingIncome: [], costOfGoodsSold: [], operatingExpenses: [] };
-    let totalIncome = 0, totalCogs = 0, totalExpenses = 0;
+    const report = {
+      operatingIncome: [],
+      costOfGoodsSold: [],
+      operatingExpenses: [],
+    };
+    let totalIncome = 0,
+      totalCogs = 0,
+      totalExpenses = 0;
 
     for (const row of rows) {
       const type = row.accountType?.toLowerCase() || "";
@@ -214,13 +232,27 @@ export class ReportsService {
 
       const totalDebit = Number(row.totalDebit);
       const totalCredit = Number(row.totalCredit);
-      const netAmount = isIncome ? totalCredit - totalDebit : totalDebit - totalCredit;
+      const netAmount = isIncome
+        ? totalCredit - totalDebit
+        : totalDebit - totalCredit;
 
-      const item = { accountId: row.accountId, accountName: row.accountName, accountType: row.accountType, netAmount };
+      const item = {
+        accountId: row.accountId,
+        accountName: row.accountName,
+        accountType: row.accountType,
+        netAmount,
+      };
 
-      if (isIncome) { report.operatingIncome.push(item); totalIncome += netAmount; }
-      else if (isCogs) { report.costOfGoodsSold.push(item); totalCogs += netAmount; }
-      else if (isExpense) { report.operatingExpenses.push(item); totalExpenses += netAmount; }
+      if (isIncome) {
+        report.operatingIncome.push(item);
+        totalIncome += netAmount;
+      } else if (isCogs) {
+        report.costOfGoodsSold.push(item);
+        totalCogs += netAmount;
+      } else if (isExpense) {
+        report.operatingExpenses.push(item);
+        totalExpenses += netAmount;
+      }
     }
 
     return {
@@ -236,7 +268,11 @@ export class ReportsService {
     };
   }
 
-  async getGeneralLedgerReport(startDate: string, endDate: string, orgId?: string) {
+  async getGeneralLedgerReport(
+    startDate: string,
+    endDate: string,
+    orgId?: string,
+  ) {
     const conditions: any[] = [
       sql`t.transaction_date >= ${new Date(startDate).toISOString()}`,
       sql`t.transaction_date <= ${new Date(endDate).toISOString()}`,
@@ -288,8 +324,12 @@ export class ReportsService {
     if (accountId) conditions.push(sql`t.account_id = ${accountId}`);
     if (contactId) conditions.push(sql`t.contact_id = ${contactId}`);
     if (contactType) conditions.push(sql`t.contact_type = ${contactType}`);
-    conditions.push(sql`t.transaction_date >= ${new Date(startDate).toISOString()}`);
-    conditions.push(sql`t.transaction_date <= ${new Date(endDate).toISOString()}`);
+    conditions.push(
+      sql`t.transaction_date >= ${new Date(startDate).toISOString()}`,
+    );
+    conditions.push(
+      sql`t.transaction_date <= ${new Date(endDate).toISOString()}`,
+    );
     if (orgId) conditions.push(sql`t.org_id = ${orgId}`);
 
     const whereClause = sql.join(conditions, sql` AND `);
@@ -323,12 +363,20 @@ export class ReportsService {
     return { accountId, period: { startDate, endDate }, transactions };
   }
 
-  async getTrialBalanceReport(startDate: string, endDate: string, orgId?: string) {
+  async getTrialBalanceReport(
+    startDate: string,
+    endDate: string,
+    orgId?: string,
+  ) {
     const conditions: any[] = [];
-    if (endDate) conditions.push(sql`t.transaction_date <= ${new Date(endDate).toISOString()}`);
+    if (endDate)
+      conditions.push(
+        sql`t.transaction_date <= ${new Date(endDate).toISOString()}`,
+      );
     if (orgId) conditions.push(sql`t.org_id = ${orgId}`);
 
-    const whereClause = conditions.length > 0 ? sql.join(conditions, sql` AND `) : sql`1=1`;
+    const whereClause =
+      conditions.length > 0 ? sql.join(conditions, sql` AND `) : sql`1=1`;
 
     const query = sql`
       SELECT 
@@ -346,24 +394,44 @@ export class ReportsService {
     const result = await db.execute(query);
     const rows = result as any[];
 
-    let totalDebit = 0, totalCredit = 0;
+    let totalDebit = 0,
+      totalCredit = 0;
 
-    const accountsData = rows.map((r: any) => {
-      const debit = Number(r.totalDebit || 0);
-      const credit = Number(r.totalCredit || 0);
-      const netDebit = debit > credit ? debit - credit : 0;
-      const netCredit = credit > debit ? credit - debit : 0;
-      totalDebit += netDebit; totalCredit += netCredit;
-      return { accountId: r.accountId, accountName: r.accountName, debit: netDebit, credit: netCredit };
-    }).filter((acc) => acc.debit > 0 || acc.credit > 0);
+    const accountsData = rows
+      .map((r: any) => {
+        const debit = Number(r.totalDebit || 0);
+        const credit = Number(r.totalCredit || 0);
+        const netDebit = debit > credit ? debit - credit : 0;
+        const netCredit = credit > debit ? credit - debit : 0;
+        totalDebit += netDebit;
+        totalCredit += netCredit;
+        return {
+          accountId: r.accountId,
+          accountName: r.accountName,
+          debit: netDebit,
+          credit: netCredit,
+        };
+      })
+      .filter((acc) => acc.debit > 0 || acc.credit > 0);
 
-    return { period: { startDate, endDate }, accounts: accountsData, totalDebit, totalCredit };
+    return {
+      period: { startDate, endDate },
+      accounts: accountsData,
+      totalDebit,
+      totalCredit,
+    };
   }
 
-  async getSalesByCustomerReport(startDate: string, endDate: string, orgId?: string) {
+  async getSalesByCustomerReport(
+    startDate: string,
+    endDate: string,
+    orgId?: string,
+  ) {
     const conditions: any[] = [sql`s.document_type = 'invoice'`];
-    if (startDate) conditions.push(sql`s.sale_date >= ${new Date(startDate).toISOString()}`);
-    if (endDate) conditions.push(sql`s.sale_date <= ${new Date(endDate).toISOString()}`);
+    if (startDate)
+      conditions.push(sql`s.sale_date >= ${new Date(startDate).toISOString()}`);
+    if (endDate)
+      conditions.push(sql`s.sale_date <= ${new Date(endDate).toISOString()}`);
     if (orgId) conditions.push(sql`c.org_id = ${orgId}`);
 
     const whereClause = sql.join(conditions, sql` AND `);
@@ -445,10 +513,7 @@ export class ReportsService {
     if (params.tables?.length) query = query.in("table_name", params.tables);
     if (params.actions?.length) query = query.in("action", params.actions);
     if (params.fromDate) {
-      query = query.gte(
-        "created_at",
-        new Date(params.fromDate).toISOString(),
-      );
+      query = query.gte("created_at", new Date(params.fromDate).toISOString());
     }
     if (params.toDate) {
       query = query.lte("created_at", new Date(params.toDate).toISOString());

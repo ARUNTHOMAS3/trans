@@ -114,7 +114,8 @@ export class PriceListController {
       const { data, error } = await this.supabaseService
         .getClient()
         .from("price_list_items")
-        .select(`
+        .select(
+          `
           id,
           custom_rate,
           discount_percentage,
@@ -125,7 +126,8 @@ export class PriceListController {
             transaction_type,
             pricing_scheme
           )
-        `)
+        `,
+        )
         .eq("product_id", productId);
 
       if (error) {
@@ -140,7 +142,15 @@ export class PriceListController {
   }
 
   @Post("associate")
-  async associate(@Body() body: { product_id: string; price_list_id: string; custom_rate?: number; discount_percentage?: number }) {
+  async associate(
+    @Body()
+    body: {
+      product_id: string;
+      price_list_id: string;
+      custom_rate?: number;
+      discount_percentage?: number;
+    },
+  ) {
     try {
       const { data, error } = await this.supabaseService
         .getClient()

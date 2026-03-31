@@ -14,7 +14,9 @@ import { UpdatePurchaseReceiveDto } from "../dto/update-purchase-receive.dto";
 
 @Controller("purchase-receives")
 export class PurchaseReceivesController {
-  constructor(private readonly purchaseReceivesService: PurchaseReceivesService) {}
+  constructor(
+    private readonly purchaseReceivesService: PurchaseReceivesService,
+  ) {}
 
   @Post()
   create(@Body() createDto: CreatePurchaseReceiveDto) {
@@ -42,10 +44,7 @@ export class PurchaseReceivesController {
   }
 
   @Patch(":id")
-  update(
-    @Param("id") id: string,
-    @Body() updateDto: UpdatePurchaseReceiveDto,
-  ) {
+  update(@Param("id") id: string, @Body() updateDto: UpdatePurchaseReceiveDto) {
     return this.purchaseReceivesService.update(id, updateDto);
   }
 

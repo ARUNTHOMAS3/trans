@@ -7,7 +7,7 @@ import * as dotenv from "dotenv";
 import { StandardResponseInterceptor } from "./common/interceptors/standard_response.interceptor";
 import { GlobalExceptionFilter } from "./common/filters/global_exception.filter";
 
-dotenv.config();
+dotenv.config({ path: ".env.local" });
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

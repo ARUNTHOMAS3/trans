@@ -17,7 +17,17 @@ class UserManagementRepository {
       final response = await _apiClient.get('/users');
 
       if (response.success) {
-        final usersData = response.data as List<dynamic>;
+        // Handle both direct list and wrapped response
+        late List<dynamic> usersData;
+        if (response.data is List) {
+          usersData = response.data as List<dynamic>;
+        } else if (response.data is Map) {
+          final dataMap = response.data as Map<String, dynamic>;
+          usersData = dataMap['data'] ?? dataMap['users'] ?? [];
+        } else {
+          throw Exception('Unexpected response format: ${response.data.runtimeType}');
+        }
+        
         return usersData
             .map((userJson) => User.fromJson(userJson as Map<String, dynamic>))
             .toList();

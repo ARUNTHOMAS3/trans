@@ -383,8 +383,7 @@ export class ProductsService {
       newValues?.batchReference ||
       oldValues?.batchReference;
     const warehouseLabel =
-      newValues?.warehouse_name ||
-      oldValues?.warehouse_name;
+      newValues?.warehouse_name || oldValues?.warehouse_name;
 
     switch (tableName) {
       case "products":
@@ -2331,11 +2330,12 @@ export class ProductsService {
 
       const warehouseNameMap = new Map<string, string>();
       if (warehouseIds.length > 0) {
-        const { data: warehouses, error: warehousesError } = await this.supabaseService
-          .getClient()
-          .from("warehouses")
-          .select("id, name")
-          .in("id", warehouseIds);
+        const { data: warehouses, error: warehousesError } =
+          await this.supabaseService
+            .getClient()
+            .from("warehouses")
+            .select("id, name")
+            .in("id", warehouseIds);
 
         if (warehousesError) {
           throw new Error(warehousesError.message);
@@ -2367,7 +2367,7 @@ export class ProductsService {
               warehouse_name:
                 oldValuesRaw.warehouse_name ||
                 (oldWarehouseId
-                  ? warehouseNameMap.get(oldWarehouseId) ?? null
+                  ? (warehouseNameMap.get(oldWarehouseId) ?? null)
                   : null),
             }
           : null;
@@ -2377,7 +2377,7 @@ export class ProductsService {
               warehouse_name:
                 newValuesRaw.warehouse_name ||
                 (newWarehouseId
-                  ? warehouseNameMap.get(newWarehouseId) ?? null
+                  ? (warehouseNameMap.get(newWarehouseId) ?? null)
                   : null),
             }
           : null;
@@ -2421,7 +2421,10 @@ export class ProductsService {
     }
   }
 
-  async updateProductWarehouseStocks(productId: string, _payload: { rows?: any[] } = {}) {
+  async updateProductWarehouseStocks(
+    productId: string,
+    _payload: { rows?: any[] } = {},
+  ) {
     if (!this.isUUID(productId)) {
       throw new BadRequestException("Invalid product ID");
     }

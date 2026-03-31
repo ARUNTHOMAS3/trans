@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { Injectable } from "@nestjs/common";
+import { SupabaseService } from "../supabase/supabase.service";
 
-const TABLE = 'settings_transaction_series';
+const TABLE = "settings_transaction_series";
 
 @Injectable()
 export class TransactionSeriesService {
@@ -11,11 +11,12 @@ export class TransactionSeriesService {
     const { data, error } = await this.supabaseService
       .getClient()
       .from(TABLE)
-      .select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: true });
+      .select("*")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: true });
 
-    if (error) throw new Error(`Failed to fetch transaction series: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to fetch transaction series: ${error.message}`);
     return data ?? [];
   }
 
@@ -23,9 +24,9 @@ export class TransactionSeriesService {
     const { data, error } = await this.supabaseService
       .getClient()
       .from(TABLE)
-      .select('*')
-      .eq('id', id)
-      .eq('org_id', orgId)
+      .select("*")
+      .eq("id", id)
+      .eq("org_id", orgId)
       .single();
 
     if (error) return null;
@@ -44,7 +45,8 @@ export class TransactionSeriesService {
       .select()
       .single();
 
-    if (error) throw new Error(`Failed to create transaction series: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to create transaction series: ${error.message}`);
     return data;
   }
 
@@ -57,12 +59,13 @@ export class TransactionSeriesService {
         modules: dto.modules ?? [],
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id)
-      .eq('org_id', orgId)
+      .eq("id", id)
+      .eq("org_id", orgId)
       .select()
       .single();
 
-    if (error) throw new Error(`Failed to update transaction series: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to update transaction series: ${error.message}`);
     return data;
   }
 
@@ -71,10 +74,11 @@ export class TransactionSeriesService {
       .getClient()
       .from(TABLE)
       .delete()
-      .eq('id', id)
-      .eq('org_id', orgId);
+      .eq("id", id)
+      .eq("org_id", orgId);
 
-    if (error) throw new Error(`Failed to delete transaction series: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to delete transaction series: ${error.message}`);
     return { success: true };
   }
 }

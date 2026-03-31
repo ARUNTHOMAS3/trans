@@ -68,16 +68,22 @@ export class WarehousesSettingsService {
     const [branchNames, customerNames, vendorNames] = await Promise.all([
       this.fetchNameMap(
         "settings_branches",
-        warehouses.map((warehouse: any) => warehouse.branch_id?.toString() ?? ""),
+        warehouses.map(
+          (warehouse: any) => warehouse.branch_id?.toString() ?? "",
+        ),
       ),
       this.fetchNameMap(
         "customers",
-        warehouses.map((warehouse: any) => warehouse.customer_id?.toString() ?? ""),
+        warehouses.map(
+          (warehouse: any) => warehouse.customer_id?.toString() ?? "",
+        ),
         "display_name",
       ),
       this.fetchNameMap(
         "vendors",
-        warehouses.map((warehouse: any) => warehouse.vendor_id?.toString() ?? ""),
+        warehouses.map(
+          (warehouse: any) => warehouse.vendor_id?.toString() ?? "",
+        ),
         "display_name",
       ),
     ]);
@@ -97,10 +103,9 @@ export class WarehousesSettingsService {
 
     if (error) return null;
     const [branchNames, customerNames, vendorNames] = await Promise.all([
-      this.fetchNameMap(
-        "settings_branches",
-        [data.branch_id?.toString() ?? ""],
-      ),
+      this.fetchNameMap("settings_branches", [
+        data.branch_id?.toString() ?? "",
+      ]),
       this.fetchNameMap(
         "customers",
         [data.customer_id?.toString() ?? ""],
@@ -146,13 +151,26 @@ export class WarehousesSettingsService {
 
   async update(id: string, orgId: string, dto: any) {
     const fields = [
-      "name", "warehouse_code", "branch_id", "customer_id", "vendor_id",
-      "attention", "address_street_1", "address_street_2",
-      "city", "state", "pincode", "country",
-      "phone", "email", "is_active",
+      "name",
+      "warehouse_code",
+      "branch_id",
+      "customer_id",
+      "vendor_id",
+      "attention",
+      "address_street_1",
+      "address_street_2",
+      "city",
+      "state",
+      "pincode",
+      "country",
+      "phone",
+      "email",
+      "is_active",
     ];
 
-    const payload: Record<string, any> = { updated_at: new Date().toISOString() };
+    const payload: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
     for (const field of fields) {
       if (field in dto) payload[field] = dto[field] ?? null;
     }

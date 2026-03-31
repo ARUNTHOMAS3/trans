@@ -24,7 +24,10 @@ export class OutletsService {
       : "business";
   }
 
-  private async fetchBranchTransactionSeriesMap(orgId: string, branchIds: string[]) {
+  private async fetchBranchTransactionSeriesMap(
+    orgId: string,
+    branchIds: string[],
+  ) {
     if (branchIds.length === 0) {
       return new Map<string, string[]>();
     }
@@ -170,7 +173,9 @@ export class OutletsService {
         ? dto.transaction_series_ids
         : [],
       default_transaction_series_id: dto.default_transaction_series_id ?? null,
-      location_users: Array.isArray(dto.location_users) ? dto.location_users : [],
+      location_users: Array.isArray(dto.location_users)
+        ? dto.location_users
+        : [],
       is_active: dto.is_active ?? true,
     };
   }
@@ -217,7 +222,9 @@ export class OutletsService {
       );
     }
     if (warehousesRes.error) {
-      throw new Error(`Failed to fetch warehouses: ${warehousesRes.error.message}`);
+      throw new Error(
+        `Failed to fetch warehouses: ${warehousesRes.error.message}`,
+      );
     }
 
     const branches = branchesRes.data ?? [];
@@ -229,7 +236,10 @@ export class OutletsService {
 
     return [
       ...branches.map((branch: any) =>
-        this.mapBranch(branch, branchSeriesMap.get(branch.id?.toString() ?? "") ?? []),
+        this.mapBranch(
+          branch,
+          branchSeriesMap.get(branch.id?.toString() ?? "") ?? [],
+        ),
       ),
       ...warehouses.map((warehouse: any) => this.mapWarehouse(warehouse)),
     ].sort((a, b) => {
@@ -288,7 +298,9 @@ export class OutletsService {
       return this.findOne(created.id, dto.org_id);
     }
 
-    const created = await this.branchesService.create(this.mapBranchPayload(dto));
+    const created = await this.branchesService.create(
+      this.mapBranchPayload(dto),
+    );
     return this.findOne(created.id, dto.org_id);
   }
 
@@ -329,7 +341,9 @@ export class OutletsService {
       throw new Error("Location not found");
     }
     if (existing.location_type !== "warehouse") {
-      throw new Error("Associate Contacts is available only for warehouse locations");
+      throw new Error(
+        "Associate Contacts is available only for warehouse locations",
+      );
     }
 
     await this.warehousesSettingsService.update(id, orgId, {

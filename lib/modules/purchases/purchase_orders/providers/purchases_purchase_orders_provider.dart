@@ -92,12 +92,14 @@ final poSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 class PurchaseOrderFilter {
   final int page;
   final int limit;
+  final String? vendorId;
   final String? search;
   final String? status;
 
   PurchaseOrderFilter({
     this.page = 1,
     this.limit = 100,
+    this.vendorId,
     this.search,
     this.status,
   });

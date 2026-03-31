@@ -620,7 +620,10 @@ export class AccountantService {
       .from(accountsManualJournalItems)
       .innerJoin(
         accountsManualJournals,
-        eq(accountsManualJournalItems.manualJournalId, accountsManualJournals.id),
+        eq(
+          accountsManualJournalItems.manualJournalId,
+          accountsManualJournals.id,
+        ),
       )
       .where(
         and(
@@ -779,8 +782,7 @@ export class AccountantService {
         "Other Current Liability",
         "Intangible Asset",
       ],
-      parentTypeRelationships: {
-      },
+      parentTypeRelationships: {},
       // Account types for which the "Make as sub-account" toggle is hidden in CREATE mode.
       // Rule source: business rule table column "Make As Sub Account = Not Possible".
       // Note: Accounts Payable, Accounts Receivable, and GST components (Output/Input
@@ -1799,10 +1801,16 @@ export class AccountantService {
     }
   }
 
-  async postJournalToTransactions(journalId: string, orgId?: string, tx?: any, preloadedJournal?: any) {
+  async postJournalToTransactions(
+    journalId: string,
+    orgId?: string,
+    tx?: any,
+    preloadedJournal?: any,
+  ) {
     // When called from inside a db.transaction() the journal row is not yet committed
     // and findManualJournal (regular pool) would return 404. Use preloadedJournal instead.
-    const journal = preloadedJournal ?? await this.findManualJournal(journalId, orgId);
+    const journal =
+      preloadedJournal ?? (await this.findManualJournal(journalId, orgId));
     if (!journal) throw new NotFoundException("Journal not found.");
     const dbClient = tx || db;
     const items = journal.items || [];

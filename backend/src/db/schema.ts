@@ -878,25 +878,28 @@ export const outletInventory = pgTable(
   ],
 );
 
-export const productOutletInventorySettings = pgTable("product_outlet_inventory_settings", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .default("00000000-0000-0000-0000-000000000000"),
-  outletId: uuid("outlet_id"),
-  productId: uuid("product_id")
-    .notNull()
-    .references(() => product.id, { onDelete: "cascade" }),
-  reorderPoint: integer("reorder_point").notNull().default(0),
-  reorderTermId: uuid("reorder_term_id").references(() => reorderTerm.id, {
-    onDelete: "set null",
-  }),
-  isActive: boolean("is_active").notNull().default(true),
-  createdById: uuid("created_by_id"),
-  updatedById: uuid("updated_by_id"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const productOutletInventorySettings = pgTable(
+  "product_outlet_inventory_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .default("00000000-0000-0000-0000-000000000000"),
+    outletId: uuid("outlet_id"),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => product.id, { onDelete: "cascade" }),
+    reorderPoint: integer("reorder_point").notNull().default(0),
+    reorderTermId: uuid("reorder_term_id").references(() => reorderTerm.id, {
+      onDelete: "set null",
+    }),
+    isActive: boolean("is_active").notNull().default(true),
+    createdById: uuid("created_by_id"),
+    updatedById: uuid("updated_by_id"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+);
 export const organizations = pgTable("organization", {
   id: uuid("id").primaryKey().defaultRandom(),
   systemId: varchar("system_id", { length: 20 }).notNull(),
@@ -917,7 +920,9 @@ export const organizations = pgTable("organization", {
   companyIdLabel: varchar("company_id_label", { length: 50 }),
   companyIdValue: varchar("company_id_value", { length: 100 }),
   paymentStubAddress: text("payment_stub_address"),
-  hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false),
+  hasSeparatePaymentStubAddress: boolean(
+    "has_separate_payment_stub_address",
+  ).default(false),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -1210,3 +1215,36 @@ export const transactionLocks = pgTable(
     };
   },
 );
+
+// Inventory module - Picklists
+export const inventoryPicklists = pgTable("inventory_picklists", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  picklistNumber: varchar("picklist_number", { length: 50 }).notNull().unique(),
+  date: timestamp("date").defaultNow(),
+  status: varchar("status", { length: 50 }).notNull().default("Yet to Start"),
+  assignee: uuid("assignee").references(() => users.id),
+  location: uuid("location").references(() => storageLocation.id), // or outlets.id
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const inventoryPicklistItems = pgTable("inventory_picklist_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  picklistId: uuid("picklist_id")
+    .notNull()
+    .references(() => inventoryPicklists.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  salesOrderId: uuid("sales_order_id").references(() => salesOrder.id),
+  batchNo: varchar("batch_no", { length: 100 }),
+  quantityToPick: decimal("quantity_to_pick", { precision: 15, scale: 2 })
+    .notNull()
+    .default("0.00"),
+  quantityPicked: decimal("quantity_picked", { precision: 15, scale: 2 })
+    .notNull()
+    .default("0.00"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});

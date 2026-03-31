@@ -290,9 +290,7 @@ export class GlobalLookupsController {
     return (data ?? []).map((ward: any) => ({
       ...ward,
       display_name:
-        ward.ward_no != null
-          ? `${ward.ward_no} - ${ward.name}`
-          : ward.name,
+        ward.ward_no != null ? `${ward.ward_no} - ${ward.name}` : ward.name,
     }));
   }
 

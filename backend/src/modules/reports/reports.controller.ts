@@ -19,7 +19,11 @@ export class ReportsController {
     @Query("endDate") endDate: string,
     @Query("orgId") orgId?: string,
   ) {
-    return this.reportsService.getProfitAndLossReport(startDate, endDate, orgId);
+    return this.reportsService.getProfitAndLossReport(
+      startDate,
+      endDate,
+      orgId,
+    );
   }
 
   @Get("general-ledger")
@@ -28,7 +32,11 @@ export class ReportsController {
     @Query("endDate") endDate: string,
     @Query("orgId") orgId?: string,
   ) {
-    return this.reportsService.getGeneralLedgerReport(startDate, endDate, orgId);
+    return this.reportsService.getGeneralLedgerReport(
+      startDate,
+      endDate,
+      orgId,
+    );
   }
 
   @Get("account-transactions")
@@ -93,9 +101,7 @@ export class ReportsController {
     @Query("scope") scope?: string,
   ) {
     const parsedPage = page ? Number.parseInt(page, 10) : undefined;
-    const parsedPageSize = pageSize
-      ? Number.parseInt(pageSize, 10)
-      : undefined;
+    const parsedPageSize = pageSize ? Number.parseInt(pageSize, 10) : undefined;
     const parsedTables = tables
       ?.split(",")
       .map((value) => value.trim())

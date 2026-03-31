@@ -1383,16 +1383,26 @@ class _PRCreateState
 
                     // Table Rows
                     if (_items.isEmpty)
-                      _buildManualRow(
-                        0,
-                        PurchaseReceiveItem(),
-                        isEphemeral: true,
+                      KeyedSubtree(
+                        key: const ValueKey('ephemeral-row'),
+                        child: _buildManualRow(
+                          0,
+                          PurchaseReceiveItem(),
+                          isEphemeral: true,
+                        ),
                       )
                     else
                       ..._items.asMap().entries.map((entry) {
                         final index = entry.key;
                         final item = entry.value;
-                        return _buildManualRow(index, item);
+                        // Use controller identity for stable key across item selection changes
+                        final ctrlKey = _rowControllers.length > index
+                            ? _rowControllers[index].hashCode
+                            : index;
+                        return KeyedSubtree(
+                          key: ValueKey('row-$ctrlKey'),
+                          child: _buildManualRow(index, item),
+                        );
                       }),
 
                     // Bottom border
@@ -1459,6 +1469,7 @@ class _PRCreateState
     bool isLastColumn = false,
   }) {
     final content = Container(
+      height: double.infinity,
       decoration: BoxDecoration(
         border: Border(
           right: isLastColumn
@@ -1770,9 +1781,10 @@ class _PRCreateState
         ),
       ),
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           _tableBodyCell(
             flex: 4,
             child: Padding(
@@ -1829,21 +1841,44 @@ class _PRCreateState
                   );
                 },
                 onChanged: (poItem) {
-                  if (poItem == null || isEphemeral || index >= _items.length)
-                    return;
+                  if (poItem == null) return;
                   setState(() {
-                    _items[index] = _items[index].copyWith(
-                      itemId: poItem.productId,
-                      itemName: poItem.productName ?? '',
-                      description: poItem.description,
-                      ordered: poItem.quantity,
-                      received: 0,
-                      inTransit: 0,
-                    );
-                    if (index == _items.length - 1) {
+                    if (isEphemeral) {
+                      // Start from empty state: set first item + add empty row
+                      _items.add(poItem.productId.isNotEmpty
+                          ? PurchaseReceiveItem(
+                              itemId: poItem.productId,
+                              itemName: poItem.productName ?? '',
+                              description: poItem.description,
+                              ordered: poItem.quantity,
+                              received: 0,
+                              inTransit: 0,
+                            )
+                          : PurchaseReceiveItem());
+                      _rowControllers.add(_ReceiveItemRowController());
+                      _preferredBins.add(null);
+                      // Add empty row for next entry
                       _items.add(PurchaseReceiveItem());
                       _rowControllers.add(_ReceiveItemRowController());
                       _preferredBins.add(null);
+                    } else {
+                      // Normal update: replace current row
+                      if (index < _items.length) {
+                        _items[index] = _items[index].copyWith(
+                          itemId: poItem.productId,
+                          itemName: poItem.productName ?? '',
+                          description: poItem.description,
+                          ordered: poItem.quantity,
+                          received: 0,
+                          inTransit: 0,
+                        );
+                        // Auto-add new row if this was the last one
+                        if (index == _items.length - 1) {
+                          _items.add(PurchaseReceiveItem());
+                          _rowControllers.add(_ReceiveItemRowController());
+                          _preferredBins.add(null);
+                        }
+                      }
                     }
                   });
                 },
@@ -2005,6 +2040,7 @@ class _PRCreateState
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -2022,9 +2058,10 @@ class _PRCreateState
         ),
       ),
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           // Item Name & Description
           _tableBodyCell(
             flex: 4,
@@ -2240,6 +2277,7 @@ class _PRCreateState
             ),
           ),
         ],
+        ),
       ),
     );
   }

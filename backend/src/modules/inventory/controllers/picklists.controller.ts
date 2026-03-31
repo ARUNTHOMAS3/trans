@@ -1,22 +1,31 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, Query } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Put,
+  Delete,
+  Query,
+} from "@nestjs/common";
 import { PicklistsService } from "../services/picklists.service";
 
-@Controller("inventory/picklists")
+@Controller("picklists")
 export class PicklistsController {
   constructor(private readonly picklistsService: PicklistsService) {}
 
   @Get()
   findAll(
-    @Query('page') page: string,
-    @Query('limit') limit: string,
-    @Query('search') search?: string,
-    @Query('status') status?: string,
+    @Query("page") page: string,
+    @Query("limit") limit: string,
+    @Query("search") search?: string,
+    @Query("status") status?: string,
   ) {
     return this.picklistsService.findAll(
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 100,
       search,
-      status
+      status,
     );
   }
 
@@ -38,5 +47,10 @@ export class PicklistsController {
   @Delete(":id")
   remove(@Param("id") id: string) {
     return this.picklistsService.remove(id);
+  }
+
+  @Get("warehouse/:warehouseId/items")
+  getWarehouseItems(@Param("warehouseId") warehouseId: string) {
+    return this.picklistsService.getWarehouseItems(warehouseId);
   }
 }

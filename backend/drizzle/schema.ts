@@ -533,10 +533,10 @@ export const salesOrders = pgTable("sales_orders", {
 export const priceLists = pgTable("price_lists", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 255 }).notNull(),
-	description: text().default('),
+	description: text().default(''),
 	currency: varchar({ length: 20 }).default('INR'),
 	pricingScheme: varchar("pricing_scheme", { length: 50 }).notNull(),
-	details: text().default('),
+	details: text().default(''),
 	roundOffPreference: varchar("round_off_preference", { length: 50 }).default('never_mind'),
 	status: varchar({ length: 20 }).default('active'),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
@@ -660,7 +660,7 @@ export const accountsJournalNumberSettings = pgTable("accounts_journal_number_se
 	isManualOverrideAllowed: boolean("is_manual_override_allowed").default(false),
 	userId: uuid("user_id"),
 }, (table) => [
-	uniqueIndex("accounts_journal_number_settings_scope_uq").using("btree", sql`org_id`, sql`COALESCE(outlet_id, '00000000-0000-0000-0000-000000000000'::uui`, sql`COALESCE(user_id, '00000000-0000-0000-0000-000000000000'::uuid)`),
+	uniqueIndex("accounts_journal_number_settings_scope_uq").using("btree", sql`org_id`, sql`COALESCE(outlet_id, '00000000-0000-0000-0000-000000000000'::uuid)`, sql`COALESCE(user_id, '00000000-0000-0000-0000-000000000000'::uuid)`),
 ]);
 
 export const accountsJournalTemplates = pgTable("accounts_journal_templates", {
@@ -737,7 +737,7 @@ export const settingsBranches = pgTable("settings_branches", {
 	districtId: uuid("district_id"),
 	localBodyId: uuid("local_body_id"),
 	wardId: uuid("ward_id"),
-	systemId: varchar("system_id", { length: 20 }).default((nextval(\'settings_branches_system_id_seq').notNull(),
+	systemId: varchar("system_id", { length: 20 }).default(sql`nextval('settings_branches_system_id_seq')`).notNull(),
 }, (table) => [
 	index("idx_settings_branches_default_transaction_series_id").using("btree", table.defaultTransactionSeriesId.asc().nullsLast().op("uuid_ops")),
 	index("idx_settings_branches_district_id").using("btree", table.districtId.asc().nullsLast().op("uuid_ops")),
@@ -841,12 +841,12 @@ export const accountsReportingTags = pgTable("accounts_reporting_tags", {
 export const transactionalSequences = pgTable("transactional_sequences", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	module: varchar({ length: 50 }).notNull(),
-	prefix: varchar({ length: 20 }).default(').notNull(),
+	prefix: varchar({ length: 20 }).default('').notNull(),
 	nextNumber: integer("next_number").default(1).notNull(),
 	padding: integer().default(6).notNull(),
 	isActive: boolean("is_active").default(true),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	suffix: varchar({ length: 20 }).default('),
+	suffix: varchar({ length: 20 }).default(''),
 	outletId: uuid("outlet_id"),
 	isAuto: boolean("is_auto").default(true),
 }, (table) => [
@@ -2099,7 +2099,7 @@ export const organization = pgTable("organization", {
 	companyIdValue: varchar("company_id_value", { length: 100 }),
 	paymentStubAddress: text("payment_stub_address"),
 	hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false).notNull(),
-	systemId: varchar("system_id", { length: 20 }).default((nextval(\'organization_system_id_seq').notNull(),
+	systemId: varchar("system_id", { length: 20 }).default(sql`nextval('organization_system_id_seq')`).notNull(),
 	baseCurrencyDecimals: smallint("base_currency_decimals"),
 	baseCurrencyFormat: varchar("base_currency_format", { length: 50 }),
 	organizationLanguage: varchar("organization_language", { length: 50 }).default('English'),
@@ -2184,6 +2184,26 @@ export const settingsUserLocationAccess = pgTable("settings_user_location_access
 			name: "settings_user_location_access_org_id_fkey"
 		}).onDelete("cascade"),
 	unique("settings_user_location_access_unique").on(table.orgId, table.userId, table.outletId),
+	pgPolicy("service_role_full_access", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
+]);
+
+export const users = pgTable("users", {
+	id: uuid().primaryKey().notNull(),
+	email: varchar({ length: 255 }).notNull(),
+	fullName: varchar("full_name", { length: 255 }).notNull(),
+	role: varchar({ length: 50 }).default('user').notNull(),
+	orgId: uuid("org_id").notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_users_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.orgId],
+			foreignColumns: [organization.id],
+			name: "users_org_id_fkey"
+		}).onDelete("cascade"),
+	unique("users_email_key").on(table.email),
 	pgPolicy("service_role_full_access", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
 ]);
 

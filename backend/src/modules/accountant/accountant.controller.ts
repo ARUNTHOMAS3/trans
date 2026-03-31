@@ -358,10 +358,7 @@ export class AccountantController {
   // --- Dynamic Accounts Routes (must be last) ---
 
   @Get(":id([0-9a-fA-F-]{36})/journal-usage")
-  checkJournalUsage(
-    @Param("id") id: string,
-    @Query("orgId") orgId?: string,
-  ) {
+  checkJournalUsage(@Param("id") id: string, @Query("orgId") orgId?: string) {
     return this.accountantService.checkAccountJournalUsage(id, orgId);
   }
 

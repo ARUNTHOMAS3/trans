@@ -4,11 +4,21 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
+import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/z_data_table_shell.dart';
+import 'package:zerpai_erp/shared/widgets/z_button.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_search_field.dart';
+// import 'package:zerpai_erp/core/routing/app_routes.dart';
+
 import '../models/inventory_picklist_model.dart';
 import '../providers/inventory_picklists_provider.dart';
 
+/// Performance-optimized List Screen for Inventory Picklists.
+/// Supports master-detail view when [id] is provided.
 class InventoryPicklistsListScreen extends ConsumerStatefulWidget {
-  const InventoryPicklistsListScreen({super.key});
+  final String? id;
+
+  const InventoryPicklistsListScreen({super.key, this.id});
 
   @override
   ConsumerState<InventoryPicklistsListScreen> createState() => _InventoryPicklistsListScreenState();
@@ -17,7 +27,7 @@ class InventoryPicklistsListScreen extends ConsumerStatefulWidget {
 class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklistsListScreen> {
   String _selectedView = 'All';
   final Set<String> _selectedIds = {};
-  List<String> _visibleColumns = [
+  final List<String> _visibleColumns = [
     'date',
     'picklist#',
     'status',
@@ -81,51 +91,32 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
                   children: [
                     Row(
                       children: [
-                        const Icon(LucideIcons.list, size: 20, color: Color(0xFF6B7280)),
+                        const Icon(LucideIcons.list, size: 20, color: AppTheme.textSecondary),
                         const SizedBox(width: 12),
-                        const Text(
-                          'Customize Columns',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF1F2937)),
-                        ),
+                        Text('Customize Columns', style: AppTheme.sectionHeader),
                         const Spacer(),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF3F4F6),
+                            color: AppTheme.bgDisabled,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
                             '${_visibleColumns.length} of ${_columnLabels.length} Selected',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                            style: AppTheme.metaHelper,
                           ),
                         ),
                         const SizedBox(width: 12),
                         IconButton(
                           onPressed: () => Navigator.pop(context),
-                          icon: const Icon(LucideIcons.x, size: 20, color: Color(0xFFEF4444)),
+                          icon: const Icon(LucideIcons.x, size: 20, color: AppTheme.errorRed),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search',
-                        hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
-                        prefixIcon: const Icon(LucideIcons.search, size: 18, color: Color(0xFF9CA3AF)),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                        ),
-                      ),
-                    ),
+                    const ZSearchField(hintText: 'Search columns...'),
                     const SizedBox(height: 16),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxHeight: 400),
@@ -149,19 +140,18 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 child: Row(
                                   children: [
-                                    const Icon(LucideIcons.gripVertical, size: 16, color: Color(0xFFD1D5DB)),
+                                    const Icon(LucideIcons.gripVertical, size: 16, color: AppTheme.borderColor),
                                     const SizedBox(width: 8),
                                     Icon(
                                       isVisible ? LucideIcons.checkSquare : LucideIcons.square,
                                       size: 18,
-                                      color: isVisible ? const Color(0xFF0088FF) : const Color(0xFFD1D5DB),
+                                      color: isVisible ? AppTheme.primaryBlue : AppTheme.borderColor,
                                     ),
                                     const SizedBox(width: 12),
                                     Text(
                                       entry.value,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: isVisible ? const Color(0xFF1F2937) : const Color(0xFF6B7280),
+                                      style: AppTheme.bodyText.copyWith(
+                                        color: isVisible ? AppTheme.textPrimary : AppTheme.textSecondary,
                                         fontWeight: isVisible ? FontWeight.w500 : FontWeight.normal,
                                       ),
                                     ),
@@ -176,30 +166,17 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
                     const SizedBox(height: 24),
                     Row(
                       children: [
-                        ElevatedButton(
+                        ZButton.primary(
+                          label: 'Save',
                           onPressed: () {
                             setState(() {}); // Apply visible columns
                             Navigator.pop(context);
                           },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF22A95E),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          ),
-                          child: const Text('Save', style: TextStyle(fontWeight: FontWeight.w600)),
                         ),
                         const SizedBox(width: 12),
-                        OutlinedButton(
+                        ZButton.secondary(
+                          label: 'Cancel',
                           onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF6B7280),
-                            side: const BorderSide(color: Color(0xFFE5E7EB)),
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          ),
-                          child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
                         ),
                       ],
                     ),
@@ -216,38 +193,62 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
   @override
   Widget build(BuildContext context) {
     final picklistsAsync = ref.watch(picklistsProvider);
+    final isDetailOpen = widget.id != null;
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      backgroundColor: AppTheme.backgroundColor,
+      body: Row(
         children: [
-          // Header Actions
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
-            ),
-            child: Row(
+          // Master List
+          Expanded(
+            flex: isDetailOpen ? 4 : 10,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildViewSelector(),
-                const Spacer(),
-                _buildActionIcons(),
-                const SizedBox(width: 12),
-                _buildNewButton(),
-                const SizedBox(width: 8),
-                _buildMoreMenu(),
+                // Header Actions
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: const BoxDecoration(
+                    border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+                  ),
+                  child: Row(
+                    children: [
+                      _buildViewSelector(),
+                      const Spacer(),
+                      _buildActionIcons(),
+                      const SizedBox(width: 12),
+                      _buildNewButton(),
+                      const SizedBox(width: 8),
+                      _buildMoreMenu(),
+                    ],
+                  ),
+                ),
+                
+                Expanded(
+                  child: picklistsAsync.when(
+                    data: (picklists) => _buildVirtualizedTable(picklists),
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, stack) => Center(child: Text('Error: $err')),
+                  ),
+                ),
               ],
             ),
           ),
           
-          Expanded(
-            child: picklistsAsync.when(
-              data: (picklists) => _buildTable(picklists),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, stack) => Center(child: Text('Error: $err')),
+          // Side Detail Panel
+          if (isDetailOpen)
+            const VerticalDivider(width: 1),
+          if (isDetailOpen)
+            Expanded(
+              flex: 6,
+              child: _PicklistDetailPanel(
+                id: widget.id!,
+                onClose: () {
+                  final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
+                  context.go('/$orgId/inventory/picklists');
+                },
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -256,11 +257,11 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
   Widget _buildViewSelector() {
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
-      style: const MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: WidgetStatePropertyAll(Colors.white),
-        padding: WidgetStatePropertyAll(EdgeInsets.zero),
-        elevation: WidgetStatePropertyAll(8),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
+        surfaceTintColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        elevation: const WidgetStatePropertyAll(8),
       ),
       builder: (context, controller, child) {
         return InkWell(
@@ -273,15 +274,10 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
             children: [
               Text(
                 _selectedView == 'All' ? 'All Picklists' : _selectedView,
-                style: const TextStyle(
-                  fontSize: 20, 
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
-                  fontFamily: 'Inter',
-                ),
+                style: AppTheme.pageTitle.copyWith(fontSize: 20),
               ),
               const SizedBox(width: 4),
-              const Icon(LucideIcons.chevronDown, size: 18, color: Color(0xFF0088FF)),
+              const Icon(LucideIcons.chevronDown, size: 18, color: AppTheme.primaryBlue),
             ],
           ),
         );
@@ -292,15 +288,15 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
         _buildViewMenuItem('In Progress'),
         _buildViewMenuItem('On Hold'),
         _buildViewMenuItem('Completed'),
-        const Divider(height: 1, color: Color(0xFFF3F4F6)),
+        const Divider(height: 1, color: AppTheme.bgDisabled),
         MenuItemButton(
           onPressed: () {},
           style: _menuItemButtonStyle(),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(LucideIcons.plusCircle, size: 16, color: Color(0xFF0088FF)),
-              SizedBox(width: 12),
-              Text('New Custom View', style: TextStyle(color: Color(0xFF0088FF), fontSize: 13)),
+              const Icon(LucideIcons.plusCircle, size: 16, color: AppTheme.primaryBlue),
+              const SizedBox(width: 12),
+              Text('New Custom View', style: AppTheme.bodyText.copyWith(color: AppTheme.primaryBlue, fontSize: 13)),
             ],
           ),
         ),
@@ -316,7 +312,7 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
       child: Row(
         children: [
           Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
-          Icon(LucideIcons.star, size: 14, color: isActive ? Colors.white70 : const Color(0xFFD1D5DB)),
+          Icon(LucideIcons.star, size: 14, color: isActive ? Colors.white70 : AppTheme.borderColor),
         ],
       ),
     );
@@ -327,12 +323,12 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
       children: [
         IconButton(
           onPressed: () {},
-          icon: const Icon(LucideIcons.search, size: 18, color: Color(0xFF6B7280)),
+          icon: const Icon(LucideIcons.search, size: 18, color: AppTheme.textSecondary),
           tooltip: 'Search',
         ),
         IconButton(
           onPressed: () {},
-          icon: const Icon(LucideIcons.filter, size: 18, color: Color(0xFF6B7280)),
+          icon: const Icon(LucideIcons.filter, size: 18, color: AppTheme.textSecondary),
           tooltip: 'Filter',
         ),
       ],
@@ -341,25 +337,10 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
 
   Widget _buildNewButton() {
     final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '0000000000';
-    return ElevatedButton(
+    return ZButton.primary(
+      label: 'New',
+      icon: LucideIcons.plus,
       onPressed: () => context.push('/$orgId/inventory/picklists/create'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF22A95E),
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-      ),
-      child: const Row(
-        children: [
-          Icon(LucideIcons.plus, size: 16),
-          SizedBox(width: 6),
-          Text(
-            'New',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-          ),
-        ],
-      ),
     );
   }
 
@@ -367,18 +348,18 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
     return Container(
       height: 36,
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: AppTheme.borderColor),
         borderRadius: BorderRadius.circular(4),
       ),
       child: MenuAnchor(
         alignmentOffset: const Offset(0, 4),
-        style: const MenuStyle(
-          backgroundColor: WidgetStatePropertyAll(Colors.white),
-          surfaceTintColor: WidgetStatePropertyAll(Colors.white),
-          padding: WidgetStatePropertyAll(EdgeInsets.zero),
-          elevation: WidgetStatePropertyAll(8),
-          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(4)),
+        style: MenuStyle(
+          backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
+          surfaceTintColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
+          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+          elevation: const WidgetStatePropertyAll(8),
+          shape: const WidgetStatePropertyAll(RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(AppTheme.space4)),
           )),
         ),
         builder: (context, controller, child) {
@@ -387,18 +368,18 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
               if (controller.isOpen) controller.close();
               else controller.open();
             },
-            icon: const Icon(LucideIcons.moreHorizontal, size: 16, color: Color(0xFF6B7280)),
+            icon: const Icon(LucideIcons.moreHorizontal, size: 16, color: AppTheme.textSecondary),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           );
         },
         menuChildren: [
           SubmenuButton(
-            menuStyle: const MenuStyle(
-              backgroundColor: WidgetStatePropertyAll(Colors.white),
-              surfaceTintColor: WidgetStatePropertyAll(Colors.white),
-              padding: WidgetStatePropertyAll(EdgeInsets.zero),
-              elevation: WidgetStatePropertyAll(8),
+            menuStyle: MenuStyle(
+              backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
+              surfaceTintColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
+              padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+              elevation: const WidgetStatePropertyAll(8),
             ),
             style: _menuItemButtonStyle(isHeader: true),
             menuChildren: [
@@ -407,17 +388,17 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
               _buildSortMenuItem('Created Time', isActive: true),
               _buildSortMenuItem('Last Modified Time'),
             ],
-            child: Row(
+            child: const Row(
               children: [
-                const Icon(LucideIcons.arrowUpDown, size: 16),
-                const SizedBox(width: 12),
-                const Text('Sort by', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                const Spacer(),
-                const Icon(LucideIcons.chevronRight, size: 16),
+                Icon(LucideIcons.arrowUpDown, size: 16),
+                SizedBox(width: 12),
+                Text('Sort by', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                Spacer(),
+                Icon(LucideIcons.chevronRight, size: 16),
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFF3F4F6)),
+          const Divider(height: 1, color: AppTheme.bgDisabled),
           MenuItemButton(
             onPressed: () => ref.read(picklistsProvider.notifier).refresh(),
             style: _menuItemButtonStyle(),
@@ -451,17 +432,17 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
     return ButtonStyle(
       overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       backgroundColor: WidgetStateProperty.resolveWith((states) {
-        if (isActive) return const Color(0xFF0088FF);
-        if (states.contains(WidgetState.hovered)) return const Color(0xFF0088FF);
-        return isHeader ? Colors.transparent : Colors.white;
+        if (isActive) return AppTheme.primaryBlue;
+        if (states.contains(WidgetState.hovered)) return AppTheme.primaryBlue;
+        return isHeader ? Colors.transparent : AppTheme.backgroundColor;
       }),
       foregroundColor: WidgetStateProperty.resolveWith((states) {
         if (isActive || states.contains(WidgetState.hovered)) return Colors.white;
-        return const Color(0xFF374151);
+        return AppTheme.textPrimary;
       }),
       iconColor: WidgetStateProperty.resolveWith((states) {
         if (isActive || states.contains(WidgetState.hovered)) return Colors.white;
-        return const Color(0xFF0088FF);
+        return AppTheme.primaryBlue;
       }),
       padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
       minimumSize: const WidgetStatePropertyAll(Size(240, 44)),
@@ -470,46 +451,29 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
     );
   }
 
-  Widget _buildTable(List<Picklist> picklists) {
+  Widget _buildVirtualizedTable(List<Picklist> picklists) {
+    if (picklists.isEmpty) return _buildEmptyState();
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final screenWidth = constraints.maxWidth;
+        // Calculate dynamic widths based on available width
+        final screenWidth = math.max(constraints.maxWidth, 1000.0);
+        final columnWidths = _calculateColumnWidths(screenWidth);
+
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Table Header
-                Container(
-                  constraints: BoxConstraints(minWidth: screenWidth),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF9FAFB),
-                    border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(width: 8),
-                      _buildConfigIcon(),
-                      const SizedBox(width: 12),
-                      _buildSelectAllCheckbox(picklists),
-                      const SizedBox(width: 12),
-                      ..._visibleColumns.map((colId) {
-                        final width = _getCalculatedColumnWidth(colId, screenWidth);
-                        return _buildHeaderCell(_columnLabels[colId]!, width: width);
-                      }),
-                    ],
-                  ),
-                ),
-                // Table Body
-                if (picklists.isEmpty)
-                  _buildEmptyState(screenWidth)
-                else
-                  ...picklists.map((p) => _buildRow(p, screenWidth)),
-              ],
+          child: SizedBox(
+            width: screenWidth,
+            child: ZDataTableShell(
+              header: _buildTableHeader(columnWidths, picklists),
+              body: ListView.builder(
+                padding: EdgeInsets.zero,
+                itemCount: picklists.length,
+                itemExtent: 52, // Fixed height for performance
+                itemBuilder: (context, index) {
+                  return _buildVirtualRow(picklists[index], columnWidths, screenWidth);
+                },
+              ),
             ),
           ),
         );
@@ -517,44 +481,105 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
     );
   }
 
-  double _getCalculatedColumnWidth(String colId, double screenWidth) {
-    const staticWidth = 84.0;
-    final visibleCols = _visibleColumns;
-
-    final Map<String, (double min, double flex)> metrics = {
-      'date': (102.0, 1.0),
-      'picklist#': (120.0, 2.0),
-      'status': (140.0, 2.0),
-      'assignee': (160.0, 3.0),
-      'location': (200.0, 4.0),
-      'notes': (150.0, 2.0),
-      'created_time': (160.0, 1.5),
-      'modified_time': (160.0, 1.5),
+  Map<String, double> _calculateColumnWidths(double totalWidth) {
+    const staticPrefixWidth = 84.0; // Slider + Checkbox space
+    
+    final Map<String, ({double min, double flex})> metrics = {
+      'date': (min: 102.0, flex: 1.0),
+      'picklist#': (min: 120.0, flex: 2.0),
+      'status': (min: 140.0, flex: 2.0),
+      'assignee': (min: 160.0, flex: 3.0),
+      'location': (min: 200.0, flex: 4.0),
+      'notes': (min: 150.0, flex: 2.0),
+      'created_time': (min: 160.0, flex: 1.5),
+      'modified_time': (min: 160.0, flex: 1.5),
     };
 
-    double totalMinWidth = staticWidth;
+    double totalMinWidth = staticPrefixWidth;
     double totalFlex = 0;
 
-    for (final col in visibleCols) {
-      final m = metrics[col] ?? (150.0, 1.5);
-      totalMinWidth += m.$1;
-      totalFlex += m.$2;
+    for (final colId in _visibleColumns) {
+      final m = metrics[colId] ?? (min: 150.0, flex: 1.5);
+      totalMinWidth += m.min;
+      totalFlex += m.flex;
     }
 
-    final extraSpace = math.max(0.0, screenWidth - totalMinWidth);
-    final m = metrics[colId] ?? (150.0, 1.5);
+    final extraSpace = math.max(0.0, totalWidth - totalMinWidth);
+    final results = <String, double>{};
+    
+    for (final colId in _visibleColumns) {
+      final m = metrics[colId] ?? (min: 150.0, flex: 1.5);
+      results[colId] = m.min + (m.flex / totalFlex) * extraSpace;
+    }
+    
+    return results;
+  }
 
-    if (totalFlex == 0) return m.$1;
-    return m.$1 + (m.$2 / totalFlex) * extraSpace;
+  Widget _buildTableHeader(Map<String, double> columnWidths, List<Picklist> picklists) {
+    return Container(
+      height: 44,
+      decoration: const BoxDecoration(
+        color: AppTheme.bgLight,
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 8),
+          _buildConfigIcon(),
+          const SizedBox(width: 12),
+          _buildSelectAllCheckbox(picklists),
+          const SizedBox(width: 12),
+          ..._visibleColumns.map((colId) {
+            return _buildHeaderCell(_columnLabels[colId]!, width: columnWidths[colId]!);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVirtualRow(Picklist picklist, Map<String, double> columnWidths, double minWidth) {
+    final isSelected = _selectedIds.contains(picklist.id);
+    final isActive = widget.id == picklist.id;
+
+    return InkWell(
+      onTap: () {
+        final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
+        context.go('/$orgId/inventory/picklists/${picklist.id}');
+      },
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: isActive 
+              ? AppTheme.selectionActiveBg 
+              : (isSelected ? const Color(0xFFF0F7FF) : Colors.transparent),
+          border: const Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 8),
+            const SizedBox(width: 16), // Slider placeholder
+            const SizedBox(width: 12),
+            InkWell(
+              onTap: () => _toggleSelection(picklist.id ?? ''),
+              child: _buildCheckboxWidget(isSelected),
+            ),
+            const SizedBox(width: 12),
+            ..._visibleColumns.map((colId) {
+              return _buildCell(picklist, colId, width: columnWidths[colId]!);
+            }),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildConfigIcon() {
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
-      style: const MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: WidgetStatePropertyAll(Colors.white),
-        elevation: WidgetStatePropertyAll(8),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
+        surfaceTintColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
+        elevation: const WidgetStatePropertyAll(8),
       ),
       builder: (context, controller, child) {
         return InkWell(
@@ -562,7 +587,7 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
             if (controller.isOpen) controller.close();
             else controller.open();
           },
-          child: const Icon(LucideIcons.sliders, size: 16, color: Color(0xFF0088FF)),
+          child: const Icon(LucideIcons.sliders, size: 16, color: AppTheme.primaryBlue),
         );
       },
       menuChildren: [
@@ -597,7 +622,7 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
         width: 18,
         height: 18,
         decoration: BoxDecoration(
-          color: const Color(0xFF0088FF),
+          color: AppTheme.primaryBlue,
           borderRadius: BorderRadius.circular(3),
         ),
         child: Center(
@@ -615,7 +640,7 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: const Color(0xFFD1D5DB), width: 1.5),
+        border: Border.all(color: AppTheme.borderColor, width: 1.5),
       ),
     );
   }
@@ -626,42 +651,10 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Text(
         text,
-        style: const TextStyle(
+        style: AppTheme.tableHeader.copyWith(
           fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF6B7280),
-          fontFamily: 'Inter',
           letterSpacing: 0.5,
         ),
-      ),
-    );
-  }
-
-  Widget _buildRow(Picklist picklist, double minWidth) {
-    final isSelected = _selectedIds.contains(picklist.id);
-
-    return Container(
-      constraints: BoxConstraints(minWidth: minWidth),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFF0F7FF) : Colors.transparent,
-        border: const Border(bottom: BorderSide(color: Color(0xFFF3F4F6))),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(
-        children: [
-          const SizedBox(width: 8),
-          const SizedBox(width: 16), // Slider placeholder
-          const SizedBox(width: 12),
-          InkWell(
-            onTap: () => _toggleSelection(picklist.id ?? ''),
-            child: _buildCheckboxWidget(isSelected),
-          ),
-          const SizedBox(width: 12),
-          ..._visibleColumns.map((colId) {
-            final width = _getCalculatedColumnWidth(colId, minWidth);
-            return _buildCell(picklist, colId, width: width);
-          }),
-        ],
       ),
     );
   }
@@ -672,36 +665,45 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
       case 'date':
         content = Text(
           DateFormat('dd-MM-yyyy').format(picklist.date ?? DateTime.now()),
-          style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937), fontFamily: 'Inter'),
+          style: AppTheme.tableCell,
         );
         break;
       case 'picklist#':
         content = Text(
           picklist.picklistNumber,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF0088FF), fontWeight: FontWeight.w500, fontFamily: 'Inter'),
+          style: AppTheme.tableCell.copyWith(
+            color: AppTheme.primaryBlue,
+            fontWeight: FontWeight.w500,
+          ),
         );
         break;
       case 'status':
         final isCompleted = picklist.status == 'Completed';
-        content = Text(
-          picklist.status,
-          style: TextStyle(
-            fontSize: 13,
-            color: isCompleted ? const Color(0xFF22A95E) : const Color(0xFF6B7280),
-            fontFamily: 'Inter',
+        content = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: isCompleted ? AppTheme.successBg : AppTheme.bgDisabled,
+            borderRadius: BorderRadius.circular(AppTheme.space4),
+          ),
+          child: Text(
+            picklist.status,
+            style: AppTheme.captionText.copyWith(
+              color: isCompleted ? AppTheme.successGreen : AppTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         );
         break;
       case 'assignee':
         content = Text(
           picklist.assignee ?? 'Unassigned',
-          style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937), fontFamily: 'Inter'),
+          style: AppTheme.tableCell,
         );
         break;
       case 'location':
         content = Text(
           picklist.location ?? '-',
-          style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937), fontFamily: 'Inter'),
+          style: AppTheme.tableCell,
         );
         break;
       default:
@@ -711,24 +713,114 @@ class _InventoryPicklistsListScreenState extends ConsumerState<InventoryPicklist
     return Container(
       width: width,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: content,
+      child: Align(child: content, alignment: Alignment.centerLeft),
     );
   }
 
-  Widget _buildEmptyState(double width) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.symmetric(vertical: 64),
-      alignment: Alignment.center,
-      child: const Column(
+  Widget _buildEmptyState() {
+    return const Center(
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.package, size: 48, color: Color(0xFFE5E7EB)),
+          Icon(LucideIcons.package, size: 48, color: AppTheme.bgDisabled),
           SizedBox(height: 16),
           Text(
             'No picklists found',
-            style: TextStyle(fontSize: 14, color: Color(0xFF6B7280), fontFamily: 'Inter'),
+            style: TextStyle(fontSize: 14, color: AppTheme.textSecondary, fontFamily: 'Inter'),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// side detail panel for picklists
+class _PicklistDetailPanel extends ConsumerWidget {
+  final String id;
+  final VoidCallback onClose;
+
+  const _PicklistDetailPanel({required this.id, required this.onClose});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final picklistAsync = ref.watch(picklistByIdProvider(id));
+
+    return Column(
+      children: [
+        // Panel Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: onClose,
+                icon: const Icon(LucideIcons.arrowLeft, size: 20),
+                tooltip: 'Back to List',
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: picklistAsync.when(
+                  data: (p) => Text(
+                    p?.picklistNumber ?? 'Picklist Detail',
+                    style: AppTheme.pageTitle,
+                  ),
+                  loading: () => const Text('Loading...'),
+                  error: (_, __) => const Text('Error'),
+                ),
+              ),
+              IconButton(onPressed: () {}, icon: const Icon(LucideIcons.edit, size: 18)),
+              IconButton(onPressed: () {}, icon: const Icon(LucideIcons.moreVertical, size: 18)),
+            ],
+          ),
+        ),
+        
+        // Panel Content
+        Expanded(
+          child: picklistAsync.when(
+            data: (p) {
+              if (p == null) return const Center(child: Text('Picklist not found'));
+              return _buildDetailContent(context, p);
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(child: Text('Error: $err')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailContent(BuildContext context, Picklist p) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildInfoRow('Date', DateFormat('dd-MM-yyyy').format(p.date ?? DateTime.now())),
+          _buildInfoRow('Status', p.status),
+          _buildInfoRow('Assignee', p.assignee ?? 'Unassigned'),
+          _buildInfoRow('Location', p.location ?? '-'),
+          if (p.notes != null) _buildInfoRow('Notes', p.notes!),
+          const SizedBox(height: 32),
+          const Text('Items', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          // Add a simple items table here if needed
+          const Center(child: Text('Item list implementation in progress...', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 120, child: Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13))),
+          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
         ],
       ),
     );

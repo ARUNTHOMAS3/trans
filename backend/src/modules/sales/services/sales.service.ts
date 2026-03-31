@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from "@nestjs/common";
 import { SupabaseService } from "../../supabase/supabase.service";
 
 @Injectable()
@@ -8,8 +12,9 @@ export class SalesService {
   async getSalesOrderById(id: string) {
     const client = this.supabaseService.getClient();
     const { data, error } = await client
-      .from('sales_orders')
-      .select(`
+      .from("sales_orders")
+      .select(
+        `
         *,
         customer:customers(
           id, display_name, first_name, last_name, company_name,
@@ -19,8 +24,9 @@ export class SalesService {
           shipping_address_zip, shipping_address_state_id
         ),
         items:sales_order_items(*, product:products(id, product_name, sku))
-      `)
-      .eq('id', id)
+      `,
+      )
+      .eq("id", id)
       .single();
 
     if (error) throw error;
@@ -30,10 +36,12 @@ export class SalesService {
   async getSalesByType(type: string) {
     const client = this.supabaseService.getClient();
     const { data, error } = await client
-      .from('sales_orders')
-      .select('*, customer:customers(id, display_name, first_name, last_name, company_name)')
-      .eq('document_type', type)
-      .order('created_at', { ascending: false });
+      .from("sales_orders")
+      .select(
+        "*, customer:customers(id, display_name, first_name, last_name, company_name)",
+      )
+      .eq("document_type", type)
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
     return data;
@@ -48,9 +56,9 @@ export class SalesService {
       reference,
       saleDate,
       expectedShipmentDate,
-      paymentTerms,       // UUID — maps to payment_term_id
+      paymentTerms, // UUID — maps to payment_term_id
       deliveryMethod,
-      salesperson,        // UUID or name — maps to salesperson_name
+      salesperson, // UUID or name — maps to salesperson_name
       status,
       documentType,
       shippingCharges,
@@ -63,34 +71,46 @@ export class SalesService {
       items = [],
     } = body;
 
-    if (!customerId) throw new BadRequestException('customerId is required');
-    if (!documentType) throw new BadRequestException('documentType is required');
+    if (!customerId) throw new BadRequestException("customerId is required");
+    if (!documentType)
+      throw new BadRequestException("documentType is required");
 
     // Build a map of taxId → { associateTaxId, taxRate } by resolving tax groups
     // sales_order_items.tax_id FK references associate_taxes, but the UI sends tax_groups UUIDs.
-    const taxIdSet = [...new Set((items as any[]).map((i) => i.taxId).filter(Boolean))];
-    const taxResolutionMap = new Map<string, { tax_id: string | null; tax_rate: number }>();
+    const taxIdSet = [
+      ...new Set((items as any[]).map((i) => i.taxId).filter(Boolean)),
+    ];
+    const taxResolutionMap = new Map<
+      string,
+      { tax_id: string | null; tax_rate: number }
+    >();
 
     if (taxIdSet.length > 0) {
       // Check which IDs exist in associate_taxes
       const { data: assocTaxes } = await client
-        .from('associate_taxes')
-        .select('id, tax_rate')
-        .in('id', taxIdSet);
+        .from("associate_taxes")
+        .select("id, tax_rate")
+        .in("id", taxIdSet);
 
       for (const t of assocTaxes ?? []) {
-        taxResolutionMap.set(t.id, { tax_id: t.id, tax_rate: Number(t.tax_rate) });
+        taxResolutionMap.set(t.id, {
+          tax_id: t.id,
+          tax_rate: Number(t.tax_rate),
+        });
       }
 
       // For IDs not found in associate_taxes, resolve via tax_groups
       const unresolved = taxIdSet.filter((id) => !taxResolutionMap.has(id));
       if (unresolved.length > 0) {
         const { data: groups } = await client
-          .from('tax_groups')
-          .select('id, tax_rate')
-          .in('id', unresolved);
+          .from("tax_groups")
+          .select("id, tax_rate")
+          .in("id", unresolved);
         for (const g of groups ?? []) {
-          taxResolutionMap.set(g.id, { tax_id: null, tax_rate: Number(g.tax_rate) });
+          taxResolutionMap.set(g.id, {
+            tax_id: null,
+            tax_rate: Number(g.tax_rate),
+          });
         }
       }
     }
@@ -105,16 +125,16 @@ export class SalesService {
       const qty = Number(item.quantity) || 0;
       const rate = Number(item.rate) || 0;
       const discountValue = Number(item.discount) || 0;
-      const discountType: string = item.discountType || '%';
+      const discountType: string = item.discountType || "%";
 
       const base = qty * rate;
       const discountAmount =
-        discountType === 'value'
-          ? discountValue
-          : base * (discountValue / 100);
+        discountType === "value" ? discountValue : base * (discountValue / 100);
       const lineAmount = base - discountAmount;
 
-      const taxResolved = item.taxId ? (taxResolutionMap.get(item.taxId) ?? { tax_id: null, tax_rate: 0 }) : { tax_id: null, tax_rate: 0 };
+      const taxResolved = item.taxId
+        ? (taxResolutionMap.get(item.taxId) ?? { tax_id: null, tax_rate: 0 })
+        : { tax_id: null, tax_rate: 0 };
       const lineTaxAmount = lineAmount * (taxResolved.tax_rate / 100);
 
       computedSubTotal += lineAmount;
@@ -148,7 +168,7 @@ export class SalesService {
       finalSubTotal + finalTaxTotal + finalShipping + finalAdjustment;
 
     const { data: order, error } = await client
-      .from('sales_orders')
+      .from("sales_orders")
       .insert({
         org_id: orgId,
         customer_id: customerId,
@@ -159,7 +179,7 @@ export class SalesService {
         payment_term_id: paymentTerms || null,
         delivery_method: deliveryMethod || null,
         salesperson_name: salesperson || null,
-        status: status || 'Draft',
+        status: status || "Draft",
         document_type: documentType,
         sub_total: finalSubTotal,
         tax_total: finalTaxTotal,
@@ -178,7 +198,7 @@ export class SalesService {
 
     if (processedItems.length > 0) {
       const { error: itemsError } = await client
-        .from('sales_order_items')
+        .from("sales_order_items")
         .insert(
           processedItems.map((item) => ({
             ...item,
@@ -188,7 +208,7 @@ export class SalesService {
 
       if (itemsError) {
         // Compensating delete — keep the DB clean if items insert fails
-        await client.from('sales_orders').delete().eq('id', order.id);
+        await client.from("sales_orders").delete().eq("id", order.id);
         throw itemsError;
       }
     }
@@ -201,12 +221,13 @@ export class SalesService {
 
     // Verify order exists
     const { data: existing, error: fetchError } = await client
-      .from('sales_orders')
-      .select('id')
-      .eq('id', id)
+      .from("sales_orders")
+      .select("id")
+      .eq("id", id)
       .single();
 
-    if (fetchError || !existing) throw new NotFoundException(`Sales order ${id} not found`);
+    if (fetchError || !existing)
+      throw new NotFoundException(`Sales order ${id} not found`);
 
     const {
       customerId,
@@ -229,27 +250,38 @@ export class SalesService {
     } = body;
 
     // Resolve tax IDs (same logic as create)
-    const taxIdSet = [...new Set((items as any[]).map((i) => i.taxId).filter(Boolean))];
-    const taxResolutionMap = new Map<string, { tax_id: string | null; tax_rate: number }>();
+    const taxIdSet = [
+      ...new Set((items as any[]).map((i) => i.taxId).filter(Boolean)),
+    ];
+    const taxResolutionMap = new Map<
+      string,
+      { tax_id: string | null; tax_rate: number }
+    >();
 
     if (taxIdSet.length > 0) {
       const { data: assocTaxes } = await client
-        .from('associate_taxes')
-        .select('id, tax_rate')
-        .in('id', taxIdSet);
+        .from("associate_taxes")
+        .select("id, tax_rate")
+        .in("id", taxIdSet);
 
       for (const t of assocTaxes ?? []) {
-        taxResolutionMap.set(t.id, { tax_id: t.id, tax_rate: Number(t.tax_rate) });
+        taxResolutionMap.set(t.id, {
+          tax_id: t.id,
+          tax_rate: Number(t.tax_rate),
+        });
       }
 
       const unresolved = taxIdSet.filter((id) => !taxResolutionMap.has(id));
       if (unresolved.length > 0) {
         const { data: groups } = await client
-          .from('tax_groups')
-          .select('id, tax_rate')
-          .in('id', unresolved);
+          .from("tax_groups")
+          .select("id, tax_rate")
+          .in("id", unresolved);
         for (const g of groups ?? []) {
-          taxResolutionMap.set(g.id, { tax_id: null, tax_rate: Number(g.tax_rate) });
+          taxResolutionMap.set(g.id, {
+            tax_id: null,
+            tax_rate: Number(g.tax_rate),
+          });
         }
       }
     }
@@ -263,11 +295,11 @@ export class SalesService {
       const qty = Number(item.quantity) || 0;
       const rate = Number(item.rate) || 0;
       const discountValue = Number(item.discount) || 0;
-      const discountType: string = item.discountType || '%';
+      const discountType: string = item.discountType || "%";
 
       const base = qty * rate;
       const discountAmount =
-        discountType === 'value' ? discountValue : base * (discountValue / 100);
+        discountType === "value" ? discountValue : base * (discountValue / 100);
       const lineAmount = base - discountAmount;
 
       const taxResolved = item.taxId
@@ -303,11 +335,12 @@ export class SalesService {
     const finalShipping = Number(shippingCharges) || 0;
     const finalAdjustment = Number(adjustment) || 0;
     const finalTotal =
-      Number(total) || finalSubTotal + finalTaxTotal + finalShipping + finalAdjustment;
+      Number(total) ||
+      finalSubTotal + finalTaxTotal + finalShipping + finalAdjustment;
 
     // Update the order header
     const { data: order, error: updateError } = await client
-      .from('sales_orders')
+      .from("sales_orders")
       .update({
         customer_id: customerId,
         sale_number: saleNumber || null,
@@ -317,7 +350,7 @@ export class SalesService {
         payment_term_id: paymentTerms || null,
         delivery_method: deliveryMethod || null,
         salesperson_name: salesperson || null,
-        status: status || 'Draft',
+        status: status || "Draft",
         sub_total: finalSubTotal,
         tax_total: finalTaxTotal,
         discount_total: computedDiscountTotal,
@@ -328,7 +361,7 @@ export class SalesService {
         customer_notes: customerNotes || null,
         terms_and_conditions: termsAndConditions || null,
       })
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -336,15 +369,15 @@ export class SalesService {
 
     // Replace all line items: delete existing, insert new
     const { error: deleteError } = await client
-      .from('sales_order_items')
+      .from("sales_order_items")
       .delete()
-      .eq('sales_order_id', id);
+      .eq("sales_order_id", id);
 
     if (deleteError) throw deleteError;
 
     if (processedItems.length > 0) {
       const { error: itemsError } = await client
-        .from('sales_order_items')
+        .from("sales_order_items")
         .insert(processedItems);
 
       if (itemsError) throw itemsError;

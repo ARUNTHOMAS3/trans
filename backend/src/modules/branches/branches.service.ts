@@ -45,10 +45,11 @@ export class BranchesService {
   }
 
   private normalizeLocationUsers(values: unknown) {
-    if (!Array.isArray(values)) return [] as Array<{
-      user_id: string;
-      role: string | null;
-    }>;
+    if (!Array.isArray(values))
+      return [] as Array<{
+        user_id: string;
+        role: string | null;
+      }>;
 
     const seen = new Set<string>();
     return values
@@ -200,7 +201,9 @@ export class BranchesService {
       .order("business_type", { ascending: true });
 
     if (error) {
-      throw new Error(`Failed to fetch settings_branch_types: ${error.message}`);
+      throw new Error(
+        `Failed to fetch settings_branch_types: ${error.message}`,
+      );
     }
 
     if ((data ?? []).length > 0) {
@@ -259,7 +262,8 @@ export class BranchesService {
       .eq("org_id", orgId)
       .order("created_at", { ascending: true });
 
-    if (error) throw new Error(`Failed to fetch settings_branches: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to fetch settings_branches: ${error.message}`);
     return data ?? [];
   }
 
@@ -338,21 +342,45 @@ export class BranchesService {
 
   async update(id: string, orgId: string, dto: any) {
     const fields = [
-      "name", "branch_code", "branch_type",
-      "email", "phone", "fax", "website",
-      "attention", "address_street_1", "address_street_2",
-      "city", "state", "district_id", "local_body_id", "ward_id", "pincode", "country",
-      "gstin", "gstin_registration_type",
-      "is_child_location", "parent_branch_id", "primary_contact_id",
-      "gstin_legal_name", "gstin_trade_name", "gstin_registered_on",
-      "gstin_reverse_charge", "gstin_import_export",
-      "gstin_import_export_account_id", "gstin_digital_services",
-      "logo_url", "subscription_from", "subscription_to",
+      "name",
+      "branch_code",
+      "branch_type",
+      "email",
+      "phone",
+      "fax",
+      "website",
+      "attention",
+      "address_street_1",
+      "address_street_2",
+      "city",
+      "state",
+      "district_id",
+      "local_body_id",
+      "ward_id",
+      "pincode",
+      "country",
+      "gstin",
+      "gstin_registration_type",
+      "is_child_location",
+      "parent_branch_id",
+      "primary_contact_id",
+      "gstin_legal_name",
+      "gstin_trade_name",
+      "gstin_registered_on",
+      "gstin_reverse_charge",
+      "gstin_import_export",
+      "gstin_import_export_account_id",
+      "gstin_digital_services",
+      "logo_url",
+      "subscription_from",
+      "subscription_to",
       "default_transaction_series_id",
       "is_active",
     ];
 
-    const payload: Record<string, any> = { updated_at: new Date().toISOString() };
+    const payload: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
     for (const field of fields) {
       if (field in dto) payload[field] = dto[field] ?? null;
     }

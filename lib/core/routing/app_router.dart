@@ -86,6 +86,13 @@ import 'package:zerpai_erp/core/pages/error_page.dart';
 import 'package:zerpai_erp/core/pages/maintenance_page.dart';
 import 'package:zerpai_erp/core/pages/not_found_page.dart';
 import 'package:zerpai_erp/core/pages/unauthorized_page.dart';
+
+// Inventory Module
+import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_list.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_create.dart';
+import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_list.dart';
+import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_create.dart';
+
 import 'app_routes.dart';
 export 'app_routes.dart';
 
@@ -175,60 +182,73 @@ final GoRouter appRouter = GoRouter(
             // Home
             GoRoute(
               path: 'home',
+              name: AppRoutes.home,
               builder: (context, state) => const HomeDashboardScreen(),
             ),
             GoRoute(
               path: 'settings',
+              name: AppRoutes.settings,
               builder: (context, state) => const SettingsPage(),
             ),
             GoRoute(
               path: 'settings/orgprofile',
+              name: AppRoutes.settingsOrgProfile,
               builder: (context, state) =>
                   const SettingsOrganizationProfilePage(),
             ),
             GoRoute(
               path: 'settings/orgbranding',
+              name: AppRoutes.settingsOrgBranding,
               builder: (context, state) =>
                   const SettingsOrganizationBrandingPage(),
             ),
             GoRoute(
               path: 'settings/branches',
+              name: AppRoutes.settingsBranches,
               builder: (context, state) => const SettingsBranchesListPage(),
             ),
             GoRoute(
               path: 'settings/branches/create',
+              name: AppRoutes.settingsBranchCreate,
               builder: (context, state) => const SettingsBranchCreatePage(),
             ),
             GoRoute(
               path: 'settings/branches/:id/edit',
+              name: AppRoutes.settingsBranchEdit,
               builder: (context, state) => SettingsBranchCreatePage(
                 branchId: state.pathParameters['id'],
               ),
             ),
             GoRoute(
               path: 'settings/warehouses',
+              name: AppRoutes.settingsWarehouses,
               builder: (context, state) => const SettingsWarehousesListPage(),
             ),
             GoRoute(
               path: 'settings/warehouses/create',
+              name: AppRoutes.settingsWarehouseCreate,
               builder: (context, state) => const SettingsWarehouseCreatePage(),
             ),
             GoRoute(
               path: 'settings/warehouses/:id/edit',
+              name: AppRoutes.settingsWarehouseEdit,
               builder: (context, state) => SettingsWarehouseCreatePage(
                 warehouseId: state.pathParameters['id'],
               ),
             ),
             GoRoute(
               path: 'settings/users',
+              name: AppRoutes.settingsUsers,
               builder: (context, state) => const SettingsUsersPage(),
             ),
             GoRoute(
               path: 'settings/users/new',
+              name: AppRoutes.settingsUserInvite,
               builder: (context, state) => const SettingsUsersFormPage(),
             ),
             GoRoute(
               path: 'settings/users/:id',
+              name: AppRoutes.settingsUserDetail,
               builder: (context, state) => SettingsUsersPage(
                 selectedUserId: state.pathParameters['id'],
                 initialTab: state.uri.queryParameters['tab'] ?? 'details',
@@ -236,11 +256,13 @@ final GoRouter appRouter = GoRouter(
             ),
             GoRoute(
               path: 'settings/users/:id/edit',
+              name: AppRoutes.settingsUserEdit,
               builder: (context, state) =>
                   SettingsUsersFormPage(userId: state.pathParameters['id']),
             ),
             GoRoute(
               path: 'settings/roles',
+              name: AppRoutes.settingsRoles,
               builder: (context, state) => const SettingsRolesPage(),
             ),
 
@@ -319,16 +341,19 @@ final GoRouter appRouter = GoRouter(
             // compositeItemsCreate must come BEFORE compositeItems to avoid ':id' matching 'create'
             GoRoute(
               path: 'items/composite-items/create',
+              name: AppRoutes.compositeItemsCreate,
               builder: (context, state) => const CompositeCreateScreen(),
             ),
             GoRoute(
               path: 'items/composite-items',
+              name: AppRoutes.compositeItems,
               builder: (context, state) => CompositeItemsListScreen(
                 initialSearchQuery: state.uri.queryParameters['q'],
               ),
               routes: [
                 GoRoute(
                   path: ':id',
+                  name: AppRoutes.compositeItemsDetail,
                   builder: (context, state) => CompositeItemsListScreen(
                     initialItemId: state.pathParameters['id'],
                     initialSearchQuery: state.uri.queryParameters['q'],
@@ -804,22 +829,26 @@ final GoRouter appRouter = GoRouter(
             // Assemblies
             GoRoute(
               path: 'inventory/assemblies',
+              name: AppRoutes.assemblies,
               builder: (context, state) => const AssemblyListScreen(),
             ),
             GoRoute(
               path: 'inventory/assemblies/create',
+              name: AppRoutes.assembliesCreate,
               builder: (context, state) => const AssemblyCreateScreen(),
             ),
 
             // Price Lists
             GoRoute(
               path: 'items/price-lists',
+              name: AppRoutes.priceLists,
               builder: (context, state) => PriceListOverviewScreen(
                 initialSearchQuery: state.uri.queryParameters['q'],
               ),
             ),
             GoRoute(
               path: 'items/price-lists/create',
+              name: AppRoutes.priceListsCreate,
               builder: (context, state) {
                 final extra = state.extra;
                 if (extra is PriceList) {
@@ -830,6 +859,7 @@ final GoRouter appRouter = GoRouter(
             ),
             GoRoute(
               path: 'items/price-lists/edit/:id',
+              name: AppRoutes.priceListsEdit,
               builder: (context, state) {
                 final id = state.pathParameters['id'];
                 final extra = state.extra as PriceList?;
@@ -850,41 +880,45 @@ final GoRouter appRouter = GoRouter(
             ),
             GoRoute(
               path: 'inventory/picklists',
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Picklists'),
+              name: AppRoutes.picklists,
+              builder: (context, state) => const InventoryPicklistsListScreen(),
             ),
             GoRoute(
               path: 'inventory/picklists/create',
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'New Picklist'),
+              name: AppRoutes.picklistsCreate,
+              builder: (context, state) => const InventoryPicklistsCreateScreen(),
             ),
             GoRoute(
               path: 'inventory/packages',
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Packages'),
+              name: AppRoutes.packages,
+              builder: (context, state) => const InventoryPackagesListScreen(),
             ),
             GoRoute(
               path: 'inventory/packages/create',
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'New Package'),
+              name: AppRoutes.packagesCreate,
+              builder: (context, state) => const InventoryPackagesCreateScreen(),
             ),
             GoRoute(
               path: 'inventory/shipments',
+              name: AppRoutes.shipments,
               builder: (context, state) =>
                   const PlaceholderScreen(title: 'Shipments'),
             ),
             GoRoute(
               path: 'inventory/shipments/create',
+              name: AppRoutes.shipmentsCreate,
               builder: (context, state) =>
                   const PlaceholderScreen(title: 'New Shipment'),
             ),
             GoRoute(
               path: 'inventory/transfer-orders',
+              name: AppRoutes.transferOrders,
               builder: (context, state) =>
                   const PlaceholderScreen(title: 'Transfer Orders'),
             ),
             GoRoute(
               path: 'inventory/transfer-orders/create',
+              name: AppRoutes.transferOrdersCreate,
               builder: (context, state) =>
                   const PlaceholderScreen(title: 'New Transfer Order'),
             ),
@@ -892,21 +926,25 @@ final GoRouter appRouter = GoRouter(
             // Missing Module Placeholders
             GoRoute(
               path: 'items/item-groups',
+              name: AppRoutes.itemGroups,
               builder: (context, state) =>
                   const PlaceholderScreen(title: 'Item Groups'),
             ),
             GoRoute(
               path: 'items/item-groups/create',
+              name: AppRoutes.itemGroupsCreate,
               builder: (context, state) =>
                   const PlaceholderScreen(title: 'New Item Group'),
             ),
             GoRoute(
               path: 'items/mapping',
+              name: AppRoutes.itemMapping,
               builder: (context, state) =>
                   const PlaceholderScreen(title: 'Item Mapping'),
             ),
             GoRoute(
               path: 'items/mapping/create',
+              name: AppRoutes.itemMappingCreate,
               builder: (context, state) =>
                   const PlaceholderScreen(title: 'New Item Mapping'),
             ),
@@ -918,65 +956,96 @@ final GoRouter appRouter = GoRouter(
             ),
             GoRoute(
               path: 'purchases/vendors',
+              name: AppRoutes.vendors,
               builder: (context, state) => PurchasesVendorsVendorListScreen(
                 initialSearchQuery: state.uri.queryParameters['q'],
               ),
             ),
             GoRoute(
               path: 'purchases/vendors/create',
+              name: AppRoutes.vendorsCreate,
               builder: (context, state) =>
                   const PurchasesVendorsVendorCreateScreen(),
             ),
             GoRoute(
               path: 'purchases/purchase-orders',
+              name: AppRoutes.purchaseOrders,
               builder: (context, state) => PurchaseOrderOverviewScreen(
                 initialSearchQuery: state.uri.queryParameters['q'],
               ),
             ),
             GoRoute(
+              path: 'purchases/purchase-orders/create',
+              name: AppRoutes.purchaseOrdersCreate,
+              builder: (context, state) => const PurchaseOrderCreateScreen(),
+            ),
+            GoRoute(
               path: 'purchases/purchase-receives',
+              name: AppRoutes.purchaseReceives,
               builder: (context, state) =>
                   const PurchasesPurchaseReceivesListScreen(),
             ),
             GoRoute(
-              path: 'purchases/expenses',
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Expenses'),
-            ),
-            GoRoute(
-              path: 'purchases/bills',
-              builder: (context, state) => const PurchasesBillsListScreen(),
-            ),
-            GoRoute(
-              path: 'purchases/bills/create',
-              builder: (context, state) => const PurchasesBillCreateScreen(),
-            ),
-            GoRoute(
-              path: 'purchases/payments-made',
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Payments Made'),
-            ),
-            GoRoute(
-              path: 'purchases/vendor-credits',
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Vendor Credits'),
-            ),
-            GoRoute(
-              path: 'purchases/purchase-orders/create',
-              builder: (context, state) => const PurchaseOrderCreateScreen(),
-            ),
-            GoRoute(
               path: 'purchases/purchase-receives/create',
+              name: AppRoutes.purchaseReceivesCreate,
               builder: (context, state) =>
                   const PurchasesPurchaseReceivesCreateScreen(),
             ),
             GoRoute(
+              path: 'purchases/expenses',
+              name: AppRoutes.expenses,
+              builder: (context, state) =>
+                  const PlaceholderScreen(title: 'Expenses'),
+            ),
+            GoRoute(
+              path: 'purchases/expenses/create',
+              name: AppRoutes.expensesCreate,
+              builder: (context, state) =>
+                  const PlaceholderScreen(title: 'New Expense'),
+            ),
+            GoRoute(
+              path: 'purchases/bills',
+              name: AppRoutes.bills,
+              builder: (context, state) => const PurchasesBillsListScreen(),
+            ),
+            GoRoute(
+              path: 'purchases/bills/create',
+              name: AppRoutes.billsCreate,
+              builder: (context, state) => const PurchasesBillCreateScreen(),
+            ),
+            GoRoute(
+              path: 'purchases/payments-made',
+              name: AppRoutes.paymentsMade,
+              builder: (context, state) =>
+                  const PlaceholderScreen(title: 'Payments Made'),
+            ),
+            GoRoute(
+              path: 'purchases/payments-made/create',
+              name: AppRoutes.paymentsMadeCreate,
+              builder: (context, state) =>
+                  const PlaceholderScreen(title: 'New Payment Made'),
+            ),
+            GoRoute(
+              path: 'purchases/vendor-credits',
+              name: AppRoutes.vendorCredits,
+              builder: (context, state) =>
+                  const PlaceholderScreen(title: 'Vendor Credits'),
+            ),
+            GoRoute(
+              path: 'purchases/vendor-credits/create',
+              name: AppRoutes.vendorCreditsCreate,
+              builder: (context, state) =>
+                  const PlaceholderScreen(title: 'New Vendor Credit'),
+            ),
+            GoRoute(
               path: 'documents',
+              name: AppRoutes.documents,
               builder: (context, state) =>
                   const PlaceholderScreen(title: 'Documents'),
             ),
             GoRoute(
               path: 'audit-logs',
+              name: AppRoutes.auditLogs,
               builder: (context, state) => AuditLogsScreen(
                 initialSearchQuery: state.uri.queryParameters['q'],
               ),
@@ -985,23 +1054,27 @@ final GoRouter appRouter = GoRouter(
             // Reports
             GoRoute(
               path: 'reports',
+              name: AppRoutes.reports,
               builder: (context, state) => ReportsCenterScreen(
                 initialSearchQuery: state.uri.queryParameters['q'],
               ),
             ),
             GoRoute(
               path: 'reports/daily-sales',
+              name: AppRoutes.reportDailySales,
               builder: (context, state) => const ReportDailySalesScreen(),
             ),
 
             GoRoute(
               path: 'accountant/manual-journals',
+              name: AppRoutes.accountantManualJournals,
               builder: (context, state) => ManualJournalOverviewScreen(
                 initialSearchQuery: state.uri.queryParameters['q'],
               ),
               routes: [
                 GoRoute(
                   path: 'create',
+                  name: AppRoutes.accountantManualJournalsCreate,
                   builder: (context, state) {
                     final extra = state.extra;
                     ManualJournal? initialJournal;
@@ -1028,16 +1101,19 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'templates',
+                  name: AppRoutes.accountantJournalTemplates,
                   builder: (context, state) =>
                       const ManualJournalTemplatesListScreen(),
                 ),
                 GoRoute(
                   path: 'journal-template-creation',
+                  name: AppRoutes.accountantJournalTemplateCreation,
                   builder: (context, state) =>
                       const JournalTemplateCreateScreen(),
                 ),
                 GoRoute(
                   path: ':id',
+                  name: AppRoutes.accountantManualJournalsDetail,
                   builder: (context, state) => ManualJournalOverviewScreen(
                     initialJournalId: state.pathParameters['id'],
                     initialSearchQuery: state.uri.queryParameters['q'],
@@ -1047,12 +1123,14 @@ final GoRouter appRouter = GoRouter(
             ),
             GoRoute(
               path: 'accounts/chart-of-accounts',
+              name: AppRoutes.accountsChartOfAccounts,
               builder: (context, state) => ChartOfAccountsPage(
                 initialSearchQuery: state.uri.queryParameters['q'],
               ),
               routes: [
                 GoRoute(
                   path: 'create',
+                  name: AppRoutes.accountsChartOfAccountsCreate,
                   parentNavigatorKey: rootNavigatorKey,
                   pageBuilder: (context, state) => CustomTransitionPage(
                     key: state.pageKey,
@@ -1069,6 +1147,7 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: ':id',
+                  name: AppRoutes.accountsChartOfAccountsDetail,
                   builder: (context, state) => ChartOfAccountsPage(
                     initialAccountId: state.pathParameters['id'],
                     initialSearchQuery: state.uri.queryParameters['q'],
@@ -1078,12 +1157,14 @@ final GoRouter appRouter = GoRouter(
             ),
             GoRoute(
               path: 'accountant/recurring-journals',
+              name: AppRoutes.accountantRecurringJournals,
               builder: (context, state) => RecurringJournalOverviewScreen(
                 initialSearchQuery: state.uri.queryParameters['q'],
               ),
               routes: [
                 GoRoute(
                   path: 'create',
+                  name: AppRoutes.accountantRecurringJournalsCreate,
                   builder: (context, state) {
                     final extra = state.extra;
                     if (extra is RecurringJournal) {
@@ -1109,6 +1190,7 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: ':id',
+                  name: AppRoutes.accountantRecurringJournalsDetail,
                   builder: (context, state) => RecurringJournalOverviewScreen(
                     initialJournalId: state.pathParameters['id'],
                     initialSearchQuery: state.uri.queryParameters['q'],
@@ -1118,24 +1200,29 @@ final GoRouter appRouter = GoRouter(
             ),
             GoRoute(
               path: 'accountant/bulk-update',
+              name: AppRoutes.accountantBulkUpdate,
               builder: (context, state) => const AccountantBulkUpdateScreen(),
             ),
             GoRoute(
               path: 'accountant/transaction-locking',
+              name: AppRoutes.accountantTransactionLocking,
               builder: (context, state) =>
                   const AccountantTransactionLockingScreen(),
             ),
 
             GoRoute(
               path: 'accountant/opening-balances',
+              name: AppRoutes.accountantOpeningBalances,
               builder: (context, state) => const OpeningBalancesScreen(),
             ),
             GoRoute(
               path: 'accountant/opening-balances/update',
+              name: AppRoutes.accountantOpeningBalancesUpdate,
               builder: (context, state) => const OpeningBalancesUpdateScreen(),
             ),
             GoRoute(
               path: 'accountant/settings',
+              name: AppRoutes.accountantSettings,
               builder: (context, state) => const AccountantSettingsScreen(),
             ),
             GoRoute(

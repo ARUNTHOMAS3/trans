@@ -6,6 +6,7 @@ import '../models/sales_payment_model.dart';
 import '../models/sales_eway_bill_model.dart';
 import '../models/sales_payment_link_model.dart';
 import '../services/sales_order_api_service.dart';
+import '../../inventory/providers/stock_provider.dart';
 
 final salesOrderApiServiceProvider = Provider((ref) => SalesOrderApiService());
 
@@ -59,6 +60,33 @@ final salesEWayBillsProvider = FutureProvider<List<SalesEWayBill>>((ref) {
 
 final salesPaymentLinksProvider = FutureProvider<List<SalesPaymentLink>>((ref) {
   return ref.watch(salesOrderApiServiceProvider).getPaymentLinks();
+});
+
+final allSalesOrderItemsProvider = FutureProvider<List<WarehouseStockData>>((ref) async {
+  final salesOrdersAsync = ref.watch(salesOrderControllerProvider);
+  return salesOrdersAsync.maybeWhen(
+    data: (orders) {
+      final List<WarehouseStockData> items = [];
+      for (var order in orders) {
+        if (order.items != null) {
+          for (var item in order.items!) {
+            items.add(WarehouseStockData(
+              warehouseId: '', // Sales items don't have a specific warehouse until picked
+              productId: item.itemId,
+              productCode: item.item?.itemCode ?? '',
+              productName: item.item?.productName ?? '',
+              customerId: order.customerId,
+              stock: 0,
+              quantityToPick: item.quantity,
+              salesOrderId: order.id,
+            ));
+          }
+        }
+      }
+      return items;
+    },
+    orElse: () => [],
+  );
 });
 
 class SalesOrderController extends StateNotifier<AsyncValue<List<SalesOrder>>> {

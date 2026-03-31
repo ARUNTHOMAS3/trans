@@ -53,10 +53,15 @@ class FormDropdown<T> extends StatefulWidget {
   final bool showRightBorder;
   final bool hideBorderDefault;
   final double? itemHeight;
+  final double? itemEstimatedHeight; // Alias for itemHeight
+  final double? menuMaxHeight; // Custom constrained overlay height
+  final int? maxVisibleItems;
+  final String? placeholder; // Alias for hint
   final bool multiSelect;
   final List<T> selectedValues;
   final ValueChanged<List<T>>? onSelectedValuesChanged;
   final bool Function(T value)? isSelectedValueRemovable;
+  final bool hideSelectedItemsInMultiSelect;
 
   const FormDropdown({
     super.key,
@@ -95,10 +100,15 @@ class FormDropdown<T> extends StatefulWidget {
     this.showRightBorder = true,
     this.hideBorderDefault = false,
     this.itemHeight,
+    this.itemEstimatedHeight,
+    this.menuMaxHeight,
+    this.maxVisibleItems,
+    this.placeholder,
     this.multiSelect = false,
     this.selectedValues = const [],
     this.onSelectedValuesChanged,
     this.isSelectedValueRemovable,
+    this.hideSelectedItemsInMultiSelect = true,
   });
 
   @override
@@ -120,14 +130,15 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   bool _isHoveredField = false;
 
   static const double _fieldHeight = 40.0;
-  double get _rowHeight => widget.itemHeight ?? 40.0;
-  static const double _overlayMaxHeight = 320.0;
+  double get _rowHeight => widget.itemEstimatedHeight ?? widget.itemHeight ?? 40.0;
+  double get _maxOverlayHeight => widget.menuMaxHeight ?? 320.0;
   static const double _searchBlockHeight = 56.0;
   static const double _settingsRowHeight = 40.0;
 
   final ScrollController _listScrollCtrl = ScrollController();
   bool _isSearching = false;
   Timer? _debounce;
+  final Set<T> _hoveredSelectedChips = <T>{};
 
   @override
   void initState() {
@@ -209,12 +220,19 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
 
   List<T> _localFilter(String query) {
     final normalized = query.toLowerCase().trim();
+    Iterable<T> baseItems = widget.items;
+
+    // Remove already selected items in multiSelect mode
+    if (widget.multiSelect && widget.hideSelectedItemsInMultiSelect) {
+      baseItems = baseItems.where((item) => !widget.selectedValues.contains(item));
+    }
+
     if (normalized.isEmpty) {
-      return List<T>.from(widget.items);
+      return baseItems.toList();
     }
 
     final indexedMatches =
-        widget.items
+        baseItems.toList()
             .asMap()
             .entries
             .where((entry) => _matchesQuery(entry.value, normalized))
@@ -399,7 +417,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
     if (widget.showSettings) {
       height += 1 + _settingsRowHeight;
     }
-    return height.clamp(0, _overlayMaxHeight).toDouble();
+    return height.clamp(0, _maxOverlayHeight).toDouble();
   }
 
   Offset _calculateOverlayOffset(Size fieldSize, double overlayHeight) {
@@ -443,9 +461,15 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
 
     final size = renderObject.size;
 
-    final double listHeight = (_filteredItems.length * _rowHeight)
-        .clamp(80, 220)
-        .toDouble();
+    final int visibleItems = widget.maxVisibleItems != null &&
+        widget.maxVisibleItems! > 0
+      ? _filteredItems.length.clamp(0, widget.maxVisibleItems!)
+      : _filteredItems.length;
+    final double listHeight = widget.maxVisibleItems != null
+      ? (visibleItems == 0 ? _rowHeight : visibleItems * _rowHeight)
+      : (_filteredItems.length * _rowHeight).clamp(80, 220).toDouble();
+    final bool shouldShowListScrollbar =
+      (_filteredItems.length * _rowHeight) > listHeight;
     final double overlayHeight = _calculateOverlayHeight(listHeight);
 
     return Stack(
@@ -466,7 +490,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
             color: Colors.transparent,
             child: Container(
               width: widget.menuWidth ?? size.width,
-              constraints: const BoxConstraints(maxHeight: _overlayMaxHeight),
+              constraints: BoxConstraints(maxHeight: _maxOverlayHeight),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(
@@ -495,7 +519,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                           style: const TextStyle(fontSize: 13),
                           decoration: InputDecoration(
                             isDense: true,
-                            hintText: 'Search',
+                            hintText: widget.placeholder ?? widget.hint ?? 'Search',
                             hintStyle: const TextStyle(
                               color: AppTheme.textMuted,
                               fontSize: 13,
@@ -619,78 +643,80 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                   else
                     SizedBox(
                       height: listHeight,
-                      child: Listener(
-                        onPointerSignal: (event) {
-                          if (event is PointerScrollEvent) {
-                            if (!_listScrollCtrl.hasClients) return;
+                      child: Scrollbar(
+                        controller: _listScrollCtrl,
+                        thumbVisibility: shouldShowListScrollbar,
+                        child: Listener(
+                          onPointerSignal: (event) {
+                            if (event is PointerScrollEvent) {
+                              if (!_listScrollCtrl.hasClients) return;
 
-                            final delta = event.scrollDelta.dy;
-                            final max =
-                                _listScrollCtrl.position.maxScrollExtent;
-                            final min =
-                                _listScrollCtrl.position.minScrollExtent;
+                              final delta = event.scrollDelta.dy;
+                              final max =
+                                  _listScrollCtrl.position.maxScrollExtent;
+                              final min =
+                                  _listScrollCtrl.position.minScrollExtent;
 
-                            final next = (_listScrollCtrl.offset + delta).clamp(
-                              min,
-                              max,
-                            );
-                            _listScrollCtrl.jumpTo(next);
-                          }
-                        },
-                        child: ListView.builder(
-                          controller: _listScrollCtrl,
-                          padding: EdgeInsets.zero,
-                          itemCount: _filteredItems.length,
-                          itemBuilder: (context, index) {
-                            final item = _filteredItems[index];
-                            final bool isSelected = widget.multiSelect
-                                ? widget.selectedValues.contains(item)
-                                : item == widget.value;
-                            final bool isHovered = _hoveredIndex == index;
-                            final bool enabled =
-                                widget.isItemEnabled?.call(item) ?? true;
-
-                            // ✅ If custom renderer exists, use it
-                            final Widget rowChild = widget.itemBuilder != null
-                                ? widget.itemBuilder!(
-                                    item,
-                                    isSelected,
-                                    isHovered,
-                                  )
-                                : _defaultRow(
-                                    item,
-                                    isSelected,
-                                    isHovered,
-                                    enabled,
-                                  );
-
-                            // If itemBuilder is provided, it should only render content.
-                            // We still need hover tracking + click wrapper.
-                            return MouseRegion(
-                              onEnter: (_) {
-                                if (!enabled) return;
-                                setState(() => _hoveredIndex = index);
-                                _markOverlayNeedsBuild();
-                              },
-                              onExit: (_) {
-                                if (!enabled) return;
-                                setState(() => _hoveredIndex = null);
-                                _markOverlayNeedsBuild();
-                              },
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: enabled
-                                      ? () => _handleItemTap(item)
-                                      : null,
-                                  hoverColor: Colors.transparent,
-                                  splashColor: Colors.transparent,
-                                  highlightColor: Colors.transparent,
-                                  child: rowChild,
-                                ),
-                              ),
-                            );
+                              final next = (_listScrollCtrl.offset + delta)
+                                  .clamp(min, max);
+                              _listScrollCtrl.jumpTo(next);
+                            }
                           },
+                          child: ListView.builder(
+                            controller: _listScrollCtrl,
+                            padding: EdgeInsets.zero,
+                            itemCount: _filteredItems.length,
+                            itemBuilder: (context, index) {
+                              final item = _filteredItems[index];
+                              final bool isSelected = widget.multiSelect
+                                  ? widget.selectedValues.contains(item)
+                                  : item == widget.value;
+                              final bool isHovered = _hoveredIndex == index;
+                              final bool enabled =
+                                  widget.isItemEnabled?.call(item) ?? true;
+
+                              // ✅ If custom renderer exists, use it
+                              final Widget rowChild = widget.itemBuilder != null
+                                  ? widget.itemBuilder!(
+                                      item,
+                                      isSelected,
+                                      isHovered,
+                                    )
+                                  : _defaultRow(
+                                      item,
+                                      isSelected,
+                                      isHovered,
+                                      enabled,
+                                    );
+
+                              // If itemBuilder is provided, it should only render content.
+                              // We still need hover tracking + click wrapper.
+                              return MouseRegion(
+                                onEnter: (_) {
+                                  if (!enabled) return;
+                                  setState(() => _hoveredIndex = index);
+                                  _markOverlayNeedsBuild();
+                                },
+                                onExit: (_) {
+                                  if (!enabled) return;
+                                  setState(() => _hoveredIndex = null);
+                                  _markOverlayNeedsBuild();
+                                },
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: enabled
+                                        ? () => _handleItemTap(item)
+                                        : null,
+                                    hoverColor: Colors.transparent,
+                                    splashColor: Colors.transparent,
+                                    highlightColor: Colors.transparent,
+                                    child: rowChild,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),
@@ -857,56 +883,65 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
       );
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: widget.selectedValues.map((item) {
-          final String label = widget.displayStringForValue != null
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: widget.selectedValues.map((item) {
+        final String label = widget.displayStringForValue != null
               ? widget.displayStringForValue!(item)
               : item.toString();
           final bool canRemove =
               widget.isSelectedValueRemovable?.call(item) ?? true;
+          final bool isHovered = _hoveredSelectedChips.contains(item);
 
-          return Container(
-            margin: const EdgeInsets.only(right: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppTheme.bgDisabled,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                if (canRemove) ...[
-                  const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: widget.enabled
-                        ? () {
-                            final List<T> nextValues = List<T>.from(
-                              widget.selectedValues,
-                            )..remove(item);
-                            widget.onSelectedValuesChanged?.call(nextValues);
-                          }
-                        : null,
-                    child: const Icon(
-                      Icons.close,
-                      size: 14,
-                      color: AppTheme.textSecondary,
+          return MouseRegion(
+            onEnter: (_) => setState(() => _hoveredSelectedChips.add(item)),
+            onExit: (_) => setState(() => _hoveredSelectedChips.remove(item)),
+            child: Container(
+              margin: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isHovered ? Colors.white : AppTheme.bgDisabled,
+                borderRadius: BorderRadius.circular(4),
+                border: isHovered
+                    ? Border.all(color: AppTheme.borderColor)
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
+                  if (canRemove) ...[
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: widget.enabled
+                          ? () {
+                              final List<T> nextValues = List<T>.from(
+                                widget.selectedValues,
+                              )..remove(item);
+                              widget.onSelectedValuesChanged?.call(nextValues);
+                            }
+                          : null,
+                      child: Icon(
+                        Icons.close,
+                        size: 14,
+                        color: isHovered
+                            ? AppTheme.errorRed
+                            : AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           );
         }).toList(),
-      ),
     );
   }
 
@@ -929,8 +964,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
       children: [
         CompositedTransformTarget(
           link: _layerLink,
-          child: SizedBox(
-            height: widget.height ?? _fieldHeight,
+          child: Container(
+            constraints: BoxConstraints(minHeight: widget.height ?? _fieldHeight),
             child: MouseRegion(
               onEnter: (_) => setState(() => _isHoveredField = true),
               onExit: (_) => setState(() => _isHoveredField = false),

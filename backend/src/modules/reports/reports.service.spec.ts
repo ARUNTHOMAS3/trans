@@ -57,8 +57,10 @@ const createAuditQueryBuilder = (result: QueryResult) => {
       calls.or(...args);
       return builder;
     }),
-    then: (resolve: (value: QueryResult) => unknown, reject?: (reason: unknown) => unknown) =>
-      Promise.resolve(result).then(resolve, reject),
+    then: (
+      resolve: (value: QueryResult) => unknown,
+      reject?: (reason: unknown) => unknown,
+    ) => Promise.resolve(result).then(resolve, reject),
   };
 
   return { builder, calls };

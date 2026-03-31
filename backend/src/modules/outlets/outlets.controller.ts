@@ -18,7 +18,10 @@ export class OutletsController {
   @Get()
   async findAll(@Query("org_id") orgId: string) {
     if (!orgId) {
-      return { statusCode: HttpStatus.BAD_REQUEST, message: "org_id is required" };
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: "org_id is required",
+      };
     }
     try {
       const data = await this.outletsService.findAll(orgId);
@@ -34,11 +37,17 @@ export class OutletsController {
   @Get(":id")
   async findOne(@Param("id") id: string, @Query("org_id") orgId: string) {
     if (!orgId) {
-      return { statusCode: HttpStatus.BAD_REQUEST, message: "org_id is required" };
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: "org_id is required",
+      };
     }
     const outlet = await this.outletsService.findOne(id, orgId);
     if (!outlet) {
-      return { statusCode: HttpStatus.NOT_FOUND, message: "Location not found" };
+      return {
+        statusCode: HttpStatus.NOT_FOUND,
+        message: "Location not found",
+      };
     }
     return outlet;
   }
@@ -57,14 +66,14 @@ export class OutletsController {
   }
 
   @Patch(":id")
-  async update(
-    @Param("id") id: string,
-    @Body() body: any,
-  ) {
+  async update(@Param("id") id: string, @Body() body: any) {
     try {
       const orgId = body.org_id;
       if (!orgId) {
-        return { statusCode: HttpStatus.BAD_REQUEST, message: "org_id is required" };
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: "org_id is required",
+        };
       }
       const data = await this.outletsService.update(id, orgId, body);
       return { data, message: "Location updated successfully" };
@@ -102,7 +111,10 @@ export class OutletsController {
   @Delete(":id")
   async remove(@Param("id") id: string, @Query("org_id") orgId: string) {
     if (!orgId) {
-      return { statusCode: HttpStatus.BAD_REQUEST, message: "org_id is required" };
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: "org_id is required",
+      };
     }
     try {
       await this.outletsService.remove(id, orgId);

@@ -162,6 +162,12 @@ class PurchaseReceive {
   final String status; // 'draft' | 'received'
   final String? notes;
   final List<PurchaseReceiveItem> items;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final bool billed;
+  final double quantity;
+
+  double get totalQuantity => items.fold(0.0, (sum, item) => sum + item.received);
 
   PurchaseReceive({
     this.id,
@@ -174,6 +180,10 @@ class PurchaseReceive {
     this.status = 'draft',
     this.notes,
     List<PurchaseReceiveItem>? items,
+    this.createdAt,
+    this.updatedAt,
+    this.billed = false,
+    this.quantity = 0,
   }) : items = items ?? [];
 
   PurchaseReceive copyWith({
@@ -187,6 +197,10 @@ class PurchaseReceive {
     String? status,
     String? notes,
     List<PurchaseReceiveItem>? items,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? billed,
+    double? quantity,
   }) {
     return PurchaseReceive(
       id: id ?? this.id,
@@ -201,6 +215,10 @@ class PurchaseReceive {
       status: status ?? this.status,
       notes: notes ?? this.notes,
       items: items ?? this.items,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      billed: billed ?? this.billed,
+      quantity: quantity ?? this.quantity,
     );
   }
 
@@ -215,6 +233,10 @@ class PurchaseReceive {
         'status': status,
         'notes': notes,
         'items': items.map((i) => i.toJson()).toList(),
+        'created_at': createdAt?.toIso8601String(),
+        'updated_at': updatedAt?.toIso8601String(),
+        'billed': billed,
+        'quantity': quantity,
       };
 
   factory PurchaseReceive.fromJson(Map<String, dynamic> json) {
@@ -245,6 +267,14 @@ class PurchaseReceive {
               )
               .toList() ??
           [],
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : null,
+      billed: json['billed'] as bool? ?? false,
+      quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
     );
   }
 }

@@ -39,3 +39,9 @@ final picklistsProvider =
     AsyncNotifierProvider<PicklistsNotifier, List<Picklist>>(
   PicklistsNotifier.new,
 );
+
+/// Provider for a single Picklist by ID.
+final picklistByIdProvider = FutureProvider.family<Picklist?, String>((ref, id) {
+  final repository = ref.watch(inventoryPicklistRepositoryProvider);
+  return repository.getPicklist(id);
+});

@@ -71,7 +71,7 @@ export class PurchaseReceivesService {
   async create(createDto: CreatePurchaseReceiveDto) {
     // 1. Create the parent record
     const { items, ...receiveData } = createDto;
-    
+
     const { data: receive, error: receiveError } = await this.supabaseService
       .getClient()
       .from("purchases_purchase_receives")
@@ -80,14 +80,16 @@ export class PurchaseReceivesService {
       .single();
 
     if (receiveError) {
-      throw new Error(`Failed to create purchase receive: ${receiveError.message}`);
+      throw new Error(
+        `Failed to create purchase receive: ${receiveError.message}`,
+      );
     }
 
     // 2. Create the child items
     if (items && items.length > 0) {
-      const itemsToInsert = items.map(item => ({
+      const itemsToInsert = items.map((item) => ({
         ...item,
-        purchase_receive_id: receive.id
+        purchase_receive_id: receive.id,
       }));
 
       const { error: itemsError } = await this.supabaseService
@@ -96,7 +98,9 @@ export class PurchaseReceivesService {
         .insert(itemsToInsert);
 
       if (itemsError) {
-        throw new Error(`Failed to create purchase receive items: ${itemsError.message}`);
+        throw new Error(
+          `Failed to create purchase receive items: ${itemsError.message}`,
+        );
       }
     }
 
@@ -120,7 +124,7 @@ export class PurchaseReceivesService {
 
     // Only updating the parent record for simplicity, item updates would typically
     // involve deleting existing and re-inserting, or a more complex sync.
-    
+
     return this.findOne(id);
   }
 
