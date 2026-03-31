@@ -65,9 +65,10 @@ import 'package:zerpai_erp/core/pages/settings_branches_list_page.dart';
 import 'package:zerpai_erp/core/pages/settings_branches_create_page.dart';
 import 'package:zerpai_erp/core/pages/settings_warehouses_list_page.dart';
 import 'package:zerpai_erp/core/pages/settings_warehouses_create_page.dart';
-import 'package:zerpai_erp/core/pages/settings_users_page.dart';
-import 'package:zerpai_erp/core/pages/settings_users_form_page.dart';
+import 'package:zerpai_erp/modules/settings/users/presentation/settings_users_user_overview.dart';
+import 'package:zerpai_erp/modules/settings/users/presentation/settings_users_user_creation.dart';
 import 'package:zerpai_erp/core/pages/settings_roles_page.dart';
+import 'package:zerpai_erp/modules/settings/users_roles/settings_users_roles_role_creation.dart';
 
 // Purchasing Module
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_list.dart';
@@ -239,31 +240,47 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'settings/users',
               name: AppRoutes.settingsUsers,
-              builder: (context, state) => const SettingsUsersPage(),
-            ),
-            GoRoute(
-              path: 'settings/users/new',
-              name: AppRoutes.settingsUserInvite,
-              builder: (context, state) => const SettingsUsersFormPage(),
-            ),
-            GoRoute(
-              path: 'settings/users/:id',
-              name: AppRoutes.settingsUserDetail,
-              builder: (context, state) => SettingsUsersPage(
-                selectedUserId: state.pathParameters['id'],
-                initialTab: state.uri.queryParameters['tab'] ?? 'details',
-              ),
-            ),
-            GoRoute(
-              path: 'settings/users/:id/edit',
-              name: AppRoutes.settingsUserEdit,
-              builder: (context, state) =>
-                  SettingsUsersFormPage(userId: state.pathParameters['id']),
+              builder: (context, state) => const SettingsUsersUserOverview(),
+              routes: [
+                GoRoute(
+                  path: 'new',
+                  name: AppRoutes.settingsUserInvite,
+                  builder: (context, state) =>
+                      const SettingsUsersUserCreation(),
+                ),
+                GoRoute(
+                  path: ':id',
+                  name: AppRoutes.settingsUserDetail,
+                  builder: (context, state) => SettingsUsersUserOverview(
+                    selectedUserId: state.pathParameters['id'],
+                  ),
+                ),
+                GoRoute(
+                  path: ':id/edit',
+                  name: AppRoutes.settingsUserEdit,
+                  builder: (context, state) => SettingsUsersUserCreation(
+                    userId: state.pathParameters['id'],
+                  ),
+                ),
+              ],
             ),
             GoRoute(
               path: 'settings/roles',
               name: AppRoutes.settingsRoles,
               builder: (context, state) => const SettingsRolesPage(),
+              routes: [
+                GoRoute(
+                  path: 'new',
+                  builder: (context, state) =>
+                      const SettingsUsersRolesRoleCreation(),
+                ),
+                GoRoute(
+                  path: ':id/edit',
+                  builder: (context, state) => SettingsUsersRolesRoleCreation(
+                    roleId: state.pathParameters['id'],
+                  ),
+                ),
+              ],
             ),
 
             // Items

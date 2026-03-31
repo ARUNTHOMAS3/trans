@@ -433,7 +433,7 @@ class _PRCreateState
                   border: Border.all(color: const Color(0xFFE5E7EB)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -669,7 +669,7 @@ class _PRCreateState
     try {
       final pos = await ref.read(
         purchaseOrdersProvider(
-          PurchaseOrderFilter(limit: 500, vendorId: vendorId),
+          PurchaseOrderFilter(limit: 500),
         ).future,
       );
       if (mounted) {
@@ -801,7 +801,7 @@ class _PRCreateState
             child: SizedBox(
               width: 420,
               child: FormDropdown<PurchaseOrder>(
-                itemEstimatedHeight: 60.0,
+                itemHeight: 60.0,
                 value: _selectedPO,
                 items: _vendorPOs,
                 hint: _selectedVendorId == null
@@ -1794,7 +1794,6 @@ class _PRCreateState
                 items: availablePoItems,
                 hint: 'Type or click to select an item',
                 showSearch: true,
-                maxVisibleItems: 3,
                 displayStringForValue: (poItem) =>
                     poItem.productName ?? poItem.itemCode ?? 'Unnamed item',
                 searchStringForValue: (poItem) =>
@@ -2874,169 +2873,160 @@ class _PurchaseReceivePreferencesDialogState
                     ),
                   ),
                   const SizedBox(height: 16),
-                  InkWell(
-                    onTap: () => setState(() => _isAuto = true),
-                    child: Row(
+                  RadioGroup<bool>(
+                    groupValue: _isAuto,
+                    onChanged: (val) => setState(() => _isAuto = val!),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Radio<bool>(
-                          value: true,
-                          groupValue: _isAuto,
-                          onChanged: (val) => setState(() => _isAuto = val!),
-                          activeColor: const Color(0xFF3B82F6),
-                        ),
-                        const Text(
-                          'Continue auto-generating purchase receive numbers',
-                          style: TextStyle(
-                            fontSize: 25 / 2,
-                            color: textPrimary,
-                            fontFamily: 'Inter',
+                        InkWell(
+                          onTap: () => setState(() => _isAuto = true),
+                          child: Row(
+                            children: [
+                              Radio<bool>(
+                                value: true,
+                                activeColor: const Color(0xFF3B82F6),
+                              ),
+                              const Text(
+                                'Continue auto-generating purchase receive numbers',
+                                style: TextStyle(
+                                  fontSize: 25 / 2,
+                                  color: textPrimary,
+                                  fontFamily: 'Inter',
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(
+                                LucideIcons.info,
+                                size: 12,
+                                color: textSecondary,
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        const Icon(
-                          LucideIcons.info,
-                          size: 12,
-                          color: textSecondary,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (_isAuto) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        left: 46,
-                        top: 6,
-                        right: 8,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Prefix',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: textSecondary,
-                                    fontFamily: 'Inter',
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                TextField(
-                                  controller: _prefixCtrl,
-                                  style: const TextStyle(
-                                    fontSize: 22 / 2,
-                                    color: textPrimary,
-                                    fontFamily: 'Inter',
-                                  ),
-                                  decoration: InputDecoration(
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 12,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                      borderSide: const BorderSide(
-                                        color: borderCol,
-                                      ),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                      borderSide: const BorderSide(
-                                        color: borderCol,
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                      borderSide: const BorderSide(
-                                        color: _focusBorder,
-                                        width: 1.2,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        if (_isAuto) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              left: 46,
+                              top: 6,
+                              right: 8,
                             ),
-                          ),
-                          const SizedBox(width: 30),
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                const Text(
-                                  'Next Number',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: textSecondary,
-                                    fontFamily: 'Inter',
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Prefix',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: textSecondary,
+                                          fontFamily: 'Inter',
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      TextField(
+                                        controller: _prefixCtrl,
+                                        style: const TextStyle(
+                                          fontSize: 22 / 2,
+                                          color: textPrimary,
+                                          fontFamily: 'Inter',
+                                        ),
+                                        decoration: InputDecoration(
+                                          isDense: true,
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 12,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(6),
+                                            borderSide: const BorderSide(color: borderCol),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(6),
+                                            borderSide: const BorderSide(color: borderCol),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(6),
+                                            borderSide: const BorderSide(color: _focusBorder, width: 1.2),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                TextField(
-                                  controller: _numberCtrl,
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  style: const TextStyle(
-                                    fontSize: 22 / 2,
-                                    color: textPrimary,
-                                    fontFamily: 'Inter',
-                                  ),
-                                  decoration: InputDecoration(
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 12,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                      borderSide: const BorderSide(
-                                        color: borderCol,
+                                const SizedBox(width: 30),
+                                Expanded(
+                                  flex: 2,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Next Number',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: textSecondary,
+                                          fontFamily: 'Inter',
+                                        ),
                                       ),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                      borderSide: const BorderSide(
-                                        color: borderCol,
+                                      const SizedBox(height: 4),
+                                      TextField(
+                                        controller: _numberCtrl,
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.digitsOnly,
+                                        ],
+                                        style: const TextStyle(
+                                          fontSize: 22 / 2,
+                                          color: textPrimary,
+                                          fontFamily: 'Inter',
+                                        ),
+                                        decoration: InputDecoration(
+                                          isDense: true,
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 12,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(6),
+                                            borderSide: const BorderSide(color: borderCol),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(6),
+                                            borderSide: const BorderSide(color: borderCol),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(6),
+                                            borderSide: const BorderSide(color: _focusBorder, width: 1.2),
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                      borderSide: const BorderSide(
-                                        color: _focusBorder,
-                                        width: 1.2,
-                                      ),
-                                    ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  InkWell(
-                    onTap: () => setState(() => _isAuto = false),
-                    child: Row(
-                      children: [
-                        Radio<bool>(
-                          value: false,
-                          groupValue: _isAuto,
-                          onChanged: (val) => setState(() => _isAuto = val!),
-                          activeColor: const Color(0xFF3B82F6),
-                        ),
-                        const Text(
-                          'Enter purchase receive numbers manually',
-                          style: TextStyle(
-                            fontSize: 25 / 2,
-                            color: textPrimary,
-                            fontFamily: 'Inter',
+                        const SizedBox(height: 10),
+                        InkWell(
+                          onTap: () => setState(() => _isAuto = false),
+                          child: Row(
+                            children: [
+                              Radio<bool>(
+                                value: false,
+                                activeColor: const Color(0xFF3B82F6),
+                              ),
+                              const Text(
+                                'Enter purchase receive numbers manually',
+                                style: TextStyle(
+                                  fontSize: 25 / 2,
+                                  color: textPrimary,
+                                  fontFamily: 'Inter',
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

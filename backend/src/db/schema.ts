@@ -1216,17 +1216,20 @@ export const transactionLocks = pgTable(
   },
 );
 
-// Inventory module - Picklists
+// =====================================
+// INVENTORY MODULE
+// =====================================
+
 export const inventoryPicklists = pgTable("inventory_picklists", {
   id: uuid("id").primaryKey().defaultRandom(),
-  picklistNumber: varchar("picklist_number", { length: 50 }).notNull().unique(),
-  date: timestamp("date").defaultNow(),
-  status: varchar("status", { length: 50 }).notNull().default("Yet to Start"),
+  picklistNumber: varchar("picklist_number", { length: 100 }).notNull().unique(),
+  date: timestamp("date", { withTimezone: true }).defaultNow(),
+  status: varchar("status", { length: 50 }).notNull().default("Yet to Start"), // 'Yet to Start', 'In Progress', 'Completed', 'Cancelled'
   assignee: uuid("assignee").references(() => users.id),
-  location: uuid("location").references(() => storageLocation.id), // or outlets.id
+  location: uuid("location").references(() => storageLocation.id),
   notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
 export const inventoryPicklistItems = pgTable("inventory_picklist_items", {
@@ -1236,15 +1239,18 @@ export const inventoryPicklistItems = pgTable("inventory_picklist_items", {
     .references(() => inventoryPicklists.id, { onDelete: "cascade" }),
   productId: uuid("product_id")
     .notNull()
-    .references(() => product.id),
-  salesOrderId: uuid("sales_order_id").references(() => salesOrder.id),
+    .references(() => product.id, { onDelete: "set null" }),
+  salesOrderId: uuid("sales_order_id").references(() => salesOrder.id, { onDelete: "set null" }),
   batchNo: varchar("batch_no", { length: 100 }),
+  quantityOrdered: decimal("quantity_ordered", { precision: 15, scale: 2 }).default("0"),
   quantityToPick: decimal("quantity_to_pick", { precision: 15, scale: 2 })
     .notNull()
     .default("0.00"),
   quantityPicked: decimal("quantity_picked", { precision: 15, scale: 2 })
     .notNull()
     .default("0.00"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  locationBin: varchar("location_bin", { length: 255 }),
+  status: varchar("status", { length: 50 }).default("Pending"), // 'Pending', 'Picked', 'Skipped'
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });

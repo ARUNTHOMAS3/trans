@@ -3018,6 +3018,7 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
         children: [
           Row(
             children: [
+              // Customer Name filter
               Expanded(
                 child: Consumer(
                   builder: (context, ref, _) {
@@ -3079,6 +3080,7 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                 ),
               ),
               const SizedBox(width: 24),
+              // Items filter
               Expanded(
                 child: Consumer(
                   builder: (context, ref, _) {
@@ -3140,6 +3142,7 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                 ),
               ),
               const SizedBox(width: 24),
+              // Sales Orders filter
               Expanded(
                 child: Consumer(
                   builder: (context, ref, _) {

@@ -35,6 +35,50 @@ export class UsersService {
     },
   ];
 
+  private async fetchCustomRoles(orgId: string): Promise<any[]> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("settings_roles")
+      .select("*")
+      .eq("org_id", orgId)
+      .eq("is_active", true)
+      .order("label", { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to fetch settings_roles: ${error.message}`);
+    }
+
+    return data ?? [];
+  }
+
+  private async getMergedRoles(orgId: string) {
+    const customRoles = await this.fetchCustomRoles(orgId);
+    return [
+      ...this.roleCatalog.map((role) => ({
+        ...role,
+        is_default: true,
+        permissions: null,
+      })),
+      ...customRoles.map((role) => ({
+        id: role.id?.toString() ?? "",
+        label: (role.label ?? "").toString(),
+        description: (role.description ?? "").toString(),
+        is_default: false,
+        permissions: role.permissions ?? {},
+      })),
+    ];
+  }
+
+  private async getRoleMap(orgId: string): Promise<Map<string, any>> {
+    const mergedRoles = await this.getMergedRoles(orgId);
+    return new Map(
+      mergedRoles.map((role) => [
+        role.id.toString(),
+        { label: role.label, is_default: role.is_default === true },
+      ]),
+    );
+  }
+
   private normalizeUuid(value: unknown): string | null {
     const normalized = value?.toString().trim();
     return normalized ? normalized : null;
@@ -259,7 +303,20 @@ export class UsersService {
     return this.buildLocationAccess(orgId, userId);
   }
 
-  private normalizeAuthUser(user: any, publicRow: any, accessCount: number) {
+  private normalizeAuthUser(
+    user: any,
+    publicRow: any,
+    accessCount: number,
+    roleMap: Map<string, any>,
+  ) {
+    const roleId = (
+      publicRow?.role ??
+      user?.user_metadata?.role ??
+      user?.app_metadata?.role ??
+      "staff"
+    ).toString();
+    const roleInfo = roleMap.get(roleId) ?? null;
+
     return {
       id: user?.id ?? publicRow?.id,
       email: (user?.email ?? publicRow?.email ?? "").toString(),
@@ -277,12 +334,9 @@ export class UsersService {
         publicRow?.full_name ??
         ""
       ).toString(),
-      role: (
-        publicRow?.role ??
-        user?.user_metadata?.role ??
-        user?.app_metadata?.role ??
-        "staff"
-      ).toString(),
+      role: roleId,
+      role_label: roleInfo?.label ?? roleId,
+      role_is_default: roleInfo?.is_default === true,
       is_active:
         typeof publicRow?.is_active === "boolean"
           ? publicRow.is_active
@@ -294,13 +348,15 @@ export class UsersService {
 
   async findAll(orgId: string, status = "all"): Promise<any[]> {
     const client = this.supabaseService.getClient();
-    const [{ data, error }, publicUsers, accessRows] = await Promise.all([
+    const [{ data, error }, publicUsers, accessRows, roleMap] =
+      await Promise.all([
       client.auth.admin.listUsers({ perPage: 1000 }),
       this.fetchPublicUsers(orgId),
       client
         .from("settings_user_location_access")
         .select("user_id")
         .eq("org_id", orgId),
+      this.getRoleMap(orgId),
     ]);
 
     if (error) {
@@ -327,12 +383,18 @@ export class UsersService {
           user,
           publicUsers.get(user.id),
           accessCount.get(user.id) ?? 0,
+          roleMap,
         ),
       ),
       ...Array.from(publicUsers.values())
         .filter((row: any) => !authIds.has(row.id))
         .map((row: any) =>
-          this.normalizeAuthUser(null, row, accessCount.get(row.id) ?? 0),
+          this.normalizeAuthUser(
+            null,
+            row,
+            accessCount.get(row.id) ?? 0,
+            roleMap,
+          ),
         ),
     ];
 
@@ -352,17 +414,26 @@ export class UsersService {
 
   async findOne(id: string, orgId: string): Promise<any | null> {
     const client = this.supabaseService.getClient();
-    const [{ data, error }, publicUsers, locationAccess] = await Promise.all([
-      client.auth.admin.getUserById(id),
-      this.fetchPublicUsers(orgId),
-      this.buildLocationAccess(orgId, id),
-    ]);
+    const [{ data, error }, publicUsers, locationAccess, roleMap] =
+      await Promise.all([
+        client.auth.admin.getUserById(id),
+        this.fetchPublicUsers(orgId),
+        this.buildLocationAccess(orgId, id),
+        this.getRoleMap(orgId),
+      ]);
 
     const publicRow = publicUsers.get(id);
     if (error && publicRow == null) return null;
 
     const u = data?.user;
     const meta = u?.user_metadata ?? {};
+    const roleId = (
+      publicRow?.role ??
+      meta.role ??
+      u?.app_metadata?.role ??
+      "staff"
+    ).toString();
+    const roleInfo = roleMap.get(roleId) ?? null;
 
     return {
       id: id,
@@ -380,12 +451,9 @@ export class UsersService {
         publicRow?.full_name ??
         ""
       ).toString(),
-      role: (
-        publicRow?.role ??
-        meta.role ??
-        u?.app_metadata?.role ??
-        "staff"
-      ).toString(),
+      role: roleId,
+      role_label: roleInfo?.label ?? roleId,
+      role_is_default: roleInfo?.is_default === true,
       is_active:
         typeof publicRow?.is_active === "boolean"
           ? publicRow.is_active
@@ -604,9 +672,118 @@ export class UsersService {
       counts[role] = (counts[role] ?? 0) + 1;
     }
 
-    return this.roleCatalog.map((role) => ({
-      ...role,
-      user_count: counts[role.id] ?? 0,
+    const mergedRoles = await this.getMergedRoles(orgId);
+    return mergedRoles.map((role) => ({
+      id: role.id,
+      label: role.label,
+      description: role.description,
+      user_count: counts[role.id.toString().toLowerCase()] ?? 0,
+      is_default: role.is_default === true,
+      permissions: role.permissions ?? null,
     }));
+  }
+
+  async getRole(id: string, orgId: string) {
+    const normalizedId = id.toLowerCase().trim();
+    const defaultRole = this.roleCatalog.find((role) => role.id === normalizedId);
+    if (defaultRole) {
+      return {
+        ...defaultRole,
+        is_default: true,
+        permissions: null,
+      };
+    }
+
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("settings_roles")
+      .select("*")
+      .eq("org_id", orgId)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to fetch role: ${error.message}`);
+    }
+
+    if (!data) return null;
+
+    return {
+      id: data.id?.toString() ?? "",
+      label: (data.label ?? "").toString(),
+      description: (data.description ?? "").toString(),
+      permissions: data.permissions ?? {},
+      is_default: false,
+    };
+  }
+
+  async createRole(orgId: string, body: any) {
+    const label = body?.label?.toString().trim();
+    if (!label) {
+      throw new Error("Role label is required");
+    }
+
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("settings_roles")
+      .insert({
+        org_id: orgId,
+        label,
+        description: body?.description?.toString().trim() ?? "",
+        permissions: body?.permissions ?? {},
+        is_active: true,
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to create role: ${error.message}`);
+    }
+
+    return {
+      id: data.id?.toString() ?? "",
+      label: (data.label ?? "").toString(),
+      description: (data.description ?? "").toString(),
+      permissions: data.permissions ?? {},
+      is_default: false,
+    };
+  }
+
+  async updateRole(id: string, orgId: string, body: any) {
+    const normalizedId = id.toLowerCase().trim();
+    if (this.roleCatalog.some((role) => role.id === normalizedId)) {
+      throw new Error("Default roles cannot be edited");
+    }
+
+    const label = body?.label?.toString().trim();
+    if (!label) {
+      throw new Error("Role label is required");
+    }
+
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("settings_roles")
+      .update({
+        label,
+        description: body?.description?.toString().trim() ?? "",
+        permissions: body?.permissions ?? {},
+        updated_at: new Date().toISOString(),
+      })
+      .eq("org_id", orgId)
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update role: ${error.message}`);
+    }
+
+    return {
+      id: data.id?.toString() ?? "",
+      label: (data.label ?? "").toString(),
+      description: (data.description ?? "").toString(),
+      permissions: data.permissions ?? {},
+      is_default: false,
+    };
   }
 }

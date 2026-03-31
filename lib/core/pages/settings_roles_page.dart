@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/pages/settings_users_roles_support.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 
 class SettingsRolesPage extends ConsumerStatefulWidget {
@@ -67,7 +65,7 @@ class _SettingsRolesPageState extends ConsumerState<SettingsRolesPage> {
   }
 
   void _showNewRoleInfo() {
-    ZerpaiToast.info(context, 'Custom role creation will be added next.');
+    context.go(AppRoutes.settingsRoleCreate);
   }
 
   @override
@@ -94,7 +92,7 @@ class _SettingsRolesPageState extends ConsumerState<SettingsRolesPage> {
               : Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 10, 10),
+                      padding: const EdgeInsets.fromLTRB(20, 14, 10, 10),
                       child: Row(
                         children: [
                           Text(
@@ -104,7 +102,6 @@ class _SettingsRolesPageState extends ConsumerState<SettingsRolesPage> {
                           const Spacer(),
                           ZButton.primary(
                             label: 'New Role',
-                            icon: LucideIcons.plus,
                             onPressed: _showNewRoleInfo,
                           ),
                         ],
@@ -129,62 +126,140 @@ class _SettingsRolesPageState extends ConsumerState<SettingsRolesPage> {
       );
     }
 
-    return SingleChildScrollView(
-      child: DataTable(
-        columnSpacing: 40,
-        headingRowHeight: 40,
-        dataRowMinHeight: 42,
-        dataRowMaxHeight: 50,
-        headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-        dividerThickness: 0.6,
-        columns: const [
-          DataColumn(
-            label: Text(
-              'Role Name',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textSecondary,
-              ),
-            ),
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF5F5F5),
+            border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
           ),
-          DataColumn(
-            label: Text(
-              'Description',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textSecondary,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 4,
+                child: Text(
+                  'ROLE NAME',
+                  style: AppTheme.bodyText.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                    letterSpacing: 0.2,
+                  ),
+                ),
               ),
-            ),
+              Expanded(
+                flex: 9,
+                child: Text(
+                  'DESCRIPTION',
+                  style: AppTheme.bodyText.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 100,
+                child: Text(
+                  'USERS',
+                  style: AppTheme.bodyText.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-        rows: _roles
-            .map(
-              (role) => DataRow(
-                onSelectChanged: (_) => context.go(AppRoutes.settingsUsers),
-                cells: [
-                  DataCell(
-                    Text(
-                      role.label,
-                      style: const TextStyle(
-                        color: AppTheme.primaryBlue,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: _roles.length,
+            itemBuilder: (context, index) {
+              final role = _roles[index];
+              return Material(
+                color: Colors.white,
+                child: InkWell(
+                  hoverColor: const Color(0xFFF7F9FC),
+                  splashColor: const Color(0xFFF0F4FA),
+                  highlightColor: const Color(0xFFF0F4FA),
+                  onTap: () => context.go(
+                    AppRoutes.settingsRoleEdit.replaceFirst(':id', role.id),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: AppTheme.borderLight),
                       ),
                     ),
-                  ),
-                  DataCell(
-                    Text(
-                      role.description,
-                      style: AppTheme.bodyText.copyWith(fontSize: 14),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 4,
+                          child: Row(
+                            children: [
+                              Text(
+                                role.label,
+                                style: AppTheme.bodyText.copyWith(
+                                  color: AppTheme.primaryBlue,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (role.isDefault) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.bgLight,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border:
+                                        Border.all(color: AppTheme.borderLight),
+                                  ),
+                                  child: Text(
+                                    'DEFAULT',
+                                    style: AppTheme.captionText.copyWith(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          flex: 9,
+                          child: Text(
+                            role.description,
+                            style: AppTheme.bodyText,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 100,
+                          child: Text(
+                            role.userCount.toString(),
+                            style: AppTheme.bodyText.copyWith(
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            )
-            .toList(),
-      ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

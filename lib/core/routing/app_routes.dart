@@ -25,6 +25,9 @@ class AppRoutes {
   static const String settingsUserDetail = '/settings/users/:id';
   static const String settingsUserEdit = '/settings/users/:id/edit';
   static const String settingsRoles = '/settings/roles';
+  static const String settingsRoleCreate = '/settings/roles/new';
+  static const String settingsRoleDetail = '/settings/roles/:id';
+  static const String settingsRoleEdit = '/settings/roles/:id/edit';
 
   // Items
   static const String itemsReport = '/items/report';

@@ -167,7 +167,8 @@ class PurchaseReceive {
   final bool billed;
   final double quantity;
 
-  double get totalQuantity => items.fold(0.0, (sum, item) => sum + item.received);
+  double get totalQuantity =>
+      items.fold(0, (sum, item) => sum + item.quantityToReceive);
 
   PurchaseReceive({
     this.id,
@@ -245,7 +246,7 @@ class PurchaseReceive {
       purchaseReceiveNumber:
           json['purchase_receive_number'] as String? ?? '',
       receivedDate: json['received_date'] != null
-          ? DateTime.parse(json['received_date'] as String)
+          ? DateTime.tryParse(json['received_date'] as String)
           : null,
       vendorId: json['vendor_id'] as String?,
       vendorName: json['vendor_name'] as String?,
@@ -268,10 +269,10 @@ class PurchaseReceive {
               .toList() ??
           [],
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
+          ? DateTime.tryParse(json['created_at'] as String)
           : null,
       updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'] as String)
+          ? DateTime.tryParse(json['updated_at'] as String)
           : null,
       billed: json['billed'] as bool? ?? false,
       quantity: (json['quantity'] as num?)?.toDouble() ?? 0,

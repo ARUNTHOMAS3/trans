@@ -59,6 +59,7 @@ class WarehouseStockData {
     double? quantityOrdered,
     double? quantityToPick,
     double? quantityPicked,
+    String? preferredBin,
     double? availableQuantity,
   }) {
     return WarehouseStockData(
@@ -78,7 +79,31 @@ class WarehouseStockData {
       quantityOrdered: quantityOrdered ?? this.quantityOrdered,
       quantityToPick: quantityToPick ?? this.quantityToPick,
       quantityPicked: quantityPicked ?? this.quantityPicked,
+      preferredBin: preferredBin ?? this.preferredBin,
       availableQuantity: availableQuantity ?? this.availableQuantity,
+    );
+  }
+
+  factory WarehouseStockData.fromJson(Map<String, dynamic> json) {
+    return WarehouseStockData(
+      warehouseId: json['warehouseId'] as String? ?? json['warehouse_id'] as String? ?? '',
+      productId: json['productId'] as String? ?? json['product_id'] as String? ?? '',
+      productCode: json['productCode'] as String? ?? json['product_code'] as String? ?? json['sku'] as String? ?? '',
+      productName: json['productName'] as String? ?? json['product_name'] as String? ?? '',
+      customerId: json['customerId'] as String? ?? json['customer_id'] as String?,
+      stock: (json['currentStock'] as num? ?? json['stock'] as num? ?? 0).toDouble(),
+      quantityOnHand: (json['quantityOnHand'] as num? ?? json['quantity_on_hand'] as num? ?? 0).toDouble(),
+      batchNo: json['batchNo'] as String? ?? json['batch_no'] as String?,
+      expiryDate: json['expiryDate'] as String? ?? json['expiry_date'] as String?,
+      salesOrderId: json['salesOrderId'] as String? ?? json['sales_order_id'] as String?,
+      salesOrderNumber: json['salesOrderNumber'] as String? ?? json['sales_order_number'] as String? ?? json['orderNumber'] as String?,
+      customerName: json['customerName'] as String? ?? json['customer_name'] as String?,
+      unitTitle: json['unitTitle'] as String? ?? json['unit_title'] as String? ?? json['unit'] as String?,
+      quantityOrdered: (json['quantityOrdered'] as num? ?? json['quantity_ordered'] as num?)?.toDouble(),
+      quantityToPick: (json['quantityToPick'] as num? ?? json['quantity_to_pick'] as num?)?.toDouble(),
+      quantityPicked: (json['quantityPicked'] as num? ?? json['quantity_picked'] as num?)?.toDouble(),
+      preferredBin: json['preferredBin'] as String? ?? json['preferred_bin'] as String?,
+      availableQuantity: (json['availableQuantity'] as num? ?? json['available_quantity'] as num? ?? 0).toDouble(),
     );
   }
 }
@@ -149,3 +174,7 @@ final stockByWarehouseProvider =
     return [];
   }
 });
+
+/// Stub — returns an empty list until SO items are wired to a real provider.
+final allSalesOrderItemsProvider =
+    FutureProvider<List<WarehouseStockData>>((ref) async => const []);
