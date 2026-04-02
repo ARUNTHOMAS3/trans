@@ -378,14 +378,19 @@ class _InventoryPackagesCreateScreenState extends State<InventoryPackagesCreateS
         // Empty State Body
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 16),
           decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: _borderCol)),
           ),
           child: const Center(
             child: Text(
               'No items found.',
-              style: TextStyle(fontSize: 13, color: _textSecondary, fontFamily: 'Inter'),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: _textPrimary,
+                fontFamily: 'Inter',
+              ),
             ),
           ),
         ),

@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Get, Query, Param } from "@nestjs/common";
 import { SupabaseService } from "../modules/supabase/supabase.service";
 
 @Controller("lookups")
@@ -43,6 +43,32 @@ export class GlobalLookupsController {
     const { data, error } = await query.order("name", {
       ascending: true,
     });
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  @Get(":type")
+  async getGenericLookup(@Param("type") type: string) {
+    const tableMap = {
+      "storage-locations": "storage_locations",
+      units: "units",
+      categories: "categories",
+      vendors: "vendors",
+      brands: "brands",
+      manufacturers: "manufacturers",
+      uqc: "uqc",
+    };
+
+    const tableName = tableMap[type];
+    if (!tableName) return [];
+
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from(tableName)
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
     if (error) throw error;
     return data ?? [];
   }

@@ -87,7 +87,7 @@ class PurchaseReceiveItem {
   final double received;
   final double inTransit;
   double quantityToReceive;
-  final List<BatchInfo> batches;
+  List<BatchInfo> batches;
 
   PurchaseReceiveItem({
     this.itemId,

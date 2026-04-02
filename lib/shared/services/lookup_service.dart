@@ -73,6 +73,18 @@ class LookupService {
     }
     return null;
   }
+
+  Future<List<Map<String, dynamic>>> getStorageLocations() async {
+    try {
+      final response = await _api.get('/lookups/storage-locations');
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching storage locations', error: e);
+    }
+    return [];
+  }
 }
 
 final lookupServiceProvider = Provider<LookupService>((ref) {
@@ -135,6 +147,22 @@ final statesProvider = FutureProvider.family<List<Map<String, String>>, String>(
           'id': (json['id'] ?? '') as String,
           'name': (json['name'] ?? '') as String,
           'code': (json['code'] ?? '') as String,
+        },
+      )
+      .toList();
+});
+
+final storageLocationsProvider =
+    FutureProvider<List<Map<String, String>>>((ref) async {
+  final service = ref.watch(lookupServiceProvider);
+  final data = await service.getStorageLocations();
+
+  return data
+      .map(
+        (json) => {
+          'id': (json['id'] ?? '') as String,
+          'name': (json['locationName'] ?? json['name'] ?? '') as String,
+          'description': (json['description'] ?? '') as String,
         },
       )
       .toList();

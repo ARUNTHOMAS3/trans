@@ -176,6 +176,7 @@ class PurchaseOrder {
   final String? deliveryWarehouseId;
   final String? deliveryCustomerId;
   final String? warehouseId;
+  final String? warehouseName;
   final double subTotal;
   final double taxAmount;
   final double discount;
@@ -211,6 +212,7 @@ class PurchaseOrder {
     this.deliveryWarehouseId,
     this.deliveryCustomerId,
     this.warehouseId,
+    this.warehouseName,
     this.subTotal = 0.0,
     this.taxAmount = 0.0,
     this.discount = 0.0,
@@ -256,6 +258,10 @@ class PurchaseOrder {
       deliveryWarehouseId: json['delivery_warehouse_id'] as String?,
       deliveryCustomerId: json['delivery_customer_id'] as String?,
       warehouseId: json['warehouse_id'] as String?,
+        warehouseName:
+          json['warehouse_name'] as String? ??
+          json['warehouse']?['name'] as String? ??
+          json['warehouses']?['name'] as String?,
       subTotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
       taxAmount: double.tryParse(json['tax_amount']?.toString() ?? '0') ?? 0.0,
       discount: double.tryParse(json['discount']?.toString() ?? '0') ?? 0.0,
@@ -303,6 +309,7 @@ class PurchaseOrder {
       if (deliveryCustomerId != null)
         'delivery_customer_id': deliveryCustomerId,
       if (warehouseId != null) 'warehouse_id': warehouseId,
+      if (warehouseName != null) 'warehouse_name': warehouseName,
       'status': status,
       'subtotal': subTotal,
       'tax_amount': taxAmount,
@@ -337,6 +344,8 @@ class PurchaseOrder {
     String? deliveryType,
     String? deliveryWarehouseId,
     String? deliveryCustomerId,
+    String? warehouseId,
+    String? warehouseName,
     double? subTotal,
     double? taxAmount,
     double? discount,
@@ -369,6 +378,8 @@ class PurchaseOrder {
       deliveryType: deliveryType ?? this.deliveryType,
       deliveryWarehouseId: deliveryWarehouseId ?? this.deliveryWarehouseId,
       deliveryCustomerId: deliveryCustomerId ?? this.deliveryCustomerId,
+      warehouseId: warehouseId ?? this.warehouseId,
+      warehouseName: warehouseName ?? this.warehouseName,
       subTotal: subTotal ?? this.subTotal,
       taxAmount: taxAmount ?? this.taxAmount,
       discount: discount ?? this.discount,

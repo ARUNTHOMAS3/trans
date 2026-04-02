@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'dart:math' show max;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +20,7 @@ import '../../purchase_orders/providers/purchases_purchase_orders_provider.dart'
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
+import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
 
 const _bgWhite = Color(0xFFFFFFFF);
 const _borderCol = Color(0xFFE8E8E8);
@@ -34,7 +36,6 @@ const _dangerRed = Color(0xFFD32F2F);
 const _infoBannerBg = Color(0xFFFFF3E0);
 const _infoBannerBorder = Color(0xFFFFCC80);
 const _infoBannerText = Color(0xFFE65100);
-const _tableHeaderBg = Color(0xFFF5F5F5);
 
 // ── Row controller for items table ──────────────────────────────────────────
 class _ReceiveItemRowController {
@@ -56,10 +57,12 @@ class _BatchItemRowController {
   final TextEditingController mfgBatchCtrl = TextEditingController();
   final TextEditingController mfgDateCtrl = TextEditingController();
   final TextEditingController expDateCtrl = TextEditingController();
+  final TextEditingController damageCtrl = TextEditingController();
   final GlobalKey mfgKey = GlobalKey();
   final GlobalKey expKey = GlobalKey();
   DateTime? mfgDate;
   DateTime? expDate;
+  bool isDamaged = false;
 
   _BatchItemRowController({BatchInfo? initial}) {
     if (initial != null) {
@@ -89,6 +92,7 @@ class _BatchItemRowController {
     mfgBatchCtrl.dispose();
     mfgDateCtrl.dispose();
     expDateCtrl.dispose();
+    damageCtrl.dispose();
   }
 
   BatchInfo toBatchInfo() {
@@ -121,10 +125,14 @@ class _PRCreateState
     extends ConsumerState<PurchasesPurchaseReceivesCreateScreen> {
   final _receiveNumberCtrl = TextEditingController();
   final _receivedDateCtrl = TextEditingController();
+  final _billNoCtrl = TextEditingController();
+  final _billDateCtrl = TextEditingController();
+  final _invoiceTotalCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
 
   // Form state
   final GlobalKey _dateFieldKey = GlobalKey();
+  final GlobalKey _billDateFieldKey = GlobalKey();
   String? _selectedVendorName;
   String? _selectedVendorId;
   PurchaseOrder? _selectedPO;
@@ -137,7 +145,9 @@ class _PRCreateState
   String _receiveNumberPrefix = 'PR-';
   int _receiveNextNumber = 35;
   bool _isManualMode = false;
+  bool _isDamageEnabled = false;
   final List<String?> _preferredBins = [];
+  final List<TextEditingController> _damageControllers = [];
   final Set<String> _hoveredQtyFields = <String>{};
   final Set<String> _focusedQtyFields = <String>{};
   final Set<String> _hoveredBinFields = <String>{};
@@ -164,6 +174,36 @@ class _PRCreateState
   // Items
   final List<PurchaseReceiveItem> _items = [];
   final List<_ReceiveItemRowController> _rowControllers = [];
+
+  double _dynamicQtyToReceiveColumnWidth() {
+    final maxBatches = _items.isEmpty
+        ? 0
+        : _items.map((i) => i.batches.length).fold<int>(0, (m, e) => max(m, e));
+    const baseWidth = 124.0;
+    const extraPerBatch = 102.0;
+    if (maxBatches > 0) {
+      return (116.0 + (maxBatches * extraPerBatch)).clamp(baseWidth, 700.0);
+    }
+    return baseWidth;
+  }
+
+  double _tableMinWidthFactor() {
+    return _binMode == 'transaction' ? 0.40 : 0.49;
+  }
+
+  double _sumBatchQuantity(List<BatchInfo> batches) {
+    return batches.fold<double>(0, (sum, batch) => sum + batch.quantity);
+  }
+
+  double _sumBatchFoc(List<BatchInfo> batches) {
+    return batches.fold<double>(0, (sum, batch) => sum + batch.foc);
+  }
+
+  String _fmtPcs(double value) {
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(2);
+  }
 
   @override
   void initState() {
@@ -299,6 +339,10 @@ class _PRCreateState
         if (index < _preferredBins.length) {
           _preferredBins.removeAt(index);
         }
+        if (index < _damageControllers.length) {
+          _damageControllers[index].dispose();
+          _damageControllers.removeAt(index);
+        }
       });
     }
   }
@@ -310,6 +354,10 @@ class _PRCreateState
     _items.clear();
     _rowControllers.clear();
     _preferredBins.clear();
+    for (final c in _damageControllers) {
+      c.dispose();
+    }
+    _damageControllers.clear();
   }
 
   void _insertManualRow() {
@@ -317,6 +365,7 @@ class _PRCreateState
       _items.add(PurchaseReceiveItem());
       _rowControllers.add(_ReceiveItemRowController());
       _preferredBins.add(null);
+      _damageControllers.add(TextEditingController());
     });
   }
 
@@ -342,7 +391,6 @@ class _PRCreateState
         return;
       }
     }
-
     setState(() {
       _uploadedFiles.addAll(files);
     });
@@ -375,7 +423,13 @@ class _PRCreateState
     _attachmentListScrollController.dispose();
     _receiveNumberCtrl.dispose();
     _receivedDateCtrl.dispose();
+    _billNoCtrl.dispose();
+    _billDateCtrl.dispose();
+    _invoiceTotalCtrl.dispose();
     _notesCtrl.dispose();
+    for (final c in _damageControllers) {
+      c.dispose();
+    }
     for (var c in _rowControllers) {
       c.dispose();
     }
@@ -383,23 +437,36 @@ class _PRCreateState
   }
 
   void _switchToManualMode() {
-    setState(() {
-      _isManualMode = !_isManualMode;
+    final nextIsManual = !_isManualMode;
 
-      _clearAllRows();
+    final hasPersistedRows = _items.any(
+      (item) =>
+          (item.itemId?.isNotEmpty ?? false) ||
+          item.itemName.isNotEmpty ||
+          item.batches.isNotEmpty ||
+          item.ordered > 0 ||
+          item.quantityToReceive > 0,
+    );
+
+    setState(() {
+      _isManualMode = nextIsManual;
 
       if (_isManualMode) {
-        // Manual mode -> empty row
-        _items.add(PurchaseReceiveItem());
-        _rowControllers.add(_ReceiveItemRowController());
-        _preferredBins.add(null);
-      } else {
-        // PO mode -> reload items from selected PO
-        if (_selectedPO != null) {
-          _onPOSelected(_selectedPO!);
+        // Preserve existing rows (including batches) when switching to manual.
+        if (_items.isEmpty) {
+          _items.add(PurchaseReceiveItem());
+          _rowControllers.add(_ReceiveItemRowController());
+          _preferredBins.add(null);
+          _damageControllers.add(TextEditingController());
         }
       }
     });
+
+    // Switching back to PO mode should keep existing rows/batches.
+    // Only repopulate from PO when there is nothing meaningful to show.
+    if (!nextIsManual && !hasPersistedRows && _selectedPO != null) {
+      _onPOSelected(_selectedPO!);
+    }
   }
 
   bool get _hasValidSelection =>
@@ -581,20 +648,17 @@ class _PRCreateState
           // ── Close Button ──
           _buildHeader(),
           const SizedBox(height: 8),
-          // ── Vendor & PO Section ──
-          _buildVendorAndPOFields(),
+          // ── Vendor/PO (left) + Detail fields (right) ──
+          _buildFormSection(),
           const SizedBox(height: 20),
           // ── Dependent Sections (Disabled without PO) ──
           Opacity(
-            opacity: _hasValidSelection
-                ? 1.0
-                : 0.3, // Match screenshot stronger fade
+            opacity: _hasValidSelection ? 1.0 : 0.5,
             child: IgnorePointer(
               ignoring: !_hasValidSelection,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildOtherFormFields(),
                   const SizedBox(height: 20),
                   // ── Info Banner ──
                   _buildInfoBanner(),
@@ -668,9 +732,7 @@ class _PRCreateState
 
     try {
       final pos = await ref.read(
-        purchaseOrdersProvider(
-          PurchaseOrderFilter(limit: 500),
-        ).future,
+        purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)).future,
       );
       if (mounted) {
         setState(() {
@@ -694,13 +756,11 @@ class _PRCreateState
       _selectedPONumber = po.orderNumber;
       _selectedPOId = po.id;
       _isManualMode = false;
-      _isLoadingPOs = true; // Show loading while fetching details
+      _isLoadingPOs = true;
     });
 
     try {
-      // Fetch full PO details including line items
       final fullPO = await ref.read(purchaseOrderProvider(po.id!).future);
-
       if (!mounted) return;
 
       setState(() {
@@ -713,300 +773,482 @@ class _PRCreateState
             _items.add(
               PurchaseReceiveItem(
                 itemId: poItem.productId,
-                itemName: poItem.productName ?? poItem.itemCode ?? '',
+                itemName: poItem.productName ?? poItem.itemCode ?? "",
                 description: poItem.description,
                 ordered: poItem.quantity,
                 received: 0,
                 inTransit: 0,
-                quantityToReceive: poItem.quantity,
+                quantityToReceive: 0,
               ),
             );
-            final ctrl = _ReceiveItemRowController();
-            ctrl.qtyCtrl.text = poItem.quantity.toString();
-            _rowControllers.add(ctrl);
+            final controller = _ReceiveItemRowController();
+            controller.qtyCtrl.text = '0';
+            _rowControllers.add(controller);
             _preferredBins.add(null);
+            _damageControllers.add(TextEditingController());
           }
-        } else if (fullPO != null && fullPO.items.isEmpty) {
-          AppLogger.warning(
-            'Selected Purchase Order has no items.',
-            module: 'purchases',
-          );
         }
       });
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingPOs = false);
-        _showTopError('Failed to load items for this Purchase Order');
-      }
       AppLogger.error(
-        'Failed to fetch PO details in Purchase Receive',
+        "Failed to load purchase order details",
         error: e,
-        module: 'purchases',
+        module: "purchases",
       );
+      if (mounted) setState(() => _isLoadingPOs = false);
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FORM SECTION
-  // ═══════════════════════════════════════════════════════════════════════════
-  Widget _buildVendorAndPOFields() {
+  Widget _buildFormSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Vendor Name
-          _buildFormRow(
-            label: 'Vendor Name',
-            isRequired: true,
-            child: SizedBox(
-              width: 420,
-              child: FormDropdown<Vendor>(
-                // menuMaxHeight removed
-                value: ref
-                    .read(vendorProvider)
-                    .vendors
-                    .where((v) => v.id == _selectedVendorId)
-                    .firstOrNull,
-                items: ref.watch(vendorProvider).vendors,
-                hint: 'Select or type to search',
-                showSearch: true,
-                displayStringForValue: (v) => v.displayName,
-                searchStringForValue: (v) => v.displayName,
-                itemBuilder: (item, isSelected, isHovered) {
-                  return _buildDropdownOverlayItem(
-                    item.displayName,
-                    isSelected,
-                    isHovered,
-                  );
-                },
-                onChanged: (vendor) {
-                  if (vendor != null) {
-                    setState(() {
-                      _selectedVendorId = vendor.id;
-                      _selectedVendorName = vendor.displayName;
-                    });
-                    _fetchPOsForVendor(vendor.id);
-                  }
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Purchase Order
-          _buildFormRow(
-            label: 'Purchase Order#',
-            isRequired: true,
-            child: SizedBox(
-              width: 420,
-              child: FormDropdown<PurchaseOrder>(
-                itemHeight: 60.0,
-                value: _selectedPO,
-                items: _vendorPOs,
-                hint: _selectedVendorId == null
-                    ? 'Select a vendor first'
-                    : (_vendorPOs.isEmpty && !_isLoadingPOs
-                          ? 'No POs found'
-                          : 'Select a Purchase Order'),
-                showSearch: true,
-                isLoading: _isLoadingPOs,
-                displayStringForValue: (po) => po.orderNumber,
-                searchStringForValue: (po) =>
-                    '${po.orderNumber} ${DateFormat('dd-MM-yyyy').format(po.orderDate)}',
-                itemBuilder: (po, isSelected, isHovered) {
-                  final showHover = isHovered;
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    constraints: const BoxConstraints(minHeight: 60),
-                    decoration: BoxDecoration(
-                      color: showHover
-                          ? const Color(0xFF3B82F6)
-                          : (isSelected
-                                ? const Color(0xFFF3F4F6)
-                                : Colors.white),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                po.orderNumber,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w500,
-                                  color: showHover
-                                      ? Colors.white
-                                      : _textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Date: ${DateFormat('dd-MM-yyyy').format(po.orderDate)} | Total: \$${po.total.toStringAsFixed(2)}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontFamily: 'Inter',
-                                  color: showHover
-                                      ? const Color(0xFFEAF2FF)
-                                      : _hintColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (isSelected)
-                          Icon(
-                            LucideIcons.check,
-                            size: 16,
-                            color: showHover ? Colors.white : _linkBlue,
-                          ),
-                      ],
-                    ),
-                  );
-                },
-                onChanged: (po) {
-                  if (po != null) {
-                    _onPOSelected(po);
-                  }
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOtherFormFields() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Purchase Receive#
-          _buildFormRow(
-            label: 'Purchase receive#',
-            isRequired: true,
-            child: SizedBox(
-              width: 150,
-              child: TextField(
-                controller: _receiveNumberCtrl,
-                readOnly: _isReceiveAutoGenerate,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
-                ),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: _bgWhite,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: _fieldBorder),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(
-                      color: _focusBorder,
-                      width: 1.5,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  suffixIcon: ZTooltip(
-                    message:
-                        'Click here to enable or disable autogeneration of Purchase Receive numbers.',
-                    // placement removed
-                    child: InkWell(
-                      onTap: _showPurchaseReceivePreferencesDialog,
-                      child: const Icon(
-                        LucideIcons.settings,
-                        size: 16,
-                        color: _hintColor,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFormRow(
+                  label: "Vendor Name",
+                  isRequired: true,
+                  child: Flexible(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: FormDropdown<Vendor>(
+                        value: ref
+                            .read(vendorProvider)
+                            .vendors
+                            .where((v) => v.id == _selectedVendorId)
+                            .firstOrNull,
+                        items: ref.watch(vendorProvider).vendors,
+                        hint: "Select or type to search",
+                        showSearch: true,
+                        displayStringForValue: (v) => v.displayName,
+                        searchStringForValue: (v) => v.displayName,
+                        itemBuilder: (item, isSelected, isHovered) {
+                          return _buildDropdownOverlayItem(
+                            item.displayName,
+                            isSelected,
+                            isHovered,
+                          );
+                        },
+                        onChanged: (vendor) {
+                          if (vendor != null) {
+                            setState(() {
+                              _selectedVendorId = vendor.id;
+                              _selectedVendorName = vendor.displayName;
+                            });
+                            _fetchPOsForVendor(vendor.id);
+                          }
+                        },
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Received Date
-          _buildFormRow(
-            label: 'Received date',
-            isRequired: true,
-            child: SizedBox(
-              width: 150,
-              child: TextField(
-                controller: _receivedDateCtrl,
-                readOnly: true,
-                key: _dateFieldKey,
-                onTap: () async {
-                  final picked = await ZerpaiDatePicker.show(
-                    context,
-                    initialDate: DateTime.now(),
-                    targetKey: _dateFieldKey,
-                  );
-                  if (picked != null && mounted) {
-                    setState(() {
-                      _receivedDateCtrl.text = DateFormat(
-                        'dd-MM-yyyy',
-                      ).format(picked);
-                    });
-                  }
-                },
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
-                ),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: _bgWhite,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  hintText: 'dd-MM-yyyy',
-                  hintStyle: const TextStyle(
-                    fontSize: 13,
-                    color: _hintColor,
-                    fontFamily: 'Inter',
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: _fieldBorder),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(
-                      color: _focusBorder,
-                      width: 1.5,
+                const SizedBox(height: 20),
+                _buildFormRow(
+                  label: "Purchase Order#",
+                  labelColor: _dangerRed,
+                  child: SizedBox(
+                    width: 400,
+                    child: FormDropdown<PurchaseOrder>(
+                      itemHeight: 60.0,
+                      value: _selectedPO,
+                      items: _vendorPOs,
+                      hint: _selectedVendorId == null
+                          ? "Select a vendor first"
+                          : (_vendorPOs.isEmpty && !_isLoadingPOs
+                                ? "No POs found"
+                                : "Select a Purchase Order"),
+                      showSearch: true,
+                      isLoading: _isLoadingPOs,
+                      displayStringForValue: (po) => po.orderNumber,
+                      searchStringForValue: (po) =>
+                          "${po.orderNumber} ${DateFormat("dd-MM-yyyy").format(po.orderDate)}",
+                      itemBuilder: (po, isSelected, isHovered) {
+                        final showHover = isHovered;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          constraints: const BoxConstraints(minHeight: 60),
+                          decoration: BoxDecoration(
+                            color: showHover
+                                ? const Color(0xFF3B82F6)
+                                : (isSelected
+                                      ? const Color(0xFFF3F4F6)
+                                      : Colors.white),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      po.orderNumber,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontFamily: "Inter",
+                                        fontWeight: FontWeight.w500,
+                                        color: showHover
+                                            ? Colors.white
+                                            : _textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      "Date: ${DateFormat("dd-MM-yyyy").format(po.orderDate)} | Total: ₹${po.total.toStringAsFixed(2)}",
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontFamily: "Inter",
+                                        color: showHover
+                                            ? const Color(0xFFEAF2FF)
+                                            : _hintColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                Icon(
+                                  LucideIcons.check,
+                                  size: 16,
+                                  color: showHover ? Colors.white : _linkBlue,
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                      onChanged: (po) {
+                        if (po != null) {
+                          _onPOSelected(po);
+                        }
+                      },
                     ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  suffixIcon: const Icon(
-                    LucideIcons.calendar,
-                    size: 16,
-                    color: _hintColor,
                   ),
                 ),
-              ),
+                const SizedBox(height: 20),
+                Opacity(
+                  opacity: _hasValidSelection ? 1.0 : 0.5,
+                  child: IgnorePointer(
+                    ignoring: !_hasValidSelection,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFormRow(
+                              label: "Bill no#",
+                              isRequired: true,
+                              child: SizedBox(
+                                width: 180,
+                                child: SizedBox(
+                                  height: 44,
+                                  child: TextField(
+                                    controller: _billNoCtrl,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r"[a-zA-Z0-9]"),
+                                      ),
+                                    ],
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: _textPrimary,
+                                      fontFamily: "Inter",
+                                    ),
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: _hasValidSelection
+                                          ? _bgWhite
+                                          : const Color(0xFFF5F5F5),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 12,
+                                          ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                          color: _fieldBorder,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                          color: _focusBorder,
+                                          width: 1.5,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            _buildFormRow(
+                              label: "Bill date",
+                              isRequired: true,
+                              child: SizedBox(
+                                width: 180,
+                                child: SizedBox(
+                                  height: 44,
+                                  child: TextField(
+                                    controller: _billDateCtrl,
+                                    key: _billDateFieldKey,
+                                    readOnly: true,
+                                    onTap: () async {
+                                      final picked =
+                                          await ZerpaiDatePicker.show(
+                                            context,
+                                            initialDate: DateTime.now(),
+                                            targetKey: _billDateFieldKey,
+                                          );
+                                      if (picked != null && mounted) {
+                                        setState(() {
+                                          _billDateCtrl.text = DateFormat(
+                                            "dd-MM-yyyy",
+                                          ).format(picked);
+                                        });
+                                      }
+                                    },
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: _textPrimary,
+                                      fontFamily: "Inter",
+                                    ),
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: _hasValidSelection
+                                          ? _bgWhite
+                                          : const Color(0xFFF5F5F5),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 12,
+                                          ),
+                                      hintText: "dd-MM-yyyy",
+                                      hintStyle: const TextStyle(
+                                        fontSize: 13,
+                                        color: _hintColor,
+                                        fontFamily: "Inter",
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                          color: _fieldBorder,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                          color: _focusBorder,
+                                          width: 1.5,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      suffixIcon: const Icon(
+                                        LucideIcons.calendar,
+                                        size: 16,
+                                        color: _hintColor,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            _buildFormRow(
+                              label: "Bill invoice total",
+                              isRequired: true,
+                              child: SizedBox(
+                                width: 180,
+                                child: SizedBox(
+                                  height: 44,
+                                  child: TextField(
+                                    controller: _invoiceTotalCtrl,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      TextInputFormatter.withFunction((
+                                        oldValue,
+                                        newValue,
+                                      ) {
+                                        if (newValue.text.isEmpty ||
+                                            RegExp(
+                                              r"^\d*\.?\d*$",
+                                            ).hasMatch(newValue.text)) {
+                                          return newValue;
+                                        }
+                                        return oldValue;
+                                      }),
+                                    ],
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: _textPrimary,
+                                      fontFamily: "Inter",
+                                    ),
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: _hasValidSelection
+                                          ? _bgWhite
+                                          : const Color(0xFFF5F5F5),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 12,
+                                          ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                          color: _fieldBorder,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                          color: _focusBorder,
+                                          width: 1.5,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 40),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFormRow(
+                              label: "Purchase receive#",
+                              isRequired: true,
+                              child: SizedBox(
+                                width: 180,
+                                child: TextField(
+                                  controller: _receiveNumberCtrl,
+                                  readOnly: _isReceiveAutoGenerate,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: _textPrimary,
+                                    fontFamily: "Inter",
+                                  ),
+                                  decoration: InputDecoration(
+                                    filled: true,
+                                    fillColor: _hasValidSelection
+                                        ? _bgWhite
+                                        : const Color(0xFFF5F5F5),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderSide: const BorderSide(
+                                        color: _fieldBorder,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: const BorderSide(
+                                        color: _focusBorder,
+                                        width: 1.5,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    suffixIcon: ZTooltip(
+                                      message:
+                                          "Click here to enable or disable autogeneration of Purchase Receive numbers.",
+                                      child: InkWell(
+                                        onTap:
+                                            _showPurchaseReceivePreferencesDialog,
+                                        child: const Icon(
+                                          LucideIcons.settings,
+                                          size: 16,
+                                          color: _hintColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            _buildFormRow(
+                              label: "Received date",
+                              isRequired: true,
+                              child: SizedBox(
+                                width: 180,
+                                child: TextField(
+                                  controller: _receivedDateCtrl,
+                                  readOnly: true,
+                                  key: _dateFieldKey,
+                                  onTap: () async {
+                                    final picked = await ZerpaiDatePicker.show(
+                                      context,
+                                      initialDate: DateTime.now(),
+                                      targetKey: _dateFieldKey,
+                                    );
+                                    if (picked != null && mounted) {
+                                      setState(() {
+                                        _receivedDateCtrl.text = DateFormat(
+                                          "dd-MM-yyyy",
+                                        ).format(picked);
+                                      });
+                                    }
+                                  },
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: _textPrimary,
+                                    fontFamily: "Inter",
+                                  ),
+                                  decoration: InputDecoration(
+                                    filled: true,
+                                    fillColor: _hasValidSelection
+                                        ? _bgWhite
+                                        : const Color(0xFFF5F5F5),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderSide: const BorderSide(
+                                        color: _fieldBorder,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: const BorderSide(
+                                        color: _focusBorder,
+                                        width: 1.5,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    suffixIcon: const Icon(
+                                      LucideIcons.calendar,
+                                      size: 16,
+                                      color: _hintColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1171,144 +1413,93 @@ class _PRCreateState
     );
   }
 
-  Widget _buildDropdownOverlayItem(
-    String label,
-    bool isSelected,
-    bool isHovered,
-  ) {
-    final showHover = isHovered;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: showHover
-            ? const Color(0xFF3B82F6)
-            : (isSelected ? const Color(0xFFF3F4F6) : Colors.white),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontFamily: 'Inter',
-                color: showHover ? Colors.white : _textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (isSelected)
-            Icon(
-              LucideIcons.check,
-              size: 16,
-              color: showHover ? Colors.white : _linkBlue,
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildItemsTableNormal() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.5,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Table Container
-              Container(
-                decoration: const BoxDecoration(
-                  border: Border.fromBorderSide(BorderSide(color: _borderCol)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Table Header
-                    Container(
-                      decoration: const BoxDecoration(
-                        color: _tableHeaderBg,
-                        border: Border(
-                          top: BorderSide(color: _borderCol),
-                          bottom: BorderSide(color: _borderCol),
-                          left: BorderSide(color: _borderCol),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: IntrinsicWidth(
+                child: Container(
+                  constraints: BoxConstraints(
+                    minWidth: MediaQuery.of(context).size.width * _tableMinWidthFactor(),
+                  ),
+                  decoration: const BoxDecoration(
+                    border: Border.fromBorderSide(
+                      BorderSide(color: _borderCol),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Table Header
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF8F9FA),
+                          border: Border(
+                            bottom: BorderSide(color: _borderCol, width: 0.8),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            _tableHeaderCell(
+                              "ITEMS & DESCRIPTION",
+                              fixedWidth: 300,
+                            ),
+                            _tableHeaderCell(
+                              "ORDERED",
+                              fixedWidth: 100,
+                              align: TextAlign.right,
+                            ),
+                            _tableHeaderCell(
+                              "RECEIVED",
+                              fixedWidth: 100,
+                              align: TextAlign.right,
+                            ),
+                            _tableHeaderCell(
+                              "IN TRANSIT",
+                              fixedWidth: 110,
+                              align: TextAlign.right,
+                            ),
+                            if (_binMode == "item")
+                              _tableHeaderCell("BIN", fixedWidth: 160),
+                            _buildQtyHeaderCell(
+                              fixedWidth: _dynamicQtyToReceiveColumnWidth(),
+                            ),
+                            _tableHeaderCell(
+                              "",
+                              fixedWidth: 12,
+                              isLastColumn: true,
+                            ),
+                          ],
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Row(
-                        children: [
-                          _tableHeaderCell('ITEMS & DESCRIPTION', flex: 4),
-                          _tableHeaderCell(
-                            'ORDERED',
-                            flex: 1,
-                            align: TextAlign.center,
-                          ),
-                          _tableHeaderCell(
-                            'RECEIVED',
-                            flex: 1,
-                            align: TextAlign.center,
-                          ),
-                          _tableHeaderCell(
-                            'IN TRANSIT',
-                            flex: 1,
-                            align: TextAlign.center,
-                          ),
-                          if (_binMode == 'item')
-                            _tableHeaderCell(
-                              'BIN',
-                              flex: 2,
-                              align: TextAlign.center,
-                            ),
-                          _tableHeaderCell(
-                            'QUANTITY TO RECEIVE',
-                            flex: 2,
-                            align: TextAlign.center,
-                            isLastColumn: _binMode == 'item' ? false : true,
-                          ),
-                          _tableHeaderCell(
-                            '',
-                            fixedWidth: 40,
-                            isLastColumn: true,
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Table Rows
-                    if (_isLoadingPOs)
-                      _buildLoadingRow()
-                    else if (_items.isEmpty)
-                      _buildEmptyRow()
-                    else
-                      ..._items.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final item = entry.value;
-                        return _buildItemRow(index, item);
-                      }),
-
-                    // Bottom border
-                    Container(
-                      height: 1,
-                      width: double.infinity,
-                      color: _borderCol,
-                    ),
-                  ],
+                      // Table Body
+                      if (_isLoadingPOs)
+                        _buildLoadingRow()
+                      else if (_items.isEmpty)
+                        _buildEmptyRow()
+                      else
+                        ...List.generate(
+                          _items.length,
+                          (index) => _buildItemRow(index, _items[index]),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-              // Insert New Row Button
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: _buildInsertRowButton(),
-              ),
-            ],
-          ),
+            ),
+            // Insert New Row Button
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _buildInsertRowButton(),
+            ),
+          ],
         ),
       ),
     );
@@ -1318,100 +1509,97 @@ class _PRCreateState
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Align(
-        alignment: Alignment.centerLeft,
+        alignment: Alignment.topLeft,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: MediaQuery.of(context).size.width * 0.62,
-              child: Container(
-                decoration: const BoxDecoration(
-                  border: Border.fromBorderSide(BorderSide(color: _borderCol)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Table Header
-                    Container(
-                      decoration: const BoxDecoration(
-                        color: _tableHeaderBg,
-                        border: Border(
-                          top: BorderSide(color: _borderCol),
-                          bottom: BorderSide(color: _borderCol),
-                          left: BorderSide(color: _borderCol),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: IntrinsicWidth(
+                child: Container(
+                  constraints: BoxConstraints(
+                    minWidth: MediaQuery.of(context).size.width * _tableMinWidthFactor(),
+                  ),
+                  decoration: const BoxDecoration(
+                    border: Border.fromBorderSide(
+                      BorderSide(color: _borderCol),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Table Header
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF8F9FA),
+                          border: Border(
+                            bottom: BorderSide(color: _borderCol, width: 0.8),
+                          ),
                         ),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Row(
-                        children: [
-                          _tableHeaderCell('ITEMS & DESCRIPTION', flex: 4),
-                          _tableHeaderCell(
-                            'ORDERED',
-                            flex: 1,
-                            align: TextAlign.center,
-                          ),
-                          _tableHeaderCell(
-                            'RECEIVED',
-                            flex: 1,
-                            align: TextAlign.center,
-                          ),
-                          _tableHeaderCell(
-                            'IN TRANSIT',
-                            flex: 1,
-                            align: TextAlign.center,
-                          ),
-                          if (_binMode == 'item')
+                        child: Row(
+                          children: [
                             _tableHeaderCell(
-                              'BIN',
-                              flex: 2,
-                              align: TextAlign.center,
+                              "ITEMS & DESCRIPTION",
+                              fixedWidth: 300,
                             ),
-                          _tableHeaderCell(
-                            'QUANTITY TO RECEIVE',
-                            flex: 2,
-                            align: TextAlign.center,
-                            isLastColumn: _binMode == 'item' ? false : true,
-                          ),
-                          _tableHeaderCell(
-                            '',
-                            fixedWidth: 40,
-                            isLastColumn: true,
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Table Rows
-                    if (_items.isEmpty)
-                      KeyedSubtree(
-                        key: const ValueKey('ephemeral-row'),
-                        child: _buildManualRow(
-                          0,
-                          PurchaseReceiveItem(),
-                          isEphemeral: true,
+                            _tableHeaderCell(
+                              "ORDERED",
+                              fixedWidth: 100,
+                              align: TextAlign.right,
+                            ),
+                            _tableHeaderCell(
+                              "RECEIVED",
+                              fixedWidth: 100,
+                              align: TextAlign.right,
+                            ),
+                            _tableHeaderCell(
+                              "IN TRANSIT",
+                              fixedWidth: 110,
+                              align: TextAlign.right,
+                            ),
+                            if (_binMode == "item")
+                              _tableHeaderCell("BIN", fixedWidth: 160),
+                            _buildQtyHeaderCell(
+                              fixedWidth: _dynamicQtyToReceiveColumnWidth(),
+                            ),
+                            _tableHeaderCell(
+                              "",
+                              fixedWidth: 16,
+                              isLastColumn: true,
+                            ),
+                          ],
                         ),
-                      )
-                    else
-                      ..._items.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final item = entry.value;
-                        // Use controller identity for stable key across item selection changes
-                        final ctrlKey = _rowControllers.length > index
-                            ? _rowControllers[index].hashCode
-                            : index;
-                        return KeyedSubtree(
-                          key: ValueKey('row-$ctrlKey'),
-                          child: _buildManualRow(index, item),
-                        );
-                      }),
-
-                    // Bottom border
-                    Container(
-                      height: 1,
-                      width: double.infinity,
-                      color: _borderCol,
-                    ),
-                  ],
+                      ),
+                      // Table Rows
+                      if (_items.isEmpty)
+                        KeyedSubtree(
+                          key: const ValueKey('ephemeral-row'),
+                          child: _buildManualRow(
+                            0,
+                            PurchaseReceiveItem(),
+                            isEphemeral: true,
+                          ),
+                        )
+                      else
+                        ..._items.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final item = entry.value;
+                          final ctrlKey = _rowControllers.length > index
+                              ? _rowControllers[index].hashCode
+                              : index;
+                          return KeyedSubtree(
+                            key: ValueKey('row-$ctrlKey'),
+                            child: _buildManualRow(index, item),
+                          );
+                        }),
+                      // Bottom border
+                      Container(
+                        height: 1,
+                        width: double.infinity,
+                        color: _borderCol,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1462,135 +1650,40 @@ class _PRCreateState
     return Expanded(flex: flex, child: content);
   }
 
-  Widget _tableBodyCell({
-    required Widget child,
-    int flex = 1,
-    double? fixedWidth,
-    bool isLastColumn = false,
-  }) {
-    final content = Container(
-      height: double.infinity,
-      decoration: BoxDecoration(
-        border: Border(
-          right: isLastColumn
-              ? BorderSide.none
-              : const BorderSide(color: _borderCol, width: 0.8),
-        ),
-      ),
-      child: child,
-    );
-
-    if (fixedWidth != null) {
-      return SizedBox(width: fixedWidth, child: content);
-    }
-
-    return Expanded(flex: flex, child: content);
-  }
-
-  Widget _buildQtyCircleButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 22,
-        height: 22,
-        decoration: const BoxDecoration(
-          color: Color(0xFFE7F2FF),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, size: 13, color: Color(0xFF2A95BF)),
-      ),
-    );
-  }
-
-  Widget _buildQtyControl({
-    required String fieldKey,
-    required TextEditingController controller,
-    required ValueChanged<String> onChanged,
-    required VoidCallback onIncrement,
-    required VoidCallback onDecrement,
-  }) {
-    final isActive =
-        _hoveredQtyFields.contains(fieldKey) ||
-        _focusedQtyFields.contains(fieldKey);
-
+  Widget _buildQtyHeaderCell({required double fixedWidth}) {
     return SizedBox(
-      height: 44,
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
+      width: fixedWidth,
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(right: BorderSide(color: _borderCol, width: 0.8)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildQtyCircleButton(icon: LucideIcons.minus, onTap: onDecrement),
-            const SizedBox(width: 8),
-            MouseRegion(
-              onEnter: (_) {
-                setState(() {
-                  _hoveredQtyFields.add(fieldKey);
-                });
-              },
-              onExit: (_) {
-                setState(() {
-                  _hoveredQtyFields.remove(fieldKey);
-                });
-              },
-              child: SizedBox(
-                width: 80,
-                height: 44,
-                child: Focus(
-                  onFocusChange: (hasFocus) {
-                    setState(() {
-                      if (hasFocus) {
-                        _focusedQtyFields.add(fieldKey);
-                      } else {
-                        _focusedQtyFields.remove(fieldKey);
-                      }
-                    });
-                  },
-                  child: TextField(
-                    controller: controller,
-                    textAlign: TextAlign.center,
-                    textAlignVertical: TextAlignVertical.center,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
-                    ],
-                    onChanged: onChanged,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: _textPrimary,
-                      fontFamily: 'Inter',
-                    ),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      filled: true,
-                      fillColor: _bgWhite,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: isActive ? _focusBorder : _fieldBorder,
-                        ),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(
-                          color: _focusBorder,
-                          width: 1.2,
-                        ),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
+            const Text(
+              'QUANTITY TO RECEIVE',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF6B7280),
+                fontFamily: 'Inter',
+                letterSpacing: 0.3,
+              ),
+            ),
+            const SizedBox(height: 2),
+            InkWell(
+              onTap: _fillAllUnreceivedQuantities,
+              child: const Text(
+                'Add all Unreceived',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: _linkBlue,
+                  fontFamily: 'Inter',
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            _buildQtyCircleButton(icon: LucideIcons.plus, onTap: onIncrement),
           ],
         ),
       ),
@@ -1601,6 +1694,7 @@ class _PRCreateState
     required String fieldKey,
     required TextEditingController controller,
     required ValueChanged<String> onChanged,
+    double height = 36,
   }) {
     final isActive =
         _hoveredQtyFields.contains(fieldKey) ||
@@ -1618,8 +1712,8 @@ class _PRCreateState
         });
       },
       child: SizedBox(
-        width: 70,
-        height: 44,
+        width: 84,
+        height: height,
         child: Focus(
           onFocusChange: (hasFocus) {
             setState(() {
@@ -1648,7 +1742,10 @@ class _PRCreateState
               isDense: true,
               filled: true,
               fillColor: _bgWhite,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 10,
+                horizontal: 2,
+              ),
               enabledBorder: OutlineInputBorder(
                 borderSide: BorderSide(
                   color: isActive ? _focusBorder : _fieldBorder,
@@ -1669,7 +1766,9 @@ class _PRCreateState
   void _adjustRowQuantity(int index, {required int delta}) {
     if (index >= _items.length || index >= _rowControllers.length) return;
     final ctrl = _rowControllers[index];
-    final currentQty = double.tryParse(ctrl.qtyCtrl.text) ?? 0;
+    final currentQty =
+        double.tryParse(ctrl.qtyCtrl.text.isEmpty ? '0' : ctrl.qtyCtrl.text) ??
+        0;
     final nextQty = (currentQty + delta).clamp(0, double.infinity).toDouble();
     final display = nextQty == nextQty.roundToDouble()
         ? nextQty.toInt().toString()
@@ -1683,40 +1782,113 @@ class _PRCreateState
 
   void _onRowQtyChanged(int index, String value) {
     if (index >= _items.length) return;
-    final qty = double.tryParse(value) ?? 0;
+    final qty = double.tryParse(value.isEmpty ? '0' : value) ?? 0;
     setState(() {
       _items[index] = _items[index].copyWith(quantityToReceive: qty);
     });
   }
 
-  Widget _buildBatchesLink(PurchaseReceiveItem item, int index) {
-    final hasBatches = item.batches.isNotEmpty;
+  void _fillAllUnreceivedQuantities() {
+    if (_items.isEmpty) return;
+    setState(() {
+      for (var i = 0; i < _items.length; i++) {
+        if (i >= _rowControllers.length) continue;
+        if (_items[i].batches.isNotEmpty) continue;
+        final ordered = _items[i].ordered;
+        final display = ordered == ordered.roundToDouble()
+            ? ordered.toInt().toString()
+            : ordered.toStringAsFixed(2);
+        _rowControllers[i].qtyCtrl.text = display;
+        _items[i] = _items[i].copyWith(quantityToReceive: ordered);
+      }
+    });
+  }
+
+  Widget _buildAddBatchButton(int index, {double height = 38}) {
     return InkWell(
-      onTap: () {
-        _showSelectBatchDialog(index);
-      },
-      child: Row(
+      onTap: () => _showSelectBatchDialog(index),
+      child: Container(
+        height: height,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _bgWhite,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: _fieldBorder),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.plus, size: 12, color: _textPrimary),
+            SizedBox(width: 6),
+            Text(
+              'Add Batch',
+              style: TextStyle(
+                fontSize: 11,
+                color: _textPrimary,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Inter',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddBatchesLinkButton(int index) {
+    return InkWell(
+      onTap: () => _showSelectBatchDialog(index),
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Icon(
-            hasBatches ? LucideIcons.checkCircle : LucideIcons.alertTriangle,
-            size: 12,
-            color: hasBatches ? _greenBtn : Colors.orange.shade700,
-          ),
-          const SizedBox(width: 4),
+          Icon(LucideIcons.alertTriangle, size: 12, color: _dangerRed),
+          SizedBox(width: 4),
           Text(
-            hasBatches
-                ? '${item.batches.length} ${item.batches.length == 1 ? 'Batch' : 'Batches'} (${item.batches.fold<double>(0, (sum, b) => sum + b.quantity).toInt()} + ${item.batches.fold<double>(0, (sum, b) => sum + b.foc).toInt()} FOC)'
-                : 'Add Batches',
+            'Add Batches',
             style: TextStyle(
               fontSize: 11,
-              color: hasBatches ? _greenBtn : Colors.orange.shade700,
-              fontWeight: FontWeight.w500,
+              color: _linkBlue,
+              fontWeight: FontWeight.w600,
               fontFamily: 'Inter',
+              decoration: TextDecoration.underline,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQtyAndFocBreakdown(PurchaseReceiveItem item) {
+    final qty = _sumBatchQuantity(item.batches);
+    final foc = _sumBatchFoc(item.batches);
+    if (item.batches.isEmpty || foc <= 0) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        '${_fmtPcs(qty)}pcs + ${_fmtPcs(foc)}foc',
+        style: const TextStyle(
+          fontSize: 10,
+          color: _hintColor,
+          fontFamily: 'Inter',
+        ),
+      ),
+    );
+  }
+
+  Widget _batchText(String text) {
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontSize: 10,
+        height: 1.35,
+        color: _textPrimary,
+        fontWeight: FontWeight.w600,
+        fontFamily: 'Inter',
       ),
     );
   }
@@ -1750,6 +1922,200 @@ class _PRCreateState
     );
   }
 
+  Widget _buildInlineBatchSection(PurchaseReceiveItem item, int index) {
+    if (item.batches.isEmpty) {
+      return Align(
+        alignment: Alignment.center,
+        child: _buildAddBatchButton(index),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _tableBodyCell({
+    int flex = 1,
+    double? fixedWidth,
+    required Widget child,
+    bool isLastColumn = false,
+    bool hideRightBorder = false,
+  }) {
+    Widget content = Container(
+      alignment: Alignment.centerLeft,
+      decoration: BoxDecoration(
+        border: Border(
+          right: (isLastColumn || hideRightBorder)
+              ? BorderSide.none
+              : const BorderSide(color: _borderCol, width: 0.8),
+        ),
+      ),
+      child: child,
+    );
+
+    if (fixedWidth != null) {
+      return SizedBox(width: fixedWidth, child: content);
+    }
+    return Expanded(flex: flex, child: content);
+  }
+
+  Widget _buildQtyControl({
+    required String fieldKey,
+    required TextEditingController controller,
+    required ValueChanged<String> onChanged,
+    required VoidCallback onIncrement,
+    required VoidCallback onDecrement,
+  }) {
+    final isActive =
+        _hoveredQtyFields.contains(fieldKey) ||
+        _focusedQtyFields.contains(fieldKey);
+
+    return SizedBox(
+      height: 38,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 24,
+            child: InkWell(
+              onTap: onDecrement,
+              child: const Center(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color(0xFFF3F4F6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      LucideIcons.minus,
+                      size: 10,
+                      color: _focusBorder,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: MouseRegion(
+              onEnter: (_) => setState(() => _hoveredQtyFields.add(fieldKey)),
+              onExit: (_) => setState(() => _hoveredQtyFields.remove(fieldKey)),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _bgWhite,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: isActive ? _focusBorder : Colors.transparent,
+                    width: isActive ? 1.2 : 1,
+                  ),
+                ),
+                child: Focus(
+                  onFocusChange: (hasFocus) {
+                    setState(() {
+                      if (hasFocus) {
+                        _focusedQtyFields.add(fieldKey);
+                      } else {
+                        _focusedQtyFields.remove(fieldKey);
+                      }
+                    });
+                  },
+                  child: TextField(
+                    controller: controller,
+                    onChanged: onChanged,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'Inter',
+                    ),
+                    textAlign: TextAlign.center,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 9),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 24,
+            child: InkWell(
+              onTap: onIncrement,
+              child: const Center(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color(0xFFEAF2FF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      LucideIcons.plus,
+                      size: 10,
+                      color: _focusBorder,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _qtyStepButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required bool isTop,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.vertical(
+              top: isTop ? const Radius.circular(6) : Radius.zero,
+              bottom: isTop ? Radius.zero : const Radius.circular(6),
+            ),
+          ),
+          child: Icon(icon, size: 12, color: _textPrimary),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdownOverlayItem(
+    String text,
+    bool isSelected,
+    bool isHovered,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isHovered
+            ? const Color(0xFF3B82F6)
+            : (isSelected ? const Color(0xFFF3F4F6) : Colors.white),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          color: isHovered ? Colors.white : _textPrimary,
+          fontFamily: 'Inter',
+        ),
+      ),
+    );
+  }
+
   Widget _buildManualRow(
     int index,
     PurchaseReceiveItem item, {
@@ -1772,6 +2138,11 @@ class _PRCreateState
     final selectedBin = index < _preferredBins.length
         ? _preferredBins[index]
         : null;
+    final hasBatches = !isEphemeral && item.batches.isNotEmpty;
+
+    if (ctrl.qtyCtrl.text.isEmpty) {
+      ctrl.qtyCtrl.text = '0';
+    }
 
     return Container(
       decoration: const BoxDecoration(
@@ -1785,260 +2156,313 @@ class _PRCreateState
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          _tableBodyCell(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: FormDropdown<PurchaseOrderItem>(
-                value: selectedItem,
-                items: availablePoItems,
-                hint: 'Type or click to select an item',
-                showSearch: true,
-                displayStringForValue: (poItem) =>
-                    poItem.productName ?? poItem.itemCode ?? 'Unnamed item',
-                searchStringForValue: (poItem) =>
-                    '${poItem.productName ?? ''} ${poItem.itemCode ?? ''}',
-                itemBuilder: (poItem, isSelected, isHovered) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isHovered
-                          ? const Color(0xFF3B82F6)
-                          : (isSelected
-                                ? const Color(0xFFF3F4F6)
-                                : Colors.white),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          poItem.productName ?? 'Unnamed item',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: isHovered ? Colors.white : _textPrimary,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                        if (poItem.itemCode != null)
+            _tableBodyCell(
+              fixedWidth: 300,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: FormDropdown<PurchaseOrderItem>(
+                  value: selectedItem,
+                  items: availablePoItems,
+                  hint: 'Type or click to select an item',
+                  showSearch: true,
+                  displayStringForValue: (poItem) =>
+                      poItem.productName ?? poItem.itemCode ?? 'Unnamed item',
+                  searchStringForValue: (poItem) =>
+                      '${poItem.productName ?? ''} ${poItem.itemCode ?? ''}',
+                  itemBuilder: (poItem, isSelected, isHovered) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isHovered
+                            ? const Color(0xFF3B82F6)
+                            : (isSelected
+                                  ? const Color(0xFFF3F4F6)
+                                  : Colors.white),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            poItem.itemCode!,
+                            poItem.productName ?? 'Unnamed item',
                             style: TextStyle(
-                              fontSize: 11,
-                              color: isHovered
-                                  ? const Color(0xFFEAF2FF)
-                                  : _hintColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: isHovered ? Colors.white : _textPrimary,
                               fontFamily: 'Inter',
                             ),
                           ),
-                      ],
-                    ),
-                  );
-                },
-                onChanged: (poItem) {
-                  if (poItem == null) return;
-                  setState(() {
-                    if (isEphemeral) {
-                      // Start from empty state: set first item + add empty row
-                      _items.add(poItem.productId.isNotEmpty
-                          ? PurchaseReceiveItem(
-                              itemId: poItem.productId,
-                              itemName: poItem.productName ?? '',
-                              description: poItem.description,
-                              ordered: poItem.quantity,
-                              received: 0,
-                              inTransit: 0,
-                            )
-                          : PurchaseReceiveItem());
-                      _rowControllers.add(_ReceiveItemRowController());
-                      _preferredBins.add(null);
-                      // Add empty row for next entry
-                      _items.add(PurchaseReceiveItem());
-                      _rowControllers.add(_ReceiveItemRowController());
-                      _preferredBins.add(null);
-                    } else {
-                      // Normal update: replace current row
-                      if (index < _items.length) {
-                        _items[index] = _items[index].copyWith(
-                          itemId: poItem.productId,
-                          itemName: poItem.productName ?? '',
-                          description: poItem.description,
-                          ordered: poItem.quantity,
-                          received: 0,
-                          inTransit: 0,
+                          if (poItem.itemCode != null)
+                            Text(
+                              poItem.itemCode!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isHovered
+                                    ? const Color(0xFFEAF2FF)
+                                    : _hintColor,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                  onChanged: (poItem) {
+                    if (poItem == null) return;
+                    setState(() {
+                      if (isEphemeral) {
+                        _items.add(
+                          poItem.productId.isNotEmpty
+                              ? PurchaseReceiveItem(
+                                  itemId: poItem.productId,
+                                  itemName: poItem.productName ?? '',
+                                  description: poItem.description,
+                                  ordered: poItem.quantity,
+                                  received: 0,
+                                  inTransit: 0,
+                                )
+                              : PurchaseReceiveItem(),
                         );
-                        // Auto-add new row if this was the last one
-                        if (index == _items.length - 1) {
-                          _items.add(PurchaseReceiveItem());
-                          _rowControllers.add(_ReceiveItemRowController());
-                          _preferredBins.add(null);
+                        _rowControllers.add(_ReceiveItemRowController());
+                        _preferredBins.add(null);
+                        _damageControllers.add(TextEditingController());
+                        _items.add(PurchaseReceiveItem());
+                        _rowControllers.add(_ReceiveItemRowController());
+                        _preferredBins.add(null);
+                        _damageControllers.add(TextEditingController());
+                      } else {
+                        if (index < _items.length) {
+                          _items[index] = _items[index].copyWith(
+                            itemId: poItem.productId,
+                            itemName: poItem.productName ?? '',
+                            description: poItem.description,
+                            ordered: poItem.quantity,
+                            received: 0,
+                            inTransit: 0,
+                          );
+                          if (index == _items.length - 1) {
+                            _items.add(PurchaseReceiveItem());
+                            _rowControllers.add(_ReceiveItemRowController());
+                            _preferredBins.add(null);
+                            _damageControllers.add(TextEditingController());
+                          }
                         }
                       }
-                    }
-                  });
-                },
-              ),
-            ),
-          ),
-          _tableBodyCell(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Text(
-                item.ordered > 0
-                    ? item.ordered.toStringAsFixed(
-                        item.ordered == item.ordered.roundToDouble() ? 0 : 2,
-                      )
-                    : '',
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
+                    });
+                  },
                 ),
               ),
             ),
-          ),
-          _tableBodyCell(
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: SizedBox(),
-            ),
-          ),
-          _tableBodyCell(
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: SizedBox(),
-            ),
-          ),
-          if (_binMode == 'item')
             _tableBodyCell(
-              flex: 2,
+              fixedWidth: 100,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: MouseRegion(
-                  onEnter: (_) {
-                    setState(() {
-                      _hoveredBinFields.add('manual-bin-$index');
-                    });
-                  },
-                  onExit: (_) {
-                    setState(() {
-                      _hoveredBinFields.remove('manual-bin-$index');
-                    });
-                  },
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () {
-                      setState(() {
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Text(
+                  item.ordered > 0
+                      ? item.ordered.toStringAsFixed(
+                          item.ordered == item.ordered.roundToDouble() ? 0 : 2,
+                        )
+                      : "",
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _textPrimary,
+                    fontFamily: "Inter",
+                  ),
+                ),
+              ),
+            ),
+            _tableBodyCell(
+              fixedWidth: 100,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: SizedBox(),
+              ),
+            ),
+            _tableBodyCell(
+              fixedWidth: 110,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: SizedBox(),
+              ),
+            ),
+            if (_binMode == "item")
+              _tableBodyCell(
+                fixedWidth: 160,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: MouseRegion(
+                    onEnter: (_) => setState(
+                      () => _hoveredBinFields.add("manual-bin-$index"),
+                    ),
+                    onExit: (_) => setState(
+                      () => _hoveredBinFields.remove("manual-bin-$index"),
+                    ),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () => setState(() {
                         _focusedBinFields
                           ..clear()
-                          ..add('manual-bin-$index');
-                      });
-                    },
-                    child: SizedBox(
-                      height: 44,
-                      child: FormDropdown<String>(
-                        value: selectedBin,
-                        items: _manualBinList,
-                        hint: 'Select Bin',
-                        showSearch: true,
-                        border: Border.all(
-                          color:
-                              (_hoveredBinFields.contains(
-                                    'manual-bin-$index',
-                                  ) ||
-                                  _focusedBinFields.contains(
-                                    'manual-bin-$index',
-                                  ))
-                              ? _focusBorder
-                              : Colors.transparent,
-                          width:
-                              (_hoveredBinFields.contains(
-                                    'manual-bin-$index',
-                                  ) ||
-                                  _focusedBinFields.contains(
-                                    'manual-bin-$index',
-                                  ))
-                              ? 1.2
-                              : 1,
+                          ..add("manual-bin-$index");
+                      }),
+                      child: SizedBox(
+                        height: 44,
+                        child: FormDropdown<String>(
+                          value: selectedBin,
+                          items: _manualBinList,
+                          hint: "Select Bin",
+                          showSearch: true,
+                          border: Border.all(
+                            color:
+                                (_hoveredBinFields.contains(
+                                      "manual-bin-$index",
+                                    ) ||
+                                    _focusedBinFields.contains(
+                                      "manual-bin-$index",
+                                    ))
+                                ? _focusBorder
+                                : Colors.transparent,
+                            width:
+                                (_hoveredBinFields.contains(
+                                      "manual-bin-$index",
+                                    ) ||
+                                    _focusedBinFields.contains(
+                                      "manual-bin-$index",
+                                    ))
+                                ? 1.2
+                                : 1,
+                          ),
+                          itemBuilder: (item, isSelected, isHovered) =>
+                              _buildDropdownOverlayItem(
+                                item,
+                                isSelected,
+                                isHovered,
+                              ),
+                          onChanged: (bin) {
+                            if (index >= _preferredBins.length) return;
+                            setState(() {
+                              _preferredBins[index] = bin;
+                              _focusedBinFields.remove("manual-bin-$index");
+                            });
+                          },
                         ),
-                        itemBuilder: (item, isSelected, isHovered) {
-                          return _buildDropdownOverlayItem(
-                            item,
-                            isSelected,
-                            isHovered,
-                          );
-                        },
-                        onChanged: (bin) {
-                          if (isEphemeral || index >= _preferredBins.length)
-                            return;
-                          setState(() {
-                            _preferredBins[index] = bin;
-                            _focusedBinFields.remove('manual-bin-$index');
-                          });
-                        },
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          _tableBodyCell(
-            flex: 2,
-            isLastColumn: _binMode == 'item' ? false : true,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildQtyControl(
-                    fieldKey: 'manual-$index',
-                    controller: ctrl.qtyCtrl,
-                    onChanged: (val) {
-                      if (isEphemeral) return;
-                      _onRowQtyChanged(index, val);
-                    },
-                    onIncrement: () {
-                      if (isEphemeral) return;
-                      _adjustRowQuantity(index, delta: 1);
-                    },
-                    onDecrement: () {
-                      if (isEphemeral) return;
-                      _adjustRowQuantity(index, delta: -1);
-                    },
-                  ),
-                  if (!isEphemeral) ...[
-                    const SizedBox(height: 4),
-                    _buildBatchesLink(item, index),
+            _tableBodyCell(
+              fixedWidth: _dynamicQtyToReceiveColumnWidth(),
+              hideRightBorder: true,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 94,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildQtyControl(
+                            fieldKey: 'manual-$index',
+                            controller: ctrl.qtyCtrl,
+                            onChanged: (val) {
+                              if (isEphemeral) return;
+                              _onRowQtyChanged(index, val);
+                            },
+                            onIncrement: () {
+                              if (isEphemeral) return;
+                              _adjustRowQuantity(index, delta: 1);
+                            },
+                            onDecrement: () {
+                              if (isEphemeral) return;
+                              _adjustRowQuantity(index, delta: -1);
+                            },
+                          ),
+                          if (!isEphemeral && !hasBatches) ...[
+                            const SizedBox(height: 4),
+                            _buildAddBatchesLinkButton(index),
+                          ],
+                          if (!isEphemeral) _buildQtyAndFocBreakdown(item),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    if (hasBatches)
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: item.batches.map((batch) {
+                              return GestureDetector(
+                                onTap: () => _showSelectBatchDialog(index),
+                                child: Container(
+                                  width: 94,
+                                  margin: const EdgeInsets.only(right: 2),
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3F9F5),
+                                    border: Border.all(
+                                      color: const Color(0xFFCFE9D8),
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _batchText('Batch: ${batch.batchNo}'),
+                                      _batchText(
+                                        'Qty: ${_fmtPcs(batch.quantity)} pcs',
+                                      ),
+                                      if (batch.foc > 0)
+                                        _batchText(
+                                          'FOC: ${_fmtPcs(batch.foc)} pcs',
+                                        ),
+                                      _batchText('Pack: ${batch.unitPack}'),
+                                      _batchText('MRP: ${batch.mrp}'),
+                                      _batchText('P Rate: ${batch.ptr}'),
+                                      _batchText(
+                                        'Exp: ${batch.expiryDate != null ? DateFormat('dd-MM-yyyy').format(batch.expiryDate!) : ''}',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          // Delete button (as proper grid cell)
-          _tableBodyCell(
-            fixedWidth: 40,
-            isLastColumn: true,
-            child: SizedBox(
-              width: 40,
+            _tableBodyCell(
+              fixedWidth: 14,
+              isLastColumn: true,
               child: isEphemeral
                   ? const SizedBox()
-                  : InkWell(
-                      onTap: () => _removeItem(index),
-                      borderRadius: BorderRadius.circular(4),
-                      child: const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(LucideIcons.x, size: 16, color: _dangerRed),
+                  : Center(
+                      child: InkWell(
+                        onTap: () => _removeItem(index),
+                        borderRadius: BorderRadius.circular(4),
+                        child: const Icon(
+                          LucideIcons.x,
+                          size: 14,
+                          color: _dangerRed,
+                        ),
                       ),
                     ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -2048,6 +2472,11 @@ class _PRCreateState
     final ctrl = index < _rowControllers.length
         ? _rowControllers[index]
         : _ReceiveItemRowController();
+    final hasBatches = item.batches.isNotEmpty;
+
+    if (ctrl.qtyCtrl.text.isEmpty) {
+      ctrl.qtyCtrl.text = '0';
+    }
 
     return Container(
       decoration: const BoxDecoration(
@@ -2061,221 +2490,263 @@ class _PRCreateState
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          // Item Name & Description
-          _tableBodyCell(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Item thumbnail placeholder
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F0F0),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: _borderCol),
-                    ),
-                    child: const Icon(
-                      LucideIcons.image,
-                      size: 16,
-                      color: _hintColor,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.itemName.isNotEmpty
-                              ? item.itemName
-                              : 'Select an item',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: item.itemName.isNotEmpty
-                                ? _textPrimary
-                                : _hintColor,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                        if (item.description != null &&
-                            item.description!.isNotEmpty)
-                          Text(
-                            item.description!,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: _hintColor,
-                              fontFamily: 'Inter',
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Ordered
-          _tableBodyCell(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                item.ordered.toStringAsFixed(
-                  item.ordered == item.ordered.roundToDouble() ? 0 : 2,
-                ),
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
-                ),
-              ),
-            ),
-          ),
-          // Received
-          _tableBodyCell(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                item.received.toStringAsFixed(
-                  item.received == item.received.roundToDouble() ? 0 : 2,
-                ),
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
-                ),
-              ),
-            ),
-          ),
-          // In Transit
-          _tableBodyCell(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                item.inTransit.toStringAsFixed(
-                  item.inTransit == item.inTransit.roundToDouble() ? 0 : 2,
-                ),
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
-                ),
-              ),
-            ),
-          ),
-          // Preferred Bin (conditional)
-          if (_binMode == 'item')
             _tableBodyCell(
-              flex: 2,
+              fixedWidth: 300,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: MouseRegion(
-                  onEnter: (_) {
-                    setState(() {
-                      _hoveredBinFields.add('po-bin-$index');
-                    });
-                  },
-                  onExit: (_) {
-                    setState(() {
-                      _hoveredBinFields.remove('po-bin-$index');
-                    });
-                  },
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () {
-                      setState(() {
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F0F0),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: _borderCol),
+                      ),
+                      child: const Icon(
+                        LucideIcons.image,
+                        size: 16,
+                        color: _hintColor,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.itemName.isNotEmpty
+                                ? item.itemName
+                                : "Select an item",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: item.itemName.isNotEmpty
+                                  ? _textPrimary
+                                  : _hintColor,
+                              fontFamily: "Inter",
+                            ),
+                          ),
+                          if (item.description != null &&
+                              item.description!.isNotEmpty)
+                            Text(
+                              item.description!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: _hintColor,
+                                fontFamily: "Inter",
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            _tableBodyCell(
+              fixedWidth: 100,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  item.ordered.toStringAsFixed(
+                    item.ordered == item.ordered.roundToDouble() ? 0 : 2,
+                  ),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _textPrimary,
+                    fontFamily: "Inter",
+                  ),
+                ),
+              ),
+            ),
+            _tableBodyCell(
+              fixedWidth: 100,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  item.received.toStringAsFixed(
+                    item.received == item.received.roundToDouble() ? 0 : 2,
+                  ),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _textPrimary,
+                    fontFamily: "Inter",
+                  ),
+                ),
+              ),
+            ),
+            _tableBodyCell(
+              fixedWidth: 110,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  item.inTransit.toStringAsFixed(
+                    item.inTransit == item.inTransit.roundToDouble() ? 0 : 2,
+                  ),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _textPrimary,
+                    fontFamily: "Inter",
+                  ),
+                ),
+              ),
+            ),
+            if (_binMode == "item")
+              _tableBodyCell(
+                fixedWidth: 160,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: MouseRegion(
+                    onEnter: (_) =>
+                        setState(() => _hoveredBinFields.add("po-bin-$index")),
+                    onExit: (_) => setState(
+                      () => _hoveredBinFields.remove("po-bin-$index"),
+                    ),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () => setState(() {
                         _focusedBinFields
                           ..clear()
-                          ..add('po-bin-$index');
-                      });
-                    },
-                    child: SizedBox(
-                      height: 44,
-                      child: FormDropdown<String>(
-                        value: index < _preferredBins.length
-                            ? _preferredBins[index]
-                            : null,
-                        items: _manualBinList,
-                        hint: 'Select Bin',
-                        showSearch: true,
-                        border: Border.all(
-                          color:
-                              (_hoveredBinFields.contains('po-bin-$index') ||
-                                  _focusedBinFields.contains('po-bin-$index'))
-                              ? _focusBorder
-                              : Colors.transparent,
-                          width:
-                              (_hoveredBinFields.contains('po-bin-$index') ||
-                                  _focusedBinFields.contains('po-bin-$index'))
-                              ? 1.2
-                              : 1,
+                          ..add("po-bin-$index");
+                      }),
+                      child: SizedBox(
+                        height: 44,
+                        child: FormDropdown<String>(
+                          value: index < _preferredBins.length
+                              ? _preferredBins[index]
+                              : null,
+                          items: _manualBinList,
+                          hint: "Select Bin",
+                          showSearch: true,
+                          border: Border.all(
+                            color:
+                                (_hoveredBinFields.contains("po-bin-$index") ||
+                                    _focusedBinFields.contains("po-bin-$index"))
+                                ? _focusBorder
+                                : Colors.transparent,
+                            width:
+                                (_hoveredBinFields.contains("po-bin-$index") ||
+                                    _focusedBinFields.contains("po-bin-$index"))
+                                ? 1.2
+                                : 1,
+                          ),
+                          itemBuilder: (item, isSelected, isHovered) =>
+                              _buildDropdownOverlayItem(
+                                item,
+                                isSelected,
+                                isHovered,
+                              ),
+                          onChanged: (bin) {
+                            if (index >= _preferredBins.length) return;
+                            setState(() {
+                              _preferredBins[index] = bin;
+                              _focusedBinFields.remove("po-bin-$index");
+                            });
+                          },
                         ),
-                        itemBuilder: (item, isSelected, isHovered) {
-                          return _buildDropdownOverlayItem(
-                            item,
-                            isSelected,
-                            isHovered,
-                          );
-                        },
-                        onChanged: (bin) {
-                          if (index >= _preferredBins.length) return;
-                          setState(() {
-                            _preferredBins[index] = bin;
-                            _focusedBinFields.remove('po-bin-$index');
-                          });
-                        },
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          // Quantity To Receive (editable)
-          _tableBodyCell(
-            flex: 2,
-            isLastColumn: _binMode == 'item' ? false : true,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildQtyInputField(
-                    fieldKey: 'item-$index',
-                    controller: ctrl.qtyCtrl,
-                    onChanged: (val) => _onRowQtyChanged(index, val),
-                  ),
-                  const SizedBox(height: 4),
-                  _buildBatchesLink(item, index),
-                ],
-              ),
-            ),
-          ),
-          // Delete button (as proper grid cell)
-          _tableBodyCell(
-            fixedWidth: 40,
-            isLastColumn: true,
-            child: SizedBox(
-              width: 40,
-              child: InkWell(
-                onTap: () => _removeItem(index),
-                borderRadius: BorderRadius.circular(4),
-                child: const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Icon(LucideIcons.x, size: 16, color: _dangerRed),
+            _tableBodyCell(
+              fixedWidth: _dynamicQtyToReceiveColumnWidth(),
+              hideRightBorder: true,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 94,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildQtyInputField(
+                            fieldKey: "item-$index",
+                            controller: ctrl.qtyCtrl,
+                            onChanged: (val) => _onRowQtyChanged(index, val),
+                            height: 32,
+                          ),
+                          if (!hasBatches) ...[
+                            const SizedBox(height: 4),
+                            _buildAddBatchesLinkButton(index),
+                          ],
+                          _buildQtyAndFocBreakdown(item),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    if (hasBatches)
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: item.batches.map((batch) {
+                              return GestureDetector(
+                                onTap: () => _showSelectBatchDialog(index),
+                                child: Container(
+                                  width: 94,
+                                  margin: const EdgeInsets.only(right: 2),
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3F9F5),
+                                    border: Border.all(
+                                      color: const Color(0xFFCFE9D8),
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _batchText('Batch: ${batch.batchNo}'),
+                                      _batchText(
+                                        'Qty: ${_fmtPcs(batch.quantity)} pcs',
+                                      ),
+                                      if (batch.foc > 0)
+                                        _batchText(
+                                          'FOC: ${_fmtPcs(batch.foc)} pcs',
+                                        ),
+                                      _batchText('Pack: ${batch.unitPack}'),
+                                      _batchText('MRP: ${batch.mrp}'),
+                                      _batchText('P Rate: ${batch.ptr}'),
+                                      _batchText(
+                                        'Exp: ${batch.expiryDate != null ? DateFormat('dd-MM-yyyy').format(batch.expiryDate!) : ''}',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-          ),
-        ],
+            _tableBodyCell(
+              fixedWidth: 12,
+              isLastColumn: true,
+              child: Center(
+                child: InkWell(
+                  onTap: () => _removeItem(index),
+                  borderRadius: BorderRadius.circular(4),
+                  child: const Icon(LucideIcons.x, size: 12, color: _dangerRed),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -2568,6 +3039,7 @@ class _PRCreateState
     required String label,
     required Widget child,
     bool isRequired = false,
+    Color? labelColor,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2581,7 +3053,7 @@ class _PRCreateState
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: isRequired ? _requiredLabel : _labelColor,
+                  color: labelColor ?? (isRequired ? _requiredLabel : _labelColor),
                   fontFamily: 'Inter',
                 ),
                 children: [
@@ -2616,6 +3088,21 @@ class _PRCreateState
       missingFields.add('Purchase Order');
     }
 
+    if (_billNoCtrl.text.trim().isEmpty) {
+      _showTopError('Bill No is required');
+      return;
+    }
+
+    if (_billDateCtrl.text.trim().isEmpty) {
+      _showTopError('Bill Date is required');
+      return;
+    }
+
+    if (_invoiceTotalCtrl.text.trim().isEmpty) {
+      _showTopError('Invoice Total is required');
+      return;
+    }
+
     if (_items.isEmpty) {
       missingFields.add('Item');
     } else {
@@ -2642,11 +3129,11 @@ class _PRCreateState
     bool hasMismatch = false;
     for (int i = 0; i < _items.length; i++) {
       final item = _items[i];
-      final totalBatchQty = item.batches.fold<double>(
+      final totalBatchQtyOnly = item.batches.fold<double>(
         0,
-        (sum, b) => sum + b.quantity + b.foc,
+        (sum, b) => sum + b.quantity,
       );
-      if (totalBatchQty != item.quantityToReceive) {
+      if (item.batches.isNotEmpty && totalBatchQtyOnly != item.ordered) {
         hasMismatch = true;
         break;
       }
@@ -2708,41 +3195,71 @@ class _PRCreateState
     }
   }
 
-  void _showSelectBatchDialog(int itemIndex) {
+  Future<void> _showSelectBatchDialog(int itemIndex) async {
     final item = _items[itemIndex];
+    final batchOptions = <String>{
+      ...item.batches.map((b) => b.batchNo.trim()).where((v) => v.isNotEmpty),
+    };
+
+    final itemId = item.itemId?.trim();
+    if (itemId != null && itemId.isNotEmpty) {
+      try {
+        final dbBatchNumbers = await ref.refresh(
+          itemBatchNumbersProvider(itemId).future,
+        );
+        batchOptions.addAll(dbBatchNumbers);
+      } catch (_) {
+        // keep existing local options if remote lookup fails
+      }
+    }
+
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (context) => _SelectBatchDialog(
         itemName: item.itemName,
+        batchOptions: batchOptions.toList()..sort(),
         initialBatches: item.batches,
-        // Total in batch dialog must follow current Quantity Out in line item.
-        ordered: item.quantityToReceive,
-        warehouseName:
-            _selectedPO?.vendorName ??
-            _selectedVendorName ??
-            'ZABNIX PRIVATE LIMITED',
+        // Total in batch dialog must follow Ordered quantity in line item.
+        ordered: item.ordered,
+        warehouseName: _resolveWarehouseName(),
+        initialDamageEnabled: _isDamageEnabled,
+        onDamageChanged: (enabled) {
+          setState(() {
+            _isDamageEnabled = enabled;
+          });
+        },
+        onTopError: _showTopError,
         onSave: (newBatches) {
           setState(() {
-            final totalQty = newBatches.fold<double>(
+            final combinedQty = newBatches.fold<double>(
               0,
-              (sum, b) => sum + b.quantity,
+              (sum, batch) => sum + batch.quantity + batch.foc,
             );
-            final totalFoc = newBatches.fold<double>(
-              0,
-              (sum, b) => sum + b.foc,
-            );
-            final combinedQty = totalQty + totalFoc;
 
             _items[itemIndex] = item.copyWith(
               batches: newBatches,
               quantityToReceive: combinedQty,
             );
-            _rowControllers[itemIndex].qtyCtrl.text = combinedQty.toString();
+            _rowControllers[itemIndex].qtyCtrl.text = _fmtPcs(combinedQty);
           });
         },
       ),
     );
+  }
+
+  String _resolveWarehouseName() {
+    final warehouseName = _selectedPO?.warehouseName?.trim();
+    if (warehouseName != null && warehouseName.isNotEmpty) {
+      return warehouseName;
+    }
+
+    final deliveryWarehouseId = _selectedPO?.deliveryWarehouseId?.trim();
+    if (deliveryWarehouseId != null && deliveryWarehouseId.isNotEmpty) {
+      return deliveryWarehouseId;
+    }
+
+    return 'Warehouse';
   }
 }
 
@@ -2750,14 +3267,22 @@ class _SelectBatchDialog extends StatefulWidget {
   final String itemName;
   final String warehouseName;
   final double ordered;
+  final List<String> batchOptions;
   final List<BatchInfo> initialBatches;
+  final bool initialDamageEnabled;
+  final ValueChanged<bool>? onDamageChanged;
+  final void Function(String message)? onTopError;
   final Function(List<BatchInfo>) onSave;
 
-  const _SelectBatchDialog({
+  _SelectBatchDialog({
     required this.itemName,
     required this.warehouseName,
     required this.ordered,
+    required this.batchOptions,
     required this.initialBatches,
+    this.initialDamageEnabled = false,
+    this.onDamageChanged,
+    this.onTopError,
     required this.onSave,
   });
 
@@ -2915,7 +3440,8 @@ class _PurchaseReceivePreferencesDialogState
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'Prefix',
@@ -2935,21 +3461,35 @@ class _PurchaseReceivePreferencesDialogState
                                         ),
                                         decoration: InputDecoration(
                                           isDense: true,
-                                          contentPadding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 12,
-                                          ),
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 12,
+                                              ),
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(6),
-                                            borderSide: const BorderSide(color: borderCol),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: borderCol,
+                                            ),
                                           ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(6),
-                                            borderSide: const BorderSide(color: borderCol),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: borderCol,
+                                            ),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(6),
-                                            borderSide: const BorderSide(color: _focusBorder, width: 1.2),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: _focusBorder,
+                                              width: 1.2,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -2960,7 +3500,8 @@ class _PurchaseReceivePreferencesDialogState
                                 Expanded(
                                   flex: 2,
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'Next Number',
@@ -2975,7 +3516,8 @@ class _PurchaseReceivePreferencesDialogState
                                         controller: _numberCtrl,
                                         keyboardType: TextInputType.number,
                                         inputFormatters: [
-                                          FilteringTextInputFormatter.digitsOnly,
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
                                         ],
                                         style: const TextStyle(
                                           fontSize: 22 / 2,
@@ -2984,21 +3526,35 @@ class _PurchaseReceivePreferencesDialogState
                                         ),
                                         decoration: InputDecoration(
                                           isDense: true,
-                                          contentPadding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 12,
-                                          ),
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 12,
+                                              ),
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(6),
-                                            borderSide: const BorderSide(color: borderCol),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: borderCol,
+                                            ),
                                           ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(6),
-                                            borderSide: const BorderSide(color: borderCol),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: borderCol,
+                                            ),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(6),
-                                            borderSide: const BorderSide(color: _focusBorder, width: 1.2),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: _focusBorder,
+                                              width: 1.2,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -3105,12 +3661,20 @@ class _PurchaseReceivePreferencesDialogState
 
 class _SelectBatchDialogState extends State<_SelectBatchDialog> {
   final List<_BatchItemRowController> _rows = [];
+  final Map<_BatchItemRowController, TextEditingController>
+  _batchInputControllers = {};
+  final Map<_BatchItemRowController, FocusNode> _batchInputFocusNodes = {};
   bool _showMfgDetails = false;
   bool _showFoc = false;
+  bool _showDamage = false;
   bool _overwriteLineItem = false;
   String? _dialogErrorMessage;
   static const String _quantityMismatchMessage =
-      'There\'s a mismatch between the quantity entered in the line item and the total quantity across all batches. Click the checkbox to overwrite the quantity in the line item.';
+      'Total quantity across all batches must equal the ordered quantity.';
+  static const String _qtyExceedsMessage =
+      'Total quantity across all batches cannot exceed the ordered quantity.';
+  static const String _qtyOrFocMessage =
+      'Either Quantity or FOC must be entered';
   final TextInputFormatter _numericInputFormatter =
       TextInputFormatter.withFunction((oldValue, newValue) {
         final text = newValue.text;
@@ -3123,6 +3687,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
   @override
   void initState() {
     super.initState();
+    _showDamage = widget.initialDamageEnabled;
     if (widget.initialBatches.isEmpty) {
       final firstRow = _BatchItemRowController();
       firstRow.qtyCtrl.text = widget.ordered.toString();
@@ -3144,6 +3709,12 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
 
   @override
   void dispose() {
+    for (final controller in _batchInputControllers.values) {
+      controller.dispose();
+    }
+    for (final focusNode in _batchInputFocusNodes.values) {
+      focusNode.dispose();
+    }
     for (var r in _rows) {
       r.dispose();
     }
@@ -3157,16 +3728,48 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
   }
 
   void _removeRow(int index) {
+    if (_rows.length <= 1 || index < 0 || index >= _rows.length) {
+      return;
+    }
     setState(() {
+      _disposeBatchInputResources(_rows[index]);
       _rows[index].dispose();
       _rows.removeAt(index);
     });
   }
 
+  TextEditingController _ensureBatchInputController(
+    _BatchItemRowController row,
+  ) {
+    return _batchInputControllers.putIfAbsent(
+      row,
+      () => TextEditingController(text: row.batchNoCtrl.text),
+    );
+  }
+
+  FocusNode _ensureBatchInputFocusNode(_BatchItemRowController row) {
+    return _batchInputFocusNodes.putIfAbsent(row, FocusNode.new);
+  }
+
+  void _disposeBatchInputResources(_BatchItemRowController row) {
+    _batchInputControllers.remove(row)?.dispose();
+    _batchInputFocusNodes.remove(row)?.dispose();
+  }
+
   double get _totalQuantityOut => _rows.fold<double>(
+    0,
+    (sum, row) =>
+        sum +
+        (double.tryParse(row.qtyCtrl.text.trim()) ?? 0) +
+        (double.tryParse(row.focCtrl.text.trim()) ?? 0),
+  );
+
+  double get _totalEnteredQtyOnly => _rows.fold<double>(
     0,
     (sum, row) => sum + (double.tryParse(row.qtyCtrl.text.trim()) ?? 0),
   );
+
+  double get _totalEnteredQtyWithFoc => _totalQuantityOut;
 
   double get _quantityToBeAdded =>
       (widget.ordered - _totalQuantityOut).clamp(0, widget.ordered);
@@ -3182,8 +3785,11 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
     final batchNo = row.batchNoCtrl.text.trim();
     final unitPack = row.unitPackCtrl.text.trim();
     final mrp = row.mrpCtrl.text.trim();
+    final ptr = row.ptrCtrl.text.trim();
     final expiryDate = row.expDateCtrl.text.trim();
     final quantity = row.qtyCtrl.text.trim();
+    final foc = row.focCtrl.text.trim();
+    final damage = row.damageCtrl.text.trim();
 
     if (batchNo.isEmpty) {
       return '$rowLabel: Batch No is required';
@@ -3200,15 +3806,25 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
     if (double.tryParse(mrp) == null) {
       return '$rowLabel: MRP must be a valid number';
     }
+    if (ptr.isNotEmpty && double.tryParse(ptr) == null) {
+      return '$rowLabel: PTR must be a valid number';
+    }
     if (expiryDate.isEmpty || row.expDate == null) {
       return '$rowLabel: Expiry Date is required';
     }
-    if (quantity.isEmpty) {
-      return '$rowLabel: Quantity is required';
+    final parsedQty = double.tryParse(quantity) ?? 0;
+    final parsedFoc = double.tryParse(foc) ?? 0;
+    if (parsedQty <= 0 && parsedFoc <= 0) {
+      return _qtyOrFocMessage;
     }
-    final parsedQty = double.tryParse(quantity);
-    if (parsedQty == null || parsedQty <= 0) {
-      return '$rowLabel: Quantity must be greater than 0';
+    if (_showDamage && damage.isNotEmpty) {
+      final parsedDamage = double.tryParse(damage);
+      if (parsedDamage == null) {
+        return '$rowLabel: Damage must be a valid number';
+      }
+      if (parsedDamage > parsedQty) {
+        return '$rowLabel: Damage cannot exceed quantity';
+      }
     }
 
     return null;
@@ -3225,9 +3841,9 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
     return Expanded(
       flex: flex,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         child: SizedBox(
-          height: 44,
+          height: 40,
           child: TextField(
             controller: controller,
             readOnly: readOnly,
@@ -3248,8 +3864,8 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
               fillColor: Colors.white,
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 12,
+                horizontal: 10,
+                vertical: 10,
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
@@ -3268,59 +3884,253 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
     );
   }
 
+  Widget _buildBatchNoDropdown(_BatchItemRowController row) {
+    final current = row.batchNoCtrl.text.trim();
+    final batchItems = <String>{...widget.batchOptions};
+    if (current.isNotEmpty) {
+      batchItems.add(current);
+    }
+    final sortedBatchItems = batchItems.toList()..sort();
+
+    final inputController = _ensureBatchInputController(row);
+    final inputFocusNode = _ensureBatchInputFocusNode(row);
+
+    if (!inputFocusNode.hasFocus && inputController.text != current) {
+      inputController.text = current;
+      inputController.selection = TextSelection.fromPosition(
+        TextPosition(offset: inputController.text.length),
+      );
+    }
+
+    return Expanded(
+      flex: 3,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: SizedBox(
+          height: 40,
+          width: double.infinity,
+          child: RawAutocomplete<String>(
+            textEditingController: inputController,
+            focusNode: inputFocusNode,
+            displayStringForOption: (option) => option,
+            optionsBuilder: (textEditingValue) {
+              final query = textEditingValue.text.trim().toLowerCase();
+              if (query.isEmpty) {
+                return sortedBatchItems;
+              }
+
+              return sortedBatchItems.where(
+                (item) => item.toLowerCase().contains(query),
+              );
+            },
+            onSelected: (selection) {
+              row.batchNoCtrl.text = selection;
+            },
+            fieldViewBuilder:
+                (
+                  context,
+                  textEditingController,
+                  focusNode,
+                  onFieldSubmitted,
+                ) {
+                  return TextField(
+                    controller: textEditingController,
+                    focusNode: focusNode,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: _textPrimary,
+                      fontFamily: 'Inter',
+                    ),
+                    textAlignVertical: TextAlignVertical.center,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 10,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: const BorderSide(color: _fieldBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: const BorderSide(
+                          color: _focusBorder,
+                          width: 1.5,
+                        ),
+                      ),
+                      hintText: 'Batch No',
+                      hintStyle: const TextStyle(
+                        color: _hintColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                    onChanged: (value) {
+                      row.batchNoCtrl.text = value;
+                    },
+                    onSubmitted: (value) {
+                      row.batchNoCtrl.text = value.trim();
+                    },
+                  );
+                },
+            optionsViewBuilder: (context, onSelected, options) {
+              final optionList = options.toList();
+              return Align(
+                alignment: Alignment.topLeft,
+                child: Material(
+                  elevation: 6,
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    width: 420,
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: _fieldBorder),
+                    ),
+                    child: optionList.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            child: Text(
+                              'No results found',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: _hintColor,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                          )
+                        : (() {
+                            int? hoveredIndex;
+                            return StatefulBuilder(
+                              builder: (context, setOptionsState) {
+                              return ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: optionList.length,
+                                itemBuilder: (context, index) {
+                                  final item = optionList[index];
+                                  final isHovered = hoveredIndex == index;
+                                  final isSelected =
+                                      row.batchNoCtrl.text.trim() == item;
+                                  return MouseRegion(
+                                    onEnter: (_) => setOptionsState(
+                                      () => hoveredIndex = index,
+                                    ),
+                                    onExit: (_) => setOptionsState(
+                                      () => hoveredIndex = null,
+                                    ),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: () => onSelected(item),
+                                        hoverColor: Colors.transparent,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isHovered
+                                                ? const Color(0xFF3B82F6)
+                                                : (isSelected
+                                                      ? const Color(
+                                                          0xFFF3F4F6,
+                                                        )
+                                                      : Colors.white),
+                                          ),
+                                          child: Text(
+                                            item,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: isHovered
+                                                  ? Colors.white
+                                                  : _textPrimary,
+                                              fontFamily: 'Inter',
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                              },
+                            );
+                          })(),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDatePicker({
     required TextEditingController controller,
     required GlobalKey targetKey,
-    required int flex,
+    int? flex,
+    double? width,
     required VoidCallback onTap,
   }) {
-    return Expanded(
-      flex: flex,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: SizedBox(
-          height: 44,
-          child: TextField(
-            key: targetKey,
-            controller: controller,
-            readOnly: true,
-            onTap: onTap,
-            textAlignVertical: TextAlignVertical.center,
-            style: const TextStyle(
-              fontSize: 13,
-              color: _textPrimary,
-              fontFamily: 'Inter',
+    final dateField = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: SizedBox(
+        height: 40,
+        child: TextField(
+          key: targetKey,
+          controller: controller,
+          readOnly: true,
+          onTap: onTap,
+          textAlignVertical: TextAlignVertical.center,
+          style: const TextStyle(
+            fontSize: 13,
+            color: _textPrimary,
+            fontFamily: 'Inter',
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: _bgWhite,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 10,
             ),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: _bgWhite,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 12,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(color: _fieldBorder),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(color: _focusBorder, width: 1.2),
-              ),
-              suffixIconConstraints: const BoxConstraints(
-                minWidth: 32,
-                maxHeight: 44,
-              ),
-              suffixIcon: const Icon(
-                LucideIcons.calendar,
-                size: 14,
-                color: _hintColor,
-              ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: _fieldBorder),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: _focusBorder, width: 1.2),
+            ),
+            suffixIconConstraints: const BoxConstraints(
+              minWidth: 30,
+              maxHeight: 40,
+            ),
+            suffixIcon: const Icon(
+              LucideIcons.calendar,
+              size: 14,
+              color: _hintColor,
             ),
           ),
         ),
       ),
     );
+
+    if (width != null) {
+      return SizedBox(width: width, child: dateField);
+    }
+
+    return Expanded(flex: flex ?? 15, child: dateField);
   }
 
   @override
@@ -3387,22 +4197,22 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.only(top: 3),
-                        child: Text(
-                          '•',
-                          style: TextStyle(fontSize: 16, color: _textPrimary),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          _quantityMismatchMessage,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: _textPrimary,
-                            fontFamily: 'Inter',
-                            height: 1.3,
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _textPrimary,
+                              fontFamily: 'Inter',
+                              height: 1.3,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: '•  ',
+                                style: TextStyle(fontSize: 16, height: 1.05),
+                              ),
+                              TextSpan(text: _quantityMismatchMessage),
+                            ],
                           ),
                         ),
                       ),
@@ -3518,6 +4328,32 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                       fontFamily: 'Inter',
                     ),
                   ),
+                  const SizedBox(width: 20),
+                  SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: Checkbox(
+                      value: _showDamage,
+                      onChanged: (val) {
+                        final enabled = val ?? false;
+                        setState(() => _showDamage = enabled);
+                        widget.onDamageChanged?.call(enabled);
+                      },
+                      activeColor: _greenBtn,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Damage',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _textPrimary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
                   const Spacer(),
                   SizedBox(
                     height: 20,
@@ -3534,7 +4370,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Overwrite the line item with ${_fmtQty(_totalQuantityOut)} quantities',
+                    'Overwrite the line item with ${_fmtQty(_totalEnteredQtyWithFoc)} quantities',
                     style: const TextStyle(
                       fontSize: 13,
                       color: _textPrimary,
@@ -3554,17 +4390,18 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
               ),
               child: Row(
                 children: [
-                  _headerCell('BATCH NO*', 15),
-                  _headerCell('UNIT PACK*', 15),
-                  _headerCell('MRP*', 15),
-                  _headerCell('PTR', 15),
-                  _headerCell('EXPIRY DATE*', 15),
+                  _headerCell('BATCH NO*', 3),
+                  _headerCell('UNIT PACK*', 2),
+                  _headerCell('MRP*', 2),
+                  _headerCell('P RATE', 2),
+                  _headerCell('EXPIRY DATE*', 3),
                   if (_showMfgDetails) ...[
-                    _headerCell('MANUFACTURED DATE', 15),
-                    _headerCell('MANUFACTURER BATCH', 15),
+                    _headerCell('MFG DATE', 3),
+                    _headerCell('MFG BATCH', 2),
                   ],
-                  _headerCell('QUANTITY*', 15),
-                  if (_showFoc) _headerCell('FOC', 15),
+                  _headerCell('QUANTITY*', 2),
+                  if (_showFoc) _headerCell('FOC', 2),
+                  if (_showDamage) _headerCell('DAMAGE', 2),
                   const SizedBox(width: 32),
                 ],
               ),
@@ -3588,33 +4425,29 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
                           children: [
-                            _buildTextField(
-                              controller: row.batchNoCtrl,
-                              hint: 'Batch No',
-                              flex: 15,
-                            ),
+                            _buildBatchNoDropdown(row),
                             _buildTextField(
                               controller: row.unitPackCtrl,
                               hint: 'Pack',
-                              flex: 15,
+                              flex: 2,
                               isNumeric: true,
                             ),
                             _buildTextField(
                               controller: row.mrpCtrl,
                               hint: '0',
-                              flex: 15,
+                              flex: 2,
                               isNumeric: true,
                             ),
                             _buildTextField(
                               controller: row.ptrCtrl,
                               hint: '0',
-                              flex: 15,
+                              flex: 2,
                               isNumeric: true,
                             ),
                             _buildDatePicker(
                               controller: row.expDateCtrl,
                               targetKey: row.expKey,
-                              flex: 15,
+                              flex: 3,
                               onTap: () async {
                                 final picked = await ZerpaiDatePicker.show(
                                   context,
@@ -3635,7 +4468,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                               _buildDatePicker(
                                 controller: row.mfgDateCtrl,
                                 targetKey: row.mfgKey,
-                                flex: 15,
+                                flex: 3,
                                 onTap: () async {
                                   final picked = await ZerpaiDatePicker.show(
                                     context,
@@ -3655,13 +4488,13 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                               _buildTextField(
                                 controller: row.mfgBatchCtrl,
                                 hint: 'Mfg Batch',
-                                flex: 15,
+                                flex: 2,
                               ),
                             ],
                             _buildTextField(
                               controller: row.qtyCtrl,
                               hint: '0',
-                              flex: 15,
+                              flex: 2,
                               isNumeric: true,
                               onChanged: (_) {
                                 setState(() {
@@ -3673,8 +4506,35 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                               _buildTextField(
                                 controller: row.focCtrl,
                                 hint: '0',
-                                flex: 15,
+                                flex: 2,
                                 isNumeric: true,
+                                onChanged: (_) {
+                                  setState(() {
+                                    _dialogErrorMessage = null;
+                                  });
+                                },
+                              ),
+                            if (_showDamage)
+                              _buildTextField(
+                                controller: row.damageCtrl,
+                                hint: 'Damage',
+                                flex: 2,
+                                isNumeric: true,
+                                onChanged: (val) {
+                                  final entered = double.tryParse(val) ?? 0;
+                                  final maxQty =
+                                      double.tryParse(row.qtyCtrl.text) ?? 0;
+
+                                  if (entered > maxQty) {
+                                    row.damageCtrl.text = _fmtQty(maxQty);
+                                    row.damageCtrl.selection =
+                                        TextSelection.fromPosition(
+                                          TextPosition(
+                                            offset: row.damageCtrl.text.length,
+                                          ),
+                                        );
+                                  }
+                                },
                               ),
                             SizedBox(
                               width: 32,
@@ -3684,7 +4544,9 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                                   size: 16,
                                   color: _dangerRed,
                                 ),
-                                onPressed: () => _removeRow(index),
+                                onPressed: _rows.length > 1
+                                    ? () => _removeRow(index)
+                                    : null,
                                 padding: EdgeInsets.zero,
                               ),
                             ),
@@ -3731,6 +4593,14 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                 children: [
                   ElevatedButton(
                     onPressed: () {
+                      if (_totalEnteredQtyOnly > widget.ordered) {
+                        setState(() {
+                          _dialogErrorMessage = _qtyExceedsMessage;
+                        });
+                        widget.onTopError?.call(_qtyExceedsMessage);
+                        return;
+                      }
+
                       for (var i = 0; i < _rows.length; i++) {
                         final validationMessage = _validateRequiredFields(
                           _rows[i],
@@ -3740,6 +4610,9 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                           setState(() {
                             _dialogErrorMessage = validationMessage;
                           });
+                          if (validationMessage == _qtyOrFocMessage) {
+                            widget.onTopError?.call(_qtyOrFocMessage);
+                          }
                           return;
                         }
                       }
@@ -3747,12 +4620,9 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                       final results = _rows
                           .map((r) => r.toBatchInfo())
                           .toList();
-                      final totalQty = results.fold<double>(
-                        0,
-                        (sum, b) => sum + b.quantity,
-                      );
 
-                      if (!_overwriteLineItem && totalQty != widget.ordered) {
+                      if (!_overwriteLineItem &&
+                          _totalEnteredQtyOnly != widget.ordered) {
                         setState(() {
                           _dialogErrorMessage = _quantityMismatchMessage;
                         });
@@ -3825,15 +4695,19 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
     return Expanded(
       flex: flex,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Text(
-          text,
-          textAlign: alignment,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: isMandatory ? const Color(0xFFD32F2F) : _textPrimary,
-            fontFamily: 'Inter',
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Container(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Text(
+            text,
+            textAlign: alignment,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isMandatory ? const Color(0xFFD32F2F) : _textPrimary,
+              fontFamily: 'Inter',
+            ),
           ),
         ),
       ),

@@ -30,7 +30,7 @@ class _InventoryPackagesListScreenState
       pageTitle: '',
       enableBodyScroll: false,
       useHorizontalPadding: false,
-      useTopPadding: false,
+      useTopPadding: true,
       actions: [
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -115,48 +115,98 @@ class _InventoryPackagesListScreenState
         ),
       ],
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               'All Packages',
               style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+                fontSize: 34,
+                fontWeight: FontWeight.w700,
                 color: _textPrimary,
                 fontFamily: 'Inter',
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 10),
             Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _PackageColumn(
-                      title: 'Packages, Not Shipped',
-                      headerColor: _col1Bg,
-                      type: _ColumnType.first,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final bool useFixedDesktopColumns = constraints.maxWidth >= 1220;
+
+                  if (useFixedDesktopColumns) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        SizedBox(
+                          width: 305,
+                          child: _PackageColumn(
+                            title: 'Packages, Not Shipped',
+                            headerColor: _col1Bg,
+                            type: _ColumnType.first,
+                          ),
+                        ),
+                        SizedBox(width: 24),
+                        SizedBox(
+                          width: 305,
+                          child: _PackageColumn(
+                            title: 'Shipped Packages',
+                            headerColor: _col2Bg,
+                            type: _ColumnType.middle,
+                          ),
+                        ),
+                        SizedBox(width: 24),
+                        SizedBox(
+                          width: 305,
+                          child: _PackageColumn(
+                            title: 'Delivered Packages',
+                            headerColor: _col3Bg,
+                            type: _ColumnType.last,
+                          ),
+                        ),
+                        Expanded(child: SizedBox.shrink()),
+                      ],
+                    );
+                  }
+
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 980),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          SizedBox(
+                            width: 305,
+                            child: _PackageColumn(
+                              title: 'Packages, Not Shipped',
+                              headerColor: _col1Bg,
+                              type: _ColumnType.first,
+                            ),
+                          ),
+                          SizedBox(width: 24),
+                          SizedBox(
+                            width: 305,
+                            child: _PackageColumn(
+                              title: 'Shipped Packages',
+                              headerColor: _col2Bg,
+                              type: _ColumnType.middle,
+                            ),
+                          ),
+                          SizedBox(width: 24),
+                          SizedBox(
+                            width: 305,
+                            child: _PackageColumn(
+                              title: 'Delivered Packages',
+                              headerColor: _col3Bg,
+                              type: _ColumnType.last,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: _PackageColumn(
-                      title: 'Shipped Packages',
-                      headerColor: _col2Bg,
-                      type: _ColumnType.middle,
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: _PackageColumn(
-                      title: 'Delivered Packages',
-                      headerColor: _col3Bg,
-                      type: _ColumnType.last,
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ],
@@ -189,7 +239,7 @@ class _PackageColumn extends StatelessWidget {
           ClipPath(
             clipper: _HeaderClipper(type),
             child: Container(
-              height: 48,
+              height: 56,
               padding: EdgeInsets.only(
                 left: type == _ColumnType.first ? 16 : 20,
                 right: type == _ColumnType.last ? 16 : 20,
@@ -221,23 +271,33 @@ class _PackageColumn extends StatelessWidget {
                 color: const Color(0xFFF7F8FA),
                 border: Border.all(color: const Color(0xFFE5E7EB)),
               ),
-              child: Container(
-                height: 120,
-                margin: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: const Center(
-                  child: Text(
-                    'No Records Found',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF9CA3AF),
-                      fontFamily: 'Inter',
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final double whitePanelHeight = (constraints.maxHeight * 0.25).clamp(72.0, 220.0);
+
+                  return Align(
+                    alignment: Alignment.topCenter,
+                    child: Container(
+                      height: whitePanelHeight,
+                      margin: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'No Records Found',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF000000),
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
           ),
@@ -256,12 +316,8 @@ class _HeaderClipper extends CustomClipper<Path> {
     final path = Path();
     final double arrowWidth = 16.0;
 
-    // Start Top Left
-    if (type == _ColumnType.first) {
-      path.moveTo(0, 0);
-    } else {
-      path.moveTo(arrowWidth, 0);
-    }
+    // Keep a flat left edge for all headers.
+    path.moveTo(0, 0);
 
     // Top Edge to Top Right
     if (type == _ColumnType.last) {
@@ -274,14 +330,8 @@ class _HeaderClipper extends CustomClipper<Path> {
     }
 
     // Bottom Edge to Bottom Left
-    if (type == _ColumnType.first) {
-      path.lineTo(0, size.height);
-      path.lineTo(0, 0);
-    } else {
-      path.lineTo(arrowWidth, size.height);
-      path.lineTo(0, size.height / 2); // Cutout arrow pointing right
-      path.lineTo(arrowWidth, 0);
-    }
+    path.lineTo(0, size.height);
+    path.lineTo(0, 0);
 
     path.close();
     return path;

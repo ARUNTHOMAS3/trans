@@ -41,6 +41,7 @@ class FormDropdown<T> extends StatefulWidget {
   final bool showSearch;
   final bool forceUppercase;
   final double? menuWidth;
+  final bool showCustomValueAction;
 
   // Added missing properties from items_composite_item_create.dart usage
   final VoidCallback? onEdit;
@@ -90,6 +91,7 @@ class FormDropdown<T> extends StatefulWidget {
     this.showSearchIcon = true,
     this.showSearch = true,
     this.forceUppercase = false,
+    this.showCustomValueAction = true,
     this.onEdit,
     this.showArrowOnSelection = true,
     this.listBuilder,
@@ -409,6 +411,18 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
     _filterItems('');
   }
 
+  void _commitTypedValue() {
+    final typedValue = _searchCtrl.text.trim();
+    if (typedValue.isEmpty) return;
+
+    if (!widget.allowCustomValue) return;
+
+    _removeOverlay();
+    if (T == String) {
+      widget.onChanged(typedValue as T);
+    }
+  }
+
   double _calculateOverlayHeight(double listHeight) {
     double height = listHeight;
     if (widget.showSearch) {
@@ -564,6 +578,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                               ),
                             ),
                           ),
+                          onSubmitted: (_) => _commitTypedValue(),
                         ),
                       ),
                     ),
@@ -762,7 +777,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                     ),
                   ],
 
-                  if (widget.allowCustomValue &&
+                    if (widget.showCustomValueAction &&
+                      widget.allowCustomValue &&
                       _searchCtrl.text.trim().isNotEmpty &&
                       !_filteredItems.any((e) {
                         final String display =
@@ -774,19 +790,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                       })) ...[
                     const Divider(height: 1, color: AppTheme.borderColor),
                     InkWell(
-                      onTap: () {
-                        final newValue = _searchCtrl.text.trim();
-                        _removeOverlay();
-                        // For generic T, we might need a way to create T from String.
-                        // But usually T is String or we handle it in onChanged.
-                        if (T == String) {
-                          widget.onChanged(newValue as T);
-                        } else {
-                          // If T is not String, we might need another callback or handle it via a special value
-                          // For now, we'll assume it's used with String for custom values
-                          widget.onChanged(newValue as T);
-                        }
-                      },
+                      onTap: _commitTypedValue,
                       hoverColor: AppTheme.infoBg,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
