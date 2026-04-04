@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../../shared/widgets/inputs/dropdown_input.dart';
 import '../../../../shared/widgets/inputs/zerpai_date_picker.dart';
 import '../../../../shared/widgets/zerpai_layout.dart';
@@ -10,6 +11,14 @@ import '../../../../shared/widgets/inputs/z_tooltip.dart';
 import '../../../sales/controllers/sales_order_controller.dart';
 import '../../../sales/models/sales_order_model.dart';
 import '../../../sales/models/sales_order_item_model.dart';
+
+const Color _textPrimary = Color(0xFF1F2937);
+const Color _textSecondary = Color(0xFF6B7280);
+const Color _borderCol = Color(0xFFE5E7EB);
+const Color _focusBorder = Color(0xFF3B82F6);
+const Color _greenBtn = Color(0xFF10B981);
+const Color _bgLight = Color(0xFFF9FAFB);
+const Color _dangerRed = Color(0xFFDC2626);
 
 class InventoryPackagesCreateScreen extends ConsumerStatefulWidget {
   const InventoryPackagesCreateScreen({super.key});
@@ -21,21 +30,31 @@ class InventoryPackagesCreateScreen extends ConsumerStatefulWidget {
 
 class _InventoryPackagesCreateScreenState
     extends ConsumerState<InventoryPackagesCreateScreen> {
-  static const Color _textPrimary = Color(0xFF1F2937);
-  static const Color _textSecondary = Color(0xFF6B7280);
-  static const Color _borderCol = Color(0xFFE5E7EB);
-  static const Color _focusBorder = Color(0xFF3B82F6);
-  static const Color _greenBtn = Color(0xFF10B981);
-  static const Color _bgLight = Color(0xFFF9FAFB);
-  static const Color _dangerRed = Color(0xFFDC2626);
-  static const Color _hintColor = Color(0xFF6B7280);
-  static const Color _bgWhite = Color(0xFFFFFFFF);
 
   bool _isManualMode = false;
   List<_PackageItem> _items = [];
   final List<_PackageItemRowController> _rowControllers = [];
   final Set<String> _hoveredQtyFields = {};
+  final Map<int, String> _rowSelectedViews = {};
   final Set<String> _focusedQtyFields = {};
+  
+  Widget _commonItemBuilder<T>(T item, bool isSelected, bool isHovered, String Function(T) displayFn) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: isHovered 
+          ? const Color(0xFF3B82F6) 
+          : (isSelected ? const Color(0xFFF3F4F6) : Colors.transparent),
+      child: Text(
+        displayFn(item),
+        style: TextStyle(
+          fontSize: 13, 
+          color: isHovered ? Colors.white : const Color(0xFF1F2937),
+          fontFamily: 'Inter',
+        ),
+      ),
+    );
+  }
   final List<String?> _preferredBins = [];
   final Set<String> _hoveredBinFields = {};
   final Set<String> _focusedBinFields = {};
@@ -106,7 +125,12 @@ class _InventoryPackagesCreateScreenState
   void _switchToSelectionMode() {
     setState(() {
       _isManualMode = false;
-      _items = [];
+      _items = _salesOrderItems.map((item) => _PackageItem(
+        itemId: item.itemId,
+        itemName: item.item?.productName ?? item.description ?? '',
+        ordered: item.quantity,
+        qtyToPack: item.quantity,
+      )).toList();
       _clearRowControllers();
     });
   }
@@ -164,10 +188,11 @@ class _InventoryPackagesCreateScreenState
     setState(() {
       _isLoadingItems = true;
       _salesOrderItems = [];
-      for (var ctrl in _normalRowControllers) {
-        ctrl.dispose();
-      }
       _normalRowControllers.clear();
+      for (var ctrl in _rowControllers) {
+        ctrl.qtyCtrl.dispose();
+      }
+      _rowControllers.clear();
     });
 
     try {
@@ -178,11 +203,21 @@ class _InventoryPackagesCreateScreenState
       if (mounted) {
         setState(() {
           _salesOrderItems = items;
-          for (var item in items) {
-            _normalRowControllers.add(
-              TextEditingController(text: item.quantity.toString()),
-            );
+          _items = items.map((item) => _PackageItem(
+            itemId: item.itemId,
+            itemName: item.item?.productName ?? item.description ?? '',
+            ordered: item.quantity,
+            qtyToPack: item.quantity,
+          )).toList();
+
+          _rowControllers.clear();
+          _rowControllers.addAll(List.generate(_items.length, (_) => _PackageItemRowController()));
+          for (var i = 0; i < _items.length; i++) {
+            _rowControllers[i].qtyCtrl.text = _items[i].qtyToPack.toString();
           }
+
+          _normalRowControllers.clear();
+          _normalRowControllers.addAll(List.generate(items.length, (i) => TextEditingController(text: items[i].quantity.toString())));
           _isLoadingItems = false;
         });
       }
@@ -267,6 +302,13 @@ class _InventoryPackagesCreateScreenState
                                   value: _selectedCustomer,
                                   hint: 'Select Customer',
                                   items: customers.map((e) => e.id).toList(),
+                                  maxVisibleItems: 4,
+                                  itemBuilder: (item, isSelected, isHovered) => _commonItemBuilder<String>(
+                                    item, 
+                                    isSelected, 
+                                    isHovered, 
+                                    (id) => customers.firstWhere((c) => c.id == id).displayName,
+                                  ),
                                   displayStringForValue: (val) {
                                     final customer = customers.firstWhere((c) => c.id == val);
                                     return customer.displayName;
@@ -274,30 +316,6 @@ class _InventoryPackagesCreateScreenState
                                   searchStringForValue: (val) {
                                     final customer = customers.firstWhere((c) => c.id == val);
                                     return customer.displayName;
-                                  },
-                                  itemBuilder: (id, isSelected, isHovered) {
-                                    final customer = customers.firstWhere(
-                                      (c) => c.id == id,
-                                    );
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 8,
-                                      ),
-                                      color: isHovered
-                                          ? const Color(0xFF3B82F6)
-                                          : Colors.white,
-                                      child: Text(
-                                        customer.displayName,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontFamily: 'Inter',
-                                          color: isHovered
-                                              ? Colors.white
-                                              : _textPrimary,
-                                        ),
-                                      ),
-                                    );
                                   },
                                   onChanged: (val) {
                                     setState(() {
@@ -324,6 +342,7 @@ class _InventoryPackagesCreateScreenState
                                     value: null,
                                     hint: 'Select Sales Order',
                                     items: const [],
+                                    itemBuilder: (item, isSelected, isHovered) => _commonItemBuilder<String>(item, isSelected, isHovered, (s) => s),
                                     displayStringForValue: (s) => s,
                                     searchStringForValue: (s) => s,
                                     onChanged: (val) {},
@@ -340,6 +359,8 @@ class _InventoryPackagesCreateScreenState
                                         value: _selectedSalesOrderData,
                                         hint: 'Select Sales Order',
                                         items: orders,
+                                        maxVisibleItems: 4,
+                                        itemBuilder: (item, isSelected, isHovered) => _commonItemBuilder<SalesOrder>(item, isSelected, isHovered, (val) => val.saleNumber),
                                         displayStringForValue: (val) => val.saleNumber,
                                         searchStringForValue: (val) => val.saleNumber,
                                         onChanged: (val) {
@@ -1158,6 +1179,55 @@ class _InventoryPackagesCreateScreenState
                       fontFamily: 'Inter',
                     ),
                   ),
+                if (_items[index].batches.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: _items[index].batches.map((batch) {
+                      final hasBin = batch.binLocation != null && batch.binLocation!.isNotEmpty;
+                      final hasRef = batch.batchRef != null && batch.batchRef!.isNotEmpty;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F9F5),
+                          border: Border.all(color: const Color(0xFFCFE9D8)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Batch: ${batch.batchNo} (${batch.quantity} pcs)',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF065F46),
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                            if (hasBin || hasRef)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  '${hasBin ? "Bin: ${batch.binLocation}" : ""}${hasBin && hasRef ? " | " : ""}${hasRef ? "Ref: ${batch.batchRef}" : ""}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Color(0xFF065F46),
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1196,54 +1266,10 @@ class _InventoryPackagesCreateScreenState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                SizedBox(
-                  width: 80,
-                  child: Column(
-                    children: [
-                      _buildNormalQtyInput(index, soItem),
-                      const SizedBox(height: 6),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Available for sale: 100 pcs',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF10B981), // Success Green
-                            fontWeight: FontWeight.w500,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Location: Main Warehouse',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: _textSecondary,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: InkWell(
-                          onTap: () => _showSelectBatchDialog(index),
-                          child: const Text(
-                            'Add Batches',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _focusBorder,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'Inter',
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                _buildQuantityCell(
+                  index, 
+                  _buildNormalQtyInput(index, soItem),
+                  "ZABNIX PRIVATE LIMITED"
                 ),
               ],
             ),
@@ -1261,7 +1287,6 @@ class _InventoryPackagesCreateScreenState
       textAlign: TextAlign.right,
       style: const TextStyle(
         fontSize: 13,
-        fontWeight: FontWeight.w600,
         fontFamily: 'Inter',
       ),
       decoration: InputDecoration(
@@ -1283,12 +1308,27 @@ class _InventoryPackagesCreateScreenState
       ),
       keyboardType: TextInputType.number,
       onChanged: (val) {
-        // Handle qty change
+        final double? dVal = double.tryParse(val);
+        if (dVal != null && index < _items.length) {
+          setState(() {
+            _items[index] = _items[index].copyWith(qtyToPack: dVal);
+          });
+        }
       },
     );
   }
 
   Widget _buildManualItemsTable() {
+    if (_isLoadingItems) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 48),
+        child: const Center(
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1413,6 +1453,13 @@ class _InventoryPackagesCreateScreenState
                   value: soItems.where((it) => it.itemId == item.itemId).firstOrNull,
                   hint: 'Select Item',
                   items: soItems,
+                  maxVisibleItems: 4,
+                  itemBuilder: (item, isSelected, isHovered) => _commonItemBuilder<SalesOrderItem>(
+                    item, 
+                    isSelected, 
+                    isHovered, 
+                    (it) => it.item?.productName ?? it.description ?? 'Unknown',
+                  ),
                   displayStringForValue: (it) => it.item?.productName ?? it.description ?? 'Unknown',
                   searchStringForValue: (it) => it.item?.productName ?? it.description ?? '',
                   onChanged: (val) {
@@ -1445,6 +1492,8 @@ class _InventoryPackagesCreateScreenState
                     spacing: 8,
                     runSpacing: 4,
                     children: item.batches.map((batch) {
+                      final hasBin = batch.binLocation != null && batch.binLocation!.isNotEmpty;
+                      final hasRef = batch.batchRef != null && batch.batchRef!.isNotEmpty;
                       return Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -1455,13 +1504,31 @@ class _InventoryPackagesCreateScreenState
                           border: Border.all(color: const Color(0xFFCFE9D8)),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Text(
-                          'Batch: ${batch.batchNo} (${batch.quantity} pcs)',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF065F46),
-                            fontFamily: 'Inter',
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Batch: ${batch.batchNo} (${batch.quantity} pcs)',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF065F46),
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                            if (hasBin || hasRef)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  '${hasBin ? "Bin: ${batch.binLocation}" : ""}${hasBin && hasRef ? " | " : ""}${hasRef ? "Ref: ${batch.batchRef}" : ""}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Color(0xFF065F46),
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       );
                     }).toList(),
@@ -1505,53 +1572,15 @@ class _InventoryPackagesCreateScreenState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                SizedBox(
-                  width: 80,
-                  child: Column(
-                    children: [
+                IgnorePointer(
+                  ignoring: item.itemId == null || item.itemId!.isEmpty,
+                  child: Opacity(
+                    opacity: (item.itemId != null && item.itemId!.isNotEmpty) ? 1.0 : 0.4,
+                    child: _buildQuantityCell(
+                      index, 
                       _buildQtyInput(index),
-                      const SizedBox(height: 6),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Available for sale: 100 pcs',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF10B981),
-                            fontWeight: FontWeight.w500,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Location: Main Warehouse',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: _textSecondary,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: InkWell(
-                          onTap: () => _showSelectBatchDialog(index),
-                          child: const Text(
-                            'Add Batches',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _focusBorder,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'Inter',
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                      "ZABNIX PRIVATE LIMITED"
+                    ),
                   ),
                 ),
               ],
@@ -1574,7 +1603,74 @@ class _InventoryPackagesCreateScreenState
     );
   }
 
+  Widget _buildQuantityCell(int index, Widget qtyInput, String warehouseName) {
+    // Mock available quantity for demo based on index to show red color when <= 0
+    final avlQty = index == 1 ? -2 : 0;
+    final isDanger = avlQty <= 0;
+    final currentView = _rowSelectedViews[index] ?? 'Available for Sale';
+
+    return SizedBox(
+      width: 160,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          SizedBox(width: 80, child: qtyInput),
+          const SizedBox(height: 12),
+          Text(
+            '$currentView:',
+            style: const TextStyle(fontSize: 11, color: Color(0xFF1F2937), fontFamily: 'Inter'),
+          ),
+          Text(
+            '$avlQty pcs',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDanger ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+              fontFamily: 'Inter',
+            ),
+          ),
+          const SizedBox(height: 4),
+          _WarehouseHoverPopover(
+            warehouseName: warehouseName,
+            selectedView: currentView,
+            onViewChanged: (newView) {
+              setState(() {
+                _rowSelectedViews[index] = newView;
+              });
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(LucideIcons.building, size: 12, color: Color(0xFF2563EB)),
+                const SizedBox(width: 4),
+                Text(
+                  warehouseName,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontFamily: 'Inter'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          InkWell(
+            onTap: () => _showSelectBatchDialog(index),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(LucideIcons.alertTriangle, size: 12, color: Color(0xFFEF4444)),
+                const SizedBox(width: 4),
+                const Text(
+                  'Select Batch',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontFamily: 'Inter'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQtyInput(int index) {
+    if (index >= _rowControllers.length) return const SizedBox();
     final ctrl = _rowControllers[index];
     final fieldKey = 'qty-$index';
     final isActive = _hoveredQtyFields.contains(fieldKey) ||
@@ -1598,7 +1694,6 @@ class _InventoryPackagesCreateScreenState
           textAlign: TextAlign.right,
           style: const TextStyle(
             fontSize: 13,
-            fontWeight: FontWeight.w600,
             fontFamily: 'Inter',
           ),
           decoration: InputDecoration(
@@ -1641,35 +1736,73 @@ class _InventoryPackagesCreateScreenState
     }
     if (qtyToPack <= 0) qtyToPack = 1.0;
 
-    final result = await showDialog<_BatchSelectionResult>(
+    final result = await showDialog<_PackageBatchDialogResult>(
       context: context,
       barrierDismissible: true,
-      builder: (_) => _BatchSelectionDialog(
+      builder: (_) => _PackageBatchSelectionDialog(
         itemName: item.itemName,
+        warehouseName: _rowSelectedViews[index] ?? 'DEMO WAREHOUSE 1',
         totalQuantity: qtyToPack,
-        existingBatches: item.batches,
+        savedBatches: item.batches,
       ),
     );
 
-    if (!mounted || result == null) return;
-
-    setState(() {
-      _items[index] = _items[index].copyWith(batches: result.batches);
-      final totalQty = result.batches.fold<double>(0, (sum, b) => sum + b.quantity);
-      _rowControllers[index].qtyCtrl.text = totalQty.toString();
-      _items[index] = _items[index].copyWith(qtyToPack: totalQty);
-    });
+    if (result != null) {
+      setState(() {
+        _items[index] = _items[index].copyWith(
+          batches: result.batches,
+          qtyToPack: result.overwriteLineItem ? result.appliedQuantity : item.qtyToPack,
+        );
+        if (result.overwriteLineItem) {
+          _rowControllers[index].qtyCtrl.text = result.appliedQuantity.toInt().toString();
+        }
+      });
+    }
   }
 }
 
 class _PackageBatch {
   final String batchNo;
   final double quantity;
+  final String? binLocation;
+  final String? batchRef;
+  final String? unitPack;
+  final String? mrp;
+  final String? ptr;
+  final String? expDate;
+  final String? mfgDate;
+  final String? mfgBatch;
+  final double? foc;
 
   const _PackageBatch({
     required this.batchNo,
     required this.quantity,
+    this.binLocation,
+    this.batchRef,
+    this.unitPack,
+    this.mrp,
+    this.ptr,
+    this.expDate,
+    this.mfgDate,
+    this.mfgBatch,
+    this.foc,
   });
+
+  Map<String, String> toMap() {
+    return {
+      'batchNo': batchNo,
+      'quantity': quantity.toString(),
+      'binLocation': binLocation ?? '',
+      'batchRef': batchRef ?? '',
+      'unitPack': unitPack ?? '',
+      'mrp': mrp ?? '',
+      'ptr': ptr ?? '',
+      'expDate': expDate ?? '',
+      'mfgDate': mfgDate ?? '',
+      'mfgBatch': mfgBatch ?? '',
+      'foc': foc?.toString() ?? '',
+    };
+  }
 }
 
 class _PackageItem {
@@ -2056,205 +2189,328 @@ class __PackagePreferencesDialogState extends State<_PackagePreferencesDialog> {
 // ---------------------------------------------------------------------------
 // Batch selection result (local to this module)
 // ---------------------------------------------------------------------------
-class _BatchSelectionResult {
+class _PackageBatchDialogResult {
+  final bool overwriteLineItem;
+  final int batchCount;
+  final double appliedQuantity;
   final List<_PackageBatch> batches;
-  const _BatchSelectionResult({required this.batches});
+
+  const _PackageBatchDialogResult({
+    required this.overwriteLineItem,
+    required this.batchCount,
+    required this.appliedQuantity,
+    required this.batches,
+  });
 }
 
-// ---------------------------------------------------------------------------
-// Inline Batch Selection Dialog
-// ---------------------------------------------------------------------------
-class _BatchSelectionDialog extends StatefulWidget {
+class _PackageBatchSelectionDialog extends StatefulWidget {
   final String itemName;
+  final String warehouseName;
   final double totalQuantity;
-  final List<_PackageBatch> existingBatches;
+  final List<String> existingBatchRefs;
+  final List<_PackageBatch> savedBatches;
 
-  const _BatchSelectionDialog({
+  const _PackageBatchSelectionDialog({
     required this.itemName,
+    required this.warehouseName,
     required this.totalQuantity,
-    this.existingBatches = const [],
+    this.existingBatchRefs = const [],
+    this.savedBatches = const [],
   });
 
   @override
-  State<_BatchSelectionDialog> createState() => _BatchSelectionDialogState();
+  State<_PackageBatchSelectionDialog> createState() => _PackageBatchSelectionDialogState();
 }
 
-class _BatchSelectionDialogState extends State<_BatchSelectionDialog> {
-  late List<_BatchRow> _rows;
-  final _batchCtrl = TextEditingController();
+class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDialog> {
+  final List<_PackageBatchRowController> _rows = [];
+  final List<String> _mockBinLocations = const <String>[
+    'A1-R1-S1', 'A1-R1-S2', 'A1-R2-S1', 'B1-R1-S1', 'B1-R2-S3', 'C1-R4-S2',
+  ];
+  bool _overwriteLineItem = false;
+  bool _showMfgDetails = false;
+  bool _showFocColumn = false;
 
   @override
   void initState() {
     super.initState();
-    _rows = widget.existingBatches
-        .map((b) => _BatchRow(
-              batchNo: b.batchNo,
-              qtyCtrl: TextEditingController(text: b.quantity.toString()),
-            ))
-        .toList();
-    if (_rows.isEmpty) _addEmptyRow();
-  }
-
-  void _addEmptyRow() {
-    _rows.add(_BatchRow(
-      batchNo: '',
-      qtyCtrl: TextEditingController(text: '0'),
-    ));
+    if (widget.savedBatches.isNotEmpty) {
+      for (var b in widget.savedBatches) {
+        final row = _PackageBatchRowController();
+        row.binLocationCtrl.text = b.binLocation ?? '';
+        row.batchRefCtrl.text = b.batchRef ?? '';
+        row.batchNoCtrl.text = b.batchNo;
+        row.unitPackCtrl.text = b.unitPack ?? '';
+        row.mrpCtrl.text = b.mrp ?? '';
+        row.ptrCtrl.text = b.ptr ?? '';
+        row.expDateCtrl.text = b.expDate ?? '';
+        row.mfgDateCtrl.text = b.mfgDate ?? '';
+        row.mfgBatchCtrl.text = b.mfgBatch ?? '';
+        row.qtyOutCtrl.text = b.quantity.toInt().toString();
+        row.focCtrl.text = b.foc?.toInt().toString() ?? '';
+        _rows.add(row);
+      }
+    } else {
+      _addRow();
+      if (_rows.isNotEmpty) {
+        _rows[0].qtyOutCtrl.text = widget.totalQuantity.toInt().toString();
+      }
+    }
   }
 
   @override
   void dispose() {
-    _batchCtrl.dispose();
-    for (final r in _rows) {
-      r.qtyCtrl.dispose();
-    }
+    for (final r in _rows) r.dispose();
     super.dispose();
   }
 
-  double get _allocatedQty => _rows.fold<double>(
-      0, (s, r) => s + (double.tryParse(r.qtyCtrl.text) ?? 0));
+  double get _totalQuantityOut => _rows.fold<double>(
+    0, (sum, r) => sum + (double.tryParse(r.qtyOutCtrl.text.trim()) ?? 0));
+
+  void _addRow() {
+    setState(() => _rows.add(_PackageBatchRowController()));
+  }
+
+  void _removeRow(int index) {
+    setState(() {
+      if (_rows.length == 1) {
+        _rows[index].batchRefCtrl.clear();
+        _rows[index].qtyOutCtrl.clear();
+      } else {
+        _rows[index].dispose();
+        _rows.removeAt(index);
+      }
+    });
+  }
+
+  Widget _headerCell(String text, int flex, {TextAlign alignment = TextAlign.center}) {
+    final isRequired = text.contains('*');
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Text(
+          text,
+          textAlign: alignment,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: isRequired ? const Color(0xFFD32F2F) : _textPrimary,
+            fontFamily: 'Inter',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInput({
+    required TextEditingController controller,
+    required int flex,
+    required String hint,
+    bool isNumber = false,
+  }) {
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: TextField(
+          controller: controller,
+          keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : null,
+          textAlign: isNumber ? TextAlign.right : TextAlign.left,
+          style: const TextStyle(fontSize: 13, color: _textPrimary, fontFamily: 'Inter'),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: hint,
+            hintStyle: const TextStyle(color: _textSecondary, fontSize: 13),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: _borderCol),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: _focusBorder, width: 1.4),
+            ),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 480),
+      alignment: Alignment.topCenter,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+      insetPadding: const EdgeInsets.fromLTRB(40, 0, 40, 40),
+      child: SizedBox(
+        width: _showMfgDetails ? (_showFocColumn ? 1480 : 1320) : (_showFocColumn ? 1200 : 1000),
+        height: MediaQuery.of(context).size.height * 0.86,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFFE5E7EB)),
-                ),
-              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'SELECT BATCHES',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: 'Inter',
-                            color: Color(0xFF1F2937),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${widget.itemName}  •  Qty to pack: ${widget.totalQuantity}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF6B7280),
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ],
-                    ),
+                   const Text('Select Batches', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _textPrimary, fontFamily: 'Inter')),
+                   const Spacer(),
+                   InkWell(
+                     onTap: () => Navigator.pop(context),
+                     child: Container(
+                       padding: const EdgeInsets.all(4),
+                       decoration: BoxDecoration(
+                         border: Border.all(color: const Color(0xFFE5E7EB)),
+                         borderRadius: BorderRadius.circular(4),
+                       ),
+                       child: const Icon(LucideIcons.x, size: 14, color: _dangerRed),
+                     ),
+                   ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Sub-header info
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(LucideIcons.home, size: 14, color: _textSecondary),
+                      const SizedBox(width: 8),
+                      Text('Location : ${widget.warehouseName.toUpperCase()}', style: const TextStyle(fontSize: 12, color: _textSecondary, fontFamily: 'Inter')),
+                    ],
                   ),
-                  InkWell(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: const Icon(Icons.close, size: 18, color: Color(0xFF6B7280)),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Text('BATCH DETAILS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _textSecondary, fontFamily: 'Inter')),
+                      const SizedBox(width: 16),
+                      Text('Item: ${widget.itemName}', style: const TextStyle(fontSize: 12, color: _textSecondary, fontFamily: 'Inter')),
+                      const Spacer(),
+                      Text('Total Quantity : ${widget.totalQuantity.toInt()}', style: const TextStyle(fontSize: 12, color: _textSecondary, fontFamily: 'Inter')),
+                      const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('|', style: TextStyle(color: _textSecondary))),
+                      Text('Quantity to be added : ${_totalQuantityOut.toInt()}', style: const TextStyle(fontSize: 12, color: _textSecondary, fontFamily: 'Inter')),
+                    ],
                   ),
                 ],
               ),
             ),
-
-            // Batch rows
-            Flexible(
+            // Toggles
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  Checkbox(value: _showMfgDetails, onChanged: (v) => setState(() => _showMfgDetails = v!)),
+                  const Text('Manufacture Details', style: TextStyle(fontSize: 13, fontFamily: 'Inter')),
+                  const SizedBox(width: 16),
+                  Checkbox(value: _showFocColumn, onChanged: (v) => setState(() => _showFocColumn = v!)),
+                  const Text('FOC', style: TextStyle(fontSize: 13, fontFamily: 'Inter')),
+                  const Spacer(),
+                  Checkbox(value: _overwriteLineItem, onChanged: (v) => setState(() => _overwriteLineItem = v!)),
+                  Text('Overwrite the line item with ${_totalQuantityOut.toInt()} quantities', style: const TextStyle(fontSize: 13, fontFamily: 'Inter')),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Table Header
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              color: const Color(0xFFF9FAFB),
+              child: Row(
+                children: [
+                  _headerCell('BIN LOCATION*', 15),
+                  _headerCell('BATCH REF*', 15),
+                  _headerCell('BATCH NO*', 15),
+                  _headerCell('UNIT PACK*', 15),
+                  _headerCell('MRP*', 15),
+                  _headerCell('PTR', 15),
+                  _headerCell('EXPIRY*', 15),
+                  if (_showMfgDetails) ...[
+                    _headerCell('MFG DATE', 15),
+                    _headerCell('MFG BATCH', 15),
+                  ],
+                  _headerCell('QTY OUT*', 15),
+                  if (_showFocColumn) _headerCell('FOC', 15),
+                  const SizedBox(width: 40),
+                ],
+              ),
+            ),
+            // Rows
+            Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 itemCount: _rows.length,
-                itemBuilder: (_, i) {
-                  final row = _rows[i];
+                itemBuilder: (context, i) {
+                  final r = _rows[i];
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(
                       children: [
                         Expanded(
-                          flex: 3,
-                          child: TextFormField(
-                            initialValue: row.batchNo,
-                            style: const TextStyle(fontSize: 13, fontFamily: 'Inter'),
-                            decoration: InputDecoration(
-                              isDense: true,
-                              hintText: 'Batch #',
-                              hintStyle: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF9CA3AF),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE5E7EB),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE5E7EB),
-                                ),
-                              ),
-                            ),
-                            onChanged: (v) => row.batchNo = v,
+                          flex: 15,
+                          child: FormDropdown<String>(
+                            value: _mockBinLocations.contains(r.binLocationCtrl.text) ? r.binLocationCtrl.text : null,
+                            items: _mockBinLocations,
+                            hint: 'Select Bin',
+                            displayStringForValue: (v) => v,
+                            onChanged: (v) => setState(() => r.binLocationCtrl.text = v ?? ''),
                           ),
                         ),
-                        const SizedBox(width: 12),
                         Expanded(
-                          flex: 2,
-                          child: TextField(
-                            controller: row.qtyCtrl,
-                            keyboardType: TextInputType.number,
-                            style: const TextStyle(fontSize: 13, fontFamily: 'Inter'),
-                            decoration: InputDecoration(
-                              isDense: true,
-                              hintText: 'Qty',
-                              hintStyle: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF9CA3AF),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE5E7EB),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE5E7EB),
-                                ),
-                              ),
+                          flex: 15,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: FormDropdown<String>(
+                                value: widget.existingBatchRefs.contains(r.batchRefCtrl.text) ? r.batchRefCtrl.text : null,
+                                items: widget.existingBatchRefs,
+                                hint: 'Select Ref',
+                                displayStringForValue: (v) => v,
+                                onChanged: (v) => setState(() => r.batchRefCtrl.text = v ?? ''),
                             ),
-                            onChanged: (_) => setState(() {}),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              _rows[i].qtyCtrl.dispose();
-                              _rows.removeAt(i);
-                            });
-                          },
-                          child: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
+                        _buildInput(controller: r.batchNoCtrl, flex: 15, hint: 'Batch No'),
+                        _buildInput(controller: r.unitPackCtrl, flex: 15, hint: 'Unit Pack'),
+                        _buildInput(controller: r.mrpCtrl, flex: 15, hint: 'MRP', isNumber: true),
+                        _buildInput(controller: r.ptrCtrl, flex: 15, hint: 'PTR', isNumber: true),
+                        Expanded(
+                          flex: 15,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: TextField(
+                              key: r.expDateKey,
+                              controller: r.expDateCtrl,
+                              readOnly: true,
+                              decoration: InputDecoration(
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                suffixIcon: const Icon(LucideIcons.calendar, size: 14),
+                              ),
+                              onTap: () async {
+                                final d = await ZerpaiDatePicker.show(context, initialDate: DateTime.now(), targetKey: r.expDateKey);
+                                if (d != null) setState(() => r.expDateCtrl.text = DateFormat('dd-MM-yyyy').format(d));
+                              },
+                            ),
+                          ),
+                        ),
+                        if (_showMfgDetails) ...[
+                          _buildInput(controller: r.mfgDateCtrl, flex: 15, hint: 'MFG Date'), // Simplified for now
+                          _buildInput(controller: r.mfgBatchCtrl, flex: 15, hint: 'MFG Batch'),
+                        ],
+                        _buildInput(controller: r.qtyOutCtrl, flex: 15, hint: 'Qty', isNumber: true),
+                        if (_showFocColumn) _buildInput(controller: r.focCtrl, flex: 15, hint: 'FOC', isNumber: true),
+                        IconButton(
+                          onPressed: () => _removeRow(i), 
+                          icon: const Icon(LucideIcons.xCircle, size: 20, color: _dangerRed)
                         ),
                       ],
                     ),
@@ -2262,84 +2518,90 @@ class _BatchSelectionDialogState extends State<_BatchSelectionDialog> {
                 },
               ),
             ),
-
-            // Add batch link
+            // Actions below table
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => setState(() => _addEmptyRow()),
-                  icon: const Icon(Icons.add, size: 14),
-                  label: const Text(
-                    'Add Batch',
-                    style: TextStyle(fontSize: 13, fontFamily: 'Inter'),
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF3B82F6),
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 32),
-                  ),
-                ),
-              ),
-            ),
-
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-            // Footer
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Row(
                 children: [
-                  Text(
-                    'Allocated: ${_allocatedQty.toStringAsFixed(2)} / ${widget.totalQuantity.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontFamily: 'Inter',
-                      color: _allocatedQty > widget.totalQuantity
-                          ? const Color(0xFFDC2626)
-                          : const Color(0xFF6B7280),
+                  InkWell(
+                    onTap: _addRow,
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(LucideIcons.plusCircle, size: 16, color: _greenBtn),
+                        SizedBox(width: 8),
+                        Text(
+                          'New Row',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: _greenBtn,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const Spacer(),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF6B7280),
+                  Text(
+                    'Batches added: ${_rows.length}/100',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: _textSecondary,
+                      fontFamily: 'Inter',
                     ),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 13, fontFamily: 'Inter')),
                   ),
-                  const SizedBox(width: 8),
+                ],
+              ),
+            ),
+            // Footer
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              child: Row(
+                children: [
                   ElevatedButton(
                     onPressed: () {
-                      final batches = _rows
-                          .where((r) =>
-                              r.batchNo.isNotEmpty &&
-                              (double.tryParse(r.qtyCtrl.text) ?? 0) > 0)
-                          .map((r) => _PackageBatch(
-                                batchNo: r.batchNo,
-                                quantity: double.tryParse(r.qtyCtrl.text) ?? 0,
-                              ))
-                          .toList();
-                      Navigator.of(context)
-                          .pop(_BatchSelectionResult(batches: batches));
+                       final batches = _rows.map((r) => _PackageBatch(
+                         batchNo: r.batchNoCtrl.text,
+                         quantity: double.tryParse(r.qtyOutCtrl.text) ?? 0,
+                         binLocation: r.binLocationCtrl.text,
+                         batchRef: r.batchRefCtrl.text,
+                         unitPack: r.unitPackCtrl.text,
+                         mrp: r.mrpCtrl.text,
+                         ptr: r.ptrCtrl.text,
+                         expDate: r.expDateCtrl.text,
+                         mfgDate: r.mfgDateCtrl.text,
+                         mfgBatch: r.mfgBatchCtrl.text,
+                         foc: double.tryParse(r.focCtrl.text),
+                       )).where((b) => b.batchNo.isNotEmpty && b.quantity > 0).toList();
+                       
+                       Navigator.pop(context, _PackageBatchDialogResult(
+                         overwriteLineItem: _overwriteLineItem,
+                         batchCount: batches.length,
+                         appliedQuantity: batches.fold(0.0, (s, b) => s + b.quantity),
+                         batches: batches,
+                       ));
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF22A95E),
+                      backgroundColor: _greenBtn,
                       foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 10,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
                     ),
-                    child: const Text(
-                      'Confirm',
-                      style: TextStyle(fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+                    child: const Text('Save', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _textPrimary,
+                      side: const BorderSide(color: _borderCol),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                     ),
+                    child: const Text('Cancel', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -2351,9 +2613,522 @@ class _BatchSelectionDialogState extends State<_BatchSelectionDialog> {
   }
 }
 
-class _BatchRow {
-  String batchNo;
-  final TextEditingController qtyCtrl;
+class _WarehouseHoverPopover extends StatefulWidget {
+  final Widget child;
+  final String warehouseName;
+  final String selectedView;
+  final ValueChanged<String> onViewChanged;
 
-  _BatchRow({required this.batchNo, required this.qtyCtrl});
+  const _WarehouseHoverPopover({
+    required this.child,
+    required this.warehouseName,
+    required this.selectedView,
+    required this.onViewChanged,
+  });
+
+  @override
+  State<_WarehouseHoverPopover> createState() => _WarehouseHoverPopoverState();
+}
+
+class _WarehouseHoverPopoverState extends State<_WarehouseHoverPopover> {
+  OverlayEntry? _overlayEntry;
+  final LayerLink _layerLink = LayerLink();
+
+  void _showOverlay() {
+    if (_overlayEntry != null) return;
+    
+    _overlayEntry = OverlayEntry(
+      builder: (context) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _closeOverlay,
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            CompositedTransformFollower(
+              link: _layerLink,
+              targetAnchor: Alignment.topCenter,
+              followerAnchor: Alignment.bottomCenter,
+              offset: const Offset(0, -6),
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 620,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        boxShadow: const [
+                           BoxShadow(
+                             color: Color(0x1A000000), 
+                             blurRadius: 10, 
+                             offset: Offset(0, 4)
+                           ),
+                        ],
+                      ),
+                      child: _WarehousePopoverContent(
+                        warehouseName: widget.warehouseName,
+                        selectedView: widget.selectedView,
+                        onViewChanged: widget.onViewChanged,
+                        onClose: _closeOverlay,
+                      ),
+                    ),
+                    CustomPaint(
+                      size: const Size(14, 7), // approx 12x6
+                      painter: _PopoverArrowPainter(
+                        color: Colors.white,
+                        borderColor: const Color(0xFFE5E7EB),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _closeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: GestureDetector(
+        onTap: _showOverlay,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _WarehousePopoverContent extends StatefulWidget {
+  final VoidCallback onClose;
+  final String warehouseName;
+  final String selectedView;
+  final ValueChanged<String> onViewChanged;
+  
+  const _WarehousePopoverContent({
+    required this.onClose, 
+    required this.warehouseName,
+    required this.selectedView,
+    required this.onViewChanged,
+  });
+
+  @override
+  State<_WarehousePopoverContent> createState() => _WarehousePopoverContentState();
+}
+
+class _WarehousePopoverContentState extends State<_WarehousePopoverContent> {
+  late String _localSelectedView;
+  String selectedStockType = 'Accounting'; // 'Accounting' or 'Physical'
+  bool isDropdownOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _localSelectedView = widget.selectedView;
+  }
+
+  void _toggleStockType(String type) {
+    setState(() {
+      selectedStockType = type;
+      isDropdownOpen = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Determine footer text dynamically
+    String footer1, footer2, footer3;
+    if (selectedStockType == 'Accounting') {
+      footer1 = 'Stock on Hand : This is calculated based on Bills and Invoices.';
+      footer2 = 'Committed Stock : Stock that is committed to sales order(s) but not yet invoiced';
+      footer3 = 'Available for Sale : Stock on Hand - Committed Stock';
+    } else {
+      footer1 = 'Stock on Hand : Based on Receives and Shipments';
+      footer2 = 'Committed Stock : Committed but not shipped';
+      footer3 = 'Available for Sale : Stock on Hand - Committed Stock';
+    }
+
+    // Determine row values for ZABNIX
+    String zHand, zComm, zAvail;
+    if (selectedStockType == 'Accounting') {
+      zHand = '5.00'; zComm = '5.00'; zAvail = '0.00';
+    } else {
+      zHand = '10.00'; zComm = '10.00'; zAvail = '0.00';
+    }
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        GestureDetector(
+          onTap: () {
+            if (isDropdownOpen) setState(() => isDropdownOpen = false);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(child: Text('Warehouse Locations', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, fontFamily: 'Inter'), overflow: TextOverflow.ellipsis)),
+                    Row(
+                      children: [
+                        const Text('View: ', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280), fontFamily: 'Inter')),
+                        
+                        // Dropdown Target
+                        GestureDetector(
+                          onTap: () => setState(() => isDropdownOpen = !isDropdownOpen),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: const Color(0xFFE5E7EB)),
+                              borderRadius: BorderRadius.circular(4),
+                              color: Colors.white,
+                            ),
+                            child: Row(
+                              children: [
+                                Text(_localSelectedView, style: const TextStyle(fontSize: 12, fontFamily: 'Inter', color: Color(0xFF374151))),
+                                const SizedBox(width: 4),
+                                const Icon(LucideIcons.chevronDown, size: 14, color: Color(0xFF6B7280)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        
+                        const SizedBox(width: 12),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFF3B82F6)),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            children: [
+                              GestureDetector(
+                                onTap: () => _toggleStockType('Accounting'),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: selectedStockType == 'Accounting' ? const Color(0xFF3B82F6) : Colors.white,
+                                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(3), bottomLeft: Radius.circular(3)),
+                                  ),
+                                  child: Text('Accounting Stock', style: TextStyle(
+                                    fontSize: 12, 
+                                    fontFamily: 'Inter', 
+                                    color: selectedStockType == 'Accounting' ? Colors.white : const Color(0xFF3B82F6)
+                                  )),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => _toggleStockType('Physical'),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: selectedStockType == 'Physical' ? const Color(0xFF3B82F6) : Colors.white,
+                                    borderRadius: const BorderRadius.only(topRight: Radius.circular(3), bottomRight: Radius.circular(3)),
+                                  ),
+                                  child: Text('Physical Stock', style: TextStyle(
+                                    fontSize: 12, 
+                                    fontFamily: 'Inter', 
+                                    color: selectedStockType == 'Physical' ? Colors.white : const Color(0xFF3B82F6)
+                                  )),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        InkWell(
+                          onTap: widget.onClose,
+                          child: const Icon(LucideIcons.x, size: 20, color: Color(0xFFDC2626)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFE5E7EB)),
+              Container( // TABLE HEADER
+                color: const Color(0xFFF9FAFB),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    Expanded(flex: 3, child: Row(children: [const Text('Location Name', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280), fontFamily: 'Inter')), const SizedBox(width: 4), const Icon(LucideIcons.search, size: 12, color: Color(0xFF9CA3AF))])),
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        children: [
+                          Text('$selectedStockType Stock', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280), fontFamily: 'Inter')),
+                          const SizedBox(height: 8),
+                          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: const [
+                              Expanded(child: Text('Stock on Hand', textAlign: TextAlign.right, style: TextStyle(fontSize: 12, color: Color(0xFF6B7280), fontFamily: 'Inter'))),
+                              Expanded(child: Text('Committed Stock', textAlign: TextAlign.right, style: TextStyle(fontSize: 12, color: Color(0xFF6B7280), fontFamily: 'Inter'))),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2, 
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text('Available for Sale', textAlign: TextAlign.right, style: TextStyle(fontSize: 12, color: Color(0xFF6B7280), fontFamily: 'Inter')),
+                          const SizedBox(height: 4),
+                          const Icon(LucideIcons.eye, size: 14, color: Color(0xFF9CA3AF)),
+                        ],
+                      )
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFE5E7EB)),
+              // ROW 1
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Expanded(flex: 3, child: Row(children: [
+                      // Custom Radio
+                      Container(
+                        width: 16, height: 16,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFF3B82F6), width: 2),
+                        ),
+                        padding: const EdgeInsets.all(3),
+                        child: Container(
+                          decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF3B82F6)),
+                        ),
+                      ),
+                      const SizedBox(width: 10), 
+                      Text(widget.warehouseName, style: const TextStyle(fontSize: 13, fontFamily: 'Inter', color: Color(0xFF374151)))
+                    ])),
+                    Expanded(flex: 2, child: Text(zHand, textAlign: TextAlign.right, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.normal, fontFamily: 'Inter'))),
+                    Expanded(flex: 2, child: Text(zComm, textAlign: TextAlign.right, style: const TextStyle(fontSize: 13, fontFamily: 'Inter', color: Color(0xFF6B7280)))),
+                    Expanded(flex: 2, child: Text(zAvail, textAlign: TextAlign.right, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'Inter'))),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFE5E7EB)),
+              // ROW 2 (Disabled/Opaque)
+              Opacity(
+                opacity: 0.5,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(flex: 3, child: Row(children: [
+                        // Custom Unselected Radio
+                        Container(
+                          width: 16, height: 16,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFFD1D5DB), width: 1.5),
+                          ),
+                        ),
+                        const SizedBox(width: 10), 
+                        const Text('DEMO WAREHOUSE 1 ', style: TextStyle(fontSize: 13, fontFamily: 'Inter', color: Color(0xFF374151)))
+                      ])),
+                      Expanded(flex: 2, child: Text('0.00', textAlign: TextAlign.right, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.normal, fontFamily: 'Inter'))),
+                      Expanded(flex: 2, child: Text('0.00', textAlign: TextAlign.right, style: const TextStyle(fontSize: 13, fontFamily: 'Inter', color: Color(0xFF6B7280)))),
+                      Expanded(flex: 2, child: Text('0.00', textAlign: TextAlign.right, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'Inter'))),
+                    ],
+                  ),
+                ),
+              ),
+              // FOOTER
+              Container(
+                padding: const EdgeInsets.all(16),
+                color: Colors.white,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(footer1, style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontFamily: 'Inter')),
+                    const SizedBox(height: 4),
+                    Text(footer2, style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontFamily: 'Inter')),
+                    const SizedBox(height: 4),
+                    Text(footer3, style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontFamily: 'Inter')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Custom Dropdown Overlaid
+        if (isDropdownOpen)
+          Positioned(
+            top: 42,
+            left: 204, // Positioned near the 'View' selection box inside the 620px container
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                width: 160,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildDropdownItem('Stock on Hand'),
+                    _buildDropdownItem('Available for Sale'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownItem(String text) {
+    return _CommonDropdownItem(
+      text: text, 
+      isSelected: _localSelectedView == text, 
+      onTap: () {
+        setState(() {
+          _localSelectedView = text;
+          widget.onViewChanged(text);
+          isDropdownOpen = false;
+        });
+      },
+    );
+  }
+}
+
+class _CommonDropdownItem extends StatefulWidget {
+  final String text;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _CommonDropdownItem({
+    required this.text,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_CommonDropdownItem> createState() => _CommonDropdownItemState();
+}
+
+class _CommonDropdownItemState extends State<_CommonDropdownItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: _isHovered 
+              ? const Color(0xFF3B82F6) 
+              : (widget.isSelected ? const Color(0xFFF3F4F6) : Colors.transparent),
+          child: Text(
+            widget.text,
+            style: TextStyle(
+              fontSize: 12,
+              color: _isHovered ? Colors.white : const Color(0xFF374151),
+              fontFamily: 'Inter',
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PopoverArrowPainter extends CustomPainter {
+  final Color color;
+  final Color borderColor;
+  _PopoverArrowPainter({required this.color, required this.borderColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Path path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+      
+    final borderPaint = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    canvas.drawPath(path, paint);
+    canvas.drawPath(path, borderPaint);
+    
+    // Draw over the top line with the fill color to "merge" with the box
+    final mergePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    canvas.drawLine(const Offset(1, 0), Offset(size.width - 1, 0), mergePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _PackageBatchRowController {
+  final TextEditingController binLocationCtrl = TextEditingController();
+  final TextEditingController batchRefCtrl = TextEditingController();
+  final TextEditingController batchNoCtrl = TextEditingController();
+  final TextEditingController unitPackCtrl = TextEditingController();
+  final TextEditingController mrpCtrl = TextEditingController();
+  final TextEditingController ptrCtrl = TextEditingController();
+  final TextEditingController qtyOutCtrl = TextEditingController();
+  final TextEditingController focCtrl = TextEditingController();
+  final TextEditingController expDateCtrl = TextEditingController();
+  final TextEditingController mfgDateCtrl = TextEditingController();
+  final TextEditingController mfgBatchCtrl = TextEditingController();
+
+  final GlobalKey expDateKey = GlobalKey();
+  final GlobalKey mfgDateKey = GlobalKey();
+
+  void dispose() {
+    binLocationCtrl.dispose();
+    batchRefCtrl.dispose();
+    batchNoCtrl.dispose();
+    unitPackCtrl.dispose();
+    mrpCtrl.dispose();
+    ptrCtrl.dispose();
+    qtyOutCtrl.dispose();
+    focCtrl.dispose();
+    expDateCtrl.dispose();
+    mfgDateCtrl.dispose();
+    mfgBatchCtrl.dispose();
+  }
 }

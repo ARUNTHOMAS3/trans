@@ -1196,7 +1196,7 @@ class _InventoryPicklistsCreateScreenState
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: Colors.orange.shade700,
+                                      color:Color(0xFF2563EB),
                                       fontWeight: FontWeight.w500,
                                       fontFamily: 'Inter',
                                     ),
