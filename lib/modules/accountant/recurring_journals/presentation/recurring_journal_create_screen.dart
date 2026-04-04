@@ -24,6 +24,7 @@ import 'package:zerpai_erp/modules/accountant/providers/accountant_chart_of_acco
 import 'package:zerpai_erp/modules/accountant/repositories/accountant_repository.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/shared/widgets/z_button.dart';
 
 class RecurringJournalCreateScreen extends ConsumerStatefulWidget {
   final RecurringJournal? initialJournal;
@@ -65,6 +66,7 @@ class _RecurringJournalCreateScreenState
   double totalDebit = 0.0;
   double totalCredit = 0.0;
   bool _isSaving = false;
+  bool _isDirty = false;
 
   @override
   void initState() {
@@ -172,6 +174,7 @@ class _RecurringJournalCreateScreenState
       row.contactType = item.contactType;
       row.projectId = item.projectId;
       row.reportingTags = item.reportingTags;
+      row.rowHeight = _isGstAccount(row.accountName) ? 75.0 : 48.0;
 
       // Expand row if project or reporting tags are present
       if (row.projectId != null || row.reportingTags != null) {
@@ -201,10 +204,13 @@ class _RecurringJournalCreateScreenState
       row.contactType = item.contactType;
       row.projectId = item.projectId;
       row.reportingTags = item.reportingTags;
+      row.rowHeight = _isGstAccount(row.accountName) ? 75.0 : 48.0;
 
       if (row.projectId != null || row.reportingTags != null) {
         row.isExpanded = true;
       }
+    } else {
+      row.rowHeight = 48.0;
     }
     row.debitCtrl.addListener(_calculateTotals);
     row.creditCtrl.addListener(_calculateTotals);
@@ -275,7 +281,7 @@ class _RecurringJournalCreateScreenState
     }
   }
 
-  Future<void> _handleSave() async {
+  Future<void> _handleSave({RecurringJournalStatus? status}) async {
     if (!_formKey.currentState!.validate()) {
       ZerpaiToast.error(context, 'Please fill in all mandatory fields.');
       return;
@@ -376,6 +382,7 @@ class _RecurringJournalCreateScreenState
         currency: selectedCurrency,
         reportingMethod: reportingMethod,
         items: journalItems,
+        status: status ?? (widget.initialJournal?.status ?? RecurringJournalStatus.active),
         createdAt: widget.initialJournal?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -413,11 +420,16 @@ class _RecurringJournalCreateScreenState
       pageTitle: widget.initialJournal == null
           ? 'New Recurring Journal'
           : 'Edit Recurring Journal',
+      isDirty: _isDirty,
+      enableBodyScroll: true,
       footer: _buildActionButtons(),
       child: Form(
         key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+        onChanged: () {
+          if (!_isDirty) setState(() => _isDirty = true);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -556,6 +568,7 @@ class _RecurringJournalCreateScreenState
                   child: CustomTextField(
                     controller: startDateCtrl,
                     enabled: false,
+                    fillColor: Colors.white,
                     suffixWidget: const Icon(LucideIcons.calendar, size: 16),
                   ),
                 ),
@@ -572,6 +585,7 @@ class _RecurringJournalCreateScreenState
                     child: CustomTextField(
                       controller: endDateCtrl,
                       enabled: false,
+                      fillColor: Colors.white,
                       hintText: 'dd/MM/yyyy',
                     ),
                   ),
@@ -867,8 +881,9 @@ class _RecurringJournalCreateScreenState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            height: row.rowHeight,
+            height: _isGstAccount(row.accountName) ? 75.0 : row.rowHeight,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _cell(
                   width: 32,
@@ -886,36 +901,75 @@ class _RecurringJournalCreateScreenState
                 ),
                 _cell(
                   flex: 4,
-                  child: dropdown.AccountTreeDropdown(
-                    value: row.accountId,
-                    nodes: mappedNodes,
-                    onSearch: (q) async {
-                      final results = await ref
-                          .read(accountantRepositoryProvider)
-                          .searchAccounts(q);
-                      return results
-                          .map(
-                            (e) => shared.AccountNode(
-                              id: e.id,
-                              name: e.name,
-                              children: e.children
-                                  .map(
-                                    (c) => shared.AccountNode(
-                                      id: c.id,
-                                      name: c.name,
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
-                          )
-                          .toList();
-                    },
-                    onChanged: (id) {
-                      setState(() {
-                        row.accountId = id;
-                        row.accountName = _findName(mappedNodes, id);
-                      });
-                    },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      dropdown.AccountTreeDropdown(
+                        value: row.accountId,
+                        nodes: mappedNodes,
+                        height: _isGstAccount(row.accountName) ? 40.0 : row.rowHeight - 2,
+                        borderRadius: BorderRadius.zero,
+                        border: Border.all(color: Colors.transparent),
+                        onSearch: (q) async {
+                          final results = await ref
+                              .read(accountantRepositoryProvider)
+                              .searchAccounts(q);
+                          return results.where((e) {
+                            final name = e.name.toLowerCase().trim();
+                            final type = e.accountType.toLowerCase().trim();
+
+                            // Always hide Dimension Adjustments
+                            if (name == 'dimension adjustments' ||
+                                name == 'dimension adjustment') {
+                              return false;
+                            }
+
+                            // Always hide Stock/Inventory
+                            if (name.contains('stock') ||
+                                name.contains('inventory') ||
+                                type.contains('stock') ||
+                                type.contains('inventory')) {
+                              return false;
+                            }
+
+                            // Hide AP/AR for non-accrual_only
+                            if (reportingMethod != 'accrual_only') {
+                              if (name == 'accounts payable' ||
+                                  name == 'account payable' ||
+                                  name == 'accounts receivable' ||
+                                  name == 'account receivable') {
+                                return false;
+                              }
+                            }
+                            return true;
+                          }).map((e) => shared.AccountNode(
+                                    id: e.id,
+                                    name: e.name,
+                                    children: e.children
+                                        .map(
+                                          (c) => shared.AccountNode(
+                                            id: c.id,
+                                            name: c.name,
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                                )
+                                .toList();
+                        },
+                        onChanged: (id) {
+                          setState(() {
+                            row.accountId = id;
+                            row.accountName = _findName(mappedNodes, id);
+                            row.rowHeight =
+                                _isGstAccount(row.accountName) ? 75.0 : 48.0;
+                          });
+                        },
+                        hint: 'Select an account',
+                      ),
+                      if (_isGstAccount(row.accountName))
+                        const _GstWarningWidget(),
+                    ],
                   ),
                 ),
                 _cell(
@@ -923,16 +977,22 @@ class _RecurringJournalCreateScreenState
                   child: CustomTextField(
                     controller: row.descriptionCtrl,
                     hintText: 'Description',
-                    maxLines: 3,
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(color: Colors.transparent),
+                    maxLines: null,
+                    resizable: true,
                     height: row.rowHeight - 2,
+                    minHeight: 40,
+                    onHeightChanged: (h) =>
+                        setState(() => row.rowHeight = h + 2),
+                    onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                   ),
                 ),
                 _cell(
                   flex: 3,
                   child: contactsAsync.when(
                     data: (contacts) => di.FormDropdown<Map<String, dynamic>>(
-                      value:
-                          contacts
+                      value: contacts
                               .where(
                                 (c) =>
                                     c['id'] == row.contactId &&
@@ -951,6 +1011,9 @@ class _RecurringJournalCreateScreenState
                       items: contacts
                           .map((c) => Map<String, dynamic>.from(c))
                           .toList(),
+                      borderRadius: BorderRadius.zero,
+                      border: Border.all(color: Colors.transparent),
+                      height: 48,
                       displayStringForValue: (c) =>
                           (c['displayName'] ?? c['display_name'] ?? '')
                               .toString(),
@@ -979,6 +1042,9 @@ class _RecurringJournalCreateScreenState
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(color: Colors.transparent),
+                    height: 48,
                     hintText: '0',
                     onTap: () {
                       row.debitCtrl.selection = TextSelection(
@@ -1004,6 +1070,9 @@ class _RecurringJournalCreateScreenState
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(color: Colors.transparent),
+                    height: 48,
                     hintText: '0',
                     onTap: () {
                       row.creditCtrl.selection = TextSelection(
@@ -1033,31 +1102,35 @@ class _RecurringJournalCreateScreenState
                             row.isExpanded = !row.isExpanded;
                           });
                         },
-                        icon: const Icon(
-                          LucideIcons.moreVertical,
+                        icon: Icon(
+                          row.isExpanded
+                              ? LucideIcons.chevronUp
+                              : LucideIcons.moreVertical,
                           size: 16,
                           color: AppTheme.textMuted,
                         ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
+                        tooltip: 'Additional Information',
                       ),
                       const SizedBox(width: 8),
                       IconButton(
                         onPressed: () => _removeRow(index),
                         icon: const Icon(
-                          LucideIcons.x,
-                          size: 16,
+                          LucideIcons.trash2,
+                          size: 15,
                           color: AppTheme.errorRed,
                         ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
+                        tooltip: 'Remove Line',
                       ),
                     ],
                   ),
                 ),
               ],
-            ), // close Row
-          ), // close SizedBox
+            ),
+          ),
 
           if (row.isExpanded)
             Container(
@@ -1128,9 +1201,9 @@ class _RecurringJournalCreateScreenState
                 ],
               ),
             ),
-        ], // close Column children
-      ), // close Column
-    ); // close Container
+        ],
+      ),
+    );
   }
 
   Widget _buildAddRowButton() {
@@ -1168,6 +1241,16 @@ class _RecurringJournalCreateScreenState
         ),
       ),
     );
+  }
+
+  bool _isGstAccount(String? name) {
+    if (name == null) return false;
+    final n = name.toLowerCase();
+    return n.contains('gst') ||
+        n.contains('cgst') ||
+        n.contains('sgst') ||
+        n.contains('igst') ||
+        n.contains('input tax credit');
   }
 
   Widget _buildTotalRow(
@@ -1214,31 +1297,25 @@ class _RecurringJournalCreateScreenState
       ),
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          ElevatedButton(
-            onPressed: _isSaving ? null : _handleSave,
-            style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-              elevation: 0,
-              textStyle: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            child: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text('Save'),
+          ZButton.primary(
+            label: 'Save',
+            onPressed: _isSaving
+                ? null
+                : () => _handleSave(status: RecurringJournalStatus.active),
+            loading: _isSaving,
           ),
           const SizedBox(width: 12),
-          OutlinedButton(
+          ZButton.secondary(
+            label: 'Save as Draft',
+            onPressed: _isSaving
+                ? null
+                : () => _handleSave(status: RecurringJournalStatus.draft),
+          ),
+          const SizedBox(width: 12),
+          ZButton.secondary(
+            label: 'Cancel',
             onPressed: () {
               if (context.canPop()) {
                 context.pop();
@@ -1246,20 +1323,50 @@ class _RecurringJournalCreateScreenState
                 context.go(AppRoutes.accountantRecurringJournals);
               }
             },
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-              side: const BorderSide(color: AppTheme.borderColor),
-              foregroundColor: AppTheme.textSecondary,
-              textStyle: const TextStyle(fontWeight: FontWeight.normal),
-            ),
-            child: const Text('Cancel'),
           ),
         ],
       ),
     );
+  }
+
+  String _getAccountDisplayName(coa.AccountNode account) {
+    final user = account.userAccountName.trim();
+    final system = account.systemAccountName.trim();
+    return user.isNotEmpty
+        ? user
+        : (system.isNotEmpty ? system : account.name.trim());
+  }
+
+  bool _isAccountHidden(coa.AccountNode account) {
+    final name = _getAccountDisplayName(account).toLowerCase().trim();
+    final type = account.accountType.toLowerCase().trim();
+
+    // 1. Always hide Dimension Adjustments
+    if (name == 'dimension adjustments' || name == 'dimension adjustment') {
+      return true;
+    }
+
+    // 2. Always hide Stock/Inventory related accounts in Journals
+    // (This includes stock and its child types)
+    if (name.contains('stock') ||
+        name.contains('inventory') ||
+        type.contains('stock') ||
+        type.contains('inventory')) {
+      return true;
+    }
+
+    // 3. Hide AP/AR for non-accrual_only reporting methods
+    if (reportingMethod != 'accrual_only') {
+      if (name.contains('accounts payable') ||
+          name.contains('account payable') ||
+          name.contains('accounts receivable') ||
+          name.contains('account receivable') ||
+          type.contains('payable') ||
+          type.contains('receivable')) {
+        return true;
+      }
+    }
+    return false;
   }
 
   List<shared.AccountNode> _mapNodes(List<coa.AccountNode> roots) {
@@ -1270,14 +1377,6 @@ class _RecurringJournalCreateScreenState
       'Income',
       'Expenses',
     ];
-
-    String displayNameFor(coa.AccountNode account) {
-      final user = account.userAccountName.trim();
-      final system = account.systemAccountName.trim();
-      return user.isNotEmpty
-          ? user
-          : (system.isNotEmpty ? system : account.name.trim());
-    }
 
     String toTitleCase(String text) {
       if (text.isEmpty) return text;
@@ -1294,76 +1393,104 @@ class _RecurringJournalCreateScreenState
     shared.AccountNode mapNode(coa.AccountNode account, int level) {
       final prefix = level > 0 ? '• ' : '';
 
-      final activeChildren =
-          account.children.where((c) => c.isActive && !c.isDeleted).toList()
-            ..sort(
-              (a, b) => displayNameFor(
-                a,
-              ).toLowerCase().compareTo(displayNameFor(b).toLowerCase()),
-            );
+      final activeChildren = account.children
+          .where((c) => c.isActive && !c.isDeleted && !_isAccountHidden(c))
+          .toList()
+        ..sort(
+          (a, b) => _getAccountDisplayName(a)
+              .toLowerCase()
+              .compareTo(_getAccountDisplayName(b).toLowerCase()),
+        );
 
       return shared.AccountNode(
         id: account.id,
-        name: '$prefix${displayNameFor(account)}',
+        name: '$prefix${_getAccountDisplayName(account)}',
         selectable: true,
         children: activeChildren.map((c) => mapNode(c, level + 1)).toList(),
       );
     }
 
-    final grouped = <String, Map<String, List<shared.AccountNode>>>{};
-    final activeRoots = roots.where((n) => n.isActive && !n.isDeleted).toList();
+    // Grouping only by account type now
+    final groupedByType = <String, List<shared.AccountNode>>{};
+    final typeToGroup =
+        <String, String>{}; // To preserve accounting order (Assets types first, etc.)
+
+    final activeRoots = roots
+        .where((n) => n.isActive && !n.isDeleted && !_isAccountHidden(n))
+        .toList();
 
     for (final root in activeRoots) {
-      final group = root.accountGroup.trim();
-      final finalGroup = toTitleCase(group.isEmpty ? 'Other' : group);
+      final isGroup = groupOrder.any(
+        (g) => g.toLowerCase() == _getAccountDisplayName(root).toLowerCase().trim(),
+      );
 
-      final type = root.accountType.trim();
-      final finalType = toTitleCase(type.isEmpty ? 'Other' : type);
+      if (isGroup) {
+        // If it's a group (like 'Assets'), skip it but process its direct children
+        for (final child in root.children) {
+          if (child.isActive && !child.isDeleted && !_isAccountHidden(child)) {
+            final type = child.accountType.trim();
+            final finalType = toTitleCase(type.isEmpty ? 'Other' : type);
 
-      grouped.putIfAbsent(finalGroup, () => {});
-      grouped[finalGroup]!
-          .putIfAbsent(finalType, () => [])
-          .add(mapNode(root, 0));
+            final group = child.accountGroup.trim();
+            final finalGroup = toTitleCase(group.isEmpty ? 'Other' : group);
+
+            groupedByType.putIfAbsent(finalType, () => []);
+            groupedByType[finalType]!.add(mapNode(child, 0));
+            typeToGroup.putIfAbsent(finalType, () => finalGroup);
+          }
+        }
+      } else {
+        // Not a group, add it directly to its type bucket
+        final type = root.accountType.trim();
+        final finalType = toTitleCase(type.isEmpty ? 'Other' : type);
+
+        final group = root.accountGroup.trim();
+        final finalGroup = toTitleCase(group.isEmpty ? 'Other' : group);
+
+        groupedByType.putIfAbsent(finalType, () => []);
+        groupedByType[finalType]!.add(mapNode(root, 0));
+        typeToGroup.putIfAbsent(finalType, () => finalGroup);
+      }
     }
 
-    final sortedGroups = grouped.keys.toList()
+    // Sort the types by their group (Assets first...) and then by name
+    final sortedTypes = groupedByType.keys.toList()
       ..sort((a, b) {
+        final groupA = typeToGroup[a]!;
+        final groupB = typeToGroup[b]!;
+
         final idxA = groupOrder.indexWhere(
-          (e) => e.toLowerCase() == a.toLowerCase(),
+          (e) => e.toLowerCase() == groupA.toLowerCase(),
         );
         final idxB = groupOrder.indexWhere(
-          (e) => e.toLowerCase() == b.toLowerCase(),
+          (e) => e.toLowerCase() == groupB.toLowerCase(),
         );
-        if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
-        if (idxA != -1) return -1;
-        if (idxB != -1) return 1;
+
+        // First sort by Group Index
+        if (idxA != -1 && idxB != -1) {
+          if (idxA != idxB) return idxA.compareTo(idxB);
+        } else if (idxA != -1) {
+          return -1;
+        } else if (idxB != -1) {
+          return 1;
+        }
+
+        // Then sort by Type name alphabetically
         return a.toLowerCase().compareTo(b.toLowerCase());
       });
 
-    return sortedGroups.map((group) {
-      final groupMap = grouped[group]!;
-      final sortedTypes = groupMap.keys.toList()
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return sortedTypes.map((type) {
+      final accountNodes = groupedByType[type]!;
+      accountNodes.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
 
-      final typeNodes = sortedTypes.map((type) {
-        final accountNodes = groupMap[type]!;
-        accountNodes.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        );
-
-        return shared.AccountNode(
-          id: '__account_type__${group}_$type',
-          name: type,
-          selectable: false,
-          children: accountNodes,
-        );
-      }).toList();
-
+      // Return each type as a non-selectable top-level node (heading)
       return shared.AccountNode(
-        id: '__account_group__$group',
-        name: group,
+        id: '__account_type__$type',
+        name: type,
         selectable: false,
-        children: typeNodes,
+        children: accountNodes,
       );
     }).toList();
   }
@@ -1375,5 +1502,150 @@ class _RecurringJournalCreateScreenState
       if (found != null) return found;
     }
     return null;
+  }
+}
+
+class _GstWarningWidget extends StatefulWidget {
+  const _GstWarningWidget();
+
+  @override
+  State<_GstWarningWidget> createState() => _GstWarningWidgetState();
+}
+
+class _GstWarningWidgetState extends State<_GstWarningWidget> {
+  bool _showPopover = false;
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+
+  void _togglePopover() {
+    if (_showPopover) {
+      _hidePopover();
+    } else {
+      _showPopoverDetails();
+    }
+  }
+
+  void _showPopoverDetails() {
+    _overlayEntry = _createOverlayEntry();
+    Overlay.of(context).insert(_overlayEntry!);
+    setState(() => _showPopover = true);
+  }
+
+  void _hidePopover() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    if (mounted) setState(() => _showPopover = false);
+  }
+
+  OverlayEntry _createOverlayEntry() {
+    return OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          // Invisible barrier to close on tap outside
+          GestureDetector(
+            onTap: _hidePopover,
+            behavior: HitTestBehavior.opaque,
+            child: Container(color: Colors.transparent),
+          ),
+          Positioned(
+            width: 320,
+            child: CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              targetAnchor: Alignment.bottomLeft,
+              followerAnchor: Alignment.topLeft,
+              offset: const Offset(0, 8),
+              child: Material(
+                elevation: 8,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: const BorderSide(color: AppTheme.borderColor, width: 1),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const SizedBox.shrink(),
+                          GestureDetector(
+                            onTap: _hidePopover,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppTheme.primaryBlue),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Icon(
+                                LucideIcons.x,
+                                size: 12,
+                                color: AppTheme.primaryBlue,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        "If you're not sure about selecting this account, it is recommended that you consult with your accountant before recording this journal. Also, remember that this journal will not reflect in the GST Returns.",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
+                          height: 1.5,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _overlayEntry?.remove();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4, left: 4),
+        child: InkWell(
+          onTap: _togglePopover,
+          hoverColor: Colors.transparent,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                LucideIcons.alertTriangle,
+                size: 14,
+                color: Color(0xFFFF5252),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Warning',
+                style: TextStyle(
+                  color: const Color(0xFFFF5252),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

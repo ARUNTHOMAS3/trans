@@ -32,6 +32,7 @@ class _OpeningBalancesUpdateScreenState
   double _totalCredit = 0.0;
   double _difference = 0.0;
   bool _isSaving = false;
+  bool _isDirty = false;
 
   @override
   void initState() {
@@ -51,11 +52,17 @@ class _OpeningBalancesUpdateScreenState
 
         _debitControllers[account.id] = TextEditingController(
           text: initialDebit > 0 ? initialDebit.toStringAsFixed(2) : '',
-        )..addListener(_calculateTotals);
+        )..addListener(() {
+            _calculateTotals();
+            _onFieldChanged();
+          });
 
         _creditControllers[account.id] = TextEditingController(
           text: initialCredit > 0 ? initialCredit.toStringAsFixed(2) : '',
-        )..addListener(_calculateTotals);
+        )..addListener(() {
+            _calculateTotals();
+            _onFieldChanged();
+          });
       }
     }
   }
@@ -89,6 +96,10 @@ class _OpeningBalancesUpdateScreenState
     }
   }
 
+  void _onFieldChanged() {
+    if (!_isDirty) setState(() => _isDirty = true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final accountsState = ref.watch(chartOfAccountsProvider);
@@ -105,6 +116,7 @@ class _OpeningBalancesUpdateScreenState
 
     return ZerpaiLayout(
       pageTitle: 'Update Opening Balances',
+      isDirty: _isDirty,
       enableBodyScroll: false,
       child: Column(
         children: [
@@ -429,7 +441,7 @@ class _OpeningBalancesUpdateScreenState
     if (mounted) {
       setState(() => _isSaving = false);
       ZerpaiToast.saved(context, 'Opening balances');
-      context.go(AppRoutes.accountantOpeningBalances);
+      context.go(AppRoutes.accountsOpeningBalances);
     }
   }
 }

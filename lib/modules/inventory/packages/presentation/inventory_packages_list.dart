@@ -27,9 +27,10 @@ class _InventoryPackagesListScreenState
   @override
   Widget build(BuildContext context) {
     return ZerpaiLayout(
-      pageTitle: '',
+      pageTitle: 'All Packages',
       enableBodyScroll: false,
       useHorizontalPadding: false,
+      horizontalPaddingValue: 12,
       useTopPadding: true,
       actions: [
         Row(
@@ -114,22 +115,13 @@ class _InventoryPackagesListScreenState
           ],
         ),
       ],
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'All Packages',
-              style: TextStyle(
-                fontSize: 34,
-                fontWeight: FontWeight.w700,
-                color: _textPrimary,
-                fontFamily: 'Inter',
-              ),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Divider(height: 1, thickness: 1, color: _borderCol),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final bool useFixedDesktopColumns = constraints.maxWidth >= 1220;
@@ -139,7 +131,7 @@ class _InventoryPackagesListScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
                         SizedBox(
-                          width: 305,
+                          width: 405,
                           child: _PackageColumn(
                             title: 'Packages, Not Shipped',
                             headerColor: _col1Bg,
@@ -148,7 +140,7 @@ class _InventoryPackagesListScreenState
                         ),
                         SizedBox(width: 24),
                         SizedBox(
-                          width: 305,
+                          width: 405,
                           child: _PackageColumn(
                             title: 'Shipped Packages',
                             headerColor: _col2Bg,
@@ -157,14 +149,17 @@ class _InventoryPackagesListScreenState
                         ),
                         SizedBox(width: 24),
                         SizedBox(
-                          width: 305,
+                          width: 405,
                           child: _PackageColumn(
                             title: 'Delivered Packages',
                             headerColor: _col3Bg,
                             type: _ColumnType.last,
                           ),
                         ),
-                        Expanded(child: SizedBox.shrink()),
+                        const Expanded(
+                          flex: 1,
+                          child: SizedBox.shrink(),
+                        ),
                       ],
                     );
                   }
@@ -174,8 +169,8 @@ class _InventoryPackagesListScreenState
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minWidth: 980),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                           SizedBox(
                             width: 305,
                             child: _PackageColumn(
@@ -209,15 +204,14 @@ class _InventoryPackagesListScreenState
                 },
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
 enum _ColumnType { first, middle, last }
-
 class _PackageColumn extends StatelessWidget {
   final String title;
   final Color headerColor;
@@ -231,78 +225,91 @@ class _PackageColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Angled Column Header
-          ClipPath(
-            clipper: _HeaderClipper(type),
-            child: Container(
-              height: 56,
-              padding: EdgeInsets.only(
-                left: type == _ColumnType.first ? 16 : 20,
-                right: type == _ColumnType.last ? 16 : 20,
-              ),
-              color: headerColor,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF1F2937),
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                  const _MenuDropdown(),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Full-height column panel
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7F8FA),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final double whitePanelHeight = (constraints.maxHeight * 0.25).clamp(72.0, 220.0);
+    // Header height and Arrow expansion values
+    const double headerHeight = 60.0;
+    const double arrowPadding = 20.0;
 
-                  return Align(
-                    alignment: Alignment.topCenter,
-                    child: Container(
-                      height: whitePanelHeight,
-                      margin: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'No Records Found',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF000000),
-                            fontWeight: FontWeight.w500,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Angled Column Header with Overflow support
+        SizedBox(
+          height: headerHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                right: type == _ColumnType.last ? 0 : -arrowPadding,
+                child: ClipPath(
+                  clipper: _HeaderClipper(type),
+                  child: Container(
+                    padding: EdgeInsets.only(
+                      left: 20,
+                      right: type == _ColumnType.last ? 16 : 32,
+                    ),
+                    color: headerColor,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1F2937),
                             fontFamily: 'Inter',
                           ),
                         ),
-                      ),
+                        const _MenuDropdown(),
+                      ],
                     ),
-                  );
-                },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Full-height column panel (Stretched to fill Row height)
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F8FA),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Container(
+                  width: double.infinity,
+                  height: 160,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'No Records Found',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFF6B7280),
+                      fontWeight: FontWeight.normal,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -314,7 +321,7 @@ class _HeaderClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final path = Path();
-    final double arrowWidth = 16.0;
+    final double arrowWidth = 20.0;
 
     // Keep a flat left edge for all headers.
     path.moveTo(0, 0);
@@ -350,7 +357,7 @@ class _MenuDropdown extends StatefulWidget {
 
 class _MenuDropdownState extends State<_MenuDropdown> {
   bool _isHovering = false;
-  String _sortField = 'Package Date';
+  String? _sortField;
   bool _isAscending = true;
   final LayerLink _layerLink = LayerLink();
   final LayerLink _sortLayerLink = LayerLink();
@@ -452,13 +459,6 @@ void _showSortOverlay() {
     builder: (context) {
       return Stack(
         children: [
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: _removeSortOverlay,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
           CompositedTransformFollower(
             link: _sortLayerLink,
             offset: const Offset(202, 0), // To the right of the main menu
@@ -518,7 +518,7 @@ void _showSortOverlay() {
             _isAscending = !_isAscending;
           } else {
             _sortField = text;
-            _isAscending = true;
+            _isAscending = false;
           }
         });
         _removeOverlay();
@@ -531,6 +531,13 @@ void _showSortOverlay() {
       icon: icon,
       text: text,
       trailingIcon: isSortHeader ? LucideIcons.chevronRight : null,
+      onHoverChanged: isSortHeader
+          ? (isHovering) {
+              if (isHovering && _sortOverlayEntry == null) {
+                _showSortOverlay();
+              }
+            }
+          : null,
       onTap: onTap ??
           () {
             _removeOverlay();
@@ -580,6 +587,7 @@ class _HoverMenuItem extends StatefulWidget {
   final VoidCallback onTap;
   final bool isSelected;
   final IconData? trailingIcon;
+  final ValueChanged<bool>? onHoverChanged;
 
   const _HoverMenuItem({
     required this.icon,
@@ -587,6 +595,7 @@ class _HoverMenuItem extends StatefulWidget {
     required this.onTap,
     this.isSelected = false,
     this.trailingIcon,
+    this.onHoverChanged,
   });
 
   @override
@@ -600,8 +609,14 @@ class _HoverMenuItemState extends State<_HoverMenuItem> {
   Widget build(BuildContext context) {
     final bool isEffectivelySelected = widget.isSelected || _isHovering;
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
+      onEnter: (_) {
+        setState(() => _isHovering = true);
+        widget.onHoverChanged?.call(true);
+      },
+      onExit: (_) {
+        setState(() => _isHovering = false);
+        widget.onHoverChanged?.call(false);
+      },
       child: InkWell(
         onTap: widget.onTap,
         child: Container(

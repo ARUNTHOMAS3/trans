@@ -57,6 +57,11 @@ agent-skills/
 analysis_output_*.txt
 *.gemini_cache
 repo_context.txt
+/*.txt
+/*.resolved
+/*.tmp
+/*.bin
+DB_SCHEMA_AWARENESS.md
 
 # IntelliJ / Android Studio
 *.iml

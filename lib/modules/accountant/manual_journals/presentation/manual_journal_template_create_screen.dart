@@ -36,11 +36,10 @@ class _JournalTemplateRow {
   String? contactType;
   String? contactName;
   String type = 'debit';
-  double rowHeight = 48;
-
   bool isExpanded = false;
   String? projectId;
   String? reportingTags;
+  double rowHeight = 48;
 
   void dispose() {
     descriptionCtrl.dispose();
@@ -79,6 +78,7 @@ class _JournalTemplateCreateScreenState
   double _totalDebit = 0;
   double _totalCredit = 0;
   double _difference = 0;
+  bool _isDirty = false;
 
   @override
   void initState() {
@@ -98,6 +98,46 @@ class _JournalTemplateCreateScreenState
     super.dispose();
   }
 
+  String _getAccountDisplayName(coa.AccountNode account) {
+    final user = account.userAccountName.trim();
+    final system = account.systemAccountName.trim();
+    return user.isNotEmpty
+        ? user
+        : (system.isNotEmpty ? system : account.name.trim());
+  }
+
+  bool _isAccountHidden(coa.AccountNode account) {
+    final name = _getAccountDisplayName(account).toLowerCase().trim();
+    final type = account.accountType.toLowerCase().trim();
+
+    // 1. Always hide Dimension Adjustments
+    if (name == 'dimension adjustments' || name == 'dimension adjustment') {
+      return true;
+    }
+
+    // 2. Always hide Stock/Inventory related accounts in Journals
+    // (This includes stock and its child types)
+    if (name.contains('stock') ||
+        name.contains('inventory') ||
+        type.contains('stock') ||
+        type.contains('inventory')) {
+      return true;
+    }
+
+    // 3. Hide AP/AR for non-accrual_only reporting methods
+    if (_reportingMethod != 'accrual_only') {
+      if (name.contains('accounts payable') ||
+          name.contains('account payable') ||
+          name.contains('accounts receivable') ||
+          name.contains('account receivable') ||
+          type.contains('payable') ||
+          type.contains('receivable')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   List<shared.AccountNode> _mapNodes(List<coa.AccountNode> roots) {
     final groupOrder = [
       'Assets',
@@ -106,14 +146,6 @@ class _JournalTemplateCreateScreenState
       'Income',
       'Expenses',
     ];
-
-    String displayNameFor(coa.AccountNode account) {
-      final user = account.userAccountName.trim();
-      final system = account.systemAccountName.trim();
-      return user.isNotEmpty
-          ? user
-          : (system.isNotEmpty ? system : account.name.trim());
-    }
 
     String toTitleCase(String text) {
       if (text.isEmpty) return text;
@@ -130,76 +162,104 @@ class _JournalTemplateCreateScreenState
     shared.AccountNode mapNode(coa.AccountNode account, int level) {
       final prefix = level > 0 ? '• ' : '';
 
-      final activeChildren =
-          account.children.where((c) => c.isActive && !c.isDeleted).toList()
-            ..sort(
-              (a, b) => displayNameFor(
-                a,
-              ).toLowerCase().compareTo(displayNameFor(b).toLowerCase()),
-            );
+      final activeChildren = account.children
+          .where((c) => c.isActive && !c.isDeleted && !_isAccountHidden(c))
+          .toList()
+        ..sort(
+          (a, b) => _getAccountDisplayName(a)
+              .toLowerCase()
+              .compareTo(_getAccountDisplayName(b).toLowerCase()),
+        );
 
       return shared.AccountNode(
         id: account.id,
-        name: '$prefix${displayNameFor(account)}',
+        name: '$prefix${_getAccountDisplayName(account)}',
         selectable: true,
         children: activeChildren.map((c) => mapNode(c, level + 1)).toList(),
       );
     }
 
-    final grouped = <String, Map<String, List<shared.AccountNode>>>{};
-    final activeRoots = roots.where((n) => n.isActive && !n.isDeleted).toList();
+    // Grouping only by account type now
+    final groupedByType = <String, List<shared.AccountNode>>{};
+    final typeToGroup =
+        <String, String>{}; // To preserve accounting order (Assets types first, etc.)
+
+    final activeRoots = roots
+        .where((n) => n.isActive && !n.isDeleted && !_isAccountHidden(n))
+        .toList();
 
     for (final root in activeRoots) {
-      final group = root.accountGroup.trim();
-      final finalGroup = toTitleCase(group.isEmpty ? 'Other' : group);
+      final isGroup = groupOrder.any(
+        (g) => g.toLowerCase() == _getAccountDisplayName(root).toLowerCase().trim(),
+      );
 
-      final type = root.accountType.trim();
-      final finalType = toTitleCase(type.isEmpty ? 'Other' : type);
+      if (isGroup) {
+        // If it's a group (like 'Assets'), skip it but process its direct children
+        for (final child in root.children) {
+          if (child.isActive && !child.isDeleted && !_isAccountHidden(child)) {
+            final type = child.accountType.trim();
+            final finalType = toTitleCase(type.isEmpty ? 'Other' : type);
 
-      grouped.putIfAbsent(finalGroup, () => {});
-      grouped[finalGroup]!
-          .putIfAbsent(finalType, () => [])
-          .add(mapNode(root, 0));
+            final group = child.accountGroup.trim();
+            final finalGroup = toTitleCase(group.isEmpty ? 'Other' : group);
+
+            groupedByType.putIfAbsent(finalType, () => []);
+            groupedByType[finalType]!.add(mapNode(child, 0));
+            typeToGroup.putIfAbsent(finalType, () => finalGroup);
+          }
+        }
+      } else {
+        // Not a group, add it directly to its type bucket
+        final type = root.accountType.trim();
+        final finalType = toTitleCase(type.isEmpty ? 'Other' : type);
+
+        final group = root.accountGroup.trim();
+        final finalGroup = toTitleCase(group.isEmpty ? 'Other' : group);
+
+        groupedByType.putIfAbsent(finalType, () => []);
+        groupedByType[finalType]!.add(mapNode(root, 0));
+        typeToGroup.putIfAbsent(finalType, () => finalGroup);
+      }
     }
 
-    final sortedGroups = grouped.keys.toList()
+    // Sort the types by their group (Assets first...) and then by name
+    final sortedTypes = groupedByType.keys.toList()
       ..sort((a, b) {
+        final groupA = typeToGroup[a]!;
+        final groupB = typeToGroup[b]!;
+
         final idxA = groupOrder.indexWhere(
-          (e) => e.toLowerCase() == a.toLowerCase(),
+          (e) => e.toLowerCase() == groupA.toLowerCase(),
         );
         final idxB = groupOrder.indexWhere(
-          (e) => e.toLowerCase() == b.toLowerCase(),
+          (e) => e.toLowerCase() == groupB.toLowerCase(),
         );
-        if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
-        if (idxA != -1) return -1;
-        if (idxB != -1) return 1;
+
+        // First sort by Group Index
+        if (idxA != -1 && idxB != -1) {
+          if (idxA != idxB) return idxA.compareTo(idxB);
+        } else if (idxA != -1) {
+          return -1;
+        } else if (idxB != -1) {
+          return 1;
+        }
+
+        // Then sort by Type name alphabetically
         return a.toLowerCase().compareTo(b.toLowerCase());
       });
 
-    return sortedGroups.map((group) {
-      final groupMap = grouped[group]!;
-      final sortedTypes = groupMap.keys.toList()
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return sortedTypes.map((type) {
+      final accountNodes = groupedByType[type]!;
+      accountNodes.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
 
-      final typeNodes = sortedTypes.map((type) {
-        final accountNodes = groupMap[type]!;
-        accountNodes.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        );
-
-        return shared.AccountNode(
-          id: '__account_type__${group}_$type',
-          name: type,
-          selectable: false,
-          children: accountNodes,
-        );
-      }).toList();
-
+      // Return each type as a non-selectable top-level node (heading)
       return shared.AccountNode(
-        id: '__account_group__$group',
-        name: group,
+        id: '__account_type__$type',
+        name: type,
         selectable: false,
-        children: typeNodes,
+        children: accountNodes,
       );
     }).toList();
   }
@@ -405,10 +465,14 @@ class _JournalTemplateCreateScreenState
 
     return ZerpaiLayout(
       pageTitle: 'New Template',
+      isDirty: _isDirty,
       enableBodyScroll: true,
       footer: _buildFooter(),
       child: Form(
         key: _formKey,
+        onChanged: () {
+          if (!_isDirty) setState(() => _isDirty = true);
+        },
         child: Align(
           alignment: Alignment.topLeft,
           child: ConstrainedBox(
@@ -632,10 +696,9 @@ class _JournalTemplateCreateScreenState
 
   Widget _buildItemsTable(List<coa.AccountNode> roots) {
     final mappedNodes = _mapNodes(roots);
-    final String contactHeader =
-        'CONTACT (${_selectedCurrency.symbol ?? _selectedCurrency.code})';
-    final String debitHeader = 'DEBITS';
-    final String creditHeader = 'CREDITS';
+    const String contactHeader = 'CONTACT';
+    const String debitHeader = 'DEBITS';
+    const String creditHeader = 'CREDITS';
 
     final tableContainer = Container(
       decoration: BoxDecoration(
@@ -673,53 +736,69 @@ class _JournalTemplateCreateScreenState
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            color: AppTheme.tableHeaderBg,
+            padding: EdgeInsets.zero,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: AppTheme.tableHeaderBg,
+              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+            ),
             child: Row(
               children: [
-                const SizedBox(width: 22),
-                Expanded(
+                _cell(width: 32, child: const SizedBox()),
+                _cell(
                   flex: 4,
-                  child: Text('ACCOUNT', style: _tableHeaderStyle),
+                  child: Container(
+                    padding: const EdgeInsets.only(left: 12),
+                    alignment: Alignment.centerLeft,
+                    child: Text('ACCOUNT', style: _tableHeaderStyle),
+                  ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
+                _cell(
                   flex: 3,
-                  child: Text('DESCRIPTION', style: _tableHeaderStyle),
+                  child: Container(
+                    padding: const EdgeInsets.only(left: 12),
+                    alignment: Alignment.centerLeft,
+                    child: Text('DESCRIPTION', style: _tableHeaderStyle),
+                  ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
+                _cell(
                   flex: 2,
-                  child: Text(contactHeader, style: _tableHeaderStyle),
+                  child: Container(
+                    padding: const EdgeInsets.only(left: 12),
+                    alignment: Alignment.centerLeft,
+                    child: Text(contactHeader, style: _tableHeaderStyle),
+                  ),
                 ),
                 if (_enterAmount) ...[
-                  const SizedBox(width: 10),
-                  Expanded(
+                  _cell(
                     flex: 2,
-                    child: Text(
-                      debitHeader,
-                      style: _tableHeaderStyle,
-                      textAlign: TextAlign.right,
+                    child: Container(
+                      padding: const EdgeInsets.only(right: 12),
+                      alignment: Alignment.centerRight,
+                      child: Text(debitHeader, style: _tableHeaderStyle),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
+                  _cell(
                     flex: 2,
-                    child: Text(
-                      creditHeader,
-                      style: _tableHeaderStyle,
-                      textAlign: TextAlign.right,
+                    child: Container(
+                      padding: const EdgeInsets.only(right: 12),
+                      alignment: Alignment.centerRight,
+                      child: Text(creditHeader, style: _tableHeaderStyle),
                     ),
                   ),
                 ] else ...[
-                  const SizedBox(width: 10),
-                  Expanded(
+                  _cell(
                     flex: 1,
-                    child: Text('TYPE', style: _tableHeaderStyle),
+                    child: Container(
+                      padding: const EdgeInsets.only(left: 12),
+                      alignment: Alignment.centerLeft,
+                      child: Text('TYPE', style: _tableHeaderStyle),
+                    ),
                   ),
                 ],
-                SizedBox(
-                  width: 24,
+                _cell(
+                  width: 80,
+                  isLast: true,
                   child: Center(
                     child: PopupMenuButton<String>(
                       icon: const Icon(
@@ -756,7 +835,6 @@ class _JournalTemplateCreateScreenState
                     ),
                   ),
                 ),
-                const SizedBox(width: 24),
               ],
             ),
           ),
@@ -778,26 +856,19 @@ class _JournalTemplateCreateScreenState
               final row = _rows[index];
               return Container(
                 key: ObjectKey(row),
-                decoration: BoxDecoration(
-                  border: index < _rows.length - 1
-                      ? const Border(
-                          bottom: BorderSide(color: AppTheme.borderColor),
-                        )
-                      : null,
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: AppTheme.borderColor)),
                 ),
-                padding: EdgeInsets.zero,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
+                    SizedBox(
+                      height: _isGstAccount(row.accountName) ? 75.0 : row.rowHeight,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 11),
+                          _cell(
+                            width: 32,
                             child: ReorderableDragStartListener(
                               index: index,
                               child: const MouseRegion(
@@ -810,75 +881,115 @@ class _JournalTemplateCreateScreenState
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
+                          _cell(
                             flex: 4,
-                            child: account_dropdown.AccountTreeDropdown(
-                              value: row.accountId,
-                              nodes: mappedNodes,
-                              onSearch: (q) async {
-                                final results = await ref
-                                    .read(accountantRepositoryProvider)
-                                    .searchAccounts(q);
-                                return results
-                                    .map(
-                                      (e) => shared.AccountNode(
-                                        id: e.id,
-                                        name: e.name,
-                                        children: e.children
-                                            .map(
-                                              (c) => shared.AccountNode(
-                                                id: c.id,
-                                                name: c.name,
-                                              ),
-                                            )
-                                            .toList(),
-                                      ),
-                                    )
-                                    .toList();
-                              },
-                              onChanged: (v) {
-                                setState(() {
-                                  row.accountId = v;
-                                  row.accountName = _findName(mappedNodes, v);
-                                });
-                              },
-                              hint: 'Select an account',
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                account_dropdown.AccountTreeDropdown(
+                                  value: row.accountId,
+                                  nodes: mappedNodes,
+                                  height: _isGstAccount(row.accountName) ? 40.0 : row.rowHeight - 2,
+                                  borderRadius: BorderRadius.zero,
+                                  border: Border.all(color: Colors.transparent),
+                                  onSearch: (q) async {
+                                    final results = await ref
+                                        .read(accountantRepositoryProvider)
+                                        .searchAccounts(q);
+                                    return results.where((e) {
+                                      final name = e.name.toLowerCase().trim();
+                                      final type =
+                                          e.accountType.toLowerCase().trim();
+
+                                      // Always hide Dimension Adjustments
+                                      if (name == 'dimension adjustments' ||
+                                          name == 'dimension adjustment') {
+                                        return false;
+                                      }
+
+                                      // Always hide Stock/Inventory
+                                      if (name.contains('stock') ||
+                                          name.contains('inventory') ||
+                                          type.contains('stock') ||
+                                          type.contains('inventory')) {
+                                        return false;
+                                      }
+
+                                      // Hide AP/AR for non-accrual_only
+                                      if (_reportingMethod != 'accrual_only') {
+                                        if (name == 'accounts payable' ||
+                                            name == 'account payable' ||
+                                            name == 'accounts receivable' ||
+                                            name == 'account receivable') {
+                                          return false;
+                                        }
+                                      }
+                                      return true;
+                                    }).map((e) => shared.AccountNode(
+                                            id: e.id,
+                                            name: e.name,
+                                            children: e.children
+                                                .map(
+                                                  (c) => shared.AccountNode(
+                                                    id: c.id,
+                                                    name: c.name,
+                                                  ),
+                                                )
+                                                .toList(),
+                                          ),
+                                        )
+                                        .toList();
+                                  },
+                                  onChanged: (v) {
+                                    setState(() {
+                                      row.accountId = v;
+                                      row.accountName = _findName(mappedNodes, v);
+                                      row.rowHeight = _isGstAccount(row.accountName) ? 75.0 : 48.0;
+                                    });
+                                  },
+                                  hint: 'Select an account',
+                                ),
+                                if (_isGstAccount(row.accountName))
+                                  const _GstWarningWidget(),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
+                          _cell(
                             flex: 3,
                             child: CustomTextField(
                               controller: row.descriptionCtrl,
                               hintText: 'Description',
-                              maxLines: 3,
-                              height: row.rowHeight,
+                              borderRadius: BorderRadius.zero,
+                              border: Border.all(color: Colors.transparent),
+                              maxLines: null,
+                              resizable: true,
+                              height: row.rowHeight - 2,
+                              minHeight: 40,
+                              onHeightChanged: (h) => setState(() => row.rowHeight = h + 2),
+                              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
+                          _cell(
                             flex: 2,
                             child: ref
                                 .watch(manualJournalContactsProvider)
                                 .when(
                                   data: (contacts) =>
                                       di.FormDropdown<Map<String, dynamic>>(
-                                        value:
-                                            contacts
+                                        value: contacts
                                                 .where(
                                                   (c) =>
                                                       c['id'] ==
                                                           row.contactId &&
                                                       (row.contactType ==
-                                                              null ||
+                                                               null ||
                                                           (c['contact_type'] ??
                                                                       c['type'])
                                                                   ?.toString()
                                                                   .toLowerCase() ==
-                                                              row.contactType!
-                                                                  .toString()
-                                                                  .toLowerCase()),
+                                                               row.contactType!
+                                                                   .toString()
+                                                                   .toLowerCase()),
                                                 )
                                                 .firstOrNull ??
                                             contacts
@@ -889,6 +1000,9 @@ class _JournalTemplateCreateScreenState
                                                 .firstOrNull,
                                         hint: 'Select Contact',
                                         showSearch: true,
+                                        borderRadius: BorderRadius.zero,
+                                        border: Border.all(color: Colors.transparent),
+                                        height: 48,
                                         items: contacts
                                             .map(
                                               (c) =>
@@ -921,7 +1035,7 @@ class _JournalTemplateCreateScreenState
                                           });
                                         },
                                       ),
-                                  loading: () => const Skeleton(height: 40),
+                                  loading: () => const SizedBox(height: 20),
                                   error: (_, __) =>
                                       di.FormDropdown<Map<String, dynamic>>(
                                         value: null,
@@ -932,8 +1046,7 @@ class _JournalTemplateCreateScreenState
                                 ),
                           ),
                           if (_enterAmount) ...[
-                            const SizedBox(width: 10),
-                            Expanded(
+                            _cell(
                               flex: 2,
                               child: CustomTextField(
                                 controller: row.debitCtrl,
@@ -942,6 +1055,9 @@ class _JournalTemplateCreateScreenState
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
                                     ),
+                                borderRadius: BorderRadius.zero,
+                                border: Border.all(color: Colors.transparent),
+                                height: 48,
                                 hintText: '0',
                                 onTap: () {
                                   row.debitCtrl.selection = TextSelection(
@@ -959,8 +1075,7 @@ class _JournalTemplateCreateScreenState
                                 },
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
+                            _cell(
                               flex: 2,
                               child: CustomTextField(
                                 controller: row.creditCtrl,
@@ -969,6 +1084,9 @@ class _JournalTemplateCreateScreenState
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
                                     ),
+                                borderRadius: BorderRadius.zero,
+                                border: Border.all(color: Colors.transparent),
+                                height: 48,
                                 hintText: '0',
                                 onTap: () {
                                   row.creditCtrl.selection = TextSelection(
@@ -987,13 +1105,15 @@ class _JournalTemplateCreateScreenState
                               ),
                             ),
                           ] else ...[
-                            const SizedBox(width: 10),
-                            Expanded(
+                            _cell(
                               flex: 1,
                               child: di.FormDropdown<String>(
                                 value: row.type,
                                 items: const ['debit', 'credit'],
                                 showSearch: true,
+                                borderRadius: BorderRadius.zero,
+                                border: Border.all(color: Colors.transparent),
+                                height: 48,
                                 displayStringForValue: (v) =>
                                     v == 'debit' ? 'Debit' : 'Credit',
                                 onChanged: (value) {
@@ -1003,35 +1123,42 @@ class _JournalTemplateCreateScreenState
                               ),
                             ),
                           ],
-                          SizedBox(
-                            width: 24,
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 1),
-                              child: IconButton(
-                                onPressed: () {
-                                  setState(() {
-                                    row.isExpanded = !row.isExpanded;
-                                  });
-                                },
-                                icon: const Icon(
-                                  LucideIcons.moreVertical,
-                                  size: 14,
-                                  color: AppTheme.textMuted,
+                          _cell(
+                            width: 80,
+                            isLast: true,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      row.isExpanded = !row.isExpanded;
+                                    });
+                                  },
+                                  icon: Icon(
+                                    row.isExpanded
+                                        ? LucideIcons.chevronUp
+                                        : LucideIcons.moreVertical,
+                                    size: 16,
+                                    color: AppTheme.textMuted,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  tooltip: 'Additional Information',
                                 ),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 24,
-                            child: IconButton(
-                              icon: const Icon(
-                                LucideIcons.x,
-                                color: AppTheme.errorRed,
-                                size: 16,
-                              ),
-                              onPressed: () => _removeRow(index),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  onPressed: () => _removeRow(index),
+                                  icon: const Icon(
+                                    LucideIcons.trash2,
+                                    size: 15,
+                                    color: AppTheme.errorRed,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  tooltip: 'Remove Line',
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -1112,7 +1239,7 @@ class _JournalTemplateCreateScreenState
                                   : 3, // filler for Contact + Debit/Credit/Type
                               child: const SizedBox(),
                             ),
-                            const SizedBox(width: 48), // filler for actions
+                            const SizedBox(width: 80), // filler for actions
                           ],
                         ),
                       ),
@@ -1250,19 +1377,8 @@ class _JournalTemplateCreateScreenState
       color: AppTheme.backgroundColor,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          ElevatedButton(
-            onPressed: _isSaving ? null : _saveTemplate,
-            style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            child: Text(_isSaving ? 'Saving...' : 'Save'),
-          ),
-          const SizedBox(width: 10),
           OutlinedButton(
             onPressed: () => context.go(AppRoutes.accountantJournalTemplates),
             style: OutlinedButton.styleFrom(
@@ -1275,7 +1391,50 @@ class _JournalTemplateCreateScreenState
             ),
             child: const Text('Cancel'),
           ),
+          const SizedBox(width: 10),
+          ElevatedButton(
+            onPressed: _isSaving ? null : _saveTemplate,
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            child: Text(_isSaving ? 'Saving...' : 'Save'),
+          ),
         ],
+      ),
+    );
+  }
+
+  bool _isGstAccount(String? name) {
+    if (name == null) return false;
+    final n = name.toLowerCase();
+    return n.contains('gst') ||
+        n.contains('cgst') ||
+        n.contains('sgst') ||
+        n.contains('igst') ||
+        n.contains('input tax credit');
+  }
+
+  Widget _cell({
+    Widget? child,
+    double? width,
+    int? flex,
+    bool isLast = false,
+  }) {
+    return Expanded(
+      flex: flex ?? 0,
+      child: Container(
+        width: width,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          border: isLast
+              ? null
+              : const Border(right: BorderSide(color: AppTheme.borderColor)),
+        ),
+        child: child,
       ),
     );
   }
@@ -1287,4 +1446,139 @@ class _JournalTemplateCreateScreenState
     fontSize: 11,
     color: AppTheme.textSecondary,
   );
+}
+
+class _GstWarningWidget extends StatefulWidget {
+  const _GstWarningWidget();
+
+  @override
+  State<_GstWarningWidget> createState() => _GstWarningWidgetState();
+}
+
+class _GstWarningWidgetState extends State<_GstWarningWidget> {
+  final _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+
+  void _togglePopover() {
+    if (_overlayEntry == null) {
+      _overlayEntry = _createOverlayEntry();
+      Overlay.of(context).insert(_overlayEntry!);
+    } else {
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+    }
+    setState(() {});
+  }
+
+  OverlayEntry _createOverlayEntry() {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+
+    return OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _togglePopover,
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          Positioned(
+            width: 320,
+            child: CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              offset: Offset(0, size.height + 4),
+              child: Material(
+                elevation: 4,
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.borderColor),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.alertTriangle,
+                            size: 16,
+                            color: Color(0xFFFF5252),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Tax Compliance Notice',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primaryBlue,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Direct journal entries to GST accounts should be avoided for normal business transactions. Please use the dedicated GST modules for accurate compliance reporting.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
+                          height: 1.5,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _overlayEntry?.remove();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4, left: 4),
+        child: InkWell(
+          onTap: _togglePopover,
+          hoverColor: Colors.transparent,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                LucideIcons.alertTriangle,
+                size: 14,
+                color: Color(0xFFFF5252),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Warning',
+                style: TextStyle(
+                  color: const Color(0xFFFF5252),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

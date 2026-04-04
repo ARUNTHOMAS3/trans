@@ -117,7 +117,7 @@ class _OpeningBalancesScreenState extends ConsumerState<OpeningBalancesScreen> {
           ZButton.primary(
             label: 'Update Opening Balances',
             onPressed: () =>
-                context.go(AppRoutes.accountantOpeningBalancesUpdate),
+                context.go(AppRoutes.accountsOpeningBalancesUpdate),
           ),
         ],
       ),

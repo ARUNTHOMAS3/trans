@@ -62,6 +62,14 @@ final salesPaymentLinksProvider = FutureProvider<List<SalesPaymentLink>>((ref) {
   return ref.watch(salesOrderApiServiceProvider).getPaymentLinks();
 });
 
+final salesOrdersByCustomerProvider = FutureProvider.family<List<SalesOrder>, String>((ref, customerId) async {
+  final orders = ref.watch(salesOrderControllerProvider);
+  return orders.maybeWhen(
+    data: (list) => list.where((o) => o.customerId == customerId).toList(),
+    orElse: () => [],
+  );
+});
+
 final allSalesOrderItemsProvider = FutureProvider<List<WarehouseStockData>>((ref) async {
   final salesOrdersAsync = ref.watch(salesOrderControllerProvider);
   return salesOrdersAsync.maybeWhen(

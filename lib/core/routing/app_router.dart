@@ -1173,6 +1173,14 @@ final GoRouter appRouter = GoRouter(
               ],
             ),
             GoRoute(
+              path: 'accounts/opening-balances',
+              builder: (context, state) => const OpeningBalancesScreen(),
+            ),
+            GoRoute(
+              path: 'accounts/opening-balances/update',
+              builder: (context, state) => const OpeningBalancesUpdateScreen(),
+            ),
+            GoRoute(
               path: 'accountant/recurring-journals',
               name: AppRoutes.accountantRecurringJournals,
               builder: (context, state) => RecurringJournalOverviewScreen(

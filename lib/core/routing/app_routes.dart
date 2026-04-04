@@ -205,6 +205,9 @@ class AppRoutes {
       '/accounts/chart-of-accounts/:id';
   static const String accountsChartOfAccountsCreate =
       '/accounts/chart-of-accounts/create';
+  static const String accountsOpeningBalances = '/accounts/opening-balances';
+  static const String accountsOpeningBalancesUpdate =
+      '/accounts/opening-balances/update';
 
   // Accountant
   static const String accountantManualJournals = '/accountant/manual-journals';

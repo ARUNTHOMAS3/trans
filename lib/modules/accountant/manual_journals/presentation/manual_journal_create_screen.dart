@@ -42,6 +42,7 @@ import 'package:zerpai_erp/modules/accountant/providers/currency_provider.dart';
 
 import '../models/manual_journal_model.dart';
 import '../../../../shared/services/draft_storage_service.dart';
+import '../../../../shared/widgets/z_button.dart';
 
 class ManualJournalRow {
   String? accountId;
@@ -54,8 +55,12 @@ class ManualJournalRow {
   String? contactType;
   String? contactName;
   double rowHeight = 48;
-
   bool isExpanded = false;
+
+  void updateHeight(bool isGstAccount) {
+    rowHeight = isGstAccount ? 75.0 : 48.0;
+  }
+
   String? projectId;
   String? reportingTags;
 
@@ -365,6 +370,7 @@ class _ManualJournalCreateScreenState
         row.creditCtrl.text = item.credit.toString();
         row.projectId = item.projectId;
         row.reportingTags = item.reportingTags;
+        row.rowHeight = _isGstAccount(row.accountName) ? 75.0 : 48.0;
         if (row.projectId != null || row.reportingTags != null) {
           row.isExpanded = true;
         }
@@ -444,14 +450,9 @@ class _ManualJournalCreateScreenState
               shape: const RoundedRectangleBorder(
                 borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
               ),
-              insetPadding: const EdgeInsets.only(
-                top: 0,
-                left: 24,
-                right: 24,
-                bottom: 20,
-              ),
+              insetPadding: EdgeInsets.zero,
               child: SizedBox(
-                width: 640,
+                width: 500,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -462,12 +463,14 @@ class _ManualJournalCreateScreenState
                         child: Row(
                           children: [
                             const Expanded(
-                              child: Text(
-                                'Configure Journal Number Preferences',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppTheme.textPrimary,
+                              child: Center(
+                                child: Text(
+                                  'Journal Number Preferences',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
                                 ),
                               ),
                             ),
@@ -612,6 +615,7 @@ class _ManualJournalCreateScreenState
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
                         child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             ElevatedButton(
                               onPressed: isSaving
@@ -757,15 +761,11 @@ class _ManualJournalCreateScreenState
                                   horizontal: 18,
                                   vertical: 10,
                                 ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
                               ),
                               child: Text(isSaving ? 'Saving...' : 'Save'),
-                            ),
-                            const SizedBox(width: 10),
-                            OutlinedButton(
-                              onPressed: isSaving
-                                  ? null
-                                  : () => Navigator.of(dialogContext).pop(),
-                              child: const Text('Cancel'),
                             ),
                           ],
                         ),
@@ -826,6 +826,8 @@ class _ManualJournalCreateScreenState
       if (row.projectId != null || row.reportingTags != null) {
         row.isExpanded = true;
       }
+      // Set height based on account
+      row.updateHeight(_isGstAccount(row.accountName));
     }
     row.debitCtrl.addListener(_calculateTotals);
     row.creditCtrl.addListener(_calculateTotals);
@@ -1004,112 +1006,6 @@ class _ManualJournalCreateScreenState
     );
   }
 
-  List<shared.AccountNode> _mapNodes(List<coa.AccountNode> roots) {
-    final groupOrder = [
-      'Assets',
-      'Liabilities',
-      'Equity',
-      'Income',
-      'Expenses',
-    ];
-
-    String displayNameFor(coa.AccountNode account) {
-      final user = account.userAccountName.trim();
-      final system = account.systemAccountName.trim();
-      return user.isNotEmpty
-          ? user
-          : (system.isNotEmpty ? system : account.name.trim());
-    }
-
-    String toTitleCase(String text) {
-      if (text.isEmpty) return text;
-      return text
-          .toLowerCase()
-          .split(' ')
-          .map((word) {
-            if (word.isEmpty) return word;
-            return word[0].toUpperCase() + word.substring(1);
-          })
-          .join(' ');
-    }
-
-    shared.AccountNode mapNode(coa.AccountNode account, int level) {
-      final prefix = level > 0 ? '• ' : '';
-
-      final activeChildren =
-          account.children.where((c) => c.isActive && !c.isDeleted).toList()
-            ..sort(
-              (a, b) => displayNameFor(
-                a,
-              ).toLowerCase().compareTo(displayNameFor(b).toLowerCase()),
-            );
-
-      return shared.AccountNode(
-        id: account.id,
-        name: '$prefix${displayNameFor(account)}',
-        selectable: true,
-        children: activeChildren.map((c) => mapNode(c, level + 1)).toList(),
-      );
-    }
-
-    final grouped = <String, Map<String, List<shared.AccountNode>>>{};
-    final activeRoots = roots.where((n) => n.isActive && !n.isDeleted).toList();
-
-    for (final root in activeRoots) {
-      final group = root.accountGroup.trim();
-      final finalGroup = toTitleCase(group.isEmpty ? 'Other' : group);
-
-      final type = root.accountType.trim();
-      final finalType = toTitleCase(type.isEmpty ? 'Other' : type);
-
-      grouped.putIfAbsent(finalGroup, () => {});
-      grouped[finalGroup]!
-          .putIfAbsent(finalType, () => [])
-          .add(mapNode(root, 0));
-    }
-
-    final sortedGroups = grouped.keys.toList()
-      ..sort((a, b) {
-        final idxA = groupOrder.indexWhere(
-          (e) => e.toLowerCase() == a.toLowerCase(),
-        );
-        final idxB = groupOrder.indexWhere(
-          (e) => e.toLowerCase() == b.toLowerCase(),
-        );
-        if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
-        if (idxA != -1) return -1;
-        if (idxB != -1) return 1;
-        return a.toLowerCase().compareTo(b.toLowerCase());
-      });
-
-    return sortedGroups.map((group) {
-      final groupMap = grouped[group]!;
-      final sortedTypes = groupMap.keys.toList()
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
-      final typeNodes = sortedTypes.map((type) {
-        final accountNodes = groupMap[type]!;
-        accountNodes.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        );
-
-        return shared.AccountNode(
-          id: '__account_type__${group}_$type',
-          name: type,
-          selectable: false,
-          children: accountNodes,
-        );
-      }).toList();
-
-      return shared.AccountNode(
-        id: '__account_group__$group',
-        name: group,
-        selectable: false,
-        children: typeNodes,
-      );
-    }).toList();
-  }
-
   String? _findName(List<shared.AccountNode> nodes, String? id) {
     if (id == null) return null;
     for (final node in nodes) {
@@ -1118,6 +1014,16 @@ class _ManualJournalCreateScreenState
       if (found != null) return found;
     }
     return null;
+  }
+
+  bool _isGstAccount(String? name) {
+    if (name == null) return false;
+    final n = name.toLowerCase();
+    return n.contains('gst') ||
+        n.contains('cgst') ||
+        n.contains('sgst') ||
+        n.contains('igst') ||
+        n.contains('input tax credit');
   }
 
   @override
@@ -1133,6 +1039,7 @@ class _ManualJournalCreateScreenState
         children: [
           ZerpaiLayout(
             pageTitle: isEditMode ? 'Edit Journal' : 'New Journal',
+            isDirty: _isDirty,
             enableBodyScroll: true,
             actions: [
               if (!isEditMode)
@@ -1225,7 +1132,7 @@ class _ManualJournalCreateScreenState
                   const SizedBox(width: 6),
                   const ZTooltip(
                     message:
-                        '13th month adjustments are typically used for period-end closing entries.',
+                        'Use this option to make end-of-year corrections or balance adjustments for accurate financial reporting. This manual journal will be recorded on the last day of the fiscal year you select below.',
                     child: Icon(
                       LucideIcons.info,
                       size: 13,
@@ -1513,6 +1420,7 @@ class _ManualJournalCreateScreenState
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
+          color: Colors.white,
           border: Border.all(color: AppTheme.borderColorDark),
           borderRadius: BorderRadius.circular(4),
         ),
@@ -1644,7 +1552,7 @@ class _ManualJournalCreateScreenState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(
-                height: row.rowHeight,
+                height: _isGstAccount(row.accountName) ? 75.0 : row.rowHeight,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1664,41 +1572,61 @@ class _ManualJournalCreateScreenState
                     ),
                     _cell(
                       flex: 4,
-                      child: dropdown.AccountTreeDropdown(
-                        focusNode: row.accountFocusNode,
-                        value: row.accountId,
-                        nodes: mappedNodes,
-                        height: row.rowHeight - 2,
-                        borderRadius: BorderRadius.zero,
-                        border: Border.all(color: Colors.transparent),
-                        onSearch: (q) async {
-                          final results = await ref
-                              .read(accountantRepositoryProvider)
-                              .searchAccounts(q);
-                          return results
-                              .map(
-                                (e) => shared.AccountNode(
-                                  id: e.id,
-                                  name: e.name,
-                                  children: e.children
-                                      .map(
-                                        (c) => shared.AccountNode(
-                                          id: c.id,
-                                          name: c.name,
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                              )
-                              .toList();
-                        },
-                        onChanged: (v) {
-                          setState(() {
-                            row.accountId = v;
-                            row.accountName = _findName(mappedNodes, v);
-                          });
-                        },
-                        hint: 'Select an account',
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          dropdown.AccountTreeDropdown(
+                            focusNode: row.accountFocusNode,
+                            value: row.accountId,
+                            nodes: mappedNodes,
+                            height: _isGstAccount(row.accountName)
+                                ? 40.0
+                                : row.rowHeight - 2,
+                            borderRadius: BorderRadius.zero,
+                            border: Border.all(color: Colors.transparent),
+                            onSearch: (q) async {
+                              final results = await ref
+                                  .read(accountantRepositoryProvider)
+                                  .searchAccounts(q);
+                              return results
+                                  .where(
+                                    (e) => !e.isDeleted && !_isAccountHidden(e),
+                                  )
+                                  .map(
+                                    (e) => shared.AccountNode(
+                                      id: e.id,
+                                      name: e.name,
+                                      children: e.children
+                                          .where(
+                                            (c) =>
+                                                !c.isDeleted &&
+                                                !_isAccountHidden(c),
+                                          )
+                                          .map(
+                                            (c) => shared.AccountNode(
+                                              id: c.id,
+                                              name: c.name,
+                                            ),
+                                          )
+                                          .toList(),
+                                    ),
+                                  )
+                                  .toList();
+                            },
+                            onChanged: (v) {
+                              setState(() {
+                                row.accountId = v;
+                                row.accountName = _findName(mappedNodes, v);
+                                row.rowHeight = _isGstAccount(row.accountName)
+                                    ? 75.0
+                                    : 48.0;
+                              });
+                            },
+                            hint: 'Select an account',
+                          ),
+                          if (_isGstAccount(row.accountName))
+                            const _GstWarningWidget(),
+                        ],
                       ),
                     ),
                     _cell(
@@ -2003,17 +1931,6 @@ class _ManualJournalCreateScreenState
     final tableContainer = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 8),
-          child: Text(
-            '* Required to post this journal to account_transactions.',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.errorRed,
-            ),
-          ),
-        ),
         Container(
           decoration: BoxDecoration(
             border: Border.all(color: AppTheme.borderColor),
@@ -2567,92 +2484,239 @@ class _ManualJournalCreateScreenState
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Wrap(
-              spacing: 10,
-              runSpacing: 8,
-              children: [
-                if (isAlreadyPosted) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDF4),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.successGreen),
-                    ),
-                    child: const Text(
-                      'This journal is posted and cannot be edited. To make changes, reverse this journal.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isAlreadyPosted)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.successGreen),
+                  ),
+                  child: const Text(
+                    'This journal is posted and cannot be edited. To make changes, reverse this journal.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
-                ] else ...[
-                  Tooltip(
-                    message: 'Save and Publish (Ctrl+Enter)',
-                    child: ElevatedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () => _save(ManualJournalStatus.posted),
-                      style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                      ),
-                      child: Text(primaryLabel),
-                    ),
-                  ),
-                  Tooltip(
-                    message: 'Save as Draft (Ctrl+S)',
-                    child: OutlinedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () => _save(ManualJournalStatus.draft),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: AppTheme.bgDisabled,
-                        foregroundColor: AppTheme.textPrimary,
-                      ),
-                      child: Text(draftLabel),
-                    ),
-                  ),
-                ],
-                Tooltip(
-                  message: 'Cancel (Esc)',
-                  child: TextButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () {
-                            DraftStorageService.clear(_draftKey);
-                            context.go(AppRoutes.accountantManualJournals);
-                          },
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.textSecondary,
-                      textStyle: const TextStyle(
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                    child: const Text('Cancel'),
-                  ),
+                )
+              else ...[
+                ZButton.primary(
+                  label: primaryLabel,
+                  onPressed: _isLoading
+                      ? null
+                      : () => _save(ManualJournalStatus.posted),
+                  loading: _isLoading,
+                ),
+                const SizedBox(width: 12),
+                ZButton.secondary(
+                  label: draftLabel,
+                  onPressed: _isLoading
+                      ? null
+                      : () => _save(ManualJournalStatus.draft),
+                ),
+                const SizedBox(width: 12),
+                ZButton.secondary(
+                  label: 'Cancel',
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          DraftStorageService.clear(_draftKey);
+                          context.go(AppRoutes.accountantManualJournals);
+                        },
                 ),
               ],
-            ),
+            ],
           ),
+          const Spacer(),
           TextButton.icon(
             onPressed: () {
               final journal = _buildJournalFromForm(ManualJournalStatus.draft);
-              context.go(
+              context.push(
                 AppRoutes.accountantRecurringJournalsCreate,
                 extra: journal,
               );
             },
             icon: const Icon(LucideIcons.refreshCw, size: 14),
             label: const Text('Make Recurring'),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.primaryBlue,
+            ),
           ),
         ],
       ),
     );
+  }
+
+  String _getAccountDisplayName(coa.AccountNode account) {
+    final user = account.userAccountName.trim();
+    final system = account.systemAccountName.trim();
+    return user.isNotEmpty
+        ? user
+        : (system.isNotEmpty ? system : account.name.trim());
+  }
+
+  bool _isAccountHidden(coa.AccountNode account) {
+    final name = _getAccountDisplayName(account).toLowerCase().trim();
+    final type = account.accountType.toLowerCase().trim();
+
+    // 1. Always hide Dimension Adjustments
+    if (name == 'dimension adjustments' || name == 'dimension adjustment') {
+      return true;
+    }
+
+    // 2. Always hide Stock/Inventory related accounts in Journals
+    // (This includes stock and its child types)
+    if (name.contains('stock') ||
+        name.contains('inventory') ||
+        type.contains('stock') ||
+        type.contains('inventory')) {
+      return true;
+    }
+
+    // 3. Hide AP/AR for non-accrual_only reporting methods
+    if (reportingMethod != 'accrual_only') {
+      if (name.contains('accounts payable') ||
+          name.contains('account payable') ||
+          name.contains('accounts receivable') ||
+          name.contains('account receivable') ||
+          type.contains('payable') ||
+          type.contains('receivable')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  List<shared.AccountNode> _mapNodes(List<coa.AccountNode> roots) {
+    final groupOrder = [
+      'Assets',
+      'Liabilities',
+      'Equity',
+      'Income',
+      'Expenses',
+    ];
+
+    String toTitleCase(String text) {
+      if (text.isEmpty) return text;
+      return text
+          .toLowerCase()
+          .split(' ')
+          .map((word) {
+            if (word.isEmpty) return word;
+            return word[0].toUpperCase() + word.substring(1);
+          })
+          .join(' ');
+    }
+
+    shared.AccountNode mapNode(coa.AccountNode account, int level) {
+      final prefix = level > 0 ? '• ' : '';
+      final activeChildren =
+          account.children
+              .where((c) => c.isActive && !c.isDeleted && !_isAccountHidden(c))
+              .toList()
+            ..sort(
+              (a, b) => _getAccountDisplayName(
+                a,
+              ).toLowerCase().compareTo(_getAccountDisplayName(b).toLowerCase()),
+            );
+
+      return shared.AccountNode(
+        id: account.id,
+        name: '$prefix${_getAccountDisplayName(account)}',
+        selectable: true,
+        children: activeChildren.map((c) => mapNode(c, level + 1)).toList(),
+      );
+    }
+
+    // Grouping only by account type now
+    final groupedByType = <String, List<shared.AccountNode>>{};
+    final typeToGroup = <String, String>{}; // To preserve accounting order (Assets types first, etc.)
+
+    final activeRoots = roots
+        .where((n) => n.isActive && !n.isDeleted && !_isAccountHidden(n))
+        .toList();
+
+    for (final root in activeRoots) {
+      final isGroup = groupOrder.any(
+        (g) => g.toLowerCase() == _getAccountDisplayName(root).toLowerCase().trim(),
+      );
+
+      if (isGroup) {
+        // If it's a group (like 'Assets'), skip it but process its direct children
+        for (final child in root.children) {
+          if (child.isActive && !child.isDeleted && !_isAccountHidden(child)) {
+            final type = child.accountType.trim();
+            final finalType = toTitleCase(type.isEmpty ? 'Other' : type);
+
+            final group = child.accountGroup.trim();
+            final finalGroup = toTitleCase(group.isEmpty ? 'Other' : group);
+
+            groupedByType.putIfAbsent(finalType, () => []);
+            groupedByType[finalType]!.add(mapNode(child, 0));
+            typeToGroup.putIfAbsent(finalType, () => finalGroup);
+          }
+        }
+      } else {
+        // Not a group, add it directly to its type bucket
+        final type = root.accountType.trim();
+        final finalType = toTitleCase(type.isEmpty ? 'Other' : type);
+
+        final group = root.accountGroup.trim();
+        final finalGroup = toTitleCase(group.isEmpty ? 'Other' : group);
+
+        groupedByType.putIfAbsent(finalType, () => []);
+        groupedByType[finalType]!.add(mapNode(root, 0));
+        typeToGroup.putIfAbsent(finalType, () => finalGroup);
+      }
+    }
+
+    // Sort the types by their group (Assets first...) and then by name
+    final sortedTypes = groupedByType.keys.toList()
+      ..sort((a, b) {
+        final groupA = typeToGroup[a]!;
+        final groupB = typeToGroup[b]!;
+
+        final idxA = groupOrder.indexWhere(
+          (e) => e.toLowerCase() == groupA.toLowerCase(),
+        );
+        final idxB = groupOrder.indexWhere(
+          (e) => e.toLowerCase() == groupB.toLowerCase(),
+        );
+
+        // First sort by Group Index
+        if (idxA != -1 && idxB != -1) {
+          if (idxA != idxB) return idxA.compareTo(idxB);
+        } else if (idxA != -1) {
+          return -1;
+        } else if (idxB != -1) {
+          return 1;
+        }
+
+        // Then sort by Type name alphabetically
+        return a.toLowerCase().compareTo(b.toLowerCase());
+      });
+
+    return sortedTypes.map((type) {
+      final accountNodes = groupedByType[type]!;
+      accountNodes.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+
+      // Return each type as a non-selectable top-level node (heading)
+      return shared.AccountNode(
+        id: '__account_type__$type',
+        name: type,
+        selectable: false,
+        children: accountNodes,
+      );
+    }).toList();
   }
 
   ManualJournal _buildJournalFromForm(ManualJournalStatus status) {
@@ -2716,28 +2780,103 @@ class _ManualJournalCreateScreenState
     String templateName = 'Template ${journalNumberCtrl.text}';
     final name = await showDialog<String>(
       context: context,
-      builder: (context) {
+      barrierDismissible: false,
+      builder: (dialogContext) {
         final ctrl = TextEditingController(text: templateName);
-        return AlertDialog(
-          title: const Text('Save as Template'),
-          content: TextField(
-            controller: ctrl,
-            decoration: const InputDecoration(
-              labelText: 'Template Name',
-              hintText: 'Enter template name',
-            ),
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, ctrl.text.trim()),
-              child: const Text('Save'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              alignment: Alignment.topCenter,
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
+              ),
+              insetPadding: EdgeInsets.zero,
+              child: SizedBox(
+                width: 500,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              child: Center(
+                                child: Text(
+                                  'Save as Template',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              icon: const Icon(
+                                LucideIcons.x,
+                                size: 18,
+                                color: AppTheme.errorRed,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Template names must be unique.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textSecondary,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            CustomTextField(
+                              label: 'Template Name*',
+                              controller: ctrl,
+                              hintText: 'Enter template name',
+                              autoFocus: true,
+                              fillColor: Colors.white,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 10, 24, 20),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            ZButton.primary(
+                              label: 'Save',
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, ctrl.text.trim()),
+                            ),
+                            const SizedBox(width: 12),
+                            ZButton.secondary(
+                              label: 'Cancel',
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -3290,9 +3429,7 @@ class _MJFileItemWidgetState extends State<_MJFileItemWidget> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: _isHovered
-                          ? Colors.white
-                          : AppTheme.textPrimary,
+                      color: _isHovered ? Colors.white : AppTheme.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -3320,6 +3457,151 @@ class _MJFileItemWidgetState extends State<_MJFileItemWidget> {
                 constraints: const BoxConstraints(),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GstWarningWidget extends StatefulWidget {
+  const _GstWarningWidget();
+
+  @override
+  State<_GstWarningWidget> createState() => _GstWarningWidgetState();
+}
+
+class _GstWarningWidgetState extends State<_GstWarningWidget> {
+  bool _showPopover = false;
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+
+  void _togglePopover() {
+    if (_showPopover) {
+      _hidePopover();
+    } else {
+      _showPopoverDetails();
+    }
+  }
+
+  void _showPopoverDetails() {
+    _overlayEntry = _createOverlayEntry();
+    Overlay.of(context).insert(_overlayEntry!);
+    setState(() => _showPopover = true);
+  }
+
+  void _hidePopover() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    if (mounted) setState(() => _showPopover = false);
+  }
+
+  OverlayEntry _createOverlayEntry() {
+    return OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          // Invisible barrier to close on tap outside
+          GestureDetector(
+            onTap: _hidePopover,
+            behavior: HitTestBehavior.opaque,
+            child: Container(color: Colors.transparent),
+          ),
+          Positioned(
+            width: 320,
+            child: CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              targetAnchor: Alignment.bottomLeft,
+              followerAnchor: Alignment.topLeft,
+              offset: const Offset(0, 8),
+              child: Material(
+                elevation: 8,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: const BorderSide(color: AppTheme.borderColor, width: 1),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const SizedBox.shrink(),
+                          GestureDetector(
+                            onTap: _hidePopover,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppTheme.primaryBlue),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Icon(
+                                LucideIcons.x,
+                                size: 12,
+                                color: AppTheme.primaryBlue,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        "If you're not sure about selecting this account, it is recommended that you consult with your accountant before recording this journal. Also, remember that this journal will not reflect in the GST Returns.",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
+                          height: 1.5,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _overlayEntry?.remove();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4, left: 4),
+        child: InkWell(
+          onTap: _togglePopover,
+          hoverColor: Colors.transparent,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                LucideIcons.alertTriangle,
+                size: 14,
+                color: Color(0xFFFF5252),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Warning',
+                style: TextStyle(
+                  color: const Color(0xFFFF5252),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

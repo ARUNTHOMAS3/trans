@@ -15,6 +15,13 @@
       "when": 1770747126316,
       "tag": "0001_accounts_manual_journals",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775235316298,
+      "tag": "0002_closed_tomorrow_man",
+      "breakpoints": true
     }
   ]
 }

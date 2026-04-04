@@ -1,37 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/pages/settings_users_roles_support.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/modules/settings/users_roles/providers/role_creation_provider.dart';
 
-/// ---------------------------------------------------------------------------
-/// MODELS (UI Metadata)
-/// ---------------------------------------------------------------------------
+import 'models/role_permission_models.dart';
+import 'providers/role_permission_scheme.dart';
 
-class PermissionRowMeta {
-  final String label;
-  final String key;
-  final List<String> actions;
-  final List<String> overrides;
-
-  PermissionRowMeta({
-    required this.label,
-    required this.key,
-    this.actions = const ['view', 'create', 'edit', 'delete'],
-    this.overrides = const [],
-  });
-}
-
-class PermissionSectionMeta {
-  final String title;
-  final List<PermissionRowMeta> rows;
-  PermissionSectionMeta({required this.title, required this.rows});
-}
+// for kIsWeb
+// for LogicalKeyboardKey
 
 /// ---------------------------------------------------------------------------
 /// PAGE COMPONENT
@@ -47,84 +31,76 @@ class SettingsUsersRolesRoleCreation extends ConsumerWidget {
     final state = ref.watch(roleCreationProvider);
     final notifier = ref.read(roleCreationProvider.notifier);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
+    return SettingsUsersRolesShell(
+      activeRoute: AppRoutes.settingsRoles,
+      child: Stack(
         children: [
-          _buildHeader(context, ref, state, notifier),
-          _buildTabHeader(state, notifier),
-          Expanded(
-            child: IndexedStack(
-              index: state.activeTabIndex,
-              children: [
-                _buildGeneralTab(state, notifier),
-                _buildSegmentedAccessTab(state, notifier),
-              ],
-            ),
-          ),
-          _buildFooter(context, state),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, WidgetRef ref,
-      RoleCreationState state, RoleCreationNotifier notifier) {
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF5F5F5),
-        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(LucideIcons.arrowLeft, size: 20),
-            onPressed: () => context.go(AppRoutes.settingsRoles),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            roleId == null ? 'New Role' : 'Edit Role',
-            style: AppTheme.pageTitle.copyWith(fontSize: 18),
-          ),
-          const Spacer(),
-          SizedBox(
-            width: 300,
-            height: 36,
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search settings ( / )',
-                prefixIcon: const Icon(LucideIcons.search, size: 16),
-                filled: true,
-                fillColor: Colors.white,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: AppTheme.borderLight),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: AppTheme.borderLight),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildStickyHeader(context, state, notifier),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(
+                    bottom: 60,
+                  ), // Space for sticky footer
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildGeneralHeader(),
+                      _buildGeneralView(state, notifier),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24),
+                        child: Divider(height: 1, color: AppTheme.borderLight),
+                      ),
+                      _buildSegmentedAccessHeader(),
+                      _buildPermissionsView(state, notifier),
+                    ],
+                  ),
                 ),
               ),
-              onChanged: notifier.setSearch,
-            ),
+              _buildFooter(context, state),
+            ],
           ),
-          const SizedBox(width: 16),
-          IconButton(
-            icon: const Icon(LucideIcons.x, size: 20, color: AppTheme.errorRed),
-            onPressed: () => context.go(AppRoutes.settingsRoles),
-          ),
+          _buildChatWidget(),
         ],
       ),
     );
   }
 
-  Widget _buildTabHeader(RoleCreationState state, RoleCreationNotifier notifier) {
+  Widget _buildChatWidget() {
+    return Positioned(
+      bottom: 80,
+      right: 24,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: const BoxDecoration(
+          color: Color(0xFF0088FF),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 8,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Icon(
+          LucideIcons.messageCircle,
+          color: Colors.white,
+          size: 24,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStickyHeader(
+    BuildContext context,
+    RoleCreationState state,
+    RoleCreationNotifier notifier,
+  ) {
     return Container(
-      height: 48,
+      height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -132,25 +108,95 @@ class SettingsUsersRolesRoleCreation extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          _TabItem(
-            label: 'General',
-            isActive: state.activeTabIndex == 0,
-            onTap: () => notifier.setTabIndex(0),
+          Text(
+            roleId == null ? 'New Role' : 'Edit Role',
+            style: AppTheme.pageTitle.copyWith(
+              fontSize: 18,
+              color: const Color(0xFF333333),
+            ),
           ),
           const SizedBox(width: 32),
-          _TabItem(
-            label: 'Segmented Access Control',
-            isActive: state.activeTabIndex == 1,
-            onTap: () => notifier.setTabIndex(1),
+          // Centered Search Bar
+          SizedBox(
+            width: 380,
+            height: 34,
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search settings ( / )',
+                hintStyle: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF999999),
+                ),
+                prefixIcon: const Icon(
+                  LucideIcons.search,
+                  size: 14,
+                  color: Color(0xFF999999),
+                ),
+                fillColor: const Color(0xFFF7F7F7),
+                filled: true,
+                contentPadding: EdgeInsets.zero,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+                ),
+              ),
+            ),
+          ),
+          const Spacer(),
+          IconButton(
+            onPressed: () => context.go(AppRoutes.settingsRoles),
+            icon: const Icon(LucideIcons.x, size: 20, color: Color(0xFF666666)),
+            splashRadius: 20,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildGeneralTab(RoleCreationState state, RoleCreationNotifier notifier) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
+  Widget _buildGeneralHeader() {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFF3F3F3),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      child: Text(
+        'GENERAL INFORMATION',
+        style: AppTheme.bodyText.copyWith(
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+          letterSpacing: 0.5,
+          color: const Color(0xFF333333),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSegmentedAccessHeader() {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFF3F3F3),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      child: Text(
+        'SEGMENTED ACCESS CONTROL',
+        style: AppTheme.bodyText.copyWith(
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+          letterSpacing: 0.5,
+          color: const Color(0xFF333333),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGeneralView(
+    RoleCreationState state,
+    RoleCreationNotifier notifier,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -159,17 +205,20 @@ class SettingsUsersRolesRoleCreation extends ConsumerWidget {
             required: true,
             child: CustomTextField(
               controller: TextEditingController(text: state.roleName)
-                ..selection = TextSelection.collapsed(offset: state.roleName.length),
+                ..selection = TextSelection.collapsed(
+                  offset: state.roleName.length,
+                ),
               onChanged: notifier.setRoleName,
               hintText: 'Enter role name',
             ),
           ),
-          const SizedBox(height: 24),
           _GeneralFormRow(
             label: 'Description',
             child: CustomTextField(
               controller: TextEditingController(text: state.description)
-                ..selection = TextSelection.collapsed(offset: state.description.length),
+                ..selection = TextSelection.collapsed(
+                  offset: state.description.length,
+                ),
               onChanged: notifier.setDescription,
               maxLines: 4,
               hintText: 'Max. 500 characters',
@@ -180,306 +229,163 @@ class SettingsUsersRolesRoleCreation extends ConsumerWidget {
     );
   }
 
-  Widget _buildSegmentedAccessTab(
-      RoleCreationState state, RoleCreationNotifier notifier) {
-    final sections = _getMetadata();
-    final query = state.searchQuery.toLowerCase();
-    
-    final filteredSections = sections.map((section) {
-      final filteredRows = section.rows.where((row) {
-        return row.label.toLowerCase().contains(query) || 
-               section.title.toLowerCase().contains(query);
-      }).toList();
-      return PermissionSectionMeta(title: section.title, rows: filteredRows);
-    }).where((section) => section.rows.isNotEmpty).toList();
+  Widget _buildPermissionsView(
+    RoleCreationState state,
+    RoleCreationNotifier notifier,
+  ) {
+    final sections = RolePermissionScheme.getMetadata();
 
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        _buildPermissionTable(state, notifier, filteredSections),
-        const SizedBox(height: 48),
-        _buildReportsSection(state, notifier),
-      ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 860),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final section in sections)
+                _PermissionSection(
+                  section: section,
+                  isExpanded: state.expandedSections.contains(section.title),
+                  onToggle: () => notifier.toggleSection(section.title),
+                  state: state,
+                  notifier: notifier,
+                ),
+              _buildReportsSection(state, notifier),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildPermissionTable(RoleCreationState state,
-      RoleCreationNotifier notifier, List<PermissionSectionMeta> sections) {
+  Widget _buildReportsSection(
+    RoleCreationState state,
+    RoleCreationNotifier notifier,
+  ) {
+    final categories = RolePermissionScheme.getReportCategories();
+    final isExpanded = state.expandedSections.contains('REPORTS');
+
     return Container(
+      margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
+        color: Colors.white,
         border: Border.all(color: const Color(0xFFDDDDDD)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildTableHeader(),
-          for (final section in sections) ...[
-            _buildSectionHeader(state, notifier, section),
-            for (final row in section.rows) _buildRow(state, notifier, row),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTableHeader() {
-    return Container(
-      height: 36,
-      color: const Color(0xFFF5F5F5),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          const Expanded(flex: 4, child: Text('PARTICULARS', style: _headerStyle)),
-          _headerCell('FULL'),
-          _headerCell('VIEW'),
-          _headerCell('CREATE'),
-          _headerCell('EDIT'),
-          _headerCell('DELETE'),
-          _headerCell('APPROVE'),
-          _headerCell('OTHERS'),
-        ],
-      ),
-    );
-  }
-
-  Widget _headerCell(String label) {
-    return Expanded(
-      flex: 1,
-      child: Center(
-        child: Text(label, style: _headerStyle),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(RoleCreationState state, RoleCreationNotifier notifier, PermissionSectionMeta section) {
-    final moduleKeys = section.rows.map((r) => r.key).toList();
-    final moduleActionMap = { for (var r in section.rows) r.key : r.actions };
-    
-    // Check if ALL rows in this section have a specific permission enabled
-    bool isAllChecked(String action) {
-      if (section.rows.isEmpty) return false;
-      return section.rows.every((r) => 
-        (state.permissions[r.key] ?? {}).contains(action) || 
-        (!r.actions.contains(action) && action != 'full')
-      );
-    }
-
-    return Container(
-      height: 36,
-      width: double.infinity,
-      color: const Color(0xFFE9ECEF),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 4,
-            child: Text(
-              section.title.toUpperCase(),
-              style: AppTheme.bodyText.copyWith(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-          ),
-          _sectionCheckCell(isAllChecked('full'), (v) => notifier.toggleCategoryColumn(moduleKeys, 'full', v, moduleActionMap)),
-          _sectionCheckCell(isAllChecked('view'), (v) => notifier.toggleCategoryColumn(moduleKeys, 'view', v, moduleActionMap)),
-          _sectionCheckCell(isAllChecked('create'), (v) => notifier.toggleCategoryColumn(moduleKeys, 'create', v, moduleActionMap)),
-          _sectionCheckCell(isAllChecked('edit'), (v) => notifier.toggleCategoryColumn(moduleKeys, 'edit', v, moduleActionMap)),
-          _sectionCheckCell(isAllChecked('delete'), (v) => notifier.toggleCategoryColumn(moduleKeys, 'delete', v, moduleActionMap)),
-          _sectionCheckCell(isAllChecked('approve'), (v) => notifier.toggleCategoryColumn(moduleKeys, 'approve', v, moduleActionMap)),
-          const Expanded(child: SizedBox()), // No Select All for Others
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionCheckCell(bool value, Function(bool) onChanged) {
-    return Expanded(
-      flex: 1,
-      child: Center(
-        child: _ZohoCheckbox(value: value, onTap: () => onChanged(!value)),
-      ),
-    );
-  }
-
-  Widget _buildRow(
-      RoleCreationState state, RoleCreationNotifier notifier, PermissionRowMeta row) {
-    final activeActions = state.permissions[row.key] ?? {};
-    
-    return _HoverRow(
-      child: Row(
-        children: [
-          Expanded(
-            flex: 4,
-            child: Text(row.label, style: AppTheme.bodyText.copyWith(fontSize: 13)),
-          ),
-          _checkCell(activeActions.contains('full'),
-              () => notifier.togglePermission(row.key, 'full', row.actions)),
-          _checkCell(activeActions.contains('view'),
-              () => notifier.togglePermission(row.key, 'view', row.actions)),
-          row.actions.contains('create')
-              ? _checkCell(activeActions.contains('create'),
-                  () => notifier.togglePermission(row.key, 'create', row.actions))
-              : const Expanded(child: SizedBox()),
-          row.actions.contains('edit')
-              ? _checkCell(activeActions.contains('edit'),
-                  () => notifier.togglePermission(row.key, 'edit', row.actions))
-              : const Expanded(child: SizedBox()),
-          row.actions.contains('delete')
-              ? _checkCell(activeActions.contains('delete'),
-                  () => notifier.togglePermission(row.key, 'delete', row.actions))
-              : const Expanded(child: SizedBox()),
-          row.actions.contains('approve')
-              ? _checkCell(activeActions.contains('approve'),
-                  () => notifier.togglePermission(row.key, 'approve', row.actions))
-              : const Expanded(child: SizedBox()),
-          row.overrides.isNotEmpty ? _buildOthersMenu(state, notifier, row) : const Expanded(child: SizedBox()),
-        ],
-      ),
-    );
-  }
-
-  Widget _checkCell(bool value, VoidCallback onTap) {
-    return Expanded(
-      flex: 1,
-      child: Center(
-        child: _ZohoCheckbox(value: value, onTap: onTap),
-      ),
-    );
-  }
-
-  Widget _buildOthersMenu(RoleCreationState state, RoleCreationNotifier notifier, PermissionRowMeta row) {
-    final overrides = state.advancedOverrides[row.key] ?? {};
-    
-    return Expanded(
-      flex: 1,
-      child: Center(
-        child: MenuAnchor(
-          style: MenuStyle(
-            padding: WidgetStateProperty.all(const EdgeInsets.all(16)),
-            backgroundColor: WidgetStateProperty.all(Colors.white),
-            elevation: WidgetStateProperty.all(8),
-          ),
-          menuChildren: [
-            for (final override in row.overrides)
-              _buildOverrideMenuItem(row.key, override, overrides[override] ?? false, notifier),
-          ],
-          builder: (context, controller, child) {
-            return InkWell(
-              onTap: () => controller.isOpen ? controller.close() : controller.open(),
-              child: Text(
-                'More Permissions',
-                style: AppTheme.bodyText.copyWith(
-                  color: const Color(0xFF0088FF),
-                  fontSize: 12,
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOverrideMenuItem(String moduleKey, String label, bool value, RoleCreationNotifier notifier) {
-    return Container(
-      width: 320,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          _ZohoCheckbox(value: value, onTap: () => notifier.toggleAdvancedOverride(moduleKey, label, !value)),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label, style: AppTheme.bodyText.copyWith(fontSize: 13))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReportsSection(RoleCreationState state, RoleCreationNotifier notifier) {
-    final categories = ['SALES', 'PURCHASES', 'INVENTORY', 'ACCOUNTANT'];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('REPORTS', style: AppTheme.pageTitle.copyWith(fontSize: 14, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Switch(
-              value: state.fullAccessReports,
-              onChanged: notifier.toggleFullAccessReports,
-              activeTrackColor: const Color(0xFF0088FF).withValues(alpha: 0.5),
-              activeColor: const Color(0xFF0088FF),
-            ),
-            const SizedBox(width: 12),
-            const Text('Enable full access for all reports', style: TextStyle(fontSize: 13)),
-          ],
-        ),
-        if (!state.fullAccessReports) ...[
-          const SizedBox(height: 20),
           Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFDDDDDD)),
-              borderRadius: BorderRadius.circular(4),
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF7F7F7),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(3)),
+              border: Border(bottom: BorderSide(color: Color(0xFFDDDDDD))),
             ),
-            child: Column(
-              children: [
-                _buildReportsHeader(notifier, categories),
-                for (final cat in categories)
-                  _buildReportRow(state, notifier, cat),
-              ],
+            child: InkWell(
+              onTap: () => notifier.toggleSection('REPORTS'),
+              child: Row(
+                children: [
+                  Icon(
+                    isExpanded
+                        ? LucideIcons.chevronDown
+                        : LucideIcons.chevronRight,
+                    size: 14,
+                    color: const Color(0xFF999999),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'REPORTS',
+                    style: AppTheme.bodyText.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: const Color(0xFF333333),
+                    ),
+                  ),
+                  const Spacer(),
+                  Switch(
+                    value: state.fullAccessReports,
+                    onChanged: notifier.toggleFullAccessReports,
+                    activeTrackColor: const Color(
+                      0xFF0088FF,
+                    ).withValues(alpha: 0.5),
+                    activeThumbColor: const Color(0xFF0088FF),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Enable full access for all reports',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF666666)),
+                  ),
+                ],
+              ),
             ),
           ),
+          if (isExpanded && !state.fullAccessReports) ...[
+            _buildReportsHeader(notifier, categories),
+            for (final cat in categories)
+              _ReportRow(category: cat, state: state, notifier: notifier),
+          ],
         ],
-      ],
+      ),
     );
   }
 
   Widget _buildReportsHeader(RoleCreationNotifier notifier, List<String> cats) {
     return Container(
       height: 36,
-      color: const Color(0xFFF5F5F5),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          const Expanded(flex: 4, child: Text('PARTICULARS', style: _headerStyle)),
-          _reportHeaderCell('FULL ACCESS', () => notifier.selectAllReportsColumn('full_access', cats, true)),
-          _reportHeaderCell('VIEW', () => notifier.selectAllReportsColumn('view', cats, true)),
-          _reportHeaderCell('EXPORT', () => notifier.selectAllReportsColumn('export', cats, true)),
-          _reportHeaderCell('SCHEDULE', () => notifier.selectAllReportsColumn('schedule', cats, true)),
-          _reportHeaderCell('SHARE', () => notifier.selectAllReportsColumn('share', cats, true)),
+          Expanded(flex: 4, child: Text('Particulars', style: _headerStyle)),
+          _reportHeaderCell(
+            'Full',
+            () => notifier.selectAllReportsColumn('full_access', cats, true),
+          ),
+          _reportHeaderCell(
+            'View',
+            () => notifier.selectAllReportsColumn('view', cats, true),
+          ),
+          _reportHeaderCell(
+            'Export',
+            () => notifier.selectAllReportsColumn('export', cats, true),
+          ),
+          _reportHeaderCell(
+            'Schedule',
+            () => notifier.selectAllReportsColumn('schedule', cats, true),
+          ),
+          _reportHeaderCell(
+            'Share',
+            () => notifier.selectAllReportsColumn('share', cats, true),
+          ),
         ],
       ),
     );
   }
 
   Widget _reportHeaderCell(String label, VoidCallback onSelect) {
-    return Expanded(
-      flex: 1,
+    return SizedBox(
+      width: 60,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(label, style: _headerStyle.copyWith(fontSize: 10)),
+            Text(label, style: _headerStyle),
             InkWell(
               onTap: onSelect,
-              child: const Text('Select All', style: TextStyle(fontSize: 9, color: Color(0xFF0088FF))),
+              child: const Text(
+                'Select All',
+                style: TextStyle(fontSize: 8, color: Color(0xFF0088FF)),
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildReportRow(RoleCreationState state, RoleCreationNotifier notifier, String cat) {
-    final active = state.reportPermissions[cat] ?? {};
-    return _HoverRow(
-      child: Row(
-        children: [
-          Expanded(flex: 4, child: Text(cat, style: AppTheme.bodyText.copyWith(fontSize: 13))),
-          _checkCell(active.contains('full_access'), () => notifier.toggleReportPermission(cat, 'full_access')),
-          _checkCell(active.contains('view'), () => notifier.toggleReportPermission(cat, 'view')),
-          _checkCell(active.contains('export'), () => notifier.toggleReportPermission(cat, 'export')),
-          _checkCell(active.contains('schedule'), () => notifier.toggleReportPermission(cat, 'schedule')),
-          _checkCell(active.contains('share'), () => notifier.toggleReportPermission(cat, 'share')),
-        ],
       ),
     );
   }
@@ -492,121 +398,673 @@ class SettingsUsersRolesRoleCreation extends ConsumerWidget {
         border: Border(top: BorderSide(color: AppTheme.borderLight)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
+          ZButton.primary(
+            label: 'Proceed',
+            onPressed: state.roleName.isEmpty
+                ? null
+                : () {
+                    ZerpaiToast.success(context, 'Role saved successfully.');
+                    context.go(AppRoutes.settingsRoles);
+                  },
+          ),
+          const SizedBox(width: 12),
           ZButton.secondary(
             label: 'Cancel',
             onPressed: () => context.go(AppRoutes.settingsRoles),
-          ),
-          const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: state.roleName.isEmpty ? null : () {
-              ZerpaiToast.success(context, 'Role saved successfully.');
-              context.go(AppRoutes.settingsRoles);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF28A745),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-            ),
-            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
         ],
       ),
     );
   }
 
-  List<PermissionSectionMeta> _getMetadata() {
-    return [
-      PermissionSectionMeta(title: 'CONTACTS', rows: [
-        PermissionRowMeta(label: 'Customers', key: 'customers'),
-        PermissionRowMeta(label: 'Vendors', key: 'vendors', overrides: [
-          'Allow users to add, edit and delete vendor bank account details.'
-        ]),
-      ]),
-      PermissionSectionMeta(title: 'ITEMS', rows: [
-        PermissionRowMeta(label: 'Items', key: 'items', overrides: [
-          'View cost price',
-          'Manage item groups',
-          'Assign Composite Items'
-        ]),
-        PermissionRowMeta(label: 'Composite Items', key: 'composite_items'),
-        PermissionRowMeta(label: 'Price List', key: 'price_list', actions: ['view', 'create', 'edit', 'delete', 'approve']),
-      ]),
-      PermissionSectionMeta(title: 'SALES', rows: [
-        PermissionRowMeta(label: 'Quotations', key: 'quotations'),
-        PermissionRowMeta(label: 'Sales Orders', key: 'sales_orders', 
-          actions: ['view', 'create', 'edit', 'delete', 'approve'],
-          overrides: ['Edit and delete approved sales orders']
-        ),
-        PermissionRowMeta(label: 'Invoices', key: 'invoices', overrides: ['Write off invoices']),
-        PermissionRowMeta(label: 'Payments Received', key: 'payments_received'),
-      ]),
-      PermissionSectionMeta(title: 'PURCHASES', rows: [
-        PermissionRowMeta(label: 'Purchase Orders', key: 'purchase_orders', actions: ['view', 'create', 'edit', 'delete', 'approve']),
-        PermissionRowMeta(label: 'Bills', key: 'bills', overrides: ['Edit and delete approved bills']),
-        PermissionRowMeta(label: 'Payments Made', key: 'payments_made'),
-      ]),
-      PermissionSectionMeta(title: 'ACCOUNTANT', rows: [
-        PermissionRowMeta(label: 'Chart of Accounts', key: 'chart_of_accounts'),
-        PermissionRowMeta(label: 'Manual Journals', key: 'manual_journals', actions: ['view', 'create', 'edit', 'delete', 'approve']),
-      ]),
-      PermissionSectionMeta(title: 'SETTINGS', rows: [
-        PermissionRowMeta(label: 'Organization Profile', key: 'org_profile', actions: ['view', 'edit']),
-        PermissionRowMeta(label: 'Taxes', key: 'taxes'),
-        PermissionRowMeta(label: 'Users & Roles', key: 'users_roles'),
-      ]),
-    ];
-  }
-
   static const _headerStyle = TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w700,
-    color: Color(0xFF666666),
-    letterSpacing: 0.5,
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    color: Color(0xFF333333),
+    letterSpacing: 0,
   );
 }
 
-/// ---------------------------------------------------------------------------
-/// HELPER WIDGETS
-/// ---------------------------------------------------------------------------
+class _PermissionSection extends StatelessWidget {
+  final PermissionSectionMeta section;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+  final RoleCreationState state;
+  final RoleCreationNotifier notifier;
 
-class _TabItem extends StatelessWidget {
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _TabItem({
-    required this.label,
-    required this.isActive,
-    required this.onTap,
+  const _PermissionSection({
+    required this.section,
+    required this.isExpanded,
+    required this.onToggle,
+    required this.state,
+    required this.notifier,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        height: 48,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isActive ? const Color(0xFF0088FF) : Colors.transparent,
-              width: 2,
+    final bool isMatrix = !section.rows.any((r) => r.isSettingsList);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFDDDDDD)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF7F7F7),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(3)),
+              border: Border(bottom: BorderSide(color: Color(0xFFDDDDDD))),
+            ),
+            child: InkWell(
+              onTap: onToggle,
+              child: Row(
+                children: [
+                  Icon(
+                    isExpanded
+                        ? LucideIcons.chevronDown
+                        : LucideIcons.chevronRight,
+                    size: 14,
+                    color: const Color(0xFF999999),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    section.title,
+                    style: AppTheme.bodyText.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: const Color(0xFF333333),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isExpanded) ...[
+            if (isMatrix) _buildTableHeader(),
+            for (final row in section.rows)
+              if (isMatrix)
+                _PermissionRow(row: row, state: state, notifier: notifier)
+              else
+                _SettingsCheckboxRow(
+                  row: row,
+                  state: state,
+                  notifier: notifier,
+                ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableHeader() {
+    return Container(
+      height: 36,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 5,
+            child: Text(
+              'Particulars',
+              style: SettingsUsersRolesRoleCreation._headerStyle,
+            ),
+          ),
+          _headerCell('Full'),
+          _headerCell('View'),
+          _headerCell('Create'),
+          _headerCell('Edit'),
+          _headerCell('Delete'),
+          _headerCell('Approve'),
+          const SizedBox(
+            width: 140,
+            child: Padding(
+              padding: EdgeInsets.only(left: 8),
+              child: Text(
+                'Others',
+                style: SettingsUsersRolesRoleCreation._headerStyle,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerCell(String label) {
+    return SizedBox(
+      width: 60,
+      child: Center(
+        child: Text(label, style: SettingsUsersRolesRoleCreation._headerStyle),
+      ),
+    );
+  }
+}
+
+class _PermissionRow extends StatefulWidget {
+  final PermissionRowMeta row;
+  final RoleCreationState state;
+  final RoleCreationNotifier notifier;
+
+  const _PermissionRow({
+    required this.row,
+    required this.state,
+    required this.notifier,
+  });
+
+  @override
+  State<_PermissionRow> createState() => _PermissionRowState();
+}
+
+class _PermissionRowState extends State<_PermissionRow> {
+  final LayerLink _layerLink = LayerLink();
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeActions = widget.state.permissions[widget.row.key] ?? {};
+
+    return Column(
+      children: [
+        MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: Container(
+            height: 32, // More compact
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: _isHovered ? const Color(0xFFF9F9F9) : Colors.white,
+              border: const Border(
+                bottom: BorderSide(color: Color(0xFFEEEEEE)),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Row(
+                    children: [
+                      Text(
+                        widget.row.label,
+                        style: AppTheme.bodyText.copyWith(
+                          fontSize: 13,
+                          color: const Color(0xFF333333),
+                        ),
+                      ),
+                      if (widget.row.infoTooltip != null) ...[
+                        const SizedBox(width: 6),
+                        ZTooltip(
+                          message: widget.row.infoTooltip!,
+                          child: const Icon(
+                            LucideIcons.info,
+                            size: 14,
+                            color: Color(0xFFEBB111),
+                          ), // Zoho yellow "i"
+                        ),
+                      ],
+                      if (widget.row.tooltip != null) ...[
+                        const SizedBox(width: 6),
+                        ZTooltip(
+                          message: widget.row.tooltip!,
+                          child: const Icon(
+                            LucideIcons.helpCircle,
+                            size: 14,
+                            color: Color(0xFFBBBBBB),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                _checkCell(
+                  activeActions.contains('full'),
+                  () => widget.notifier.togglePermission(
+                    widget.row.key,
+                    'full',
+                    widget.row.actions,
+                    subRows: widget.row.subRows,
+                  ),
+                ),
+                _checkCell(
+                  activeActions.contains('view'),
+                  () => widget.notifier.togglePermission(
+                    widget.row.key,
+                    'view',
+                    widget.row.actions,
+                  ),
+                ),
+                widget.row.actions.contains('create')
+                    ? _checkCell(
+                        activeActions.contains('create'),
+                        () => widget.notifier.togglePermission(
+                          widget.row.key,
+                          'create',
+                          widget.row.actions,
+                        ),
+                      )
+                    : const SizedBox(width: 60),
+                widget.row.actions.contains('edit')
+                    ? _checkCell(
+                        activeActions.contains('edit'),
+                        () => widget.notifier.togglePermission(
+                          widget.row.key,
+                          'edit',
+                          widget.row.actions,
+                        ),
+                      )
+                    : const SizedBox(width: 60),
+                widget.row.actions.contains('delete')
+                    ? _checkCell(
+                        activeActions.contains('delete'),
+                        () => widget.notifier.togglePermission(
+                          widget.row.key,
+                          'delete',
+                          widget.row.actions,
+                        ),
+                      )
+                    : const SizedBox(width: 60),
+                widget.row.actions.contains('approve')
+                    ? _checkCell(
+                        activeActions.contains('approve'),
+                        () => widget.notifier.togglePermission(
+                          widget.row.key,
+                          'approve',
+                          widget.row.actions,
+                        ),
+                      )
+                    : const SizedBox(width: 60),
+                SizedBox(
+                  width: 140,
+                  child: widget.row.overrides.isNotEmpty
+                      ? CompositedTransformTarget(
+                          link: _layerLink,
+                          child: InkWell(
+                            onTap: () => _showFlyout(context),
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(
+                                'More Permissions',
+                                style: AppTheme.bodyText.copyWith(
+                                  color: AppTheme.primaryBlue,
+                                  fontSize: 12,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      : const SizedBox(),
+                ),
+              ],
             ),
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isActive ? const Color(0xFF0088FF) : AppTheme.textSecondary,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-            fontSize: 13,
+        // Render sub-rows (nested permissions)
+        if (widget.row.subRows != null)
+          ...widget.row.subRows!.map(
+            (sub) => Padding(
+              padding: const EdgeInsets.only(left: 20),
+              child: _SettingsCheckboxRow(
+                row: sub,
+                state: widget.state,
+                notifier: widget.notifier,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _checkCell(bool value, VoidCallback onTap) {
+    return SizedBox(
+      width: 60, // Fixed width for alignment
+      child: Center(
+        child: _ZohoCheckbox(value: value, onTap: onTap),
+      ),
+    );
+  }
+
+  void _showFlyout(BuildContext context) {
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+
+    entry = OverlayEntry(
+      builder: (context) => _MorePermissionsFlyout(
+        layerLink: _layerLink,
+        row: widget.row,
+        state: widget.state,
+        notifier: widget.notifier,
+        onClose: () => entry.remove(),
+      ),
+    );
+
+    overlay.insert(entry);
+  }
+}
+
+class _SettingsCheckboxRow extends StatelessWidget {
+  final PermissionRowMeta row;
+  final RoleCreationState state;
+  final RoleCreationNotifier notifier;
+
+  const _SettingsCheckboxRow({
+    required this.row,
+    required this.state,
+    required this.notifier,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isChecked = state.permissions[row.key]?.contains('view') ?? false;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: _ZohoCheckbox(
+              value: isChecked,
+              onTap: () => notifier.togglePermission(row.key, 'view', ['view']),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      row.label,
+                      style: AppTheme.bodyText.copyWith(
+                        fontSize: 13,
+                        color: const Color(0xFF333333),
+                      ),
+                    ),
+                    if (row.tooltip != null) ...[
+                      const SizedBox(width: 6),
+                      ZTooltip(
+                        message: row.tooltip!,
+                        child: const Icon(
+                          LucideIcons.helpCircle,
+                          size: 14,
+                          color: Color(0xFFBBBBBB),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (row.overrides.isNotEmpty && isChecked)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Wrap(
+                      spacing: 24,
+                      runSpacing: 8,
+                      children: [
+                        for (final override in row.overrides)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _ZohoCheckbox(
+                                value:
+                                    state.advancedOverrides[row
+                                        .key]?[override] ??
+                                    false,
+                                onTap: () => notifier.toggleAdvancedOverride(
+                                  row.key,
+                                  override,
+                                  !(state.advancedOverrides[row
+                                          .key]?[override] ??
+                                      false),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                override,
+                                style: AppTheme.bodyText.copyWith(
+                                  fontSize: 12,
+                                  color: const Color(0xFF666666),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportRow extends StatelessWidget {
+  final String category;
+  final RoleCreationState state;
+  final RoleCreationNotifier notifier;
+
+  const _ReportRow({
+    required this.category,
+    required this.state,
+    required this.notifier,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = state.reportPermissions[category] ?? {};
+
+    return Container(
+      height: 32, // Density polish
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: Text(
+              category,
+              style: AppTheme.bodyText.copyWith(
+                fontSize: 13,
+                color: const Color(0xFF111111),
+              ),
+            ),
+          ),
+          _checkCell(
+            active.contains('full_access'),
+            () => notifier.toggleReportPermission(category, 'full_access'),
+          ),
+          _checkCell(
+            active.contains('view'),
+            () => notifier.toggleReportPermission(category, 'view'),
+          ),
+          _checkCell(
+            active.contains('export'),
+            () => notifier.toggleReportPermission(category, 'export'),
+          ),
+          _checkCell(
+            active.contains('schedule'),
+            () => notifier.toggleReportPermission(category, 'schedule'),
+          ),
+          _checkCell(
+            active.contains('share'),
+            () => notifier.toggleReportPermission(category, 'share'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _checkCell(bool value, VoidCallback onTap) {
+    return SizedBox(
+      width: 60, // Alignment polish
+      child: Center(
+        child: _ZohoCheckbox(value: value, onTap: onTap),
+      ),
+    );
+  }
+}
+
+class _MorePermissionsFlyout extends StatelessWidget {
+  final LayerLink layerLink;
+  final PermissionRowMeta row;
+  final RoleCreationState state;
+  final RoleCreationNotifier notifier;
+  final VoidCallback onClose;
+
+  const _MorePermissionsFlyout({
+    required this.layerLink,
+    required this.row,
+    required this.state,
+    required this.notifier,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: onClose,
+          child: Container(color: Colors.transparent),
+        ),
+        CompositedTransformFollower(
+          link: layerLink,
+          offset: const Offset(-200, 24), // Offset to the left to avoid edge
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(4),
+            color: Colors.white,
+            child: Container(
+              width: 360, // Slightly wider for better text flow
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFDDDDDD)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'More Permissions',
+                        style: AppTheme.bodyText.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: const Color(0xFF333333),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: onClose,
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: Color(0xFF999999),
+                        ),
+                        splashRadius: 16,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24, color: Color(0xFFEEEEEE)),
+                  for (final override in row.overrides)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: _ZohoCheckbox(
+                              value:
+                                  state.advancedOverrides[row.key]?[override] ??
+                                  false,
+                              onTap: () => notifier.toggleAdvancedOverride(
+                                row.key,
+                                override,
+                                !(state.advancedOverrides[row.key]?[override] ??
+                                    false),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      override,
+                                      style: AppTheme.bodyText.copyWith(
+                                        fontSize: 13,
+                                        color: const Color(0xFF333333),
+                                      ),
+                                    ),
+                                    if (row.overrideTooltips?[override] !=
+                                        null) ...[
+                                      const SizedBox(width: 4),
+                                      ZTooltip(
+                                        message:
+                                            row.overrideTooltips![override]!,
+                                        child: const Icon(
+                                          LucideIcons.helpCircle,
+                                          size: 12,
+                                          color: Color(0xFFBBBBBB),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                if (row.overrideTooltips?[override] != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      row.overrideTooltips![override]!,
+                                      style: AppTheme.bodyText.copyWith(
+                                        fontSize: 11,
+                                        color: const Color(0xFF888888),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -624,57 +1082,37 @@ class _GeneralFormRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 160,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              children: [
-                Text(label, style: AppTheme.bodyText.copyWith(fontSize: 13)),
-                if (required)
-                  const Text(' *', style: TextStyle(color: AppTheme.errorRed)),
-              ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 140,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Row(
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF666666),
+                    ),
+                  ),
+                  if (required)
+                    const Text(
+                      ' *',
+                      style: TextStyle(color: AppTheme.errorRed, fontSize: 13),
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
-        Expanded(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: child,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _HoverRow extends StatefulWidget {
-  final Widget child;
-  const _HoverRow({required this.child});
-
-  @override
-  State<_HoverRow> createState() => _HoverRowState();
-}
-
-class _HoverRowState extends State<_HoverRow> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        height: 32, // Exact 32px height for high density
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: _isHovered ? const Color(0xFFF9F9F9) : Colors.white,
-          border: const Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
-        ),
-        child: widget.child,
+          const SizedBox(width: 12),
+          SizedBox(width: 480, child: child),
+        ],
       ),
     );
   }
@@ -692,7 +1130,7 @@ class _ZohoCheckbox extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(2),
       child: Container(
-        width: 14, // Small 14px checkboxes
+        width: 14,
         height: 14,
         decoration: BoxDecoration(
           color: value ? const Color(0xFF0088FF) : Colors.white,

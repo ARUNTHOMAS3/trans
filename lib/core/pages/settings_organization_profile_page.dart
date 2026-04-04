@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -22,10 +22,51 @@ import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/form_row.dart';
 import 'package:zerpai_erp/shared/widgets/settings_fixed_header_layout.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart';
+import 'package:zerpai_erp/shared/services/storage_service.dart';
 
 // TODO(auth): Remove _kDevOrgId and all fallbacks that reference it once auth
 // is fully enabled. Replace every usage with the real authUserProvider orgId.
 const String _kDevOrgId = '00000000-0000-0000-0000-000000000002';
+
+const List<String> _indianStates = <String>[
+  'Andaman and Nicobar Islands',
+  'Andhra Pradesh',
+  'Arunachal Pradesh',
+  'Assam',
+  'Bihar',
+  'Chandigarh',
+  'Chhattisgarh',
+  'Dadra and Nagar Haveli and Daman and Diu',
+  'Delhi',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jammu and Kashmir',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Ladakh',
+  'Lakshadweep',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Manipur',
+  'Meghalaya',
+  'Mizoram',
+  'Nagaland',
+  'Odisha',
+  'Puducherry',
+  'Punjab',
+  'Rajasthan',
+  'Sikkim',
+  'Tamil Nadu',
+  'Telangana',
+  'Tripura',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal',
+];
 
 class _TimezoneOption {
   final String id;
@@ -43,6 +84,48 @@ class _TimezoneOption {
     required this.display,
     this.countryId,
   });
+}
+
+class _DistrictOption {
+  final String id;
+  final String name;
+  final String? code;
+  const _DistrictOption({required this.id, required this.name, this.code});
+}
+
+class _LocalBodyOption {
+  final String id;
+  final String name;
+  final String? code;
+  final String bodyType;
+  const _LocalBodyOption({
+    required this.id,
+    required this.name,
+    required this.bodyType,
+    this.code,
+  });
+}
+
+class _WardOption {
+  final String id;
+  final int? wardNo;
+  final String name;
+  final String? code;
+  final String displayName;
+  const _WardOption({
+    required this.id,
+    this.wardNo,
+    required this.name,
+    this.code,
+    required this.displayName,
+  });
+}
+
+class _StateOption {
+  final String id;
+  final String name;
+  final String? code;
+  const _StateOption({required this.id, required this.name, this.code});
 }
 
 class SettingsOrganizationProfilePage extends ConsumerStatefulWidget {
@@ -106,19 +189,7 @@ class _SettingsOrganizationProfilePageState
       };
 
   static const List<String> _dateSeparatorOptions = <String>['-', '/', '.'];
-  static const List<String> _languageOptions = <String>[
-    'English',
-    'Hindi',
-    'Arabic',
-    'Bengali',
-    'Gujarati',
-    'Kannada',
-    'Malayalam',
-    'Marathi',
-    'Tamil',
-    'Telugu',
-    'Urdu',
-  ];
+
 
   static const List<_ProfileNavSection> _navSections = <_ProfileNavSection>[
     _ProfileNavSection(
@@ -241,8 +312,21 @@ class _SettingsOrganizationProfilePageState
       TextEditingController();
   final TextEditingController _companyIdValueController =
       TextEditingController();
-  final TextEditingController _paymentStubAddressController =
+  final TextEditingController _paymentStubAttentionController =
       TextEditingController();
+  final TextEditingController _paymentStubStreet1Controller =
+      TextEditingController();
+  final TextEditingController _paymentStubStreet2Controller =
+      TextEditingController();
+  final TextEditingController _paymentStubCityController =
+      TextEditingController();
+  final TextEditingController _paymentStubPincodeController =
+      TextEditingController();
+  final TextEditingController _paymentStubPhoneController =
+      TextEditingController();
+  final TextEditingController _paymentStubFaxController =
+      TextEditingController();
+  String? _selectedPaymentStubState;
   final Set<String> _expandedBlocks = <String>{'Organization'};
   final List<_ProfileAdditionalField> _additionalFields =
       <_ProfileAdditionalField>[_ProfileAdditionalField()];
@@ -255,12 +339,322 @@ class _SettingsOrganizationProfilePageState
   final GlobalKey _primaryContactKey = GlobalKey();
   final GlobalKey _baseCurrencyKey = GlobalKey();
   final GlobalKey _fiscalYearKey = GlobalKey();
-  final GlobalKey _organizationLanguageKey = GlobalKey();
-  final GlobalKey _communicationLanguagesKey = GlobalKey();
+
   final GlobalKey _timeZoneKey = GlobalKey();
   final GlobalKey _dateFormatKey = GlobalKey();
   final GlobalKey _companyIdKey = GlobalKey();
   final GlobalKey _additionalFieldsKey = GlobalKey();
+
+  // LSGD fields for Payment Stub Address (Kerala specific)
+  List<_DistrictOption> _paymentStubDistrictOptions = <_DistrictOption>[];
+  List<_LocalBodyOption> _paymentStubAllLocalBodyOptions = <_LocalBodyOption>[];
+  List<_LocalBodyOption> _paymentStubLocalBodyOptions = <_LocalBodyOption>[];
+  List<_WardOption> _paymentStubWardOptions = const [];
+  String? _selectedPaymentStubDistrictId;
+  String? _selectedPaymentStubLocalBodyType;
+  String? _selectedPaymentStubLocalBodyId;
+  String? _selectedPaymentStubWardId;
+  List<_StateOption> _paymentStubStateLookupRows = <_StateOption>[];
+
+  // Pharmacy-specific compliance fields
+  bool _isDrugRegistered = false;
+  String? _drugLicenceType;
+  final TextEditingController _drugLicense20Controller = TextEditingController();
+  final TextEditingController _drugLicense21Controller = TextEditingController();
+  final TextEditingController _drugLicense20BController = TextEditingController();
+  final TextEditingController _drugLicense21BController = TextEditingController();
+
+  bool _isFssaiRegistered = false;
+  final TextEditingController _fssaiNumberController = TextEditingController();
+
+  bool _isMsmeRegistered = false;
+  String? _msmeRegistrationType;
+  final TextEditingController _msmeNumberController = TextEditingController();
+
+  // Pharmacy compliance documents/attachments
+  List<PlatformFile> _drugLicense20Docs = [];
+  List<PlatformFile> _drugLicense21Docs = [];
+  List<PlatformFile> _drugLicense20BDocs = [];
+  List<PlatformFile> _drugLicense21BDocs = [];
+  List<PlatformFile> _fssaiDocs = [];
+  List<PlatformFile> _msmeDocs = [];
+
+  bool get _showKeralaLsgdFields =>
+      _selectedPaymentStubState?.toLowerCase() == 'kerala';
+
+  String _localBodyTypeLabel(String value) {
+    switch (value) {
+      case 'grama_panchayat':
+        return 'Grama Panchayat';
+      case 'municipality':
+        return 'Municipality';
+      case 'corporation':
+        return 'Corporation';
+      default:
+        return value;
+    }
+  }
+
+  List<String> get _paymentStubAvailableLocalBodyTypeOptions {
+    final seen = <String>{};
+    return _paymentStubAllLocalBodyOptions
+        .map((localBody) => localBody.bodyType.trim())
+        .where((bodyType) => bodyType.isNotEmpty && seen.add(bodyType))
+        .toList();
+  }
+
+  _StateOption? get _selectedPaymentStubStateRow {
+    if (_selectedPaymentStubState == null || _selectedPaymentStubState!.isEmpty)
+      return null;
+    for (final option in _paymentStubStateLookupRows) {
+      if (option.name.toLowerCase() ==
+          _selectedPaymentStubState!.toLowerCase()) {
+        return option;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _loadPaymentStubStates() async {
+    try {
+      final res = await _apiClient.get('lookups/states/IN');
+      if (res.success && res.data is List) {
+        final states = (res.data as List)
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (state) => _StateOption(
+                id: (state['id'] ?? '').toString(),
+                name: (state['name'] ?? '').toString(),
+                code: state['code']?.toString(),
+              ),
+            )
+            .where((state) => state.name.isNotEmpty)
+            .toList();
+        if (!mounted) return;
+        setState(() {
+          _paymentStubStateLookupRows = states;
+        });
+        // If Kerala is already selected (from load), trigger district load
+        if (_showKeralaLsgdFields) {
+          _loadDistrictsForSelectedPaymentStubState();
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadDistrictsForSelectedPaymentStubState({
+    String? preferredDistrictId,
+  }) async {
+    final stateRow = _selectedPaymentStubStateRow;
+    if (stateRow == null || stateRow.id.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _paymentStubDistrictOptions = const [];
+        _selectedPaymentStubDistrictId = null;
+      });
+      return;
+    }
+
+    try {
+      final res = await _apiClient.get(
+        'lookups/districts',
+        queryParameters: <String, dynamic>{'stateId': stateRow.id},
+      );
+      if (!mounted) return;
+      final districts = res.success && res.data is List
+          ? (res.data as List)
+                .whereType<Map<String, dynamic>>()
+                .map(
+                  (district) => _DistrictOption(
+                    id: (district['id'] ?? '').toString(),
+                    name: (district['name'] ?? '').toString(),
+                    code: district['code']?.toString(),
+                  ),
+                )
+                .where((district) => district.id.isNotEmpty)
+                .toList()
+          : <_DistrictOption>[];
+
+      setState(() {
+        _paymentStubDistrictOptions = districts;
+        if (preferredDistrictId != null &&
+            districts
+                .any((district) => district.id == preferredDistrictId)) {
+          _selectedPaymentStubDistrictId = preferredDistrictId;
+        } else if (_selectedPaymentStubDistrictId != null &&
+            districts.any(
+              (district) => district.id == _selectedPaymentStubDistrictId,
+            )) {
+          // keep current
+        } else {
+          _selectedPaymentStubDistrictId = null;
+        }
+      });
+      if (_selectedPaymentStubDistrictId != null) {
+        _loadLocalBodiesForSelectedPaymentStubDistrict();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _paymentStubDistrictOptions = const [];
+        _selectedPaymentStubDistrictId = null;
+      });
+    }
+  }
+
+  Future<void> _loadLocalBodiesForSelectedPaymentStubDistrict({
+    String? preferredLocalBodyId,
+    bool ignoreTypeFilter = false,
+  }) async {
+    if (_selectedPaymentStubDistrictId == null ||
+        _selectedPaymentStubDistrictId!.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _paymentStubAllLocalBodyOptions = const [];
+        _paymentStubLocalBodyOptions = const [];
+        _selectedPaymentStubLocalBodyId = null;
+        if (ignoreTypeFilter) _selectedPaymentStubLocalBodyType = null;
+      });
+      return;
+    }
+
+    try {
+      final res = await _apiClient.get(
+        'lookups/local-bodies',
+        queryParameters: <String, dynamic>{
+          'districtId': _selectedPaymentStubDistrictId,
+        },
+      );
+      if (!mounted) return;
+      final allLocalBodies = res.success && res.data is List
+          ? (res.data as List)
+                .whereType<Map<String, dynamic>>()
+                .map(
+                  (localBody) => _LocalBodyOption(
+                    id: (localBody['id'] ?? '').toString(),
+                    name: (localBody['name'] ?? '').toString(),
+                    code: localBody['code']?.toString(),
+                    bodyType: (localBody['body_type'] ?? '').toString(),
+                  ),
+                )
+                .where((localBody) => localBody.id.isNotEmpty)
+                .toList()
+          : <_LocalBodyOption>[];
+
+      setState(() {
+        _paymentStubAllLocalBodyOptions = allLocalBodies;
+        final availableTypes = _paymentStubAvailableLocalBodyTypeOptions;
+        if (ignoreTypeFilter ||
+            (_selectedPaymentStubLocalBodyType != null &&
+                !availableTypes.contains(_selectedPaymentStubLocalBodyType))) {
+          _selectedPaymentStubLocalBodyType = null;
+        }
+
+        final filteredLocalBodies = _selectedPaymentStubLocalBodyType == null ||
+                _selectedPaymentStubLocalBodyType!.isEmpty
+            ? allLocalBodies
+            : allLocalBodies
+                .where(
+                  (localBody) =>
+                      localBody.bodyType == _selectedPaymentStubLocalBodyType,
+                )
+                .toList();
+
+        _paymentStubLocalBodyOptions = filteredLocalBodies;
+        if (preferredLocalBodyId != null) {
+          final preferred = allLocalBodies
+              .where((localBody) => localBody.id == preferredLocalBodyId)
+              .cast<_LocalBodyOption?>()
+              .firstOrNull;
+          if (preferred != null) {
+            _selectedPaymentStubLocalBodyId = preferred.id;
+            _selectedPaymentStubLocalBodyType = preferred.bodyType;
+            _loadWardsForSelectedPaymentStubLocalBody();
+            return;
+          }
+        }
+
+        if (_selectedPaymentStubLocalBodyId != null &&
+            filteredLocalBodies.any(
+              (localBody) => localBody.id == _selectedPaymentStubLocalBodyId,
+            )) {
+          _loadWardsForSelectedPaymentStubLocalBody();
+          return;
+        }
+
+        _selectedPaymentStubLocalBodyId = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _paymentStubAllLocalBodyOptions = const [];
+        _paymentStubLocalBodyOptions = const [];
+        _selectedPaymentStubLocalBodyId = null;
+        if (ignoreTypeFilter) _selectedPaymentStubLocalBodyType = null;
+      });
+    }
+  }
+
+  Future<void> _loadWardsForSelectedPaymentStubLocalBody({
+    String? preferredWardId,
+  }) async {
+    if (_selectedPaymentStubLocalBodyId == null ||
+        _selectedPaymentStubLocalBodyId!.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _paymentStubWardOptions = const [];
+        _selectedPaymentStubWardId = null;
+      });
+      return;
+    }
+
+    try {
+      final res = await _apiClient.get(
+        'lookups/wards',
+        queryParameters: <String, dynamic>{
+          'localBodyId': _selectedPaymentStubLocalBodyId,
+        },
+      );
+      if (!mounted) return;
+      final wards = res.success && res.data is List
+          ? (res.data as List)
+                .whereType<Map<String, dynamic>>()
+                .map(
+                  (ward) => _WardOption(
+                    id: (ward['id'] ?? '').toString(),
+                    wardNo: ward['ward_no'] is int
+                        ? ward['ward_no'] as int
+                        : int.tryParse((ward['ward_no'] ?? '').toString()),
+                    name: (ward['name'] ?? '').toString(),
+                    code: ward['code']?.toString(),
+                    displayName: (ward['display_name'] ?? ward['name'] ?? '')
+                        .toString(),
+                  ),
+                )
+                .where((ward) => ward.id.isNotEmpty)
+                .toList()
+          : <_WardOption>[];
+
+      setState(() {
+        _paymentStubWardOptions = wards;
+        if (preferredWardId != null &&
+            wards.any((ward) => ward.id == preferredWardId)) {
+          _selectedPaymentStubWardId = preferredWardId;
+        } else if (_selectedPaymentStubWardId != null &&
+            wards.any((ward) => ward.id == _selectedPaymentStubWardId)) {
+          // keep current
+        } else {
+          _selectedPaymentStubWardId = null;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _paymentStubWardOptions = const [];
+        _selectedPaymentStubWardId = null;
+      });
+    }
+  }
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -277,8 +671,7 @@ class _SettingsOrganizationProfilePageState
   String? _selectedBaseCurrencyDecimals;
   String? _selectedBaseCurrencyFormat;
   String? _selectedFiscalYear;
-  String? _selectedOrganizationLanguage;
-  List<String> _selectedCommunicationLanguages = <String>[];
+
   String? _selectedTimeZone;
   String? _selectedDateFormat;
   String? _selectedDateSeparator;
@@ -307,7 +700,21 @@ class _SettingsOrganizationProfilePageState
     _searchController.dispose();
     _organizationNameController.dispose();
     _companyIdValueController.dispose();
-    _paymentStubAddressController.dispose();
+    _paymentStubAttentionController.dispose();
+    _paymentStubStreet1Controller.dispose();
+_paymentStubStreet2Controller.dispose();
+    _paymentStubCityController.dispose();
+    _paymentStubPincodeController.dispose();
+    _paymentStubPhoneController.dispose();
+    _paymentStubFaxController.dispose();
+
+    _drugLicense20Controller.dispose();
+    _drugLicense21Controller.dispose();
+    _drugLicense20BController.dispose();
+    _drugLicense21BController.dispose();
+    _fssaiNumberController.dispose();
+    _msmeNumberController.dispose();
+
     for (final field in _additionalFields) {
       field.dispose();
     }
@@ -541,23 +948,7 @@ class _SettingsOrganizationProfilePageState
           (orgData['fiscal_year'] ?? '').toString(),
           _fiscalYearOptions,
         );
-        _selectedOrganizationLanguage = _matchOption(
-          (orgData['organization_language'] ?? '').toString(),
-          _languageOptions,
-        );
-        _selectedCommunicationLanguages =
-            ((orgData['communication_languages'] as List?)
-                        ?.map((item) => item.toString())
-                        .where((item) => item.trim().isNotEmpty)
-                        .toList() ??
-                    <String>[])
-                .where(_languageOptions.contains)
-                .toList();
-        if (_selectedCommunicationLanguages.isEmpty) {
-          _selectedCommunicationLanguages = <String>[
-            _selectedOrganizationLanguage ?? 'English',
-          ];
-        }
+
         _selectedTimeZone = _matchTimezoneValue(
           (orgData['timezone_tzdb_name'] ??
                   orgData['timezone_display'] ??
@@ -586,10 +977,59 @@ class _SettingsOrganizationProfilePageState
         _selectedState = null;
         _stateOptions = <String>[];
         _stateIdByName = <String, String>{};
-        _paymentStubAddressController.text =
+        final String rawAddress =
             (orgData['payment_stub_address'] ?? '').toString();
+        try {
+          if (rawAddress.startsWith('{')) {
+            final addr = jsonDecode(rawAddress) as Map<String, dynamic>;
+            _paymentStubAttentionController.text =
+                (addr['attention'] ?? '').toString();
+            _paymentStubStreet1Controller.text =
+                (addr['street1'] ?? '').toString();
+            _paymentStubStreet2Controller.text =
+                (addr['street2'] ?? '').toString();
+            _paymentStubCityController.text = (addr['city'] ?? '').toString();
+            _paymentStubPincodeController.text =
+                (addr['pincode'] ?? '').toString();
+            _paymentStubPhoneController.text =
+                _normalizeIndiaPhone((addr['phone'] ?? '').toString());
+            _paymentStubFaxController.text = (addr['fax'] ?? '').toString();
+            _selectedPaymentStubState = _matchOption(
+              (addr['state_name'] ?? '').toString(),
+              _indianStates,
+            );
+            _selectedPaymentStubDistrictId = (addr['district_id'] ?? '').toString();
+            _selectedPaymentStubLocalBodyId = (addr['local_body_id'] ?? '').toString();
+            _selectedPaymentStubWardId = (addr['ward_id'] ?? '').toString();
+          } else {
+            _paymentStubStreet1Controller.text = rawAddress;
+          }
+        } catch (_) {
+          _paymentStubStreet1Controller.text = rawAddress;
+        }
+
         _hasSeparatePaymentStubAddress =
             orgData['has_separate_payment_stub_address'] == true;
+
+        // Pharmacy compliance fields
+        _isDrugRegistered = orgData['is_drug_registered'] == true;
+        _drugLicenceType = orgData['drug_licence_type']?.toString();
+        _drugLicense20Controller.text =
+            (orgData['drug_license_20'] ?? '').toString();
+        _drugLicense21Controller.text =
+            (orgData['drug_license_21'] ?? '').toString();
+        _drugLicense20BController.text =
+            (orgData['drug_license_20b'] ?? '').toString();
+        _drugLicense21BController.text =
+            (orgData['drug_license_21b'] ?? '').toString();
+
+        _isFssaiRegistered = orgData['is_fssai_registered'] == true;
+        _fssaiNumberController.text = (orgData['fssai_number'] ?? '').toString();
+
+        _isMsmeRegistered = orgData['is_msme_registered'] == true;
+        _msmeRegistrationType = orgData['msme_registration_type']?.toString();
+        _msmeNumberController.text = (orgData['msme_number'] ?? '').toString();
+
         _isLoading = false;
       });
 
@@ -602,6 +1042,7 @@ class _SettingsOrganizationProfilePageState
           selectedStateId: (orgData['state_id'] ?? '').toString(),
         );
         await _fetchTimezones(countryId);
+        await _loadPaymentStubStates();
       }
     } catch (error) {
       if (!mounted) return;
@@ -918,12 +1359,8 @@ class _SettingsOrganizationProfilePageState
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildInfoBanner(
-            icon: LucideIcons.info,
-            message:
-                'This page is part of the shared global settings system. Real organization data is loaded where available and the rest remains editable for future API wiring.',
-          ),
-          const SizedBox(height: AppTheme.space24),
+          const SizedBox(height: AppTheme.space8),
+
 
           // ── Section: Organization Logo ─────────────────────────
           _buildLogoSection(),
@@ -980,6 +1417,53 @@ class _SettingsOrganizationProfilePageState
                         if (countryId != null) {
                           await _fetchStates(countryId);
                           await _fetchTimezones(countryId);
+
+                          if (value.toLowerCase() == 'india') {
+                            setState(() {
+                              // 1. Default state to Kerala
+                              final kerala = _stateOptions
+                                  .where((s) => s.toLowerCase() == 'kerala')
+                                  .firstOrNull;
+                              if (kerala != null) {
+                                _selectedState = kerala;
+                              }
+
+                              // 2. Default currency to INR
+                              final inr = _currencyOptions
+                                  .where((c) => c.toUpperCase() == 'INR')
+                                  .firstOrNull;
+                              if (inr != null) {
+                                _selectedBaseCurrency = inr;
+                                final currencyData =
+                                    _currencyDataByCode[inr] ??
+                                    <String, dynamic>{};
+                                _selectedBaseCurrencyDecimals =
+                                    currencyData['decimals']?.toString() ?? '2';
+                                _selectedBaseCurrencyFormat =
+                                    currencyData['format']?.toString();
+                              }
+
+                              // 3. Default timezone to Asia/Kolkata (IST)
+                              final ist = _timeZoneOptions
+                                  .where(
+                                    (t) =>
+                                        t.tzdbName == 'Asia/Kolkata' ||
+                                        t.display.contains('Kolkata') ||
+                                        t.display.contains('Mumbai') ||
+                                        t.display.contains('New Delhi') ||
+                                        t.display.contains('Chennai'),
+                                  )
+                                  .firstOrNull;
+                              if (ist != null) {
+                                _selectedTimeZone = ist.tzdbName;
+                              }
+
+                              // 4. Default fiscal year to April - March
+                              if (_fiscalYearOptions.contains('April - March')) {
+                                _selectedFiscalYear = 'April - March';
+                              }
+                            });
+                          }
                         }
                       } else {
                         setState(() {
@@ -1112,26 +1596,119 @@ class _SettingsOrganizationProfilePageState
                           setState(() {
                             _hasSeparatePaymentStubAddress = value;
                           });
+                          if (value) {
+                            _loadPaymentStubStates();
+                          }
                         },
                       ),
                     ],
                   ),
                 ),
                 if (_hasSeparatePaymentStubAddress) ...[
+                  kZerpaiFormDivider,
                   ZerpaiFormRow(
-                    label: 'Payment stub address',
+                    label: 'Address',
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    child: TextFormField(
-                      controller: _paymentStubAddressController,
-                      maxLines: 4,
-                      maxLength: 255,
-                      decoration: const InputDecoration(
-                        hintText: 'You can enter a maximum of 255 characters',
-                        alignLabelWithHint: true,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: _paymentStubAttentionController,
+                          decoration: _dec('Attention'),
+                        ),
+                        const SizedBox(height: AppTheme.space8),
+                        TextFormField(
+                          controller: _paymentStubStreet1Controller,
+                          decoration: _dec('Street 1'),
+                        ),
+                        const SizedBox(height: AppTheme.space8),
+                        TextFormField(
+                          controller: _paymentStubStreet2Controller,
+                          decoration: _dec('Street 2'),
+                        ),
+                        const SizedBox(height: AppTheme.space8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _paymentStubCityController,
+                                decoration: _dec('City'),
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.space8),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _paymentStubPincodeController,
+                                decoration: _dec('Pin code'),
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(6),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppTheme.space8),
+                        _buildStaticField('India'),
+                        const SizedBox(height: AppTheme.space8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FormDropdown<String>(
+                                value: _selectedPaymentStubState,
+                                hint: 'State / Union territory',
+                                items: _indianStates,
+                                onChanged: (v) {
+                                  setState(() {
+                                    _selectedPaymentStubState = v;
+                                    _selectedPaymentStubDistrictId = null;
+                                    _selectedPaymentStubLocalBodyType = null;
+                                    _selectedPaymentStubLocalBodyId = null;
+                                    _selectedPaymentStubWardId = null;
+                                    _paymentStubDistrictOptions = const [];
+                                    _paymentStubAllLocalBodyOptions = const [];
+                                    _paymentStubLocalBodyOptions = const [];
+                                    _paymentStubWardOptions = const [];
+                                  });
+                                  if (_showKeralaLsgdFields) {
+                                    _loadDistrictsForSelectedPaymentStubState();
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.space8),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _paymentStubPhoneController,
+                                decoration: _dec('Phone'),
+                                inputFormatters: [_IndiaPhoneFormatter()],
+                                keyboardType: TextInputType.phone,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppTheme.space8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _paymentStubFaxController,
+                                decoration: _dec('Fax number'),
+                                keyboardType: TextInputType.phone,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_showKeralaLsgdFields) ...[
+                          const SizedBox(height: AppTheme.space8),
+                          _buildPaymentStubLsgdFields(),
+                        ],
+                      ],
                     ),
                   ),
                 ],
+                const SizedBox(height: AppTheme.space32),
               ],
             ),
           ),
@@ -1146,12 +1723,7 @@ class _SettingsOrganizationProfilePageState
           const SizedBox(height: AppTheme.space12),
           _buildPrimaryContactCard(),
           const SizedBox(height: AppTheme.space12),
-          _buildInfoBanner(
-            icon: LucideIcons.mail,
-            message:
-                'Your primary contact email belongs to the current signed-in user context. Save wiring can later persist organization-specific delivery preferences.',
-          ),
-          const SizedBox(height: AppTheme.space24),
+
 
           // ── Section: Configuration ────────────────────────────
           Text('Configuration', style: AppTheme.sectionHeader),
@@ -1179,48 +1751,7 @@ class _SettingsOrganizationProfilePageState
                         setState(() => _selectedFiscalYear = value),
                   ),
                 ),
-                ZerpaiFormRow(
-                  key: _organizationLanguageKey,
-                  label: 'Organization Language',
-                  required: true,
-                  tooltipMessage:
-                      'Any change in the language will not be reflected in Email Templates, Template Customizations, Payment Modes and Default tax Rates. These will still remain in the language selected during this organization\'s setup.',
-                  child: _buildDropdownField(
-                    value: _selectedOrganizationLanguage,
-                    hintText: 'Select organization language',
-                    items: _languageOptions,
-                    onChanged: (value) => setState(() {
-                      _selectedOrganizationLanguage = value;
-                      if (value != null &&
-                          !_selectedCommunicationLanguages.contains(value)) {
-                        _selectedCommunicationLanguages = <String>[
-                          value,
-                          ..._selectedCommunicationLanguages,
-                        ];
-                      }
-                    }),
-                  ),
-                ),
-                ZerpaiFormRow(
-                  key: _communicationLanguagesKey,
-                  label: 'Communication Languages',
-                  required: true,
-                  tooltipMessage:
-                      'Select the languages in which users can create email templates and send emails to customers and vendors.',
-                  child: FormDropdown<String>(
-                    value: null,
-                    items: _languageOptions,
-                    multiSelect: true,
-                    selectedValues: _selectedCommunicationLanguages,
-                    isSelectedValueRemovable: (value) => value != 'English',
-                    hint: 'Select communication languages',
-                    showSearch: true,
-                    onChanged: (_) {},
-                    onSelectedValuesChanged: (values) => setState(() {
-                      _selectedCommunicationLanguages = values;
-                    }),
-                  ),
-                ),
+
                 ZerpaiFormRow(
                   key: _timeZoneKey,
                   label: 'Time Zone',
@@ -1288,6 +1819,7 @@ class _SettingsOrganizationProfilePageState
               ],
             ),
           ),
+          _buildPharmacyComplianceFields(),
           const SizedBox(height: AppTheme.space24),
 
           // ── Section: Additional Fields ─────────────────────────
@@ -1306,12 +1838,7 @@ class _SettingsOrganizationProfilePageState
             label: const Text('New Field'),
           ),
           const SizedBox(height: AppTheme.space16),
-          _buildInfoBanner(
-            icon: LucideIcons.info,
-            message:
-                'Company ID and additional fields can later be surfaced in transaction PDFs once the organization-profile update endpoint is available.',
-          ),
-          const SizedBox(height: AppTheme.space24),
+
         ],
       ),
       footer: Container(
@@ -1711,6 +2238,122 @@ class _SettingsOrganizationProfilePageState
     );
   }
 
+  Widget _buildPaymentStubLsgdFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // District and Local Body Type
+        Row(
+          children: [
+            Expanded(
+              child: FormDropdown<String>(
+                items: _paymentStubDistrictOptions
+                    .map((district) => district.id)
+                    .toList(),
+                value: _selectedPaymentStubDistrictId,
+                hint: 'District',
+                displayStringForValue: (id) {
+                  final match = _paymentStubDistrictOptions.firstWhere(
+                    (district) => district.id == id,
+                    orElse: () => _DistrictOption(id: id, name: id),
+                  );
+                  return match.name;
+                },
+                onChanged: (v) async {
+                  setState(() {
+                    _selectedPaymentStubDistrictId = v;
+                    _selectedPaymentStubLocalBodyType = null;
+                    _selectedPaymentStubLocalBodyId = null;
+                    _selectedPaymentStubWardId = null;
+                    _paymentStubAllLocalBodyOptions = const [];
+                    _paymentStubLocalBodyOptions = const [];
+                    _paymentStubWardOptions = const [];
+                  });
+                  if (v != null && v.isNotEmpty) {
+                    await _loadLocalBodiesForSelectedPaymentStubDistrict(
+                      ignoreTypeFilter: true,
+                    );
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: AppTheme.space8),
+            Expanded(
+              child: FormDropdown<String>(
+                items: _paymentStubAvailableLocalBodyTypeOptions,
+                value: _selectedPaymentStubLocalBodyType,
+                hint: 'Local body type',
+                displayStringForValue: _localBodyTypeLabel,
+                onChanged: (v) async {
+                  setState(() {
+                    _selectedPaymentStubLocalBodyType = v;
+                    _selectedPaymentStubLocalBodyId = null;
+                    _selectedPaymentStubWardId = null;
+                    _paymentStubLocalBodyOptions = v == null || v.isEmpty
+                        ? _paymentStubAllLocalBodyOptions
+                        : _paymentStubAllLocalBodyOptions
+                            .where((localBody) => localBody.bodyType == v)
+                            .toList();
+                    _paymentStubWardOptions = const [];
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppTheme.space8),
+        // Local Body and Ward
+        Row(
+          children: [
+            Expanded(
+              child: FormDropdown<String>(
+                items: _paymentStubLocalBodyOptions
+                    .map((localBody) => localBody.id)
+                    .toList(),
+                value: _selectedPaymentStubLocalBodyId,
+                hint: 'Local body name',
+                displayStringForValue: (id) {
+                  final match = _paymentStubLocalBodyOptions.firstWhere(
+                    (localBody) => localBody.id == id,
+                    orElse: () =>
+                        _LocalBodyOption(id: id, name: id, bodyType: ''),
+                  );
+                  return match.name;
+                },
+                onChanged: (v) async {
+                  setState(() {
+                    _selectedPaymentStubLocalBodyId = v;
+                    _selectedPaymentStubWardId = null;
+                    _paymentStubWardOptions = const [];
+                  });
+                  if (v != null && v.isNotEmpty) {
+                    await _loadWardsForSelectedPaymentStubLocalBody();
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: AppTheme.space8),
+            Expanded(
+              child: FormDropdown<String>(
+                items: _paymentStubWardOptions.map((ward) => ward.id).toList(),
+                value: _selectedPaymentStubWardId,
+                hint: 'Ward',
+                displayStringForValue: (id) {
+                  final match = _paymentStubWardOptions.firstWhere(
+                    (ward) => ward.id == id,
+                    orElse: () => _WardOption(id: id, name: id, displayName: id),
+                  );
+                  return match.displayName;
+                },
+                onChanged: (v) => setState(() => _selectedPaymentStubWardId = v),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildTableHeaderCell(String label) {
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -1744,34 +2387,7 @@ class _SettingsOrganizationProfilePageState
     );
   }
 
-  Widget _buildInfoBanner({required IconData icon, required String message}) {
-    return SizedBox(
-      width: double.infinity,
-      child: Container(
-        padding: const EdgeInsets.all(AppTheme.space16),
-        decoration: BoxDecoration(
-          color: AppTheme.infoBg,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 18, color: AppTheme.primaryBlue),
-            const SizedBox(width: AppTheme.space12),
-            Expanded(
-              child: Text(
-                message,
-                style: AppTheme.bodyText.copyWith(
-                  color: AppTheme.textSubtle,
-                  height: 1.55,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildBaseCurrencyField() {
     final bool isIndia = _selectedLocation?.toLowerCase() == 'india';
@@ -2116,6 +2732,296 @@ class _SettingsOrganizationProfilePageState
     );
   }
 
+  Widget _buildPharmacyComplianceFields() {
+    if (_selectedIndustry != 'Pharmacy' && _selectedIndustry != 'Pharmaceuticals') {
+      return const SizedBox.shrink();
+    }
+
+    final Color accentColor = ref.watch(appBrandingProvider).accentColor;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: AppTheme.space24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.space32),
+          child: Text(
+            'REGULATORY COMPLIANCE',
+            style: AppTheme.sectionHeader.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(height: AppTheme.space8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drug Licence Type (Always on for Pharmacy Industry)
+            ZerpaiFormRow(
+              label: 'Drug Licence Type',
+              required: true,
+              child: _buildDropdownField(
+                value: _drugLicenceType,
+                hintText: 'Select licence type',
+                items: const ['Wholesale', 'Retail', 'Wholesale and Retail'],
+                onChanged: (v) => setState(() => _drugLicenceType = v),
+              ),
+            ),
+            if (_drugLicenceType == 'Retail' ||
+                _drugLicenceType == 'Wholesale and Retail') ...[
+              kZerpaiFormDivider,
+              ZerpaiFormRow(
+                label: 'Drug License 20',
+                required: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _drugLicense20Controller,
+                            decoration: const InputDecoration(
+                                hintText: 'Enter License Number'),
+                            textCapitalization: TextCapitalization.characters,
+                          ),
+                        ),
+                        const SizedBox(width: AppTheme.space12),
+                        FileUploadButton(
+                          files: _drugLicense20Docs,
+                          onFilesChanged: (files) =>
+                              setState(() => _drugLicense20Docs = files),
+                          showBadge: true,
+                          showOverlay: true,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              kZerpaiFormDivider,
+              ZerpaiFormRow(
+                label: 'Drug License 21',
+                required: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _drugLicense21Controller,
+                            decoration: const InputDecoration(
+                                hintText: 'Enter License Number'),
+                            textCapitalization: TextCapitalization.characters,
+                          ),
+                        ),
+                        const SizedBox(width: AppTheme.space12),
+                        FileUploadButton(
+                          files: _drugLicense21Docs,
+                          onFilesChanged: (files) =>
+                              setState(() => _drugLicense21Docs = files),
+                          showBadge: true,
+                          showOverlay: true,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (_drugLicenceType == 'Wholesale' ||
+                _drugLicenceType == 'Wholesale and Retail') ...[
+              kZerpaiFormDivider,
+              ZerpaiFormRow(
+                label: 'Drug License 20B',
+                required: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _drugLicense20BController,
+                            decoration: const InputDecoration(
+                                hintText: 'Enter License Number'),
+                            textCapitalization: TextCapitalization.characters,
+                          ),
+                        ),
+                        const SizedBox(width: AppTheme.space12),
+                        FileUploadButton(
+                          files: _drugLicense20BDocs,
+                          onFilesChanged: (files) =>
+                              setState(() => _drugLicense20BDocs = files),
+                          showBadge: true,
+                          showOverlay: true,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              kZerpaiFormDivider,
+              ZerpaiFormRow(
+                label: 'Drug License 21B',
+                required: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _drugLicense21BController,
+                            decoration: const InputDecoration(
+                                hintText: 'Enter License Number'),
+                            textCapitalization: TextCapitalization.characters,
+                          ),
+                        ),
+                        const SizedBox(width: AppTheme.space12),
+                        FileUploadButton(
+                          files: _drugLicense21BDocs,
+                          onFilesChanged: (files) =>
+                              setState(() => _drugLicense21BDocs = files),
+                          showBadge: true,
+                          showOverlay: true,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            kZerpaiFormDivider,
+            // FSSAI SECTION
+            ZerpaiFormRow(
+              label: 'FSSAI License Registered ?',
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: _isFssaiRegistered,
+                    activeColor: accentColor,
+                    onChanged: (v) =>
+                        setState(() => _isFssaiRegistered = v ?? false),
+                  ),
+                  const SizedBox(width: AppTheme.space8),
+                  Text(
+                    'This Organization Is Registered FSSAI License',
+                    style: AppTheme.bodyText.copyWith(fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            if (_isFssaiRegistered) ...[
+              kZerpaiFormDivider,
+              ZerpaiFormRow(
+                label: 'FSSAI Number',
+                required: true,
+                tooltipMessage: 'Enter the 14-digit FSSAI license number.',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _fssaiNumberController,
+                            decoration: const InputDecoration(
+                                hintText: 'Enter FSSAI Number'),
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                        const SizedBox(width: AppTheme.space12),
+                        FileUploadButton(
+                          files: _fssaiDocs,
+                          onFilesChanged: (files) =>
+                              setState(() => _fssaiDocs = files),
+                          showBadge: true,
+                          showOverlay: true,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            kZerpaiFormDivider,
+            // MSME SECTION
+            ZerpaiFormRow(
+              label: 'MSME Registered ?',
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: _isMsmeRegistered,
+                    activeColor: accentColor,
+                    onChanged: (v) =>
+                        setState(() => _isMsmeRegistered = v ?? false),
+                  ),
+                  const SizedBox(width: AppTheme.space8),
+                  Text(
+                    'This Organization Is Registered MSME',
+                    style: AppTheme.bodyText.copyWith(fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            if (_isMsmeRegistered) ...[
+              kZerpaiFormDivider,
+              ZerpaiFormRow(
+                label: 'MSME/Udyam Registration Type',
+                required: true,
+                child: _buildDropdownField(
+                  value: _msmeRegistrationType,
+                  hintText: 'Select the Registration Type',
+                  items: const ['Micro', 'Small', 'Medium'],
+                  onChanged: (v) => setState(() => _msmeRegistrationType = v),
+                ),
+              ),
+              kZerpaiFormDivider,
+              ZerpaiFormRow(
+                label: 'MSME/Udyam Registration Number',
+                required: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _msmeNumberController,
+                            decoration: const InputDecoration(
+                                hintText:
+                                    'Enter MSME/Udyam Registration Number'),
+                            textCapitalization: TextCapitalization.characters,
+                          ),
+                        ),
+                        const SizedBox(width: AppTheme.space12),
+                        FileUploadButton(
+                          files: _msmeDocs,
+                          onFilesChanged: (files) =>
+                              setState(() => _msmeDocs = files),
+                          showBadge: true,
+                          showOverlay: true,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+
+
   List<_TimezoneOption> _parseTimezoneOptions(Response<dynamic> response) {
     if (!response.success || response.data is! List) {
       return <_TimezoneOption>[];
@@ -2198,47 +3104,19 @@ class _SettingsOrganizationProfilePageState
         matches('base_currency_decimals') &&
         matches('base_currency_format') &&
         matches('fiscal_year') &&
-        matches('organization_language') &&
+
         matches('timezone') &&
         matches('date_format') &&
         matches('date_separator') &&
         matches('company_id_label') &&
         matches('company_id_value') &&
-        _matchesStringList(
-          data['communication_languages'],
-          payload['communication_languages'],
-        ) &&
+
         matches('payment_stub_address') &&
         data['has_separate_payment_stub_address'] ==
             payload['has_separate_payment_stub_address'];
   }
 
-  bool _matchesStringList(dynamic actual, dynamic expected) {
-    if (expected == null) {
-      return true;
-    }
-    final actualList =
-        (actual as List?)
-            ?.map((item) => item.toString().trim())
-            .where((item) => item.isNotEmpty)
-            .toList() ??
-        const <String>[];
-    final expectedList =
-        (expected as List?)
-            ?.map((item) => item.toString().trim())
-            .where((item) => item.isNotEmpty)
-            .toList() ??
-        const <String>[];
-    if (actualList.length != expectedList.length) {
-      return false;
-    }
-    for (var i = 0; i < actualList.length; i++) {
-      if (actualList[i] != expectedList[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
+
 
   Widget _buildGroupedDateFormatDropdown() {
     // Build flat list: group headers interleaved with patterns
@@ -2400,18 +3278,7 @@ class _SettingsOrganizationProfilePageState
         subtitle: 'Profile',
         onSelected: () => _scrollToKey(_fiscalYearKey),
       ),
-      SettingsSearchItem(
-        group: 'Setup & Configurations',
-        label: 'Organization Language',
-        subtitle: 'Profile',
-        onSelected: () => _scrollToKey(_organizationLanguageKey),
-      ),
-      SettingsSearchItem(
-        group: 'Setup & Configurations',
-        label: 'Communication Languages',
-        subtitle: 'Profile',
-        onSelected: () => _scrollToKey(_communicationLanguagesKey),
-      ),
+
       SettingsSearchItem(
         group: 'Setup & Configurations',
         label: 'Time Zone',
@@ -2514,25 +3381,7 @@ class _SettingsOrganizationProfilePageState
       ZerpaiToast.error(context, 'Please select a fiscal year.');
       return;
     }
-    if (_selectedOrganizationLanguage == null ||
-        _selectedOrganizationLanguage!.trim().isEmpty) {
-      ZerpaiToast.error(context, 'Please select an organization language.');
-      return;
-    }
-    if (_selectedCommunicationLanguages.isEmpty) {
-      ZerpaiToast.error(
-        context,
-        'Please select at least one communication language.',
-      );
-      return;
-    }
-    if (!_selectedCommunicationLanguages.contains('English')) {
-      ZerpaiToast.error(
-        context,
-        'English must remain included in communication languages.',
-      );
-      return;
-    }
+
     if (_selectedTimeZone == null || _selectedTimeZone!.trim().isEmpty) {
       ZerpaiToast.error(context, 'Please select a time zone.');
       return;
@@ -2601,9 +3450,7 @@ class _SettingsOrganizationProfilePageState
           _selectedBaseCurrencyFormat!.trim().isNotEmpty)
         'base_currency_format': _selectedBaseCurrencyFormat,
       'fiscal_year': _selectedFiscalYear,
-      if (_selectedOrganizationLanguage != null)
-        'organization_language': _selectedOrganizationLanguage,
-      'communication_languages': _selectedCommunicationLanguages,
+
       if (_selectedTimeZone != null) 'timezone': _selectedTimeZone,
       if (_selectedDateFormat != null) 'date_format': _selectedDateFormat,
       if (_selectedDateSeparator != null)
@@ -2611,10 +3458,70 @@ class _SettingsOrganizationProfilePageState
       if (_selectedCompanyIdLabel != null)
         'company_id_label': _selectedCompanyIdLabel,
       'company_id_value': _companyIdValueController.text.trim(),
+
+      // Pharmacy compliance fields
+      'is_drug_registered': _isDrugRegistered ||
+          (_selectedIndustry?.toLowerCase() == 'pharmacy'),
+      'drug_licence_type': _drugLicenceType,
+      'drug_license_20': _drugLicense20Controller.text.trim(),
+      'drug_license_21': _drugLicense21Controller.text.trim(),
+      'drug_license_20b': _drugLicense20BController.text.trim(),
+      'drug_license_21b': _drugLicense21BController.text.trim(),
+      'is_fssai_registered': _isFssaiRegistered,
+      'fssai_number': _fssaiNumberController.text.trim(),
+      'is_msme_registered': _isMsmeRegistered,
+      'msme_registration_type': _msmeRegistrationType,
+      'msme_number': _msmeNumberController.text.trim(),
+
       'has_separate_payment_stub_address': _hasSeparatePaymentStubAddress,
       if (_hasSeparatePaymentStubAddress)
-        'payment_stub_address': _paymentStubAddressController.text.trim(),
+        'payment_stub_address': jsonEncode({
+          'attention': _paymentStubAttentionController.text.trim(),
+          'street1': _paymentStubStreet1Controller.text.trim(),
+          'street2': _paymentStubStreet2Controller.text.trim(),
+          'city': _paymentStubCityController.text.trim(),
+          'state_name': _selectedPaymentStubState,
+          'pincode': _paymentStubPincodeController.text.trim(),
+          'phone': _normalizeIndiaPhone(_paymentStubPhoneController.text),
+          'fax': _paymentStubFaxController.text.trim(),
+          'district_id': _selectedPaymentStubDistrictId,
+          'local_body_id': _selectedPaymentStubLocalBodyId,
+          'ward_id': _selectedPaymentStubWardId,
+        }),
     };
+
+    // Pharmacy Compliance Document Uploads
+    if (_selectedIndustry?.toLowerCase() == 'pharmacy') {
+      final storage = StorageService();
+
+      Future<String?> uploadDocs(List<PlatformFile> docs) async {
+        if (docs.isEmpty) return null;
+        final urls = <String>[];
+        for (final file in docs) {
+          final url = await storage.uploadLicenseDocument(file);
+          if (url != null) urls.add(url);
+        }
+        return urls.isNotEmpty ? urls.join(',') : null;
+      }
+
+      final dl20 = await uploadDocs(_drugLicense20Docs);
+      if (dl20 != null) payload['drug_license_20_url'] = dl20;
+
+      final dl21 = await uploadDocs(_drugLicense21Docs);
+      if (dl21 != null) payload['drug_license_21_url'] = dl21;
+
+      final dl20b = await uploadDocs(_drugLicense20BDocs);
+      if (dl20b != null) payload['drug_license_20b_url'] = dl20b;
+
+      final dl21b = await uploadDocs(_drugLicense21BDocs);
+      if (dl21b != null) payload['drug_license_21b_url'] = dl21b;
+
+      final fssai = await uploadDocs(_fssaiDocs);
+      if (fssai != null) payload['fssai_url'] = fssai;
+
+      final msme = await uploadDocs(_msmeDocs);
+      if (msme != null) payload['msme_url'] = msme;
+    }
 
     setState(() => _isSaving = true);
     try {
@@ -2874,3 +3781,100 @@ class _DashedBorderPainter extends CustomPainter {
   bool shouldRepaint(covariant _DashedBorderPainter old) =>
       old.color != color || old.radius != radius;
 }
+
+extension _SettingsOrgProfilePageHelper on _SettingsOrganizationProfilePageState {
+  InputDecoration _dec(String hint) => InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.space12,
+          vertical: AppTheme.space10,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: AppTheme.borderLight),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: AppTheme.borderLight),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide:
+              BorderSide(color: ref.read(appBrandingProvider).accentColor),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: AppTheme.errorRed),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: AppTheme.errorRed),
+        ),
+        filled: true,
+        fillColor: Colors.white,
+      );
+
+  Widget _buildStaticField(String value) {
+    return Container(
+      width: double.infinity,
+      height: 40,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.space12,
+        vertical: AppTheme.space10,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.bgLight,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppTheme.borderLight),
+      ),
+      alignment: Alignment.centerLeft,
+      child: Text(
+        value,
+        style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+      ),
+    );
+  }
+}
+
+class _IndiaPhoneFormatter extends TextInputFormatter {
+  static const String _prefix = '+91 ';
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String text = newValue.text;
+    if (!text.startsWith(_prefix)) {
+      String digits = text.replaceAll(RegExp(r'\D'), '');
+      if (digits.startsWith('91') && digits.length > 10)
+        digits = digits.substring(2);
+      if (digits.length > 10) digits = digits.substring(0, 10);
+      final result = _prefix + digits;
+      return TextEditingValue(
+        text: result,
+        selection: TextSelection.collapsed(offset: result.length),
+      );
+    }
+    String digits = text
+        .substring(_prefix.length)
+        .replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 10) digits = digits.substring(0, 10);
+    final result = _prefix + digits;
+    return TextEditingValue(
+      text: result,
+      selection: TextSelection.collapsed(offset: result.length),
+    );
+  }
+}
+
+String _normalizeIndiaPhone(String raw) {
+  if (raw.isEmpty) return '+91 ';
+  final digits = raw.replaceAll(RegExp(r'[\s\-\+\(\)]'), '');
+  final stripped = digits.startsWith('91') && digits.length > 10
+      ? digits.substring(2)
+      : digits;
+  return '+91 ${stripped.length > 10 ? stripped.substring(0, 10) : stripped}';
+}
+

@@ -10,7 +10,13 @@ class RecurringJournalImportDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      alignment: Alignment.topCenter,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
+      ),
+      insetPadding: EdgeInsets.zero,
       child: Container(
         width: 500,
         child: Column(
@@ -57,11 +63,14 @@ class RecurringJournalImportDialog extends StatelessWidget {
         border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          Expanded(
+            child: Center(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
           ),
           IconButton(
             onPressed: () => Navigator.pop(context),
@@ -114,19 +123,33 @@ class RecurringJournalImportDialog extends StatelessWidget {
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          const SizedBox(width: 12),
           ElevatedButton(
             onPressed: onTap,
             style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.successGreen,
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              elevation: 0,
             ),
             child: Text(actionLabel),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              side: const BorderSide(color: AppTheme.borderColor),
+              foregroundColor: AppTheme.textSecondary,
+            ),
+            child: const Text('Cancel'),
           ),
         ],
       ),
@@ -151,7 +174,13 @@ class _RecurringJournalExportDialogState
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      alignment: Alignment.topCenter,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
+      ),
+      insetPadding: EdgeInsets.zero,
       child: Container(
         width: 500,
         child: Column(

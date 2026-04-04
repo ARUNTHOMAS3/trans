@@ -1254,496 +1254,6 @@ class _InventoryPicklistsCreateScreenState
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ),
-
-        // Add table helper methods from reference
-        () {
-          Widget _tableHeaderCell(
-            String text, {
-            int flex = 1,
-            double? fixedWidth,
-            TextAlign? align,
-            bool isLastColumn = false,
-          }) {
-            final content = Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  right: isLastColumn
-                      ? BorderSide.none
-                      : const BorderSide(color: _borderCol, width: 0.8),
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Text(
-                text,
-                textAlign: align,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF6B7280),
-                  fontFamily: 'Inter',
-                  letterSpacing: 0.3,
-                ),
-              ),
-            );
-
-            if (fixedWidth != null) {
-              return SizedBox(width: fixedWidth, child: content);
-            }
-
-            return Expanded(flex: flex, child: content);
-          }
-
-          Widget _tableBodyCell({
-            required Widget child,
-            int flex = 1,
-            double? fixedWidth,
-            bool isLastColumn = false,
-          }) {
-            final content = Container(
-              height: double.infinity,
-              decoration: BoxDecoration(
-                border: Border(
-                  right: isLastColumn
-                      ? BorderSide.none
-                      : const BorderSide(color: _borderCol, width: 0.8),
-                ),
-              ),
-              child: child,
-            );
-
-            if (fixedWidth != null) {
-              return SizedBox(width: fixedWidth, child: content);
-            }
-
-            return Expanded(flex: flex, child: content);
-          }
-
-          Widget _buildQtyInputField({
-            required String fieldKey,
-            required TextEditingController controller,
-            required ValueChanged<String> onChanged,
-          }) {
-            final isActive = _hoveredQtyFieldKeys.contains(fieldKey) || _focusedQtyFieldKeys.contains(fieldKey);
-
-            return MouseRegion(
-              onEnter: (_) => setState(() => _hoveredQtyFieldKeys.add(fieldKey)),
-              onExit: (_) => setState(() => _hoveredQtyFieldKeys.remove(fieldKey)),
-              child: SizedBox(
-                width: 84,
-                height: 44,
-                child: Focus(
-                  onFocusChange: (hasFocus) => setState(() {
-                    if (hasFocus) _focusedQtyFieldKeys.add(fieldKey);
-                    else _focusedQtyFieldKeys.remove(fieldKey);
-                  }),
-                  child: TextField(
-                    controller: controller,
-                    textAlign: TextAlign.center,
-                    textAlignVertical: TextAlignVertical.center,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$'))],
-                    onChanged: onChanged,
-                    style: const TextStyle(fontSize: 13, color: _textPrimary, fontFamily: 'Inter'),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      filled: true,
-                      fillColor: _bgWhite,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: isActive ? _focusBorder : _borderCol),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: _focusBorder, width: 1.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }
-
-          Widget _buildBatchesLink(WarehouseStockData item, int index) {
-            final rowKey = _buildRowKey(item);
-            final batchCount = _savedBatchCounts[rowKey] ?? 1;
-            return InkWell(
-              onTap: () => _showSelectBatchesDialog(item),
-              child: Text(
-                '${_currentPickedQty(item).toInt()} pcs from $batchCount ${batchCount == 1 ? 'batch' : 'batches'}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontWeight: FontWeight.w500),
-              ),
-            );
-          }
-
-          Widget _buildAddBatchButton(int index) {
-            return InkWell(
-              onTap: () => _showSelectBatchesDialog(_selectedItems[index]),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _bgWhite,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: _borderCol),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(LucideIcons.plus, size: 12, color: _textPrimary),
-                    SizedBox(width: 6),
-                    Text(
-                      'Add Batch',
-                      style: TextStyle(fontSize: 11, color: _textPrimary, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          return Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: _borderCol),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Column(
-              children: [
-                // Header Row 1 (ITEMS flex4 + ASSIGNEE flex2)
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF5F5F5),
-                    border: Border(
-                      top: BorderSide(color: _borderCol),
-                      bottom: BorderSide(color: _borderCol),
-                      left: BorderSide(color: _borderCol),
-                    ),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      _tableHeaderCell('ITEMS & DESCRIPTION', flex: 4),
-                      _tableHeaderCell('ASSIGNEE', flex: 2, align: TextAlign.center),
-                      const VerticalDivider(width: 1, color: _borderCol),
-                    ],
-                  ),
-                ),
-                // Header Row 2 (SO flex1 + QTY flex1 + BIN flex2 + TO PICK flex3 + PICKED flex3 + DEL 40px)
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF5F5F5),
-                    border: Border(bottom: BorderSide(color: _borderCol)),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      _tableHeaderCell('SALES ORDER#', flex: 1, align: TextAlign.center),
-                      _tableHeaderCell('QTY ORDERED', flex: 1, align: TextAlign.center),
-                      _tableHeaderCell('PREFERRED BIN', flex: 2, align: TextAlign.center),
-                      _tableHeaderCell('QTY TO PICK', flex: 3, align: TextAlign.center, isLastColumn: false),
-                      _tableHeaderCell('QTY PICKED', flex: 3, align: TextAlign.center, isLastColumn: false),
-                      _tableHeaderCell('', fixedWidth: 40, isLastColumn: true),
-                    ],
-                  ),
-                ),
-
-                // Rows
-                ...grouped.entries.map((entry) {
-                  final productId = entry.key;
-                  final itemsInGroup = entry.value;
-                  return Column(
-                    children: itemsInGroup.asMap().entries.map((orderEntry) {
-                      final item = orderEntry.value;
-                      final rowKey = _buildRowKey(item);
-                      final selectedIndex = _selectedItems.indexWhere(
-                        (e) => _buildRowKey(e) == rowKey,
-                      );
-                      final available = item.availableQuantity;
-                      final hasBatches = _savedBatchKeys.contains(rowKey);
-                      final pickedFlex = hasBatches ? 4 : 3;
-
-                      return Container(
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            left: BorderSide(color: _borderCol, width: 0.8),
-                            bottom: BorderSide(color: _borderCol, width: 0.8),
-                          ),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Item Name (flex 4, spans all orders for same item)
-                              if (orderEntry.key == 0)
-                                _tableBodyCell(
-                                  flex: 4,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          item.productName,
-                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                                        ),
-                                        Text(
-                                          'Total Orders: ${itemsInGroup.length}',
-                                          style: const TextStyle(fontSize: 11, color: _textSecondary),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              else
-                                const SizedBox(width: 0, height: 0),
-                              const VerticalDivider(width: 1, color: _borderCol),
-                              // Assignee (flex 2, spans all orders)
-                              if (orderEntry.key == 0)
-                                _tableBodyCell(
-                                  flex: 2,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                                    child: Center(
-                                      child: MouseRegion(
-                                        onEnter: (_) => setState(() => _hoveredAssigneeFieldKeys.add('item_assignee_$productId')),
-                                        onExit: (_) => setState(() => _hoveredAssigneeFieldKeys.remove('item_assignee_$productId')),
-                                        child: Consumer(
-                                          builder: (context, ref, _) {
-                                            final usersAsync = ref.watch(
-                                              allUsersProvider,
-                                            );
-                                            final assigneeOptions =
-                                                usersAsync.maybeWhen(
-                                                  data: (users) => users
-                                                      .map((u) => u.fullName)
-                                                      .where(
-                                                        (name) =>
-                                                            name.trim().isNotEmpty,
-                                                      )
-                                                      .toList(),
-                                                  orElse: () => <String>[],
-                                                );
-                                            const fallbackAssignees = <String>[
-                                              'User 1',
-                                              'User 2',
-                                              'User 3',
-                                            ];
-                                            final assigneeItems =
-                                                assigneeOptions.isNotEmpty
-                                                ? assigneeOptions
-                                                : fallbackAssignees;
-
-                                            return FormDropdown<String>(
-                                              hint: 'Select User',
-                                              value: assigneeItems.contains(
-                                                _itemGroupAssigneeByProductId[
-                                                    productId],
-                                              )
-                                                  ? _itemGroupAssigneeByProductId[
-                                                        productId]
-                                                  : null,
-                                              items: assigneeItems,
-                                              border: Border.all(
-                                                color:
-                                                    _hoveredAssigneeFieldKeys
-                                                            .contains(
-                                                              'item_assignee_$productId',
-                                                            ) ||
-                                                        _itemGroupAssigneeByProductId[
-                                                                productId] !=
-                                                            null
-                                                    ? const Color(0xFF3B82F6)
-                                                    : Colors.transparent,
-                                              ),
-                                              fillColor: Colors.transparent,
-                                              displayStringForValue: (name) =>
-                                                  name,
-                                              searchStringForValue: (name) =>
-                                                  name,
-                                              itemBuilder:
-                                                  (
-                                                    item,
-                                                    isSelected,
-                                                    isHovered,
-                                                  ) => Container(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 12,
-                                                          vertical: 8,
-                                                        ),
-                                                    color: isHovered
-                                                        ? const Color(
-                                                            0xFF3B82F6,
-                                                          )
-                                                        : (isSelected
-                                                              ? const Color(
-                                                                  0xFFF3F4F6,
-                                                                )
-                                                              : Colors
-                                                                    .transparent),
-                                                    child: Text(
-                                                      item,
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        color: isHovered
-                                                            ? Colors.white
-                                                            : const Color(
-                                                                0xFF1F2937,
-                                                              ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                              onChanged: (val) => setState(
-                                                () =>
-                                                    _itemGroupAssigneeByProductId[
-                                                      productId
-                                                    ] = val,
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              else
-                                const SizedBox(width: 0, height: 0),
-                              // Per-order columns
-                              _tableBodyCell(
-                                flex: 1,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  child: Center(
-                                    child: Text(
-                                      item.salesOrderNumber ?? '--',
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(fontSize: 13, color: _textPrimary),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const VerticalDivider(width: 1, color: _borderCol),
-                              _tableBodyCell(
-                                flex: 1,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  child: Center(
-                                    child: Text(
-                                      '${item.quantityOrdered?.toInt() ?? 1}',
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const VerticalDivider(width: 1, color: _borderCol),
-                              _tableBodyCell(
-                                flex: 2,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  child: Center(
-                                    child: Text(
-                                      item.preferredBin ?? 'N/A',
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(fontSize: 13, color: _textPrimary),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const VerticalDivider(width: 1, color: _borderCol),
-                              _tableBodyCell(
-                                flex: 3,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  child: Column(
-                                    children: [
-                                      _buildQuantityField(
-                                        fieldKey: '${rowKey}_to_pick',
-                                        initialValue: item.quantityToPick ?? 1.0,
-                                        onChanged: (val) {
-                                          final d = double.tryParse(val);
-                                          if (d != null) {
-                                            final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == rowKey);
-                                            if (idx != -1) {
-                                              _selectedItems[idx] = item.copyWith(quantityToPick: d);
-                                            }
-                                          }
-                                        },
-                                      ),
-                                      Text(
-                                        'Available: ${available.toInt()}',
-                                        style: TextStyle(fontSize: 10, color: available >= (item.quantityToPick ?? 1) ? _textSecondary : _dangerRed),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const VerticalDivider(width: 1, color: _borderCol),
-                              _tableBodyCell(
-                                flex: pickedFlex,
-                                isLastColumn: true,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  child: Column(
-                                    children: [
-                                      _buildQuantityField(
-                                        fieldKey: '${rowKey}_picked',
-                                        initialValue: _currentPickedQty(item),
-                                        hasError: _currentPickedQty(item) > _currentQtyToPick(item),
-                                        onChanged: (val) {
-                                          final d = double.tryParse(val);
-                                          if (d != null) {
-                                            final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == rowKey);
-                                            if (idx != -1) {
-                                              _selectedItems[idx] = item.copyWith(quantityPicked: d);
-                                            }
-                                          }
-                                        },
-                                      ),
-                                      if (hasBatches)
-                                        _buildBatchesLink(item, selectedIndex)
-                                      else
-                                        selectedIndex != -1
-                                            ? _buildAddBatchButton(selectedIndex)
-                                            : const SizedBox.shrink(),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 40,
-                                child: InkWell(
-                                  onTap: selectedIndex == -1
-                                      ? null
-                                      : () =>
-                                            setState(() => _selectedItems.removeAt(selectedIndex)),
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(8),
-                                    child: Icon(
-                                      LucideIcons.x,
-                                      size: 16,
-                                      color: _dangerRed,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  );
-                }).toList(),
-                // Bottom border
-                Container(height: 1, width: double.infinity, color: _borderCol),
-              ],
-            ),
-          );
-        }(),
-
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -1815,7 +1325,6 @@ class _InventoryPicklistsCreateScreenState
                                 ),
                               ),
                             ),
-                            const VerticalDivider(width: 1, color: _borderCol),
                             const VerticalDivider(width: 1, color: _borderCol),
                             Expanded(
                               flex: 1,
@@ -2095,7 +1604,7 @@ class _InventoryPicklistsCreateScreenState
                           ),
                           // Right side rows for each order
                           Expanded(
-                            flex: 8, // 1(SO)+1(ORD)+1(BIN)+2(TO)+2(PICK)+1(DEL)
+                            flex: 8, // 3 + 1 + 1 + 2 + 1
                             child: Column(
                               children: itemsInGroup.map((item) {
                                 final isLast = item == itemsInGroup.last;
@@ -2121,20 +1630,19 @@ class _InventoryPicklistsCreateScreenState
                                     child: Row(
                                       crossAxisAlignment: CrossAxisAlignment.stretch,
                                       children: [
-                            Expanded(
-                              flex: 1,
-                              child: Center(
-                                child: Text(
-                                  item.salesOrderNumber ?? '--',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: _textPrimary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
+                                        Expanded(
+                                        flex: 1,
+                                        child: Center(
+                                          child: Text(
+                                            item.salesOrderNumber ?? '--',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: _textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                       const VerticalDivider(
                                         width: 1,
                                         color: _borderCol,
@@ -2732,7 +2240,7 @@ class _InventoryPicklistsCreateScreenState
                           ),
                           // Right side rows for each item
                           Expanded(
-                            flex: 9, // 4(ITEM)+1(ORD)+1(BIN)+2(TO)+1(DEL)
+                            flex: 9, // 4 + 1 + 1 + 2 + 1
                             child: Column(
                               children: itemsInGroup.map((item) {
                                 final isLast = item == itemsInGroup.last;
@@ -3318,10 +2826,12 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
     required bool isSelected,
     required bool isHovered,
   }) {
+    final bool selectedAndHovered = isSelected && isHovered;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isHovered
+        color: selectedAndHovered
             ? const Color(0xFF3B82F6)
             : (isSelected ? const Color(0xFFF3F4F6) : Colors.white),
         borderRadius: BorderRadius.circular(4),
@@ -3338,7 +2848,7 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 13,
-                color: isHovered ? Colors.white : const Color(0xFF1F2937),
+                color: selectedAndHovered ? Colors.white : const Color(0xFF1F2937),
               ),
             ),
           ),
@@ -3508,6 +3018,7 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
         children: [
           Row(
             children: [
+              // Customer Name filter
               Expanded(
                 child: Consumer(
                   builder: (context, ref, _) {
@@ -3554,7 +3065,7 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                             displayStringForValue: (val) => val.displayName,
                             showSearch: true,
                             searchStringForValue: (val) => val.displayName,
-                            hideSelectedItemsInMultiSelect: true,
+                            hideSelectedItemsInMultiSelect: false,
                             itemBuilder: (item, isSelected, isHovered) =>
                                 _buildFilterDropdownItem(
                                   label: item.displayName,
@@ -3569,6 +3080,7 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                 ),
               ),
               const SizedBox(width: 24),
+              // Items filter
               Expanded(
                 child: Consumer(
                   builder: (context, ref, _) {
@@ -3615,7 +3127,7 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                             displayStringForValue: (val) => val.productName,
                             showSearch: true,
                             searchStringForValue: (val) => val.productName,
-                            hideSelectedItemsInMultiSelect: true,
+                            hideSelectedItemsInMultiSelect: false,
                             itemBuilder: (item, isSelected, isHovered) =>
                                 _buildFilterDropdownItem(
                                   label: item.productName,
@@ -3630,6 +3142,7 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                 ),
               ),
               const SizedBox(width: 24),
+              // Sales Orders filter
               Expanded(
                 child: Consumer(
                   builder: (context, ref, _) {
@@ -3681,7 +3194,7 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                             displayStringForValue: (val) => val.saleNumber,
                             showSearch: true,
                             searchStringForValue: (val) => val.saleNumber,
-                            hideSelectedItemsInMultiSelect: true,
+                            hideSelectedItemsInMultiSelect: false,
                             itemBuilder: (item, isSelected, isHovered) =>
                                 _buildFilterDropdownItem(
                                   label: item.saleNumber,
@@ -5391,11 +4904,13 @@ class __PicklistPreferencesDialogState
                     onTap: () => setState(() => _isAuto = true),
                     child: Row(
                       children: [
-                        Radio<bool>(
-                          value: true,
+                        RadioGroup<bool>(
                           groupValue: _isAuto,
                           onChanged: (val) => setState(() => _isAuto = val!),
-                          activeColor: const Color(0xFF3B82F6),
+                          child: Radio<bool>(
+                            value: true,
+                            activeColor: const Color(0xFF3B82F6),
+                          ),
                         ),
                         const Text(
                           'Continue auto-generating picklist numbers',
@@ -5508,11 +5023,13 @@ class __PicklistPreferencesDialogState
                     onTap: () => setState(() => _isAuto = false),
                     child: Row(
                       children: [
-                        Radio<bool>(
-                          value: false,
+                        RadioGroup<bool>(
                           groupValue: _isAuto,
                           onChanged: (val) => setState(() => _isAuto = val!),
-                          activeColor: const Color(0xFF3B82F6),
+                          child: Radio<bool>(
+                            value: false,
+                            activeColor: const Color(0xFF3B82F6),
+                          ),
                         ),
                         const Text(
                           'Enter picklist numbers manually',

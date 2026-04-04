@@ -33,14 +33,14 @@ export class AccountantService {
     private readonly r2StorageService: R2StorageService,
   ) {}
 
-  async findAll(orgId?: string, outletId?: string) {
+  async findAll(orgId?: string, branchId?: string) {
     const supabase = this.supabaseService.getClient();
 
     // 1. Fetch filtered active accounts
     let query = supabase.from("accounts").select("*").eq("is_deleted", false);
 
     if (orgId) query = query.eq("org_id", orgId);
-    if (outletId) query = query.eq("outlet_id", outletId);
+    if (branchId) query = query.eq("branch_id", branchId);
 
     const { data: accounts, error: accError } = await query.order(
       "user_account_name",
@@ -58,7 +58,7 @@ export class AccountantService {
       .select("account_id, debit, credit");
 
     if (orgId) txQuery = txQuery.eq("org_id", orgId);
-    if (outletId) txQuery = txQuery.eq("outlet_id", outletId);
+    if (branchId) txQuery = txQuery.eq("branch_id", branchId);
 
     const { data: txs, error: balError } = await txQuery;
 
@@ -122,7 +122,7 @@ export class AccountantService {
 
   async create(data: any) {
     const orgId = data.orgId || data.org_id || this.defaultOrgId;
-    const outletId = data.outletId || data.outlet_id || null;
+    const branchId = data.branchId || data.branch_id || null;
 
     // 🔄 Support both old (name/code), new (userAccountName), and snake_case keys
     data.userAccountName =
@@ -159,7 +159,7 @@ export class AccountantService {
     const dbData = {
       ...this.mapToDb(data),
       org_id: orgId,
-      outlet_id: outletId,
+      branch_id: branchId,
     };
     console.log("📤 Inserting into DB:", JSON.stringify(dbData, null, 2));
 
@@ -200,7 +200,7 @@ export class AccountantService {
         openingBalance,
         openingBalanceType,
         orgId,
-        outletId,
+        branchId,
       );
     }
 
@@ -212,7 +212,7 @@ export class AccountantService {
     openingBalance: number,
     openingBalanceType: string,
     orgId: string,
-    outletId: string,
+    branchId: string,
   ) {
     const supabase = this.supabaseService.getClient();
     console.log(
@@ -244,12 +244,12 @@ export class AccountantService {
       if (openingBalance === 0) return; // Just deleted, nothing to add
 
       const adjustmentAccountId =
-        await this.ensureOpeningBalanceAdjustmentAccount(orgId, outletId);
+        await this.ensureOpeningBalanceAdjustmentAccount(orgId, branchId);
 
       const transactions = [
         {
           org_id: orgId,
-          outlet_id: outletId,
+          branch_id: branchId,
           account_id: account.id,
           transaction_date: new Date().toISOString(),
           transaction_type: "Opening Balance",
@@ -259,7 +259,7 @@ export class AccountantService {
         },
         {
           org_id: orgId,
-          outlet_id: outletId,
+          branch_id: branchId,
           account_id: adjustmentAccountId,
           transaction_date: new Date().toISOString(),
           transaction_type: "Opening Balance",
@@ -286,7 +286,7 @@ export class AccountantService {
 
   async update(id: string, data: any) {
     const orgId = data.orgId || data.org_id;
-    const outletId = data.outletId || data.outlet_id;
+    const branchId = data.branchId || data.branch_id;
     // 🔄 Support both old (name/code), new (userAccountName), and snake_case keys
     data.userAccountName =
       data.userAccountName || data.name || data.user_account_name;
@@ -323,7 +323,7 @@ export class AccountantService {
     const supabase = this.supabaseService.getClient();
     const updateData = this.mapToDb(data);
     if (orgId) (updateData as any).org_id = orgId;
-    if (outletId !== undefined) (updateData as any).outlet_id = outletId;
+    if (branchId !== undefined) (updateData as any).branch_id = branchId;
 
     const { data: updated, error } = await supabase
       .from("accounts")
@@ -373,7 +373,7 @@ export class AccountantService {
           openingBalance,
           openingBalanceType,
           orgId || updated.org_id,
-          outletId || updated.outlet_id,
+          branchId || updated.branch_id,
         );
       }
     }
@@ -496,7 +496,7 @@ export class AccountantService {
 
   private async ensureOpeningBalanceAdjustmentAccount(
     orgId: string,
-    outletId?: string,
+    branchId?: string,
   ) {
     const supabase = this.supabaseService.getClient();
     const name = "Opening Balance Adjustments";
@@ -517,7 +517,7 @@ export class AccountantService {
       .from("accounts")
       .insert({
         org_id: orgId,
-        outlet_id: outletId,
+        branch_id: branchId,
         system_account_name: name,
         user_account_name: name,
         account_group: "Equity",
@@ -637,7 +637,7 @@ export class AccountantService {
     return { hasJournalEntries: rows.length > 0 };
   }
 
-  async findByGroup(group: string, orgId?: string, outletId?: string) {
+  async findByGroup(group: string, orgId?: string, branchId?: string) {
     const supabase = this.supabaseService.getClient();
     let query = supabase
       .from("accounts")
@@ -646,7 +646,7 @@ export class AccountantService {
       .eq("is_deleted", false);
 
     if (orgId) query = query.eq("org_id", orgId);
-    if (outletId) query = query.eq("outlet_id", outletId);
+    if (branchId) query = query.eq("branch_id", branchId);
 
     const { data, error } = await query;
 
@@ -839,7 +839,7 @@ export class AccountantService {
     accountId: string,
     limit: any = 10,
     orgId?: string,
-    outletId?: string,
+    branchId?: string,
   ) {
     const limitNum = typeof limit === "string" ? parseInt(limit, 10) : limit;
     const supabase = this.supabaseService.getClient();
@@ -858,8 +858,8 @@ export class AccountantService {
     if (orgId) {
       query = query.eq("org_id", orgId);
     }
-    if (outletId) {
-      query = query.eq("outlet_id", outletId);
+    if (branchId) {
+      query = query.eq("branch_id", branchId);
     }
 
     const { data, error } = await query;
@@ -880,7 +880,7 @@ export class AccountantService {
     maxAmount?: number;
     limit?: number;
     orgId?: string;
-    outletId?: string;
+    branchId?: string;
   }) {
     const supabase = this.supabaseService.getClient();
     let query = supabase.from("account_transactions").select(`
@@ -900,8 +900,8 @@ export class AccountantService {
     if (filters.orgId) {
       query = query.eq("org_id", filters.orgId);
     }
-    if (filters.outletId) {
-      query = query.eq("outlet_id", filters.outletId);
+    if (filters.branchId) {
+      query = query.eq("branch_id", filters.branchId);
     }
     if (filters.minAmount) {
       query = query.or(
@@ -950,7 +950,7 @@ export class AccountantService {
   async getClosingBalance(
     accountId: string,
     orgId?: string,
-    outletId?: string,
+    branchId?: string,
   ) {
     const supabase = this.supabaseService.getClient();
     let query = supabase
@@ -959,7 +959,7 @@ export class AccountantService {
       .eq("account_id", accountId);
 
     if (orgId) query = query.eq("org_id", orgId);
-    if (outletId) query = query.eq("outlet_id", outletId);
+    if (branchId) query = query.eq("branch_id", branchId);
 
     const { data, error } = await query;
 
@@ -978,7 +978,7 @@ export class AccountantService {
     };
   }
 
-  async search(query: string, orgId?: string, outletId?: string) {
+  async search(query: string, orgId?: string, branchId?: string) {
     const supabase = this.supabaseService.getClient();
     let q = supabase
       .from("accounts")
@@ -987,7 +987,7 @@ export class AccountantService {
       .or(`user_account_name.ilike.%${query}%,account_code.ilike.%${query}%`);
 
     if (orgId) q = q.eq("org_id", orgId);
-    if (outletId) q = q.eq("outlet_id", outletId);
+    if (branchId) q = q.eq("branch_id", branchId);
 
     const { data, error } = await q;
 
@@ -1132,7 +1132,7 @@ export class AccountantService {
       parentId: acc.parent_id,
       parentName: null,
       orgId: acc.org_id,
-      outletId: acc.outlet_id,
+      branchId: acc.branch_id,
       isSystem: acc.is_system,
       isDeletable: acc.is_deletable,
       isActive: acc.is_active,
@@ -1408,7 +1408,7 @@ export class AccountantService {
           .values({
             orgId:
               orgId || this.normalizeUuid(scope.orgId) || this.defaultOrgId,
-            outletId: this.normalizeUuid(scope.outletId),
+            branchId: this.normalizeUuid(scope.branchId),
             journalNumber: journalNumber,
             fiscalYearId: this.normalizeUuid(
               header.fiscalYearId || header.fiscal_year_id,
@@ -1668,14 +1668,14 @@ export class AccountantService {
       status: _st,
       items: itemsRaw,
       orgId: originalOrgId,
-      outletId: originalOutletId,
+      branchId: originalbranchId,
       ...header
     } = original;
 
     const cloneDto = {
       ...header,
       orgId: originalOrgId,
-      outletId: originalOutletId,
+      branchId: originalbranchId,
       notes: `Clone of ${original.journal_number}${original.notes ? ": " + original.notes : ""}`,
       status: "draft",
       items: (itemsRaw || []).map((item) => ({
@@ -1703,14 +1703,14 @@ export class AccountantService {
       status: _st,
       items: itemsRaw,
       orgId: originalOrgId,
-      outletId: originalOutletId,
+      branchId: originalbranchId,
       ...header
     } = original;
 
     const reverseDto = {
       ...header,
       orgId: originalOrgId,
-      outletId: originalOutletId,
+      branchId: originalbranchId,
       journal_number: `R-${original.journal_number}`,
       notes: `Reverse of ${original.journal_number}${original.notes ? ": " + original.notes : ""}`,
       status: "draft",
@@ -1732,7 +1732,7 @@ export class AccountantService {
 
     const templateDto = {
       orgId: journal.org_id || journal.orgId,
-      outletId: journal.outlet_id || journal.outletId,
+      branchId: journal.branch_id || journal.branchId,
       templateName: `Template from ${journal.journal_number}`,
       referenceNumber: journal.reference_number,
       notes: journal.notes,
@@ -1824,7 +1824,7 @@ export class AccountantService {
     const transactions = items.map((item: any) => ({
       accountId: item.account_id || item.accountId,
       orgId: journal.org_id || journal.orgId || orgId || this.defaultOrgId,
-      outletId: journal.outlet_id || journal.outletId || null,
+      branchId: journal.branch_id || journal.branchId || null,
       transactionDate: new Date(journal.journal_date || journal.journalDate),
       transactionType: "Manual Journal",
       referenceNumber: journal.journal_number || journal.journalNumber || null,
@@ -1999,7 +1999,7 @@ export class AccountantService {
 
         return {
           org_id: orgId || journal.org_id || journal.orgId || this.defaultOrgId,
-          outlet_id: journal.outlet_id || journal.outletId || null,
+          branch_id: journal.branch_id || journal.branchId || null,
           manual_journal_id: id,
           file_name: fileName,
           file_path: publicUrl, // Now uses the Cloudflare R2 path
@@ -2092,7 +2092,7 @@ export class AccountantService {
     const scope = this.parseSettingsScope(scopeInput);
     const defaultSettings = {
       org_id: scope.orgId,
-      outlet_id: scope.outletId,
+      branch_id: scope.branchId,
       user_id: scope.userId,
       auto_generate: true,
       prefix: "MJ",
@@ -2143,7 +2143,7 @@ export class AccountantService {
 
     const dbData = {
       org_id: scope.orgId,
-      outlet_id: scope.outletId,
+      branch_id: scope.branchId,
       user_id: scope.userId,
       auto_generate: autoGenerateValue === true,
       prefix: data.prefix ?? data.prefix_value ?? "MJ",
@@ -2219,10 +2219,10 @@ export class AccountantService {
         referencedTable: "items",
       });
 
-    if (scope.outletId) {
-      query = query.eq("outlet_id", scope.outletId);
+    if (scope.branchId) {
+      query = query.eq("branch_id", scope.branchId);
     } else {
-      query = query.is("outlet_id", null);
+      query = query.is("branch_id", null);
     }
 
     const { data, error } = await query;
@@ -2288,7 +2288,7 @@ export class AccountantService {
         .insert(accountsJournalTemplates)
         .values({
           orgId: scope.orgId,
-          outletId: scope.outletId,
+          branchId: scope.branchId,
           templateName: templateName,
           referenceNumber:
             (payload?.referenceNumber ?? payload?.reference_number ?? null)
@@ -2318,7 +2318,7 @@ export class AccountantService {
 
       const itemRows = items.map((item, index) => ({
         orgId: scope.orgId,
-        outletId: scope.outletId,
+        branchId: scope.branchId,
         templateId: created.id,
         accountId: item.account_id,
         description: item.description ?? null,
@@ -2355,7 +2355,7 @@ export class AccountantService {
 
     const updateData: any = {
       orgId: scope.orgId,
-      outletId: scope.outletId,
+      branchId: scope.branchId,
       templateName: templateName,
       referenceNumber:
         (
@@ -2412,7 +2412,7 @@ export class AccountantService {
         if (normalizedItems.length > 0) {
           const itemRows = normalizedItems.map((item, index) => ({
             orgId: scope.orgId,
-            outletId: scope.outletId,
+            branchId: scope.branchId,
             templateId: id,
             accountId: item.account_id,
             description: item.description ?? null,
@@ -2456,18 +2456,18 @@ export class AccountantService {
 
   private parseSettingsScope(input?: any): {
     orgId: string;
-    outletId: string | null;
+    branchId: string | null;
     userId: string | null;
   } {
     const orgRaw = input?.orgId ?? input?.org_id;
-    const outletRaw = input?.outletId ?? input?.outlet_id;
+    const outletRaw = input?.branchId ?? input?.branch_id;
     const userRaw = input?.userId ?? input?.user_id ?? input?.createdBy;
 
     const orgId =
       typeof orgRaw === "string" && orgRaw.trim().length > 0
         ? orgRaw.trim()
         : this.defaultOrgId;
-    const outletId =
+    const branchId =
       typeof outletRaw === "string" && outletRaw.trim().length > 0
         ? outletRaw.trim()
         : null;
@@ -2476,22 +2476,22 @@ export class AccountantService {
         ? userRaw.trim()
         : null;
 
-    return { orgId, outletId, userId };
+    return { orgId, branchId, userId };
   }
 
   private buildJournalSettingsScopeQuery(
     supabase: any,
-    scope: { orgId: string; outletId: string | null; userId: string | null },
+    scope: { orgId: string; branchId: string | null; userId: string | null },
   ) {
     let query = supabase
       .from("accounts_journal_number_settings")
       .select("*")
       .eq("org_id", scope.orgId);
 
-    if (scope.outletId) {
-      query = query.eq("outlet_id", scope.outletId);
+    if (scope.branchId) {
+      query = query.eq("branch_id", scope.branchId);
     } else {
-      query = query.is("outlet_id", null);
+      query = query.is("branch_id", null);
     }
 
     if (scope.userId) {
@@ -2745,7 +2745,7 @@ export class AccountantService {
             header.reporting_method ||
             "accrual_and_cash",
           orgId: scope.orgId,
-          outletId: scope.outletId,
+          branchId: scope.branchId,
           createdById: header.createdBy || header.created_by || scope.userId,
           status: "active",
         })
@@ -2932,7 +2932,7 @@ export class AccountantService {
       currency_code: original.currency_code,
       reporting_method: original.reporting_method,
       org_id: original.org_id,
-      outlet_id: original.outlet_id,
+      branch_id: original.branch_id,
       status: "inactive",
       created_by: original.created_by,
     };

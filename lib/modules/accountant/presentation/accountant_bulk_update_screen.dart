@@ -118,6 +118,7 @@ class _AccountantBulkUpdateScreenState
   Widget build(BuildContext context) {
     return ZerpaiLayout(
       pageTitle: 'Bulk Update',
+      isDirty: _selectedTransactions.isNotEmpty,
       child: Stack(
         children: [
           _hasSearched ? _buildResultsView() : _buildEmptyState(),

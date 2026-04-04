@@ -7,6 +7,7 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
+import 'package:zerpai_erp/shared/widgets/z_table_helpers.dart';
 
 class SettingsUsersUserOverview extends ConsumerStatefulWidget {
   const SettingsUsersUserOverview({super.key, this.selectedUserId});
@@ -136,58 +137,45 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
       ),
       child: Column(
         children: [
-          Container(
-            height: 40,
-            color: const Color(0xFFF5F5F5),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: const Row(
-              children: [
-                Expanded(flex: 4, child: Text('NAME', style: _headerStyle)),
-                Expanded(flex: 3, child: Text('ROLE', style: _headerStyle)),
-                Expanded(flex: 2, child: Text('STATUS', style: _headerStyle)),
-              ],
-            ),
+          ZTableHelpers.buildHeaderRow(
+            children: const [
+              Expanded(flex: 4, child: Text('NAME', style: ZTableHelpers.headerTextStyle)),
+              Expanded(flex: 3, child: Text('ROLE', style: ZTableHelpers.headerTextStyle)),
+              Expanded(flex: 2, child: Text('STATUS', style: ZTableHelpers.headerTextStyle)),
+            ],
           ),
-          for (final user in _users)
-            _buildTableRow(user),
+          for (int i = 0; i < _users.length; i++)
+            _buildTableRow(_users[i], isLast: i == _users.length - 1),
         ],
       ),
     );
   }
 
-  Widget _buildTableRow(SettingsUserRecord user) {
-    return InkWell(
+  Widget _buildTableRow(SettingsUserRecord user, {bool isLast = false}) {
+    return ZTableHelpers.buildDataRow(
       onTap: () => context.go(AppRoutes.settingsUserDetail.replaceFirst(':id', user.id)),
-      child: Container(
-        height: 52,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE)))),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 4,
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: const Color(0xFFF0F4FF),
-                    child: Text(user.name[0].toUpperCase(), style: const TextStyle(fontSize: 11, color: Color(0xFF0088FF))),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(user.name, style: const TextStyle(fontWeight: FontWeight.w500)),
-                ],
-              ),
+      isLast: isLast,
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: Row(
+              children: [
+                ZTableHelpers.buildAvatar(user.name),
+                const SizedBox(width: 12),
+                Text(user.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+              ],
             ),
-            Expanded(
-              flex: 3,
-              child: Text(user.roleLabel, style: const TextStyle(color: Color(0xFF0088FF))),
-            ),
-            Expanded(
-              flex: 2,
-              child: _buildStatusBadge(user.isActive),
-            ),
-          ],
-        ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(user.roleLabel, style: const TextStyle(color: AppTheme.primaryBlue)),
+          ),
+          Expanded(
+            flex: 2,
+            child: ZTableHelpers.buildStatusBadge(user.isActive),
+          ),
+        ],
       ),
     );
   }
@@ -312,16 +300,12 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
           decoration: BoxDecoration(border: Border.all(color: AppTheme.borderLight), borderRadius: BorderRadius.circular(4)),
           child: Column(
             children: [
-              Container(
+              ZTableHelpers.buildHeaderRow(
                 height: 36,
-                color: const Color(0xFFF5F5F5),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: const Row(
-                  children: [
-                    Expanded(child: Text('LOCATION NAME', style: _headerStyle)),
-                    Text('TYPE', style: _headerStyle),
-                  ],
-                ),
+                children: const [
+                  Expanded(child: Text('LOCATION NAME', style: ZTableHelpers.headerTextStyle)),
+                  Text('TYPE', style: ZTableHelpers.headerTextStyle),
+                ],
               ),
               if (user.accessibleLocations.isEmpty)
                 const Padding(padding: EdgeInsets.all(16), child: Text('All Locations Access'))
@@ -348,20 +332,4 @@ class _SettingsUsersUserOverviewState extends ConsumerState<SettingsUsersUserOve
   Widget _buildActivities() {
     return const Center(child: Text('Recent user activities will appear here.'));
   }
-
-  Widget _buildStatusBadge(bool active) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: active ? const Color(0xFFE8F8EF) : const Color(0xFFFFF0F0),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        active ? 'ACTIVE' : 'INACTIVE',
-        style: TextStyle(color: active ? const Color(0xFF28A745) : const Color(0xFFDC3545), fontSize: 10, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  static const _headerStyle = TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF666666));
 }

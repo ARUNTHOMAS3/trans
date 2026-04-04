@@ -4,7 +4,6 @@ import {
   uuid,
   varchar,
   text,
-  decimal,
   boolean,
   integer,
   timestamp,
@@ -16,6 +15,8 @@ import {
   date,
   numeric,
   smallint,
+  bigint,
+  decimal,
 } from "drizzle-orm/pg-core";
 
 // Enums
@@ -49,6 +50,8 @@ export const vendorTypeEnum = pgEnum("vendor_type", [
   "wholesaler",
 ]);
 export const hsnSacTypeEnum = pgEnum("hsn_sac_type", ["HSN", "SAC"]);
+export const branchTypeEnum = pgEnum("branch_type", ["FOFO", "COCO", "FRANCHISE", "WAREHOUSE"]);
+
 
 // Unique Quantity Code (UQC) Table
 export const uqc = pgTable("uqc", {
@@ -199,7 +202,7 @@ export const account = pgTable("accounts", {
   orgId: uuid("org_id")
     .notNull()
     .default("00000000-0000-0000-0000-000000000000"),
-  outletId: uuid("outlet_id"),
+  branchId: uuid("branch_id"),
   userAccountName: varchar("user_account_name", { length: 255 }),
   systemAccountName: varchar("system_account_name", { length: 255 }),
   accountType: varchar("account_type", { length: 50 }).notNull(),
@@ -228,7 +231,7 @@ export const accountTransaction = pgTable("account_transactions", {
   orgId: uuid("org_id")
     .notNull()
     .default("00000000-0000-0000-0000-000000000000"),
-  outletId: uuid("outlet_id"),
+  branchId: uuid("branch_id"),
   accountId: uuid("account_id")
     .notNull()
     .references(() => account.id, { onDelete: "cascade" }),
@@ -244,6 +247,7 @@ export const accountTransaction = pgTable("account_transactions", {
   contactType: varchar("contact_type", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
 
 // Storage Location Table
 export const storageLocation = pgTable("storage_locations", {
@@ -297,7 +301,7 @@ export const vendor = pgTable("vendors", {
   orgId: uuid("org_id")
     .notNull()
     .default("00000000-0000-0000-0000-000000000000"),
-  outletId: uuid("outlet_id"),
+  branchId: uuid("branch_id").references(() => settingsBranches.id),
   vendorNumber: varchar("vendor_number", { length: 255 }).unique(),
   displayName: varchar("display_name", { length: 255 }).notNull(),
   salutation: varchar("salutation", { length: 255 }),
@@ -919,55 +923,107 @@ export const organizations = pgTable("organization", {
   dateSeparator: varchar("date_separator", { length: 5 }),
   companyIdLabel: varchar("company_id_label", { length: 50 }),
   companyIdValue: varchar("company_id_value", { length: 100 }),
+  
+  // Compliance Fields
+  isDrugRegistered: boolean("is_drug_registered").default(false),
+  drugLicense20: varchar("drug_license_20", { length: 255 }),
+  drugLicense21: varchar("drug_license_21", { length: 255 }),
+  drugLicense20b: varchar("drug_license_20b", { length: 255 }),
+  drugLicense21b: varchar("drug_license_21b", { length: 255 }),
+  isFssaiRegistered: boolean("is_fssai_registered").default(false),
+  fssaiNumber: varchar("fssai_number", { length: 255 }),
+  isMsmeRegistered: boolean("is_msme_registered").default(false),
+  msmeNumber: varchar("msme_number", { length: 255 }),
+
+  // Address & LSGD Hierarchy
   paymentStubAddress: text("payment_stub_address"),
-  hasSeparatePaymentStubAddress: boolean(
-    "has_separate_payment_stub_address",
-  ).default(false),
+  hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false),
+  districtId: uuid("district_id"),
+  localBodyId: uuid("local_body_id"),
+  wardId: uuid("ward_id"),
+  paymentStubDistrictId: uuid("payment_stub_district_id"),
+  paymentStubLocalBodyId: uuid("payment_stub_local_body_id"),
+  paymentStubWardId: uuid("payment_stub_ward_id"),
+
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
-export const outlets = pgTable("outlets", {
+
+// LSGD Hierarchy Masters
+export const settingsDistricts = pgTable("settings_districts", {
   id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
-  outletCode: varchar("outlet_code", { length: 50 }).notNull(),
+  stateId: uuid("state_id").notNull(),
+});
+
+export const settingsLocalBodies = pgTable("settings_local_bodies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 255 }).notNull(),
+  districtId: uuid("district_id").notNull().references(() => settingsDistricts.id),
+  bodyType: varchar("body_type", { length: 50 }),
+});
+
+export const settingsWards = pgTable("settings_wards", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  wardNumber: integer("ward_number").notNull(),
+  wardName: varchar("ward_name", { length: 255 }),
+  localBodyId: uuid("local_body_id").notNull().references(() => settingsLocalBodies.id),
+});
+
+export const settingsLSGDSeedStage = pgTable("settings_lsgd_seed_stage", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  data: jsonb("data"),
+  processed: boolean("processed").default(false),
+});
+
+// Unified Branches Table (Replacement for Outlets/Locations)
+export const settingsBranches = pgTable("settings_branches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  branchCode: varchar("branch_code", { length: 50 }).notNull(),
+  systemId: varchar("system_id", { length: 50 }),
+  branchType: branchTypeEnum("branch_type").default("FOFO"),
   gstin: varchar("gstin", { length: 50 }),
   email: varchar("email", { length: 255 }),
   phone: varchar("phone", { length: 50 }),
   address: text("address"),
   city: varchar("city", { length: 100 }),
   state: varchar("state", { length: 100 }),
-  country: varchar("country", { length: 100 }),
+  country: varchar("country", { length: 100 }).default("India"),
   pincode: varchar("pincode", { length: 20 }),
-  isActive: boolean("is_active").default(true),
+  districtId: uuid("district_id").references(() => settingsDistricts.id),
+  localBodyId: uuid("local_body_id").references(() => settingsLocalBodies.id),
+  wardId: uuid("ward_id").references(() => settingsWards.id),
+  landmark: text("landmark"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+
+export const settingsTransactionSeries = pgTable("settings_transaction_series", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  modules: jsonb("modules").notNull().default([]),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
-export const locationTypeEnum = pgEnum("location_type", [
-  "business",
-  "warehouse",
-]);
-
-export const settingsLocations = pgTable("settings_locations", {
+export const settingsBranchTransactionSeries = pgTable("settings_branch_transaction_series", {
   id: uuid("id").primaryKey().defaultRandom(),
-  outletId: uuid("outlet_id")
-    .notNull()
-    .unique()
-    .references(() => outlets.id, { onDelete: "cascade" }),
   orgId: uuid("org_id")
     .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  locationType: locationTypeEnum("location_type").notNull().default("business"),
-  isPrimary: boolean("is_primary").notNull().default(false),
-  parentOutletId: uuid("parent_outlet_id").references(() => outlets.id, {
-    onDelete: "set null",
-  }),
-  logoUrl: text("logo_url"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+    .references(() => organizations.id),
+  branchId: uuid("branch_id")
+    .notNull()
+    .references(() => settingsBranches.id),
+  transactionSeriesId: uuid("transaction_series_id")
+    .notNull()
+    .references(() => settingsTransactionSeries.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
 export const users = pgTable("users", {
@@ -1032,12 +1088,26 @@ export const hsnSacCodes = pgTable(
   },
 );
 
+// Fiscal Years Table
+export const accountsFiscalYears = pgTable("accounts_fiscal_years", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id),
+  branchId: uuid("branch_id").references(() => settingsBranches.id),
+  name: varchar("name", { length: 100 }).notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Manual Journal Tables
+
 export const accountsManualJournals = pgTable("accounts_manual_journals", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id").notNull(),
-  outletId: uuid("outlet_id"),
+  branchId: uuid("branch_id"),
   journalNumber: varchar("journal_number", { length: 255 }).notNull().unique(),
+
   fiscalYearId: uuid("fiscal_year_id"),
   referenceNumber: varchar("reference_number", { length: 255 }),
   journalDate: date("journal_date").notNull(),
@@ -1085,8 +1155,9 @@ export const accountsManualJournalAttachments = pgTable(
       .notNull()
       .references(() => accountsManualJournals.id, { onDelete: "cascade" }),
     orgId: uuid("org_id").notNull(),
-    outletId: uuid("outlet_id"),
+    branchId: uuid("branch_id"),
     fileName: varchar("file_name", { length: 255 }).notNull(),
+
     filePath: text("file_path").notNull(),
     fileSize: integer("file_size"),
     uploadedAt: timestamp("uploaded_at").defaultNow(),
@@ -1098,8 +1169,9 @@ export const accountsJournalNumberSettings = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     orgId: uuid("org_id").notNull(),
-    outletId: uuid("outlet_id"),
+    branchId: uuid("branch_id"),
     userId: uuid("user_id"),
+
     autoGenerate: boolean("auto_generate").default(true),
     prefix: varchar("prefix", { length: 20 }).default("MJ"),
     nextNumber: integer("next_number").default(1),
@@ -1115,8 +1187,9 @@ export const accountsJournalNumberSettings = pgTable(
 export const accountsJournalTemplates = pgTable("accounts_journal_templates", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id").notNull(),
-  outletId: uuid("outlet_id"),
+  branchId: uuid("branch_id"),
   templateName: varchar("template_name", { length: 255 }).notNull(),
+
   referenceNumber: varchar("reference_number", { length: 255 }),
   notes: text("notes"),
   reportingMethod: varchar("reporting_method", { length: 50 }).default(
@@ -1137,8 +1210,9 @@ export const accountsJournalTemplateItems = pgTable(
       .notNull()
       .references(() => accountsJournalTemplates.id, { onDelete: "cascade" }),
     orgId: uuid("org_id").notNull(),
-    outletId: uuid("outlet_id"),
+    branchId: uuid("branch_id"),
     accountId: uuid("account_id").notNull(),
+
     description: text("description"),
     contactId: uuid("contact_id"),
     contactType: varchar("contact_type", { length: 50 }),
@@ -1154,8 +1228,9 @@ export const accountsRecurringJournals = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     orgId: uuid("org_id").notNull(),
-    outletId: uuid("outlet_id"),
+    branchId: uuid("branch_id"),
     profileName: varchar("profile_name", { length: 255 }).notNull(),
+
     repeatEvery: varchar("repeat_every", { length: 50 }).notNull(),
     interval: integer("interval").default(1),
     startDate: date("start_date").notNull(),
@@ -1254,3 +1329,73 @@ export const inventoryPicklistItems = pgTable("inventory_picklist_items", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tableName: varchar("table_name", { length: 255 }).notNull(),
+  recordId: uuid("record_id").notNull(),
+  action: varchar("action", { length: 50 }).notNull(),
+  oldValues: jsonb("old_values"),
+  newValues: jsonb("new_values"),
+  userId: uuid("user_id").notNull().default("00000000-0000-0000-0000-000000000000"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  orgId: uuid("org_id").notNull().default("00000000-0000-0000-0000-000000000000"),
+  branchId: uuid("branch_id"),
+  actorName: text("actor_name").notNull().default("system"),
+
+  schemaName: text("schema_name").notNull().default("public"),
+  recordPk: text("record_pk"),
+  changedColumns: text("changed_columns").array(),
+  txid: bigint("txid", { mode: "number" }).notNull(),
+  source: text("source").notNull().default("system"),
+  moduleName: text("module_name"),
+  requestId: text("request_id"),
+});
+
+export const auditLogsArchive = pgTable("audit_logs_archive", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tableName: varchar("table_name", { length: 255 }).notNull(),
+  recordId: uuid("record_id").notNull(),
+  action: varchar("action", { length: 50 }).notNull(),
+  oldValues: jsonb("old_values"),
+  newValues: jsonb("new_values"),
+  userId: uuid("user_id").notNull().default("00000000-0000-0000-0000-000000000000"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  orgId: uuid("org_id").notNull().default("00000000-0000-0000-0000-000000000000"),
+  branchId: uuid("branch_id"),
+  actorName: text("actor_name").notNull().default("system"),
+
+  schemaName: text("schema_name").notNull().default("public"),
+  recordPk: text("record_pk"),
+  changedColumns: text("changed_columns").array(),
+  txid: bigint("txid", { mode: "number" }).notNull(),
+  source: text("source").notNull().default("system"),
+  moduleName: text("module_name"),
+  requestId: text("request_id"),
+  archivedAt: timestamp("archived_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const warehouses = pgTable("warehouses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").references(() => organizations.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  attention: text("attention"),
+  addressStreet1: text("address_street_1"),
+  addressStreet2: text("address_street_2"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: varchar("zip_code", { length: 20 }),
+  countryRegion: text("country_region").notNull(),
+  phone: varchar("phone", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  branchId: uuid("branch_id").references(() => settingsBranches.id),
+  warehouseCode: varchar("warehouse_code", { length: 50 }),
+  pincode: varchar("pincode", { length: 20 }),
+  country: varchar("country", { length: 100 }).notNull().default("India"),
+  customerId: uuid("customer_id").references(() => customer.id),
+  vendorId: uuid("vendor_id").references(() => vendor.id),
+});
+

@@ -23,27 +23,27 @@ export class AccountantController {
   @Get()
   findAll(
     @Query("orgId") orgId?: string,
-    @Query("outletId") outletId?: string,
+    @Query("branchId") branchId?: string,
   ) {
-    return this.accountantService.findAll(orgId, outletId);
+    return this.accountantService.findAll(orgId, branchId);
   }
 
   @Get("search")
   search(
     @Query("q") query: string,
     @Query("orgId") orgId?: string,
-    @Query("outletId") outletId?: string,
+    @Query("branchId") branchId?: string,
   ) {
-    return this.accountantService.search(query, orgId, outletId);
+    return this.accountantService.search(query, orgId, branchId);
   }
 
   @Get("group/:group")
   findByGroup(
     @Param("group") group: string,
     @Query("orgId") orgId?: string,
-    @Query("outletId") outletId?: string,
+    @Query("branchId") branchId?: string,
   ) {
-    return this.accountantService.findByGroup(group, orgId, outletId);
+    return this.accountantService.findByGroup(group, orgId, branchId);
   }
 
   @Get("metadata")
@@ -156,12 +156,12 @@ export class AccountantController {
   @Get("journal-number-settings")
   findJournalNumberSettings(
     @Query("orgId") orgId?: string,
-    @Query("outletId") outletId?: string,
+    @Query("branchId") branchId?: string,
     @Query("userId") userId?: string,
   ) {
     return this.accountantService.findJournalNumberSettings({
       orgId,
-      outletId,
+      branchId,
       userId,
     });
   }
@@ -169,12 +169,12 @@ export class AccountantController {
   @Get("journal-number-settings/next")
   getNextJournalNumber(
     @Query("orgId") orgId?: string,
-    @Query("outletId") outletId?: string,
+    @Query("branchId") branchId?: string,
     @Query("userId") userId?: string,
   ) {
     return this.accountantService.getNextJournalNumber({
       orgId,
-      outletId,
+      branchId,
       userId,
     });
   }
@@ -182,12 +182,12 @@ export class AccountantController {
   @Get("journal-settings")
   findJournalSettingsAlias(
     @Query("orgId") orgId?: string,
-    @Query("outletId") outletId?: string,
+    @Query("branchId") branchId?: string,
     @Query("userId") userId?: string,
   ) {
     return this.accountantService.findJournalNumberSettings({
       orgId,
-      outletId,
+      branchId,
       userId,
     });
   }
@@ -200,9 +200,9 @@ export class AccountantController {
   @Get("journal-templates")
   findJournalTemplates(
     @Query("orgId") orgId?: string,
-    @Query("outletId") outletId?: string,
+    @Query("branchId") branchId?: string,
   ) {
-    return this.accountantService.findJournalTemplates({ orgId, outletId });
+    return this.accountantService.findJournalTemplates({ orgId, branchId });
   }
 
   @Get("journal-templates/:id([0-9a-fA-F-]{36})")
@@ -306,7 +306,7 @@ export class AccountantController {
     @Query("maxAmount") maxAmount?: number,
     @Query("limit") limit?: number,
     @Query("orgId") orgId?: string,
-    @Query("outletId") outletId?: string,
+    @Query("branchId") branchId?: string,
   ) {
     return this.accountantService.searchTransactions({
       accountId,
@@ -316,7 +316,7 @@ export class AccountantController {
       maxAmount,
       limit,
       orgId,
-      outletId,
+      branchId,
     });
   }
 
@@ -372,18 +372,18 @@ export class AccountantController {
     @Param("id") id: string,
     @Query("limit") limit?: number,
     @Query("orgId") orgId?: string,
-    @Query("outletId") outletId?: string,
+    @Query("branchId") branchId?: string,
   ) {
-    return this.accountantService.getTransactions(id, limit, orgId, outletId);
+    return this.accountantService.getTransactions(id, limit, orgId, branchId);
   }
 
   @Get(":id([0-9a-fA-F-]{36})/closing-balance")
   getClosingBalance(
     @Param("id") id: string,
     @Query("orgId") orgId?: string,
-    @Query("outletId") outletId?: string,
+    @Query("branchId") branchId?: string,
   ) {
-    return this.accountantService.getClosingBalance(id, orgId, outletId);
+    return this.accountantService.getClosingBalance(id, orgId, branchId);
   }
 
   @Put(":id([0-9a-fA-F-]{36})")

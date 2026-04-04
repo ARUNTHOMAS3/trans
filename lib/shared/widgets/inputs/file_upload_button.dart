@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 
 /// A reusable file upload button with an attached-file badge and popup overlay.
@@ -23,6 +24,8 @@ class FileUploadButton extends StatefulWidget {
   final double height;
   final List<String> allowedExtensions;
   final int maxFiles;
+  final bool showBadge;
+  final bool showOverlay;
 
   const FileUploadButton({
     super.key,
@@ -31,6 +34,8 @@ class FileUploadButton extends StatefulWidget {
     this.height = 34,
     this.allowedExtensions = const ['pdf', 'jpg', 'jpeg', 'png'],
     this.maxFiles = 5,
+    this.showBadge = true,
+    this.showOverlay = true,
   });
 
   @override
@@ -61,9 +66,9 @@ class _FileUploadButtonState extends State<FileUploadButton> {
 
     final remaining = widget.maxFiles - widget.files.length;
     if (remaining <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Maximum ${widget.maxFiles} files allowed')),
-      );
+      if (mounted) {
+        ZerpaiToast.error(context, 'Maximum ${widget.maxFiles} files allowed');
+      }
       return;
     }
 
@@ -80,6 +85,7 @@ class _FileUploadButtonState extends State<FileUploadButton> {
   // ── Overlay ───────────────────────────────────────────────────────────────
 
   void _toggleOverlay() {
+    if (!widget.showOverlay) return;
     if (_overlayEntry != null) {
       _removeOverlay();
     } else {
@@ -88,6 +94,7 @@ class _FileUploadButtonState extends State<FileUploadButton> {
   }
 
   void _showOverlay() {
+    if (!widget.showOverlay) return;
     _overlayEntry = OverlayEntry(builder: (_) => _buildOverlay());
     Overlay.of(context).insert(_overlayEntry!);
     setState(() {});
@@ -118,14 +125,14 @@ class _FileUploadButtonState extends State<FileUploadButton> {
             borderRadius: BorderRadius.circular(8),
             color: Colors.transparent,
             child: Container(
-              width: 300,
+              width: 320,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.borderLight),
+                border: Border.all(color: AppTheme.borderColor),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 15,
                     offset: const Offset(0, 8),
                   ),
@@ -160,80 +167,68 @@ class _FileUploadButtonState extends State<FileUploadButton> {
   Widget build(BuildContext context) {
     final hasFiles = widget.files.isNotEmpty;
 
-    return CompositedTransformTarget(
-      link: _layerLink,
-      // Layout footprint is always 32 px — badge floats to the right
-      // via Positioned(left: 40) with Clip.none, so it never shifts layout.
-      child: SizedBox(
-        width: 32,
-        height: widget.height,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // Upload icon button (always visible)
-            ZTooltip(
-              message: 'Attach documents (PDF/Image)',
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Upload icon button (always visible)
+        ZTooltip(
+          message: 'Attach documents (PDF/Image)',
+          child: InkWell(
+            borderRadius: BorderRadius.circular(4),
+            onTap: _pickFiles,
+            child: SizedBox(
+              width: 32,
+              height: widget.height,
+              child: const Center(
+                child: Icon(
+                  LucideIcons.upload,
+                  size: 18,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Badge pill — sits to the right of the upload icon
+        if (widget.showBadge && hasFiles) ...[
+          const SizedBox(width: 8),
+          CompositedTransformTarget(
+            link: _layerLink,
+            child: Material(
+              color: AppTheme.infoBlue,
+              borderRadius: BorderRadius.circular(4),
               child: InkWell(
+                onTap: _toggleOverlay,
                 borderRadius: BorderRadius.circular(4),
-                onTap: _pickFiles,
-                child: SizedBox(
-                  width: 32,
+                child: Container(
                   height: widget.height,
-                  child: const Center(
-                    child: Icon(
-                      LucideIcons.upload,
-                      size: 18,
-                      color: AppTheme.textSecondary,
-                    ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        LucideIcons.paperclip,
+                        size: 15,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${widget.files.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-
-            // Badge pill — sits 8 px to the right of the upload icon,
-            // same height, does not affect layout (clip: none + Positioned).
-            if (hasFiles)
-              Positioned(
-                left: 40, // 32 px icon + 8 px gap
-                top: 0,
-                child: GestureDetector(
-                  onTap: _toggleOverlay,
-                  child: Material(
-                    color: AppTheme.infoBlue,
-                    borderRadius: BorderRadius.circular(4),
-                    child: InkWell(
-                      onTap: _toggleOverlay,
-                      borderRadius: BorderRadius.circular(4),
-                      child: Container(
-                        height: widget.height,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              LucideIcons.paperclip,
-                              size: 15,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${widget.files.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -313,7 +308,7 @@ class _FileListItemState extends State<_FileListItem> {
             if (_isHovered)
               IconButton(
                 icon: const Icon(
-                  Icons.delete_outline,
+                  LucideIcons.trash2,
                   size: 18,
                   color: Colors.white,
                 ),

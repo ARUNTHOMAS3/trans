@@ -13,6 +13,7 @@ import '../../../core/routing/app_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../shared/utils/zerpai_toast.dart';
 import '../../../../shared/widgets/shortcut_handler.dart';
+import '../../../../shared/widgets/unsaved_changes_guard.dart';
 import '../../../../core/api/dio_client.dart';
 
 class ChartOfAccountsCreationPage extends ConsumerStatefulWidget {
@@ -475,11 +476,15 @@ class _ChartOfAccountsCreationPageState
 
   @override
   Widget build(BuildContext context) {
-    return ShortcutHandler(
-      onSave: _onSave,
-      onCancel: _onCancel,
+    return UnsavedChangesGuard(
       isDirty: _isDirty,
-      child: _buildBody(context),
+      onDiscardChanges: _onCancel,
+      child: ShortcutHandler(
+        onSave: _onSave,
+        onCancel: _onCancel,
+        isDirty: _isDirty,
+        child: _buildBody(context),
+      ),
     );
   }
 

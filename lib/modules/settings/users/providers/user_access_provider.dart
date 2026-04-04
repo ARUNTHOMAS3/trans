@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/pages/settings_users_roles_support.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 
 class UserAccessState {
   final bool isLoading;
@@ -46,7 +47,9 @@ class UserAccessState {
 }
 
 class UserAccessNotifier extends StateNotifier<UserAccessState> {
-  UserAccessNotifier() : super(UserAccessState());
+  final ApiClient _apiClient;
+
+  UserAccessNotifier(this._apiClient) : super(UserAccessState());
 
   bool get isValid {
     final hasSelectedOutlets = state.selectedOutletIds.isNotEmpty;
@@ -58,29 +61,65 @@ class UserAccessNotifier extends StateNotifier<UserAccessState> {
   Future<void> init(String orgId) async {
     state = state.copyWith(isLoading: true);
     try {
-      // Mock data for consistency
-      await Future.delayed(const Duration(milliseconds: 300));
-      
-      final mockBranches = [
-        SettingsLocationRecord(id: 'br1', name: 'New York Branch', locationType: 'business', isPrimary: true),
-        SettingsLocationRecord(id: 'br2', name: 'California Branch', locationType: 'business'),
-      ];
-      
-      final mockWarehouses = [
-        SettingsLocationRecord(id: 'wh1', name: 'NY Warehouse', locationType: 'warehouse'),
-        SettingsLocationRecord(id: 'wh2', name: 'SF Warehouse', locationType: 'warehouse'),
-      ];
+      final responses = await Future.wait([
+        _apiClient.dio.get('/outlets', queryParameters: {'org_id': orgId}),
+        _apiClient.dio.get('/users/roles/catalog', queryParameters: {'org_id': orgId}),
+      ]);
 
-      final mockRoles = [
-        const SettingsRoleRecord(id: 'admin', label: 'Admin', description: 'Full access', userCount: 5),
-        const SettingsRoleRecord(id: 'manager', label: 'Manager', description: 'Limited manage access', userCount: 12),
-      ];
+      // Handle both {data: [...]} and raw array response formats
+      final outletsData = responses[0].data is Map 
+          ? List<Map<String, dynamic>>.from(responses[0].data['data'] ?? [])
+          : List<Map<String, dynamic>>.from(responses[0].data ?? []);
+          
+      final rolesData = responses[1].data is Map 
+          ? List<Map<String, dynamic>>.from(responses[1].data['data'] ?? [])
+          : List<Map<String, dynamic>>.from(responses[1].data ?? []);
+
+      final apiOutlets = outletsData.map((o) => SettingsLocationRecord.fromJson(o)).toList();
+      
+      var apiBranches = apiOutlets.where((o) => o.isBusiness).toList();
+      var apiWarehouses = apiOutlets.where((o) => o.isWarehouse).toList();
+
+      // ── MOCK DATA INJECTION (Matching Image Reference) ────────────────────────
+      if (apiBranches.isEmpty && apiWarehouses.isEmpty) {
+        apiBranches = [
+          SettingsLocationRecord(
+            id: 'mock-branch-1',
+            name: 'Head Office',
+            locationType: 'business',
+            isPrimary: false,
+          ),
+          SettingsLocationRecord(
+            id: 'mock-branch-2',
+            name: 'ZABNIX PRIVATE LIMITED',
+            locationType: 'business',
+            isPrimary: true,
+          ),
+        ];
+
+        apiWarehouses = [
+          SettingsLocationRecord(
+            id: 'mock-warehouse-1',
+            name: 'DEMO WAREHOUSE 1',
+            locationType: 'warehouse',
+            parentOutletId: 'mock-branch-2', // Nest under ZABNIX
+          ),
+        ];
+      }
+      // ─────────────────────────────────────────────────────────────────────────────
+
+      final apiRoles = rolesData.map((r) => SettingsRoleRecord(
+        id: r['id']?.toString() ?? '',
+        label: r['name'] ?? 'Unknown Role',
+        description: r['description'] ?? '',
+        userCount: r['user_count'] ?? 0,
+      )).toList();
 
       state = state.copyWith(
         isLoading: false,
-        branches: mockBranches,
-        warehouses: mockWarehouses,
-        roles: mockRoles,
+        branches: apiBranches,
+        warehouses: apiWarehouses,
+        roles: apiRoles,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -137,5 +176,6 @@ enum RoleGroupType {
 }
 
 final userAccessProvider = StateNotifierProvider<UserAccessNotifier, UserAccessState>((ref) {
-  return UserAccessNotifier();
+  final apiClient = ref.watch(apiClientProvider);
+  return UserAccessNotifier(apiClient);
 });

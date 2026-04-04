@@ -1,8 +1,0 @@
-﻿backend/src/modules/inventory/controllers/picklists.controller.ts
-backend/src/modules/inventory/services/picklists.service.ts
-backend/src/modules/purchases/purchase-receives/controllers/purchase-receives.controller.ts
-backend/src/modules/purchases/purchase-receives/dto/create-purchase-receive.dto.ts
-backend/src/modules/purchases/purchase-receives/dto/update-purchase-receive.dto.ts
-backend/src/modules/purchases/purchase-receives/entities/purchase-receive.entity.ts
-backend/src/modules/purchases/purchase-receives/purchase-receives.module.ts
-backend/src/modules/purchases/purchase-receives/services/purchase-receives.service.ts

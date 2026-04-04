@@ -1,77 +1,112 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/role_permission_models.dart';
+import 'role_permission_scheme.dart';
 
 class RoleCreationState {
   final String roleName;
   final String description;
-  final int activeTabIndex;
-  final Map<String, Set<String>> permissions; // moduleKey -> {view, create, etc}
-  final Map<String, Map<String, bool>> advancedOverrides; // moduleKey -> {permissionName: bool}
+  final Map<String, Set<String>>
+  permissions; // moduleKey -> {view, create, etc}
+  final Map<String, Map<String, bool>>
+  advancedOverrides; // moduleKey -> {permissionName: bool}
   final bool fullAccessReports;
-  final Map<String, Set<String>> reportPermissions; // category -> {view, export, schedule, share}
-  final String searchQuery;
+  final Map<String, Set<String>>
+  reportPermissions; // category -> {view, export, schedule, share}
+  final Set<String> expandedSections;
 
   RoleCreationState({
     this.roleName = '',
     this.description = '',
-    this.activeTabIndex = 0,
     this.permissions = const {},
     this.advancedOverrides = const {},
     this.fullAccessReports = false,
     this.reportPermissions = const {},
-    this.searchQuery = '',
+    this.expandedSections = const {},
   });
 
   RoleCreationState copyWith({
     String? roleName,
     String? description,
-    int? activeTabIndex,
     Map<String, Set<String>>? permissions,
     Map<String, Map<String, bool>>? advancedOverrides,
     bool? fullAccessReports,
     Map<String, Set<String>>? reportPermissions,
-    String? searchQuery,
+    Set<String>? expandedSections,
   }) {
     return RoleCreationState(
       roleName: roleName ?? this.roleName,
       description: description ?? this.description,
-      activeTabIndex: activeTabIndex ?? this.activeTabIndex,
       permissions: permissions ?? this.permissions,
       advancedOverrides: advancedOverrides ?? this.advancedOverrides,
       fullAccessReports: fullAccessReports ?? this.fullAccessReports,
       reportPermissions: reportPermissions ?? this.reportPermissions,
-      searchQuery: searchQuery ?? this.searchQuery,
+      expandedSections: expandedSections ?? this.expandedSections,
     );
   }
 }
 
 class RoleCreationNotifier extends StateNotifier<RoleCreationState> {
-  RoleCreationNotifier() : super(RoleCreationState());
+  RoleCreationNotifier()
+    : super(
+        RoleCreationState(
+          permissions: RolePermissionScheme.getDefaultPermissions(),
+          reportPermissions: RolePermissionScheme.getDefaultReportPermissions(),
+          expandedSections: RolePermissionScheme.getMetadata()
+              .map((e) => e.title)
+              .toSet(),
+        ),
+      );
 
   void setRoleName(String val) => state = state.copyWith(roleName: val);
   void setDescription(String val) => state = state.copyWith(description: val);
-  void setTabIndex(int index) => state = state.copyWith(activeTabIndex: index);
-  void setSearch(String query) => state = state.copyWith(searchQuery: query);
+
+  void toggleSection(String title) {
+    final current = Set<String>.from(state.expandedSections);
+    if (current.contains(title)) {
+      current.remove(title);
+    } else {
+      current.add(title);
+    }
+    state = state.copyWith(expandedSections: current);
+  }
 
   /// -------------------------------------------------------------------------
   /// MATRIX LOGIC (DEPENDENCY ENGINE)
   /// -------------------------------------------------------------------------
 
-  void togglePermission(String moduleKey, String action, List<String> availableActions) {
+  void togglePermission(
+    String moduleKey,
+    String action,
+    List<String> availableActions, {
+    List<PermissionRowMeta>? subRows,
+  }) {
     final current = Map<String, Set<String>>.from(state.permissions);
     final rowSet = Set<String>.from(current[moduleKey] ?? {});
 
     if (action == 'full') {
       if (rowSet.contains('full')) {
         rowSet.clear();
+        // Clear sub-rows if any
+        if (subRows != null) {
+          for (final sub in subRows) {
+            current[sub.key] = {};
+          }
+        }
       } else {
         // Checking Full auto-checks all available actions
         rowSet.addAll(['full', ...availableActions]);
+        // Set full for sub-rows if any
+        if (subRows != null) {
+          for (final sub in subRows) {
+            current[sub.key] = {'full', ...sub.actions};
+          }
+        }
       }
     } else {
       if (rowSet.contains(action)) {
         rowSet.remove(action);
         rowSet.remove('full');
-        
+
         // Dependency: Unchecking View forces all others to false
         if (action == 'view') {
           rowSet.clear();
@@ -80,7 +115,7 @@ class RoleCreationNotifier extends StateNotifier<RoleCreationState> {
         rowSet.add(action);
         // Dependency: Checking any action auto-checks View
         rowSet.add('view');
-        
+
         // Auto-check 'full' if all available actions are now selected
         final realActions = availableActions.where((a) => a != 'full').toList();
         if (realActions.every((a) => rowSet.contains(a))) {
@@ -93,15 +128,20 @@ class RoleCreationNotifier extends StateNotifier<RoleCreationState> {
     state = state.copyWith(permissions: current);
   }
 
-  void toggleCategoryColumn(List<String> moduleKeys, String action, bool select, Map<String, List<String>> moduleActionMap) {
+  void toggleCategoryColumn(
+    List<String> moduleKeys,
+    String action,
+    bool select,
+    Map<String, List<String>> moduleActionMap,
+  ) {
     final current = Map<String, Set<String>>.from(state.permissions);
-    
+
     for (final key in moduleKeys) {
       final available = moduleActionMap[key] ?? [];
       if (!available.contains(action) && action != 'full') continue;
-      
+
       final rowSet = Set<String>.from(current[key] ?? {});
-      
+
       if (select) {
         if (action == 'full') {
           rowSet.addAll(['full', ...available]);
@@ -122,7 +162,7 @@ class RoleCreationNotifier extends StateNotifier<RoleCreationState> {
       }
       current[key] = rowSet;
     }
-    
+
     state = state.copyWith(permissions: current);
   }
 
@@ -131,7 +171,9 @@ class RoleCreationNotifier extends StateNotifier<RoleCreationState> {
   /// -------------------------------------------------------------------------
 
   void toggleAdvancedOverride(String moduleKey, String overrideKey, bool val) {
-    final current = Map<String, Map<String, bool>>.from(state.advancedOverrides);
+    final current = Map<String, Map<String, bool>>.from(
+      state.advancedOverrides,
+    );
     final moduleOverrides = Map<String, bool>.from(current[moduleKey] ?? {});
     moduleOverrides[overrideKey] = val;
     current[moduleKey] = moduleOverrides;
@@ -160,9 +202,18 @@ class RoleCreationNotifier extends StateNotifier<RoleCreationState> {
       if (catSet.contains(action)) {
         catSet.remove(action);
         catSet.remove('full_access');
+        if (action == 'view') {
+          catSet.clear();
+        }
       } else {
         catSet.add(action);
-        if (['view', 'export', 'schedule', 'share'].every((a) => catSet.contains(a))) {
+        catSet.add('view'); // Dependency
+        if ([
+          'view',
+          'export',
+          'schedule',
+          'share',
+        ].every((a) => catSet.contains(a))) {
           catSet.add('full_access');
         }
       }
@@ -172,7 +223,11 @@ class RoleCreationNotifier extends StateNotifier<RoleCreationState> {
     state = state.copyWith(reportPermissions: current);
   }
 
-  void selectAllReportsColumn(String action, List<String> categories, bool select) {
+  void selectAllReportsColumn(
+    String action,
+    List<String> categories,
+    bool select,
+  ) {
     final current = Map<String, Set<String>>.from(state.reportPermissions);
     for (final cat in categories) {
       final catSet = Set<String>.from(current[cat] ?? {});
@@ -181,7 +236,13 @@ class RoleCreationNotifier extends StateNotifier<RoleCreationState> {
           catSet.addAll(['full_access', 'view', 'export', 'schedule', 'share']);
         } else {
           catSet.add(action);
-          if (['view', 'export', 'schedule', 'share'].every((a) => catSet.contains(a))) {
+          catSet.add('view'); // Dependency
+          if ([
+            'view',
+            'export',
+            'schedule',
+            'share',
+          ].every((a) => catSet.contains(a))) {
             catSet.add('full_access');
           }
         }
@@ -191,6 +252,7 @@ class RoleCreationNotifier extends StateNotifier<RoleCreationState> {
         } else {
           catSet.remove(action);
           catSet.remove('full_access');
+          if (action == 'view') catSet.clear();
         }
       }
       current[cat] = catSet;
@@ -201,4 +263,5 @@ class RoleCreationNotifier extends StateNotifier<RoleCreationState> {
 
 final roleCreationProvider =
     StateNotifierProvider.autoDispose<RoleCreationNotifier, RoleCreationState>(
-        (ref) => RoleCreationNotifier());
+      (ref) => RoleCreationNotifier(),
+    );
