@@ -1,0 +1,16 @@
+-- Migration: Org profile columns on the organization table.
+-- These columns were applied directly via ALTER TABLE in Supabase — no action needed here.
+-- The organization table already contains all profile settings columns.
+--
+-- Columns present on public.organization:
+--   industry                          VARCHAR(255)
+--   logo_url                          TEXT
+--   base_currency                     VARCHAR(10)
+--   fiscal_year                       VARCHAR(50)
+--   timezone                          VARCHAR(100)
+--   date_format                       VARCHAR(50)
+--   date_separator                    VARCHAR(5)
+--   company_id_label                  VARCHAR(50)
+--   company_id_value                  VARCHAR(100)
+--   payment_stub_address              TEXT
+--   has_separate_payment_stub_address BOOLEAN NOT NULL DEFAULT FALSE

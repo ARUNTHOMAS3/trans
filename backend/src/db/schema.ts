@@ -355,7 +355,6 @@ export const vendor = pgTable("vendors", {
   billingPincode: text("billing_pincode"),
   billingCountryRegion: text("billing_country_region"),
   billingPhone: text("billing_phone"),
-  billingFax: text("billing_fax"),
 
   shippingAttention: text("shipping_attention"),
   shippingAddressStreet1: text("shipping_address_street_1"),
@@ -365,7 +364,6 @@ export const vendor = pgTable("vendors", {
   shippingPincode: text("shipping_pincode"),
   shippingCountryRegion: text("shipping_country_region"),
   shippingPhone: text("shipping_phone"),
-  shippingFax: text("shipping_fax"),
 });
 
 // Vendor Bank Account Table
@@ -916,6 +914,7 @@ export const organizations = pgTable("organization", {
   baseCurrencyDecimals: smallint("base_currency_decimals"),
   baseCurrencyFormat: varchar("base_currency_format", { length: 50 }),
   fiscalYear: varchar("fiscal_year", { length: 50 }),
+  reportBasis: varchar("report_basis", { length: 50 }).default("accrual"),
   organizationLanguage: varchar("organization_language", { length: 50 }),
   communicationLanguages: text("communication_languages").array(),
   timezone: varchar("timezone", { length: 100 }),
@@ -923,6 +922,12 @@ export const organizations = pgTable("organization", {
   dateSeparator: varchar("date_separator", { length: 5 }),
   companyIdLabel: varchar("company_id_label", { length: 50 }),
   companyIdValue: varchar("company_id_value", { length: 100 }),
+  attention: text("attention"),
+  addressStreet1: text("address_street_1"),
+  addressStreet2: text("address_street_2"),
+  city: varchar("city", { length: 100 }),
+  pincode: varchar("pincode", { length: 20 }),
+  phone: varchar("phone", { length: 50 }),
   
   // Compliance Fields
   isDrugRegistered: boolean("is_drug_registered").default(false),
@@ -940,10 +945,14 @@ export const organizations = pgTable("organization", {
   hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false),
   districtId: uuid("district_id"),
   localBodyId: uuid("local_body_id"),
+  assemblyId: uuid("assembly_id").references(() => settingsAssemblies.id),
   wardId: uuid("ward_id"),
   paymentStubDistrictId: uuid("payment_stub_district_id"),
   paymentStubLocalBodyId: uuid("payment_stub_local_body_id"),
   paymentStubWardId: uuid("payment_stub_ward_id"),
+  paymentStubAssemblyId: uuid("payment_stub_assembly_id").references(
+    () => settingsAssemblies.id,
+  ),
 
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -962,6 +971,18 @@ export const settingsLocalBodies = pgTable("settings_local_bodies", {
   name: varchar("name", { length: 255 }).notNull(),
   districtId: uuid("district_id").notNull().references(() => settingsDistricts.id),
   bodyType: varchar("body_type", { length: 50 }),
+});
+
+export const settingsAssemblies = pgTable("settings_assemblies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  districtId: uuid("district_id")
+    .notNull()
+    .references(() => settingsDistricts.id),
+  name: varchar("name", { length: 150 }).notNull(),
+  code: varchar("code", { length: 50 }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const settingsWards = pgTable("settings_wards", {
@@ -985,20 +1006,70 @@ export const settingsBranches = pgTable("settings_branches", {
   branchCode: varchar("branch_code", { length: 50 }).notNull(),
   systemId: varchar("system_id", { length: 50 }),
   branchType: branchTypeEnum("branch_type").default("FOFO"),
-  gstin: varchar("gstin", { length: 50 }),
   email: varchar("email", { length: 255 }),
   phone: varchar("phone", { length: 50 }),
-  address: text("address"),
+  website: varchar("website", { length: 255 }),
+  attention: text("attention"),
+  addressStreet1: text("address_street_1"),
+  addressStreet2: text("address_street_2"),
   city: varchar("city", { length: 100 }),
   state: varchar("state", { length: 100 }),
   country: varchar("country", { length: 100 }).default("India"),
   pincode: varchar("pincode", { length: 20 }),
   districtId: uuid("district_id").references(() => settingsDistricts.id),
   localBodyId: uuid("local_body_id").references(() => settingsLocalBodies.id),
+  assemblyId: uuid("assembly_id").references(() => settingsAssemblies.id),
   wardId: uuid("ward_id").references(() => settingsWards.id),
   landmark: text("landmark"),
   isPrimary: boolean("is_primary").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
+
+  // Hierarchy & Ownership
+  isChildLocation: boolean("is_child_location").default(false),
+  parentBranchId: uuid("parent_branch_id"), // Not referencing self yet for simplicity in migrations if circular, but typically allowed
+  primaryContactId: uuid("primary_contact_id").references(() => users.id),
+  
+  // Enterprise & GST
+  industry: varchar("industry", { length: 255 }),
+  pan: varchar("pan", { length: 10 }),
+  gstin: varchar("gstin", { length: 15 }),
+  gstTreatment: varchar("gst_treatment", { length: 50 }),
+  gstinRegistrationType: varchar("gstin_registration_type", { length: 50 }),
+  gstinLegalName: varchar("gstin_legal_name", { length: 255 }),
+  gstinTradeName: varchar("gstin_trade_name", { length: 255 }),
+  gstinRegisteredOn: date("gstin_registered_on"),
+  gstinReverseCharge: boolean("gstin_reverse_charge").default(false),
+  gstinImportExport: boolean("gstin_import_export").default(false),
+  gstinImportExportAccountId: uuid("gstin_import_export_account_id"),
+  gstinDigitalServices: boolean("gstin_digital_services").default(false),
+
+  // Regulatory Compliance
+  isDrugRegistered: boolean("is_drug_registered").default(false),
+  drugLicenceType: varchar("drug_licence_type", { length: 50 }),
+  drugLicense20: varchar("drug_license_20", { length: 255 }),
+  drugLicense21: varchar("drug_license_21", { length: 255 }),
+  drugLicense20b: varchar("drug_license_20b", { length: 255 }),
+  drugLicense21b: varchar("drug_license_21b", { length: 255 }),
+  isFssaiRegistered: boolean("is_fssai_registered").default(false),
+  fssaiNumber: varchar("fssai_number", { length: 255 }),
+  isMsmeRegistered: boolean("is_msme_registered").default(false),
+  msmeRegistrationType: varchar("msme_registration_type", { length: 50 }),
+  msmeNumber: varchar("msme_number", { length: 255 }),
+
+  // Settings & Subs
+  logoUrl: text("logo_url"),
+  subscriptionFrom: date("subscription_from"),
+  subscriptionTo: date("subscription_to"),
+  defaultTransactionSeriesId: uuid("default_transaction_series_id"),
+
+  // Payment Stub Address (Independent for each branch)
+  hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false),
+  paymentStubAddress: text("payment_stub_address"),
+  paymentStubDistrictId: uuid("payment_stub_district_id").references(() => settingsDistricts.id),
+  paymentStubLocalBodyId: uuid("payment_stub_local_body_id").references(() => settingsLocalBodies.id),
+  paymentStubWardId: uuid("payment_stub_ward_id").references(() => settingsWards.id),
+  paymentStubAssemblyId: uuid("payment_stub_assembly_id").references(() => settingsAssemblies.id),
+
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -1011,6 +1082,9 @@ export const settingsTransactionSeries = pgTable("settings_transaction_series", 
   modules: jsonb("modules").notNull().default([]),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  code: varchar("code", { length: 50 }),
+  branchCode: varchar("branch_code", { length: 50 }),
+  warehouseCode: varchar("warehouse_code", { length: 50 }),
 });
 export const settingsBranchTransactionSeries = pgTable("settings_branch_transaction_series", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -1384,6 +1458,9 @@ export const warehouses = pgTable("warehouses", {
   addressStreet2: text("address_street_2"),
   city: text("city"),
   state: text("state"),
+  districtId: uuid("district_id").references(() => settingsDistricts.id),
+  localBodyId: uuid("local_body_id").references(() => settingsLocalBodies.id),
+  wardId: uuid("ward_id").references(() => settingsWards.id),
   zipCode: varchar("zip_code", { length: 20 }),
   countryRegion: text("country_region").notNull(),
   phone: varchar("phone", { length: 50 }),

@@ -36,6 +36,14 @@ No authentication setup is allowed until production. The application must run wi
 - ALL essential information in one place
 - **Use this as:** Single source of truth for development
 
+#### 1.1 **`prd_tech_stack.md`** 🧱 **STACK REFERENCE**
+
+- Canonical Flutter/NestJS/Supabase/Drizzle/Vercel stack decisions
+- Package inventory and runtime implementation notes from the current codebase
+- Environment, deployment, testing, and monitoring stack details
+- PRD-vs-code drift list for stack-related gaps
+- **Use this for:** Dependency decisions, environment setup, backend/frontend integration, and stack reviews
+
 ---
 
 ### **Operational Guides** (Detailed Standalone Documents)
@@ -160,6 +168,7 @@ These are extracted from the comprehensive PRD for focused operational use:
 | Document                     | Sections | Lines | Purpose                      |
 | ---------------------------- | -------- | ----- | ---------------------------- |
 | **PRD.md**                   | 25       | 1,867 | Complete PRD (all-in-one)    |
+| **prd_tech_stack.md**        | 9        | ~330  | Stack inventory, runtime, drift |
 | **prd_disaster_recovery.md** | 11       | ~600  | Backups, incidents, recovery |
 | **prd_deployment.md**        | 12       | ~900  | CI/CD, releases, rollbacks   |
 | **prd_monitoring.md**        | 9        | ~300  | Metrics, alerts, logs        |
@@ -168,7 +177,7 @@ These are extracted from the comprehensive PRD for focused operational use:
 | **prd_ui.md**                | 47       | 380   | UI-only standards & patterns |
 | **prd_keyboard_shortcuts.md**| 6        | ~120  | Power-user shortcut ref      |
 
-**Total:** ~4,947 lines of comprehensive documentation
+**Total:** ~5,277 lines of comprehensive documentation
 
 ---
 
@@ -196,10 +205,12 @@ These **cannot** be changed without major discussion:
 17. **Mandatory Pagination:** All tables must implement server-side pagination with a default of 100 rows per page - Section 14.5.4
 18. **Numeric Input Restriction:** Fields expecting digits (Quantity, Rate, Tax, etc.) must strictly block alphabetic characters - Section 14.12.2
 19. **Standardized Shortcuts:** All power-user shortcuts must align with the `prd_keyboard_shortcuts.md` and use the `ShortcutHandler` wrapper.
+20. **Canonical Stack Reference:** `prd_tech_stack.md` is the standalone package/runtime/deployment stack index and must stay aligned with `PRD.md` Section 7.
 
 | Document                 | Review Schedule     | Owner                 |
 | ------------------------ | ------------------- | --------------------- |
 | PRD.md                   | Every major release | Product + Engineering |
+| prd_tech_stack.md        | Every stack change  | Engineering + DevOps  |
 | prd_disaster_recovery.md | Quarterly + post-P0 | DevOps                |
 | prd_deployment.md        | After CI/CD changes | DevOps                |
 | prd_monitoring.md        | Quarterly           | DevOps                |

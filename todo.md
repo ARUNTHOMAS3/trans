@@ -1,0 +1,196 @@
+# ZERPAI ERP - Technical TODO List
+
+## 🔍 Search & Navigation
+
+- [x] **Navbar Global Search**: Enhance the central search in `ZerpaiNavbar` to support full-module searching and redirects.
+- [x] **Advanced Filtering**: Implement the backend logic for the local Search Popup in the Chart of Accounts (Account Name/Code matching).
+- [ ] **Persistent State**: Ensure the 'Account View' filter and search results remain active when navigating back to the CoA page.
+
+## 🏗️ Missing Modules (Placeholders needed)
+
+The following modules are listed in the Search Switcher but lack routes or implementations:
+
+- [ ] **Banking**: Create routes and placeholder screens for Banking transactions and statements.
+- [x] **Expenses**: Implement Expense tracking module. *(Mapped to PlaceholderScreen)*
+- [x] **Bills**: Add vendor bill management under Purchases. *(Mapped to PlaceholderScreen)*
+- [x] **Payments Made**: Implement payment tracking for vendor bills. *(Mapped to PlaceholderScreen)*
+- [x] **Vendor Credits**: Add support for purchase returns and vendor credits. *(Mapped to PlaceholderScreen)*
+- [ ] **Projects**: (CRM/Service) Implement project management and tracking.
+- [ ] **Timesheet**: Add time tracking functionality.
+- [ ] **Tasks**: Implement task management within modules.
+
+### Planned Unfinished Scope: Exposed Placeholder Routes
+
+These are intentionally still under construction and should be tracked as planned unfinished scope, not as defects, unless they should already be hidden from users.
+
+- [ ] **Inventory placeholders exposed in live navigation**: Inventory Adjustments, Picklists, Packages, Shipments, and Transfer Orders currently resolve to `PlaceholderScreen` routes in `lib/core/routing/app_router.dart`.
+- [ ] **Items placeholders exposed in live navigation**: Item Groups and Item Mapping currently resolve to `PlaceholderScreen` routes in `lib/core/routing/app_router.dart`.
+- [ ] **Purchases/accounting placeholders exposed in live navigation**: Expenses, Bills, Payments Made, Vendor Credits, and some purchase creation/detail paths still resolve to placeholder screens.
+- [ ] **Interim UX decision for unfinished modules**: Choose one temporary strategy and apply it consistently:
+  Keep routes visible, but clearly label unfinished menu items/modules as `Coming Soon`.
+  Hide unfinished modules from sidebar/search/navigation until real screens are ready.
+
+## 📈 Charts & Data
+
+- [x] **Account Transactions Graph**: Wire up the "Closing Balance" and "Recent Transactions" data to visual sparklines or bar charts in the `ChartOfAccountsDetailPanel`.
+- [x] **Dashboard Widgets**: Connect dashboard placeholders to real-time aggregations from the backend.
+
+## 🧹 Code Quality & Cleanup
+
+- [ ] **Standardize Search UI**: Ensure all search bars across the app use the new consistent styling found in the Chart of Accounts.
+- [ ] **Unify Generic Lists**: Migrate other list views to use `SalesGenericListScreen` where appropriate to reduce code duplication.
+
+## 🧰 Tech Debt / Architecture
+
+- [ ] **Routing Cleanup**: Remove or consolidate legacy `lib/core/router/` vs `lib/core/routing/` (app currently uses `lib/core/routing/`).
+- [ ] **Multi-Tenancy Headers**: Add `X-Org-Id` and `X-Outlet-Id` to API requests in `ApiClient`/Dio layer.
+- [ ] **Backend Tenant Enforcement**: Re-enable `TenantMiddleware` once auth is wired, and ensure endpoints derive org/outlet from token or headers.
+- [ ] **Supabase Migration Docs**: Align root `README.md` migration instructions with `supabase/migrations/README.md` (schema file mismatch).
+- [ ] **Audit Trail UI**: Build a dedicated audit/history page later to browse `audit_logs` and `audit_logs_archive`, with filters for table, record, action, org, outlet, actor, request ID, and date range.
+
+## 🧩 Collected TODO/FIXME/HACK/XXX (grouped by module)
+
+**Frontend / Sales**
+
+- [ ] **Visible placeholder actions in Sales generic list UI**: The following controls are still exposed as active-looking UI but currently map to TODO-only or empty handlers in `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart`:
+  `Export Current View`, `Preferences`, `Refresh List`, bulk actions (`Bulk Update`, `Mark as Active`, `Mark as Inactive`, `Merge`, `Associate Templates`), and overflow actions (`Request GST Information`, `Delete`).
+- [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:226` Implement Export Current View.
+- [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:246` Open Preferences.
+- [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:258` Refresh List.
+- [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:308` Implement bulk update.
+- [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:311` Implement mark as active.
+- [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:314` Implement mark as inactive.
+- [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:317` Implement merge.
+- [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:323` Implement associate templates.
+- [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:374` Implement request GST.
+- [ ] `lib/modules/sales/presentation/sections/sales_generic_list_ui.dart:385` Implement delete.
+- [ ] `lib/modules/sales/presentation/sections/sales_generic_list_filter.dart:83` Implement custom view creation.
+- [ ] `lib/modules/sales/presentation/sections/sales_customer_overview_actions.dart:114` Handle action.
+- [ ] `lib/modules/sales/presentation/sections/sales_customer_overview_actions.dart:256` Implement delete.
+- [x] `lib/modules/sales/presentation/sections/sales_customer_dialogs.dart` Replace deprecated `groupValue` and `onChanged` with `RadioGroup`. *(fixed via RadioScope migration)*
+- [x] `lib/modules/sales/presentation/sections/sales_customer_overview_tab.dart` Replace deprecated `groupValue` and `onChanged` with `RadioGroup`. *(fixed via RadioScope migration)*
+
+**Frontend / Purchases**
+
+- [ ] **Purchase orders overview is still a structural shell**: In `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart`, the search field, filter button, row actions (`View`, `Edit`, `Delete`), empty-state create CTA, and error retry are still placeholder/TODO paths, and the vendor column is still hardcoded.
+- [ ] `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart:70` Implement search with debouncing.
+- [ ] `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart:77` Show filter dialog.
+- [ ] `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart:116` Fetch vendor name.
+- [ ] `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart:136` Navigate to order detail.
+- [ ] `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart:142` Navigate to edit order.
+- [ ] `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart:148` Delete order.
+- [ ] `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart:223` Navigate to create order.
+- [ ] `lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart:258` Retry loading.
+- [ ] `lib/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart:202` Remove unused field `_isAddingBank`.
+- [ ] `lib/modules/purchases/vendors/presentation/purchases_vendors_vendor_list.dart:361` Remove unused declaration `_AlignmentContainer`.
+- [ ] `lib/modules/purchases/vendors/presentation/sections/purchases_vendors_helpers.dart:71` Remove unused declarations (`addContactRow`, `removeContactRow`).
+- [ ] `lib/modules/purchases/vendors/presentation/sections/purchases_vendors_builders.dart:212` Replace deprecated `withOpacity` with `.withValues()`.
+- [ ] `lib/modules/purchases/vendors/presentation/sections/purchases_vendors_license_section.dart:386` Replace deprecated `withOpacity` with `.withValues()`.
+- [ ] `lib/modules/purchases/vendors/presentation/sections/purchases_vendors_other_details_section.dart:529` Replace deprecated `withOpacity` with `.withValues()`.
+- [ ] `lib/modules/purchases/vendors/presentation/sections/purchases_vendors_remarks_section.dart:49` Replace deprecated `withOpacity` with `.withValues()`.
+
+**Frontend / Items**
+
+- [ ] **Visible placeholder actions in Items report UI**: In `lib/modules/items/items/presentation/sections/report/sections/items_report_body_actions.dart`, these controls still present as active UI but are not fully implemented: `Import Item Images`, `Export Current Item`, `Preferences`, `Refresh List`, sort action, selection overflow `Delete selected`, and selection overflow `Disable Bin location`.
+- [ ] **Visible placeholder actions in Item detail actions**: In `lib/modules/items/items/presentation/sections/items_item_detail_actions.dart`, `Import Item Images`, `Export Current Item`, and `Preferences` are still snackbar placeholders. `Refresh List` is wired and does not need placeholder tracking.
+- [ ] `lib/modules/items/pricelist/models/pricelist_model.dart:18` Add support for multi-currency conversion in calculations.
+- [ ] `lib/modules/items/pricelist/models/pricelist_model.dart:19` Implement item-group based pricing rules.
+- [ ] `lib/modules/items/pricelist/models/pricelist_model.dart:20` Add tax-inclusive/exclusive calculation flags.
+- [ ] Import Items Images (`lib/modules/items/items/presentation/sections/report/sections/items_report_body_actions.dart:35`, `lib/modules/items/items/presentation/sections/items_item_detail_actions.dart:19`).
+- [ ] Export Current Item (`lib/modules/items/items/presentation/sections/report/sections/items_report_body_actions.dart:38`, `lib/modules/items/items/presentation/sections/items_item_detail_actions.dart:25`).
+- [ ] Open Preferences (`lib/modules/items/items/presentation/sections/report/sections/items_report_body_actions.dart:41`, `lib/modules/items/items/presentation/sections/items_item_detail_actions.dart:28`).
+- [ ] Reset Column Width (`lib/modules/items/items/presentation/sections/report/sections/items_report_body_actions.dart:48`, `lib/modules/items/items/presentation/sections/items_item_detail_actions.dart:35`).
+- [ ] Get real stock from inventory module (`lib/modules/items/items/presentation/sections/report/items_report_screen.dart:138`, `lib/modules/items/items/presentation/sections/report/items_report_overview.dart:138`).
+- [ ] `lib/modules/items/composite_items/presentation/items_composite_items_composite_listview.dart:720` Add compositeItemsDetail route to app_routes.dart.
+- [ ] `lib/modules/items/composite_items/presentation/items_composite_items_composite_creation.dart:1693` Remove unused declaration `buildUnderlinedLabel`.
+- [ ] `lib/modules/items/composite_items/presentation/items_composite_items_composite_creation.dart:2354` Replace deprecated `groupValue` and `onChanged` with `RadioGroup`.
+- [ ] `lib/modules/items/items/presentation/items_item_create.dart:514` Remove unused local variable `name`.
+- [ ] `lib/modules/items/items/presentation/sections/items_item_create_inventory.dart:5` Remove unused local variable `controller`.
+- [ ] `lib/modules/items/items/presentation/sections/items_item_create_inventory.dart:450` Replace deprecated `groupValue` and `onChanged` with `RadioGroup`.
+- [ ] `lib/modules/items/items/presentation/sections/items_item_create_tabs.dart:266` Remove unused local variable `controller`.
+- [ ] `lib/modules/items/items/presentation/sections/report/dialogs/bulk_update_dialog.dart:108` Remove unused local variable `categoryIds`.
+- [ ] `lib/modules/items/items/presentation/sections/report/items_report_overview.dart:258` Remove dead code (left operand can't be null).
+
+**Frontend / Accountant**
+
+- [ ] `lib/modules/accountant/presentation/accountant_bulk_update_screen.dart:798` Opening Balances (P0) - Priority Implementation.
+- [ ] `lib/modules/accountant/presentation/accountant_bulk_update_screen.dart:799` Advanced Reporting - Relocate to Reports module.
+
+**Frontend / Accounts (Manual Journals)**
+
+- [ ] `lib/modules/accounts/manual_journals/presentation/manual_journal_create_screen.dart:123` Implement templates (Choose Template functionality).
+- [ ] `lib/modules/accounts/manual_journals/presentation/manual_journal_create_screen.dart:289` Replace deprecated `value` with `initialValue` in DropdownButtonFormField (Fiscal Year).
+- [ ] `lib/modules/accounts/manual_journals/presentation/manual_journal_create_screen.dart:313` Replace deprecated `value` with `initialValue` in DropdownButtonFormField (Currency).
+- [ ] `lib/modules/accounts/manual_journals/presentation/manual_journal_create_screen.dart:351` Replace deprecated `groupValue` with RadioGroup ancestor for Reporting Method radio buttons.
+- [ ] `lib/modules/accounts/manual_journals/presentation/manual_journal_create_screen.dart:353` Replace deprecated `onChanged` with RadioGroup handler for Reporting Method radio buttons.
+- [ ] `lib/modules/accounts/recurring_journals/presentation/widgets/recurring_journal_import_export_dialogs.dart:215` Replace deprecated `groupValue` and `onChanged` with `RadioGroup`.
+- [x] **Opening Balance Adjustment**: Implement backend logic to automatically create a Journal Entry (Dr: New Account, Cr: Opening Balance Adjustments) when an opening balance is set during account creation/edit.
+- [x] **Account Mutation Security**: Implement "Point of No Return" locking. Account Type should be immutable if transactions exist. System accounts (is_system=true) should have Name and Type locked regardless.
+- [x] **Hierarchy Safety**: Prevent Tax/GST accounts from being used as Parent Accounts in the dropdown.
+
+**Backend / Currencies**
+
+- [ ] `backend/src/currencies/currencies.controller.ts:2` Fix module resolution error - Cannot find module './currencies.service'. Verify file exists and TypeScript compilation is working.
+
+**Docs / Repowiki**
+
+- [ ] `repowiki/en/content/Backend Development/Database Layer & ORM.md:287` Production auth bypass noted; TODO to enable JWT verification and org/outlet extraction.
+- [ ] `repowiki/en/content/Backend Development/Authentication & Security.md:95` Tenant middleware described; TODO to enable JWT verification and org/outlet extraction in production.
+- [ ] `repowiki/en/content/Backend Development/Authentication & Security.md:126` Document development bypass and production TODO markers.
+- [ ] `repowiki/en/content/Backend Development/Authentication & Security.md:131` Production code TODOs for JWT parsing and role extraction.
+- [ ] `repowiki/en/content/Backend Development/Authentication & Security.md:308` Tenant middleware TODOs for JWT verification and role extraction.
+- [ ] **Repo hygiene rule**: Do not keep production source/config files with names like `(1)`, `copy`, `backup`, or `old`; remove or archive them after confirming the canonical source file.
+
+## 🔮 Future Enhancements (Post-MVP)
+
+- [ ] **RBAC Home Dashboard Specification**: Define the home dashboard as a role-aware, permission-aware, user-aware, and outlet-aware command center rather than a single shared summary screen.
+- [ ] **Dashboard role matrix**: Document exact home widgets by role and scope:
+  - Super Admin: cross-org health, org/user status, system alerts
+  - Org Admin: org-wide KPIs, receivables/payables, inventory risk, outlet comparison
+  - Outlet Admin / Manager: outlet sales, low stock, expiry alerts, pending operational actions
+  - Sales / Cashier: today's sales, pending invoices, payment follow-ups, customer actions
+  - Purchase User: pending purchase orders, vendor follow-ups, receiving actions, shortage alerts
+  - Inventory / Warehouse User: low stock, expiry, accounting vs physical variance, stock adjustments
+  - Accountant: receivables, payables, cash/bank, journals, locks, accounting exceptions
+- [ ] **Dashboard outlet-context behavior**: Define how the dashboard changes for org-level users vs outlet-scoped users, including default outlet selection, outlet switch persistence, and cross-outlet visibility rules.
+- [ ] **Dashboard RBAC widget visibility rules**: Lock which widgets/cards/charts/actions appear by permission/module access so users do not see irrelevant or unauthorized operational blocks.
+- [ ] **Dashboard probable screens / sections planning**: Track the intended dashboard surface areas before implementation:
+  - KPI strip
+  - action center / quick actions
+  - inventory alerts
+  - expiry / batch risk
+  - sales and purchase operational queues
+  - cashflow / accounting summary
+  - recent activity / audit stream
+  - warehouse variance / stock exceptions
+  - user-task reminders / daily work queue
+- [ ] **Dashboard backend payload design**: Plan a single aggregated dashboard response shaped by logged-in user role, permissions, org, and outlet scope instead of one generic payload for everyone.
+- [ ] **Dashboard empty/error state policy**: Define role-aware loading, empty, and failure states so the home screen distinguishes 'no activity yet', 'no access', and 'data failed to load'.
+- [ ] **Dashboard implementation should remain deferred**: Do not implement the RBAC home dashboard until the role matrix, payload contract, and widget scope are agreed and logged.
+
+- [ ] **Item Composition API**: Integrate item composition logic with backend API (`lib/modules/items/items/models/item_composition_model.dart:22`).
+- [ ] **Outlet-aware reorder alerts/reporting**: Add reorder-needed dashboard cards, report filters, and purchase suggestion outputs driven by outlet-specific reorder point + reorder rule settings.
+- [ ] **Outlet-aware reorder rollout completion**: Treat the reorder schema/design rollout as incomplete until the DB migrations (`1006`, `1007`, `1008`) are applied in the active environment and the deferred alerts/reporting layer is implemented.
+- [ ] **Filter Favourites Persistence**: Add ability to save and persist favourite filters in report views (`lib/modules/items/items/presentation/sections/report/items_filter_dropdown.dart:31`).
+- [ ] **Dynamic Filter Labels**: Extend and localize labels for report filters (`lib/modules/items/items/presentation/sections/report/items_filters.dart:45`).
+- [ ] **State Synchronization**: Enhance `GlobalSyncManager` to handle multi-tab synchronization or offline-first conflicts.
+
+## 🛠️ Global Lint & Maintenance
+
+- [ ] `lib/shared/widgets/inputs/category_dropdown.dart:387` Remove unused field `_expandedIds`.
+- [ ] `lib/shared/widgets/inputs/category_dropdown.dart:589` Replace deprecated `withOpacity` with `.withValues()`.
+- [ ] `lib/shared/widgets/inputs/dropdown_input.dart:97` Remove unused field `_isSearching`.
+- [ ] `lib/shared/widgets/inputs/dropdown_input.dart:100` Remove unused field `_keyboardIndex`.
+- [ ] `lib/shared/widgets/inputs/dropdown_input.dart:2` Remove unnecessary import of `package:flutter/gestures.dart`.
+- [ ] `lib/shared/widgets/inputs/dropdown_input.dart:3` Remove unnecessary import of `package:flutter/services.dart`.
+- [x] `lib/core/widgets/forms/zerpai_radio_group.dart` Replace deprecated `groupValue` and `onChanged` with `RadioGroup`. *(fixed — migrated to RadioScope + Flutter RadioGroup)*
+- [ ] `lib/shared/widgets/inputs/manage_categories_dialog.dart:405` Replace deprecated `withOpacity` with `.withValues()`.
+- [ ] `lib/shared/widgets/inputs/manage_payment_terms_dialog.dart:301` Replace deprecated `withOpacity` with `.withValues()`.
+- [ ] `lib/shared/widgets/inputs/manage_reorder_terms_dialog.dart:721` Replace deprecated `withOpacity` with `.withValues()`.
+- [x] `lib/shared/widgets/inputs/zerpai_radio_group.dart` Replace deprecated `groupValue` and `onChanged` with `RadioGroup`. *(fixed — migrated to RadioScope + Flutter RadioGroup)*
+- [ ] `lib/shared/widgets/reports/zerpai_report_shell.dart:286` Show correct label instead of generic 'This Month'.
+
+## 📐 Responsive Foundation Follow-Up
+
+- [ ] **Shared responsive primitives rollout**: Migrate more existing screens, tables, forms, and dialogs onto the new shared responsive foundation primitives instead of keeping screen-local overflow fixes.
+- [ ] **Responsive widget tests**: Add widget tests around breakpoint behavior, responsive layout switching, and sidebar-aware shell metrics so the responsive foundation is regression-tested.

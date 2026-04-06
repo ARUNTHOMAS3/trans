@@ -36,10 +36,10 @@ export class BranchesController {
 
   @Post("business-types")
   async createBusinessType(@Body() body: any) {
-    if (!body?.org_id || !body?.business_type || !body?.description) {
+    if (!body?.business_type && !body?.code) {
       return {
         statusCode: HttpStatus.BAD_REQUEST,
-        message: "org_id, business_type, and description are required",
+        message: "business_type or code is required",
       };
     }
     try {

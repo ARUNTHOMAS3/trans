@@ -12,7 +12,7 @@ dist/
 *.swp
 *.swo
 *~
-
+log.md
 # OS
 .DS_Store
 Thumbs.db
@@ -46,12 +46,7 @@ pnpm-debug.log*
 # 2. AI AGENTS & IDEs (Vibe Coding Protection)
 # ---------------------------------
 # Ignore AI agent memory/cache to prevent bloat
-.cursor/
-.trae/
-.qoder/
-.gemini/
-.open_code/
-agent-skills/
+
 
 # Ignore large context dumps often created by agents
 analysis_output_*.txt
@@ -112,6 +107,5 @@ assets/.env.local
 .DS_Store
 Thumbs.db
 .vs/
-.claude/
-.opencode/
+
 .env*.local

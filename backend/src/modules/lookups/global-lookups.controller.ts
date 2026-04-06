@@ -91,6 +91,95 @@ export class GlobalLookupsController {
     return data?.label ?? null;
   }
 
+  private async fetchActiveOptions(
+    table: string,
+    select: string,
+    orderBy: string[] = ["sort_order", "label"],
+  ) {
+    const client = this.supabaseService.getClient();
+    let query = client.from(table).select(select).eq("is_active", true);
+
+    for (const column of orderBy) {
+      query = query.order(column, { ascending: true });
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  private parseJsonObject(rawValue?: string | null) {
+    if (!rawValue?.trim()) {
+      return null as Record<string, any> | null;
+    }
+
+    try {
+      const parsed = JSON.parse(rawValue);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, any>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async resolveAssemblyId(
+    districtId?: string | null,
+    assemblyCodeOrName?: string | null,
+  ) {
+    const normalizedDistrictId = districtId?.toString().trim();
+    const normalizedAssembly = assemblyCodeOrName?.toString().trim();
+    if (!normalizedDistrictId || !normalizedAssembly) {
+      return null;
+    }
+
+    const client = this.supabaseService.getClient();
+    const fetchBy = async (column: "code" | "name") => {
+      const { data, error } = await client
+        .from("settings_assemblies")
+        .select("id,code,name")
+        .eq("district_id", normalizedDistrictId)
+        .eq("is_active", true)
+        .eq(column, normalizedAssembly)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data ?? null;
+    };
+
+    return (await fetchBy("code")) ?? (await fetchBy("name"));
+  }
+
+  private async hydratePaymentStubAssembly(
+    rawAddress?: string | null,
+    assemblyId?: string | null,
+  ) {
+    if (!rawAddress?.trim() || !assemblyId?.trim()) {
+      return rawAddress ?? null;
+    }
+
+    const parsed = this.parseJsonObject(rawAddress);
+    if (!parsed) {
+      return rawAddress;
+    }
+
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("settings_assemblies")
+      .select("id,code,name")
+      .eq("id", assemblyId.trim())
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) {
+      return rawAddress;
+    }
+
+    parsed["assembly_code"] = data.code ?? parsed["assembly_code"] ?? null;
+    parsed["assembly_name"] = data.name ?? parsed["assembly_name"] ?? null;
+    return JSON.stringify(parsed);
+  }
+
   @Get("currencies")
   async getCurrencies(@Query("q") q?: string) {
     const client = this.supabaseService.getClient();
@@ -170,6 +259,86 @@ export class GlobalLookupsController {
       .order("sort_order", { ascending: true });
     if (error) throw error;
     return (data ?? []).map((r) => r.label);
+  }
+
+  @Get("business-types")
+  async getBusinessTypes() {
+    return this.fetchActiveOptions(
+      "settings_business_types",
+      "code,label,description,sort_order",
+    );
+  }
+
+  @Get("gst-treatments")
+  async getGstTreatments() {
+    return this.fetchActiveOptions(
+      "settings_gst_treatments",
+      "code,label,sort_order",
+    );
+  }
+
+  @Get("gst-registration-types")
+  async getGstRegistrationTypes() {
+    return this.fetchActiveOptions(
+      "settings_gstin_registration_types",
+      "code,label,sort_order",
+    );
+  }
+
+  @Get("drug-licence-types")
+  async getDrugLicenceTypes() {
+    return this.fetchActiveOptions(
+      "settings_drug_licence_types",
+      "code,label,sort_order",
+    );
+  }
+
+  @Get("fiscal-year-presets")
+  async getFiscalYearPresets() {
+    return this.fetchActiveOptions(
+      "settings_fiscal_year_presets",
+      "code,label,start_month,end_month,sort_order",
+    );
+  }
+
+  @Get("date-format-options")
+  async getDateFormatOptions() {
+    return this.fetchActiveOptions(
+      "settings_date_format_options",
+      "code,format_pattern,group_name,label,sort_order",
+    );
+  }
+
+  @Get("date-separator-options")
+  async getDateSeparatorOptions() {
+    return this.fetchActiveOptions(
+      "settings_date_separator_options",
+      "code,separator,label,sort_order",
+    );
+  }
+
+  @Get("transaction-modules")
+  async getTransactionModules() {
+    return this.fetchActiveOptions(
+      "settings_transaction_modules",
+      "code,label,sort_order",
+    );
+  }
+
+  @Get("transaction-restart-options")
+  async getTransactionRestartOptions() {
+    return this.fetchActiveOptions(
+      "settings_transaction_restart_options",
+      "code,label,sort_order",
+    );
+  }
+
+  @Get("transaction-prefix-placeholders")
+  async getTransactionPrefixPlaceholders() {
+    return this.fetchActiveOptions(
+      "settings_transaction_prefix_placeholders",
+      "token,label,sort_order",
+    );
   }
 
   @Get("states/:countryCode?")
@@ -294,6 +463,28 @@ export class GlobalLookupsController {
     }));
   }
 
+  @Get("assemblies")
+  async getAssemblies(@Query("districtId") districtId?: string) {
+    if (!districtId?.trim()) {
+      throw new BadRequestException("districtId is required");
+    }
+
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("settings_assemblies")
+      .select("id,code,name")
+      .eq("district_id", districtId.trim())
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+    return (data ?? []).map((assembly: any) => ({
+      id: assembly.id,
+      code: assembly.code,
+      name: assembly.name,
+    }));
+  }
+
   /** Returns full org profile — all columns live directly on the organization table,
    *  merged with branding settings from settings_branding.
    *  Also resolves country name from state_id → states.state_id → countries. */
@@ -305,7 +496,7 @@ export class GlobalLookupsController {
       client
         .from("organization")
         .select(
-          "id, system_id, name, state_id, industry, logo_url, base_currency, base_currency_decimals, base_currency_format, fiscal_year, organization_language, communication_languages, timezone, date_format, date_separator, company_id_label, company_id_value, payment_stub_address, has_separate_payment_stub_address",
+          "id, system_id, name, state_id, industry, logo_url, base_currency, base_currency_decimals, base_currency_format, fiscal_year, organization_language, communication_languages, timezone, date_format, date_separator, company_id_label, company_id_value, attention, address_street_1, address_street_2, city, pincode, phone, district_id, local_body_id, assembly_id, ward_id, payment_stub_address, has_separate_payment_stub_address, payment_stub_assembly_id",
         )
         .eq("id", orgId)
         .single(),
@@ -349,6 +540,10 @@ export class GlobalLookupsController {
 
     return {
       ...org,
+      payment_stub_address: await this.hydratePaymentStubAssembly(
+        org?.payment_stub_address,
+        org?.payment_stub_assembly_id,
+      ),
       country: countryName,
       timezone_display: timezoneDisplay,
       timezone_tzdb_name: timezoneTzdbName,
@@ -427,8 +622,19 @@ export class GlobalLookupsController {
       date_separator?: string;
       company_id_label?: string;
       company_id_value?: string;
+      attention?: string;
+      address_street_1?: string;
+      address_street_2?: string;
+      city?: string;
+      pincode?: string;
+      phone?: string;
+      district_id?: string;
+      local_body_id?: string;
+      assembly_id?: string;
+      ward_id?: string;
       payment_stub_address?: string;
       has_separate_payment_stub_address?: boolean;
+      payment_stub_assembly_id?: string;
     },
   ) {
     const client = this.supabaseService.getClient();
@@ -465,6 +671,21 @@ export class GlobalLookupsController {
       payload.communication_languages = body.communication_languages
         .map((value) => value?.toString().trim())
         .filter((value): value is string => Boolean(value));
+    }
+
+    if (body.has_separate_payment_stub_address === false) {
+      payload.payment_stub_assembly_id = null;
+    } else if (typeof body.payment_stub_address === "string") {
+      const parsedAddress = this.parseJsonObject(body.payment_stub_address);
+      const assemblyMatch = await this.resolveAssemblyId(
+        parsedAddress?.district_id?.toString(),
+        parsedAddress?.assembly_code?.toString() ??
+          parsedAddress?.assembly_name?.toString(),
+      );
+      payload.payment_stub_assembly_id = assemblyMatch?.id ?? null;
+    } else if (body.payment_stub_assembly_id !== undefined) {
+      payload.payment_stub_assembly_id =
+        body.payment_stub_assembly_id?.toString().trim() || null;
     }
 
     const { error } = await client

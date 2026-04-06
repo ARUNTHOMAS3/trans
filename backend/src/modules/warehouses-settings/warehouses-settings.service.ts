@@ -136,6 +136,10 @@ export class WarehousesSettingsService {
         address_street_2: dto.address_street_2 ?? null,
         city: dto.city ?? null,
         state: dto.state ?? null,
+        district_id: this.normalizeUuid(dto.district_id),
+        local_body_id: this.normalizeUuid(dto.local_body_id),
+        assembly_id: this.normalizeUuid(dto.assembly_id),
+        ward_id: this.normalizeUuid(dto.ward_id),
         pincode: dto.pincode ?? null,
         country: dto.country ?? "India",
         phone: dto.phone ?? null,
@@ -161,6 +165,10 @@ export class WarehousesSettingsService {
       "address_street_2",
       "city",
       "state",
+      "district_id",
+      "local_body_id",
+      "assembly_id",
+      "ward_id",
       "pincode",
       "country",
       "phone",
@@ -182,6 +190,18 @@ export class WarehousesSettingsService {
     }
     if ("vendor_id" in payload) {
       payload.vendor_id = this.normalizeUuid(payload.vendor_id);
+    }
+    if ("district_id" in payload) {
+      payload.district_id = this.normalizeUuid(payload.district_id);
+    }
+    if ("local_body_id" in payload) {
+      payload.local_body_id = this.normalizeUuid(payload.local_body_id);
+    }
+    if ("assembly_id" in payload) {
+      payload.assembly_id = this.normalizeUuid(payload.assembly_id);
+    }
+    if ("ward_id" in payload) {
+      payload.ward_id = this.normalizeUuid(payload.ward_id);
     }
 
     const { data, error } = await this.supabaseService

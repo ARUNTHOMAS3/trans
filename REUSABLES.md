@@ -28,7 +28,7 @@
 | Widget | File | Description |
 |--------|------|-------------|
 | `CustomTextField` | `inputs/custom_text_field.dart` | Feature-rich text input: border animation, case formatting, numeric validation, prefix/suffix |
-| `ZSearchField` | `inputs/z_search_field.dart` | Standard ERP search input bar with border animation and optional trailing actions |
+| `ZSearchField` | `inputs/z_search_field.dart` | Standard ERP search input bar with border animation and its variants |
 | `FormDropdown<T>` | `inputs/dropdown_input.dart` | Generic searchable dropdown — **always use instead of `DropdownButtonFormField`**; supports multi-select, settings footer, custom items |
 | `ZerpaiDatePicker` | `inputs/zerpai_date_picker.dart` | Standard date picker — anchored calendar popup below target field — **use for all ERP date inputs** |
 | `ZerpaiCalendar` | `inputs/zerpai_calendar.dart` | Reusable calendar with day/month/year selector modes and date range constraints |
@@ -83,7 +83,8 @@
 
 | Widget | File | Description |
 |--------|------|-------------|
-| `Skeleton` / `FormSkeleton` / `TableSkeleton` / `ListSkeleton` / `CardSkeleton` / `DetailSkeleton` / `DetailContentSkeleton` / `DocumentDetailSkeleton` / `SalesOrderDetailSkeleton` / `ErrorPlaceholder` | `skeleton.dart` | Shimmer loading placeholders in various layouts — `SalesOrderDetailSkeleton` matches the sales order detail pane (action bar → banner → tabs → status → document card) |
+| `ZBone` / `ZFormSkeleton` / `ZTableSkeleton` / `ZListSkeleton` / `ZCardSkeleton` / `ZDetailSkeleton` | `z_skeletons.dart` | Shimmer loading placeholders — **always use instead of raw `Skeletonizer`**; matches Zoho-style high density and spacing. |
+| `ZErrorPlaceholder` | `z_skeletons.dart` | Unified error state with icon and retry affordance — replaces legacy `ErrorPlaceholder`. |
 | `ZerpaiBuilders.buildErrorAlert()` | `inputs/zerpai_builders.dart` | Styled error banner with close button |
 | `ZerpaiBuilders.parseErrorMessage()` | `inputs/zerpai_builders.dart` | Context-aware error string translation (duplicates, associations, subcategories) |
 

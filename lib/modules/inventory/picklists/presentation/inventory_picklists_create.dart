@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -1191,15 +1191,22 @@ class _InventoryPicklistsCreateScreenState
                                 const SizedBox(height: 6),
                                 InkWell(
                                   onTap: () => _showSelectBatchesDialog(item),
-                                  child: Text(
-                                    'Select Batch and Bin',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color:Color(0xFF2563EB),
-                                      fontWeight: FontWeight.w500,
-                                      fontFamily: 'Inter',
-                                    ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(LucideIcons.alertTriangle, size: 12, color: Color(0xFFEF4444)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Select Batch and Bin',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF2563EB),
+                                          fontWeight: FontWeight.w500,
+                                          fontFamily: 'Inter',
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -2449,18 +2456,23 @@ class _InventoryPicklistsCreateScreenState
                                                       _showSelectBatchesDialog(
                                                         item,
                                                       ),
-                                                  child: Text(
-                                                    'Select Batch and Bin',
-                                                    textAlign: TextAlign.center,
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Colors
-                                                          .orange
-                                                          .shade700,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                      fontFamily: 'Inter',
-                                                    ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(LucideIcons.alertTriangle, size: 12, color: Color(0xFFEF4444)),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        'Select Batch and Bin',
+                                                        textAlign: TextAlign.center,
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: Color(0xFF2563EB),
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                          fontFamily: 'Inter',
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               ],

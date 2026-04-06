@@ -117,6 +117,8 @@ To ensure optimal performance from the AI agent, prompts should be:
 
 ## 7. Tooling & Integrations
 
+**📄 Stack Reference:** See **[`prd_tech_stack.md`](./prd_tech_stack.md)** for the standalone, codebase-verified package inventory, deployment/runtime details, environment variables, and PRD-vs-implementation drift list. This section remains the locked high-level source of truth; `prd_tech_stack.md` should stay synchronized with it whenever dependencies, hosting, or runtime architecture change.
+
 | Component           | Technology                        | Decision & Rationale                                                                                                                                                                                    |
 | :------------------ | :-------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Frontend**        | Flutter Web                       | `Riverpod` for state management, `GoRouter` for routing (centralized in `lib/core/routing/app_router.dart`).                                                                                            |

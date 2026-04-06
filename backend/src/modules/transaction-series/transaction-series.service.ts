@@ -40,6 +40,9 @@ export class TransactionSeriesService {
       .insert({
         org_id: dto.org_id,
         name: dto.name,
+        code: dto.code ?? null,
+        branch_code: dto.branch_code ?? null,
+        warehouse_code: dto.warehouse_code ?? null,
         modules: dto.modules ?? [],
       })
       .select()
@@ -56,6 +59,9 @@ export class TransactionSeriesService {
       .from(TABLE)
       .update({
         name: dto.name,
+        code: dto.code ?? null,
+        branch_code: dto.branch_code ?? null,
+        warehouse_code: dto.warehouse_code ?? null,
         modules: dto.modules ?? [],
         updated_at: new Date().toISOString(),
       })
