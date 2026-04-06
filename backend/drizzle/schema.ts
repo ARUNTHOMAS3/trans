@@ -1,4 +1,4 @@
-import { pgTable, foreignKey, uuid, varchar, date, numeric, boolean, timestamp, unique, index, jsonb, text, integer, pgPolicy, check, uniqueIndex, bigint, type AnyPgColumn, smallint, primaryKey, pgView, pgSequence, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, foreignKey, unique, uuid, varchar, date, boolean, timestamp, numeric, index, jsonb, text, integer, pgPolicy, check, uniqueIndex, bigint, type AnyPgColumn, smallint, primaryKey, pgView, pgSequence, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const accountGroupEnum = pgEnum("account_group_enum", ['Assets', 'Liabilities', 'Equity', 'Income', 'Expenses'])
@@ -25,13 +25,11 @@ export const vendorType = pgEnum("vendor_type", ['manufacturer', 'distributor', 
 export const organizationSystemIdSeq = pgSequence("organization_system_id_seq", {  startWith: "60000000000", increment: "1", minValue: "1", maxValue: "9223372036854775807", cache: "1", cycle: false })
 export const settingsBranchesSystemIdSeq = pgSequence("settings_branches_system_id_seq", {  startWith: "60000000000", increment: "1", minValue: "1", maxValue: "9223372036854775807", cache: "1", cycle: false })
 
-export const batches = pgTable("batches", {
+export const batchMaster = pgTable("batch_master", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	productId: uuid("product_id"),
-	batch: varchar({ length: 100 }).notNull(),
-	exp: date().notNull(),
-	mrp: numeric({ precision: 15, scale:  2 }).notNull(),
-	ptr: numeric({ precision: 15, scale:  2 }).notNull(),
+	batchNo: varchar("batch_no", { length: 100 }).notNull(),
+	expiryDate: date("expiry_date").notNull(),
 	unitPack: varchar("unit_pack"),
 	isManufactureDetails: boolean("is_manufacture_details").default(false),
 	manufactureBatchNumber: varchar("manufacture_batch_number", { length: 100 }),
@@ -39,12 +37,15 @@ export const batches = pgTable("batches", {
 	isActive: boolean("is_active").default(true),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	createdByEntityId: uuid("created_by_entity_id"),
+	sourceType: varchar("source_type", { length: 30 }),
 }, (table) => [
 	foreignKey({
 			columns: [table.productId],
 			foreignColumns: [products.id],
 			name: "batches_product_id_fkey"
 		}).onDelete("cascade"),
+	unique("unique_product_batch").on(table.productId, table.batchNo),
 ]);
 
 export const taxGroups = pgTable("tax_groups", {
@@ -600,7 +601,7 @@ export const salesOrderItems = pgTable("sales_order_items", {
 	index("idx_sales_order_items_sales_order_id").using("btree", table.salesOrderId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.batchId],
-			foreignColumns: [batches.id],
+			foreignColumns: [batchMaster.id],
 			name: "sales_order_items_batch_id_fkey"
 		}),
 	foreignKey({
@@ -702,95 +703,6 @@ export const salesOrderAttachments = pgTable("sales_order_attachments", {
 			foreignColumns: [salesOrders.id],
 			name: "sales_order_attachments_sales_order_id_fkey"
 		}).onDelete("cascade"),
-]);
-
-export const settingsBranches = pgTable("settings_branches", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	orgId: uuid("org_id").notNull(),
-	name: varchar({ length: 255 }).notNull(),
-	branchCode: varchar("branch_code", { length: 50 }).notNull(),
-	branchType: varchar("branch_type", { length: 10 }),
-	email: varchar({ length: 255 }),
-	phone: varchar({ length: 50 }),
-	website: varchar({ length: 255 }),
-	attention: text(),
-	addressStreet1: text("address_street_1"),
-	addressStreet2: text("address_street_2"),
-	city: varchar({ length: 100 }),
-	state: varchar({ length: 100 }),
-	pincode: varchar({ length: 20 }),
-	country: varchar({ length: 100 }).default('India').notNull(),
-	gstin: varchar({ length: 50 }),
-	gstinRegistrationType: varchar("gstin_registration_type", { length: 50 }),
-	logoUrl: text("logo_url"),
-	subscriptionFrom: date("subscription_from"),
-	subscriptionTo: date("subscription_to"),
-	isActive: boolean("is_active").default(true).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	fax: varchar({ length: 50 }),
-	isChildLocation: boolean("is_child_location").default(false).notNull(),
-	parentBranchId: uuid("parent_branch_id"),
-	primaryContactId: uuid("primary_contact_id"),
-	gstinLegalName: varchar("gstin_legal_name", { length: 255 }),
-	gstinTradeName: varchar("gstin_trade_name", { length: 255 }),
-	gstinRegisteredOn: date("gstin_registered_on"),
-	gstinReverseCharge: boolean("gstin_reverse_charge").default(false).notNull(),
-	gstinImportExport: boolean("gstin_import_export").default(false).notNull(),
-	gstinImportExportAccountId: uuid("gstin_import_export_account_id"),
-	gstinDigitalServices: boolean("gstin_digital_services").default(false).notNull(),
-	defaultTransactionSeriesId: uuid("default_transaction_series_id"),
-	districtId: uuid("district_id"),
-	localBodyId: uuid("local_body_id"),
-	wardId: uuid("ward_id"),
-	systemId: varchar("system_id", { length: 20 }).default((nextval(\'settings_branches_system_id_seq').notNull(),
-}, (table) => [
-	index("idx_settings_branches_default_transaction_series_id").using("btree", table.defaultTransactionSeriesId.asc().nullsLast().op("uuid_ops")),
-	index("idx_settings_branches_district_id").using("btree", table.districtId.asc().nullsLast().op("uuid_ops")),
-	index("idx_settings_branches_local_body_id").using("btree", table.localBodyId.asc().nullsLast().op("uuid_ops")),
-	index("idx_settings_branches_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
-	index("idx_settings_branches_parent_branch_id").using("btree", table.parentBranchId.asc().nullsLast().op("uuid_ops")),
-	index("idx_settings_branches_primary_contact_id").using("btree", table.primaryContactId.asc().nullsLast().op("uuid_ops")),
-	index("idx_settings_branches_ward_id").using("btree", table.wardId.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("settings_branches_system_id_key").using("btree", table.systemId.asc().nullsLast().op("text_ops")),
-	foreignKey({
-			columns: [table.defaultTransactionSeriesId],
-			foreignColumns: [settingsTransactionSeries.id],
-			name: "settings_branches_default_transaction_series_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.districtId],
-			foreignColumns: [settingsDistricts.id],
-			name: "settings_branches_district_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.gstinImportExportAccountId],
-			foreignColumns: [accounts.id],
-			name: "settings_branches_gstin_import_export_account_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.localBodyId],
-			foreignColumns: [settingsLocalBodies.id],
-			name: "settings_branches_local_body_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.orgId],
-			foreignColumns: [organization.id],
-			name: "settings_branches_org_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.parentBranchId],
-			foreignColumns: [table.id],
-			name: "settings_branches_parent_branch_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.wardId],
-			foreignColumns: [settingsWards.id],
-			name: "settings_branches_ward_id_fkey"
-		}).onDelete("set null"),
-	unique("settings_branches_org_code_unique").on(table.orgId, table.branchCode),
-	unique("settings_branches_org_name_unique").on(table.orgId, table.name),
-	check("settings_branches_branch_type_check", sql`(branch_type IS NULL) OR ((branch_type)::text = ANY ((ARRAY['FOFO'::character varying, 'COCO'::character varying, 'FICO'::character varying, 'FOCO'::character varying])::text[]))`),
 ]);
 
 export const accountTransactions = pgTable("account_transactions", {
@@ -2196,6 +2108,110 @@ export const settingsRoles = pgTable("settings_roles", {
 			name: "settings_roles_org_id_fkey"
 		}).onDelete("cascade"),
 	pgPolicy("service_role_full_access", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
+]);
+
+export const settingsBranches = pgTable("settings_branches", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	branchCode: varchar("branch_code", { length: 50 }).notNull(),
+	branchType: varchar("branch_type", { length: 10 }),
+	email: varchar({ length: 255 }),
+	phone: varchar({ length: 50 }),
+	website: varchar({ length: 255 }),
+	attention: text(),
+	addressStreet1: text("address_street_1"),
+	addressStreet2: text("address_street_2"),
+	city: varchar({ length: 100 }),
+	state: varchar({ length: 100 }),
+	pincode: varchar({ length: 20 }),
+	country: varchar({ length: 100 }).default('India').notNull(),
+	gstin: varchar({ length: 50 }),
+	gstinRegistrationType: varchar("gstin_registration_type", { length: 50 }),
+	logoUrl: text("logo_url"),
+	subscriptionFrom: date("subscription_from"),
+	subscriptionTo: date("subscription_to"),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	fax: varchar({ length: 50 }),
+	isChildLocation: boolean("is_child_location").default(false).notNull(),
+	parentBranchId: uuid("parent_branch_id"),
+	primaryContactId: uuid("primary_contact_id"),
+	gstinLegalName: varchar("gstin_legal_name", { length: 255 }),
+	gstinTradeName: varchar("gstin_trade_name", { length: 255 }),
+	gstinRegisteredOn: date("gstin_registered_on"),
+	gstinReverseCharge: boolean("gstin_reverse_charge").default(false).notNull(),
+	gstinImportExport: boolean("gstin_import_export").default(false).notNull(),
+	gstinImportExportAccountId: uuid("gstin_import_export_account_id"),
+	gstinDigitalServices: boolean("gstin_digital_services").default(false).notNull(),
+	defaultTransactionSeriesId: uuid("default_transaction_series_id"),
+	districtId: uuid("district_id"),
+	localBodyId: uuid("local_body_id"),
+	wardId: uuid("ward_id"),
+	systemId: varchar("system_id", { length: 20 }).default((nextval(\'settings_branches_system_id_seq').notNull(),
+	pan: varchar(),
+	industry: varchar(),
+	gstTreatment: varchar("gst_treatment"),
+	isDrugRegistered: boolean("is_drug_registered").default(false).notNull(),
+	drugLicenceType: varchar("drug_licence_type"),
+	drugLicence20: varchar("drug_licence_20"),
+	drugLicence21: varchar("drug_licence_21"),
+	drugLicence20B: varchar("drug_licence_20b"),
+	drugLicence21B: varchar("drug_licence_21b"),
+	isFssaiRegistered: boolean("is_fssai_registered").default(false).notNull(),
+	fssaiNumber: varchar("fssai_number"),
+	isMsmeRegistered: boolean("is_msme_registered").default(false).notNull(),
+	msmeRegistrationType: varchar("msme_registration_type"),
+	msmeNumber: varchar("msme_number"),
+	msmeType: varchar("msme_type", { length: 50 }),
+}, (table) => [
+	index("idx_settings_branches_default_transaction_series_id").using("btree", table.defaultTransactionSeriesId.asc().nullsLast().op("uuid_ops")),
+	index("idx_settings_branches_district_id").using("btree", table.districtId.asc().nullsLast().op("uuid_ops")),
+	index("idx_settings_branches_local_body_id").using("btree", table.localBodyId.asc().nullsLast().op("uuid_ops")),
+	index("idx_settings_branches_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
+	index("idx_settings_branches_parent_branch_id").using("btree", table.parentBranchId.asc().nullsLast().op("uuid_ops")),
+	index("idx_settings_branches_primary_contact_id").using("btree", table.primaryContactId.asc().nullsLast().op("uuid_ops")),
+	index("idx_settings_branches_ward_id").using("btree", table.wardId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("settings_branches_system_id_key").using("btree", table.systemId.asc().nullsLast().op("text_ops")),
+	foreignKey({
+			columns: [table.defaultTransactionSeriesId],
+			foreignColumns: [settingsTransactionSeries.id],
+			name: "settings_branches_default_transaction_series_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.districtId],
+			foreignColumns: [settingsDistricts.id],
+			name: "settings_branches_district_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.gstinImportExportAccountId],
+			foreignColumns: [accounts.id],
+			name: "settings_branches_gstin_import_export_account_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.localBodyId],
+			foreignColumns: [settingsLocalBodies.id],
+			name: "settings_branches_local_body_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.orgId],
+			foreignColumns: [organization.id],
+			name: "settings_branches_org_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.parentBranchId],
+			foreignColumns: [table.id],
+			name: "settings_branches_parent_branch_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.wardId],
+			foreignColumns: [settingsWards.id],
+			name: "settings_branches_ward_id_fkey"
+		}).onDelete("set null"),
+	unique("settings_branches_org_code_unique").on(table.orgId, table.branchCode),
+	unique("settings_branches_org_name_unique").on(table.orgId, table.name),
+	check("settings_branches_branch_type_check", sql`(branch_type IS NULL) OR ((branch_type)::text = ANY ((ARRAY['FOFO'::character varying, 'COCO'::character varying, 'FICO'::character varying, 'FOCO'::character varying])::text[]))`),
 ]);
 
 export const organization = pgTable("organization", {
