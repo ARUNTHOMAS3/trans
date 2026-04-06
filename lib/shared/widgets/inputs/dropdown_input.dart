@@ -63,6 +63,8 @@ class FormDropdown<T> extends StatefulWidget {
   final ValueChanged<List<T>>? onSelectedValuesChanged;
   final bool Function(T value)? isSelectedValueRemovable;
   final bool hideSelectedItemsInMultiSelect;
+  final Widget? prefixWidget;
+  final bool isHovered;
 
   const FormDropdown({
     super.key,
@@ -110,7 +112,9 @@ class FormDropdown<T> extends StatefulWidget {
     this.selectedValues = const [],
     this.onSelectedValuesChanged,
     this.isSelectedValueRemovable,
-    this.hideSelectedItemsInMultiSelect = true,
+    this.hideSelectedItemsInMultiSelect = false,
+    this.prefixWidget,
+    this.isHovered = false,
   });
 
   @override
@@ -999,6 +1003,10 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                   ),
                   child: Row(
                     children: [
+                      if (widget.prefixWidget != null) ...[
+                        widget.prefixWidget!,
+                        const SizedBox(width: 8),
+                      ],
                       Expanded(
                         child: widget.multiSelect
                             ? _buildMultiSelectValue()
@@ -1069,14 +1077,15 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   }
 
   BorderSide _getBorderSide(bool hasError) {
+    final bool isHovered = _isHoveredField || widget.isHovered;
     final bool shouldShowBorder =
-        !widget.hideBorderDefault || _isOpen || _isHoveredField || hasError;
+        !widget.hideBorderDefault || _isOpen || isHovered || hasError;
     return BorderSide(
       color: !shouldShowBorder
           ? Colors.transparent
           : hasError
           ? AppTheme.errorRed
-          : _isOpen
+          : (_isOpen || isHovered)
           ? AppTheme.primaryBlueDark
           : AppTheme.borderColor,
     );

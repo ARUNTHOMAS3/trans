@@ -93,6 +93,8 @@ import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_pi
 import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_create.dart';
 import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_list.dart';
 import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_create.dart';
+import 'package:zerpai_erp/modules/inventory/shipments/presentation/inventory_shipments_list.dart';
+import 'package:zerpai_erp/modules/inventory/shipments/presentation/inventory_shipments_create.dart';
 
 import 'app_routes.dart';
 export 'app_routes.dart';
@@ -918,14 +920,12 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'inventory/shipments',
               name: AppRoutes.shipments,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Shipments'),
+              builder: (context, state) => const InventoryShipmentsListScreen(),
             ),
             GoRoute(
               path: 'inventory/shipments/create',
               name: AppRoutes.shipmentsCreate,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'New Shipment'),
+              builder: (context, state) => const InventoryShipmentsCreateScreen(),
             ),
             GoRoute(
               path: 'inventory/transfer-orders',

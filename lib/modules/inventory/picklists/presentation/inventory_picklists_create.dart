@@ -2838,18 +2838,14 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
     required bool isSelected,
     required bool isHovered,
   }) {
-    final bool selectedAndHovered = isSelected && isHovered;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: selectedAndHovered
-            ? const Color(0xFF3B82F6)
+        color: isHovered
+            ? const Color(0xFF3B82F6) // Blue on hover
             : (isSelected ? const Color(0xFFF3F4F6) : Colors.white),
         borderRadius: BorderRadius.circular(4),
-        border: (!isSelected && isHovered)
-            ? Border.all(color: const Color(0xFFE5E7EB))
-            : null,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2860,15 +2856,15 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 13,
-                color: selectedAndHovered ? Colors.white : const Color(0xFF1F2937),
+                color: isHovered ? Colors.white : const Color(0xFF1F2937),
               ),
             ),
           ),
           if (isSelected)
-            const Icon(
+            Icon(
               Icons.close,
               size: 14,
-              color: Color(0xFFEF4444),
+              color: isHovered ? Colors.white : const Color(0xFFEF4444), // White on hover, Red otherwise
             ),
         ],
       ),
