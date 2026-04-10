@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:intl/intl.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
@@ -8,7 +7,7 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_date_picker_field.dart';
 import '../controllers/sales_order_controller.dart';
 import '../models/sales_customer_model.dart';
 import '../models/sales_order_model.dart';
@@ -134,6 +133,7 @@ class _SalesRetainerInvoiceCreateScreenState
                   'Customer Name',
                   FormDropdown<String>(
                     value: selectedCustomerId,
+                    height: 32,
                     items: customers.map((c) => c.id).toList(),
                     displayStringForValue: (id) =>
                         customers.firstWhere((c) => c.id == id).displayName,
@@ -141,20 +141,23 @@ class _SalesRetainerInvoiceCreateScreenState
                   ),
                 ),
               ]),
-              loading: () => const Skeleton(height: 44),
+              loading: () => const Skeleton(height: 32),
               error: (err, _) => Text('Error: $err'),
             ),
             const SizedBox(height: 24),
             _row([
               _labeledField(
                 'Retainer Invoice#',
-                CustomTextField(controller: invoiceNumberCtrl),
+                CustomTextField(
+                  controller: invoiceNumberCtrl,
+                  height: 32,
+                ),
               ),
-              _labeledField(
+               _labeledField(
                 'Invoice Date',
-                _datePicker(
-                  invoiceDate,
-                  (d) => setState(() => invoiceDate = d),
+                ZDatePickerField(
+                  selectedDate: invoiceDate,
+                  onDateSelected: (d) => setState(() => invoiceDate = d),
                 ),
               ),
             ]),
@@ -162,7 +165,10 @@ class _SalesRetainerInvoiceCreateScreenState
             _row([
               _labeledField(
                 'Reference#',
-                CustomTextField(controller: referenceCtrl),
+                CustomTextField(
+                  controller: referenceCtrl,
+                  height: 32,
+                ),
               ),
             ]),
           ],
@@ -193,6 +199,7 @@ class _SalesRetainerInvoiceCreateScreenState
                 'Description',
                 CustomTextField(
                   controller: descriptionCtrl,
+                  height: 32,
                   hintText: 'e.g. Advance payment for project',
                 ),
               ),
@@ -202,6 +209,7 @@ class _SalesRetainerInvoiceCreateScreenState
                   'Amount',
                   CustomTextField(
                     controller: amountCtrl,
+                    height: 32,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.right,
                   ),
@@ -226,37 +234,6 @@ class _SalesRetainerInvoiceCreateScreenState
   Widget _labeledField(String label, Widget child, {bool required = false}) =>
       SharedFieldLayout(label: label, required: required, child: child);
 
-  Widget _datePicker(DateTime value, ValueChanged<DateTime> onPicked) {
-    final fieldKey = GlobalKey();
-    return InkWell(
-      key: fieldKey,
-      onTap: () async {
-        final picked = await ZerpaiDatePicker.show(
-          context,
-          initialDate: value,
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2100),
-          targetKey: fieldKey,
-        );
-        if (picked != null) onPicked(picked);
-      },
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.borderColor),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(DateFormat('dd/MM/yyyy').format(value)),
-            const Icon(LucideIcons.calendar, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildFooter() => Container(
     padding: const EdgeInsets.all(16),

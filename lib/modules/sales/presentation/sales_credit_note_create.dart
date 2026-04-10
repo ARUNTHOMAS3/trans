@@ -8,7 +8,7 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_date_picker_field.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import '../controllers/sales_order_controller.dart';
@@ -228,6 +228,7 @@ class _SalesCreditNoteCreateScreenState
                   label: 'Customer Name',
                   child: FormDropdown<String>(
                     value: selectedCustomerId,
+                    height: 32,
                     items: customers.map((c) => c.id).toList(),
                     hint: 'Select or type to add',
                     displayStringForValue: (id) =>
@@ -253,7 +254,7 @@ class _SalesCreditNoteCreateScreenState
                   ),
                 ),
               ),
-              loading: () => const Skeleton(height: 44, width: 400),
+              loading: () => const Skeleton(height: 32, width: 400),
               error: (err, _) => Text('Error: $err'),
             ),
             const SizedBox(height: 24),
@@ -266,19 +267,25 @@ class _SalesCreditNoteCreateScreenState
                 _buildFieldCol([
                   _labeledField(
                     'Credit Note#',
-                    CustomTextField(controller: creditNoteNumberCtrl),
+                    CustomTextField(
+                      controller: creditNoteNumberCtrl,
+                      height: 36,
+                    ),
                   ),
                   _labeledField(
                     'Reference#',
-                    CustomTextField(controller: referenceCtrl),
+                    CustomTextField(
+                      controller: referenceCtrl,
+                      height: 32,
+                    ),
                   ),
                 ]),
                 _buildFieldCol([
                   _labeledField(
                     'Credit Note Date',
-                    _datePicker(
-                      creditNoteDate,
-                      (d) => setState(() => creditNoteDate = d),
+                    ZDatePickerField(
+                      selectedDate: creditNoteDate,
+                      onDateSelected: (d) => setState(() => creditNoteDate = d),
                     ),
                   ),
                 ]),
@@ -287,6 +294,7 @@ class _SalesCreditNoteCreateScreenState
                     'Salesperson',
                     FormDropdown<String>(
                       value: salesperson,
+                      height: 32,
                       items: const ['Self', 'Agent A', 'Agent B'],
                       onChanged: (v) => setState(() => salesperson = v),
                     ),
@@ -316,44 +324,6 @@ class _SalesCreditNoteCreateScreenState
     return SharedFieldLayout(label: label, required: required, child: child);
   }
 
-  Widget _datePicker(DateTime value, ValueChanged<DateTime> onPicked) {
-    final fieldKey = GlobalKey();
-    return InkWell(
-      key: fieldKey,
-      onTap: () async {
-        final picked = await ZerpaiDatePicker.show(
-          context,
-          initialDate: value,
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2100),
-          targetKey: fieldKey,
-        );
-        if (picked != null) onPicked(picked);
-      },
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.borderColor),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              DateFormat('dd/MM/yyyy').format(value),
-              style: const TextStyle(fontSize: 13),
-            ),
-            const Icon(
-              LucideIcons.calendar,
-              size: 16,
-              color: AppTheme.textSecondary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildItemsTable(
     List<Item>? productList,
@@ -422,6 +392,7 @@ class _SalesCreditNoteCreateScreenState
                       flex: 4,
                       child: FormDropdown<String>(
                         value: row.itemId.isEmpty ? null : row.itemId,
+                        height: 32,
                         items: productList.map((p) => p.id!).toList(),
                         displayStringForValue: (id) => productList
                             .firstWhere((p) => p.id == id)
@@ -462,6 +433,7 @@ class _SalesCreditNoteCreateScreenState
                       flex: 1,
                       child: CustomTextField(
                         controller: row.quantityCtrl,
+                        height: 32,
                         keyboardType: TextInputType.number,
                       ),
                     ),
@@ -470,6 +442,7 @@ class _SalesCreditNoteCreateScreenState
                       flex: 1,
                       child: CustomTextField(
                         controller: row.rateCtrl,
+                        height: 32,
                         keyboardType: TextInputType.number,
                       ),
                     ),
@@ -478,6 +451,7 @@ class _SalesCreditNoteCreateScreenState
                       flex: 1,
                       child: CustomTextField(
                         controller: row.discountCtrl,
+                        height: 32,
                         keyboardType: TextInputType.number,
                       ),
                     ),

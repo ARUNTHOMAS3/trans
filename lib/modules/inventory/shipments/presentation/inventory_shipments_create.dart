@@ -7,6 +7,8 @@ import '../../../../shared/widgets/inputs/dropdown_input.dart';
 import '../../../../shared/widgets/inputs/zerpai_date_picker.dart';
 import '../../../../shared/widgets/zerpai_layout.dart';
 import '../../../../shared/widgets/inputs/z_tooltip.dart';
+import '../../../../shared/widgets/inputs/custom_text_field.dart';
+import '../../../../shared/widgets/skeleton.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../sales/controllers/sales_order_controller.dart';
 import '../../../sales/models/sales_order_model.dart';
@@ -256,11 +258,11 @@ class _InventoryShipmentsCreateScreenState
                                         _selectedSalesOrderData = null;
                                       });
                                     },
+                                    height: 32,
                                   ),
-                                  loading: () => const Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
+                                  loading: () => const Skeleton(
+                                    height: 40,
+                                    width: double.infinity,
                                   ),
                                   error: (e, _) => Text('Error: $e'),
                                 ),
@@ -308,11 +310,11 @@ class _InventoryShipmentsCreateScreenState
                                               _selectedSalesOrderData = val;
                                             });
                                           },
+                                          height: 32,
                                         ),
-                                        loading: () => const Center(
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
+                                        loading: () => const Skeleton(
+                                          height: 40,
+                                          width: double.infinity,
                                         ),
                                         error: (e, _) => Text('Error: $e'),
                                       ),
@@ -362,6 +364,7 @@ class _InventoryShipmentsCreateScreenState
                                               _selectedPackages = vals;
                                             });
                                           },
+                                          height: 32,
                                         ),
                                       ),
                                     ),
@@ -377,21 +380,12 @@ class _InventoryShipmentsCreateScreenState
                                       child: _buildFormRow(
                                         label: 'Shipment Order#',
                                         isRequired: true,
-                                        child: TextField(
+                                        child: CustomTextField(
                                           controller: _shipmentOrderCtrl,
-                                          style: const TextStyle(fontSize: 14, color: _textPrimary, fontFamily: 'Inter'),
-                                          decoration: _standardInputDecoration(
-                                            isHovered: _hoveredFields.contains('shipmentOrder'),
-                                            suffixIcon: Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              mainAxisSize: MainAxisSize.min, // Added
-                                              children: [
-                                                ZTooltip(
-                                                  message: 'Click here to enable or disable auto-generation of Shipment numbers.',
-                                                  child: const Icon(LucideIcons.settings, size: 16, color: Color(0xFF0088FF)),
-                                                ),
-                                              ],
-                                            ),
+                                          height: 36,
+                                          suffixWidget: const ZTooltip(
+                                            message: 'Click here to enable or disable auto-generation of Shipment numbers.',
+                                            child: Icon(LucideIcons.settings, size: 16, color: Color(0xFF0088FF)),
                                           ),
                                         ),
                                       ),
@@ -408,9 +402,9 @@ class _InventoryShipmentsCreateScreenState
                                       child: _buildFormRow(
                                         label: 'Ship Date',
                                         isRequired: true,
-                                        child: TextField(
+                                        child: CustomTextField(
                                           controller: _dateCtrl,
-                                          key: _dateFieldKey,
+                                          height: 32,
                                           readOnly: true,
                                           onTap: () async {
                                             final picked = await ZerpaiDatePicker.show(
@@ -425,12 +419,7 @@ class _InventoryShipmentsCreateScreenState
                                               });
                                             }
                                           },
-                                          style: const TextStyle(fontSize: 14, fontFamily: 'Inter'),
-                                          decoration: _standardInputDecoration(
-                                            isHovered: _hoveredFields.contains('shipDate'),
-                                            hint: 'dd-MM-yyyy',
-                                            suffixIcon: const Icon(LucideIcons.calendar, size: 16, color: _textSecondary),
-                                          ),
+                                          suffixWidget: const Icon(LucideIcons.calendar, size: 16, color: _textSecondary),
                                         ),
                                       ),
                                     ),
@@ -458,6 +447,7 @@ class _InventoryShipmentsCreateScreenState
                                               onChanged: (val) {
                                                 setState(() => _selectedCarrier = val);
                                               },
+                                              height: 32,
                                             ),
                                           ),
                                         ),
@@ -470,12 +460,9 @@ class _InventoryShipmentsCreateScreenState
                                           width: 500,
                                           child: _buildFormRow(
                                             label: 'Tracking#',
-                                            child: TextField(
+                                            child: CustomTextField(
                                               controller: _trackingCtrl,
-                                              style: const TextStyle(fontSize: 14, color: _textPrimary, fontFamily: 'Inter'),
-                                              decoration: _standardInputDecoration(
-                                                isHovered: _hoveredFields.contains('tracking'),
-                                              ),
+                                              height: 32,
                                             ),
                                           ),
                                         ),
@@ -492,12 +479,9 @@ class _InventoryShipmentsCreateScreenState
                                       width: 500,
                                       child: _buildFormRow(
                                         label: 'Tracking URL',
-                                        child: TextField(
+                                        child: CustomTextField(
                                           controller: _trackingUrlCtrl,
-                                          style: const TextStyle(fontSize: 14, color: _textPrimary, fontFamily: 'Inter'),
-                                          decoration: _standardInputDecoration(
-                                            isHovered: _hoveredFields.contains('trackingUrl'),
-                                          ),
+                                          height: 32,
                                         ),
                                       ),
                                     ),
@@ -512,7 +496,7 @@ class _InventoryShipmentsCreateScreenState
                                       child: _buildFormRow(
                                         label: 'Shipping Charges',
                                         child: Container(
-                                          height: 40,
+                                          height: 32,
                                           clipBehavior: Clip.antiAlias,
                                           decoration: BoxDecoration(
                                             color: Colors.white,
@@ -523,7 +507,7 @@ class _InventoryShipmentsCreateScreenState
                                             children: [
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                                                height: 40,
+                                                height: 32,
                                                 alignment: Alignment.center,
                                                 decoration: const BoxDecoration(
                                                   color: AppTheme.bgDisabled,

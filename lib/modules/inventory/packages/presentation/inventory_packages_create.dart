@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,11 @@ import '../../../sales/controllers/sales_order_controller.dart';
 import '../../../sales/models/sales_order_model.dart';
 import '../../../sales/models/sales_order_item_model.dart';
 import '../../../../shared/widgets/inputs/warehouse_popover.dart';
+import '../../../../shared/widgets/inputs/custom_text_field.dart';
+import '../../../../shared/widgets/skeleton.dart';
+import '../../../../shared/widgets/inputs/dropdown_input.dart';
+import '../../../../shared/providers/lookup_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 const Color _textPrimary = Color(0xFF1F2937);
 const Color _textSecondary = Color(0xFF6B7280);
@@ -31,7 +37,6 @@ class InventoryPackagesCreateScreen extends ConsumerStatefulWidget {
 
 class _InventoryPackagesCreateScreenState
     extends ConsumerState<InventoryPackagesCreateScreen> {
-
   bool _isManualMode = false;
   List<_PackageItem> _items = [];
   final List<_PackageItemRowController> _rowControllers = [];
@@ -39,24 +44,30 @@ class _InventoryPackagesCreateScreenState
   final Map<int, String> _rowSelectedViews = {};
   final Map<int, String> _rowSelectedWarehouses = {};
   final Set<String> _focusedQtyFields = {};
-  
-  Widget _commonItemBuilder<T>(T item, bool isSelected, bool isHovered, String Function(T) displayFn) {
+
+  Widget _commonItemBuilder<T>(
+    T item,
+    bool isSelected,
+    bool isHovered,
+    String Function(T) displayFn,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: isHovered 
-          ? const Color(0xFF3B82F6) 
+      color: isHovered
+          ? const Color(0xFF3B82F6)
           : (isSelected ? const Color(0xFFF3F4F6) : Colors.transparent),
       child: Text(
         displayFn(item),
         style: TextStyle(
-          fontSize: 13, 
+          fontSize: 13,
           color: isHovered ? Colors.white : const Color(0xFF1F2937),
           fontFamily: 'Inter',
         ),
       ),
     );
   }
+
   final List<String?> _preferredBins = [];
   final Set<String> _hoveredBinFields = {};
   final Set<String> _focusedBinFields = {};
@@ -114,7 +125,6 @@ class _InventoryPackagesCreateScreenState
     _dimHeightFocus.addListener(dimListener);
   }
 
-
   void _switchToManualMode() {
     setState(() {
       _isManualMode = true;
@@ -127,12 +137,16 @@ class _InventoryPackagesCreateScreenState
   void _switchToSelectionMode() {
     setState(() {
       _isManualMode = false;
-      _items = _salesOrderItems.map((item) => _PackageItem(
-        itemId: item.itemId,
-        itemName: item.item?.productName ?? item.description ?? '',
-        ordered: item.quantity,
-        qtyToPack: item.quantity,
-      )).toList();
+      _items = _salesOrderItems
+          .map(
+            (item) => _PackageItem(
+              itemId: item.itemId,
+              itemName: item.item?.productName ?? item.description ?? '',
+              ordered: item.quantity,
+              qtyToPack: item.quantity,
+            ),
+          )
+          .toList();
       _clearRowControllers();
     });
   }
@@ -205,30 +219,41 @@ class _InventoryPackagesCreateScreenState
       if (mounted) {
         setState(() {
           _salesOrderItems = items;
-          _items = items.map((item) => _PackageItem(
-            itemId: item.itemId,
-            itemName: item.item?.productName ?? item.description ?? '',
-            ordered: item.quantity,
-            qtyToPack: item.quantity,
-          )).toList();
+          _items = items
+              .map(
+                (item) => _PackageItem(
+                  itemId: item.itemId,
+                  itemName: item.item?.productName ?? item.description ?? '',
+                  ordered: item.quantity,
+                  qtyToPack: item.quantity,
+                ),
+              )
+              .toList();
 
           _rowControllers.clear();
-          _rowControllers.addAll(List.generate(_items.length, (_) => _PackageItemRowController()));
+          _rowControllers.addAll(
+            List.generate(_items.length, (_) => _PackageItemRowController()),
+          );
           for (var i = 0; i < _items.length; i++) {
             _rowControllers[i].qtyCtrl.text = _items[i].qtyToPack.toString();
           }
 
           _normalRowControllers.clear();
-          _normalRowControllers.addAll(List.generate(items.length, (i) => TextEditingController(text: items[i].quantity.toString())));
+          _normalRowControllers.addAll(
+            List.generate(
+              items.length,
+              (i) => TextEditingController(text: items[i].quantity.toString()),
+            ),
+          );
           _isLoadingItems = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingItems = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching items: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error fetching items: $e')));
       }
     }
   }
@@ -298,90 +323,143 @@ class _InventoryPackagesCreateScreenState
                           children: [
                             _buildFormRow(
                               label: 'Customer Name',
-                              child: ref.watch(salesCustomersProvider).when(
-                                data: (customers) => FormDropdown<String>(
-                                  fillColor: Colors.white,
-                                  value: _selectedCustomer,
-                                  hint: 'Select Customer',
-                                  items: customers.map((e) => e.id).toList(),
-                                  maxVisibleItems: 4,
-                                  itemBuilder: (item, isSelected, isHovered) => _commonItemBuilder<String>(
-                                    item, 
-                                    isSelected, 
-                                    isHovered, 
-                                    (id) => customers.firstWhere((c) => c.id == id).displayName,
+                              child: ref
+                                  .watch(salesCustomersProvider)
+                                  .when(
+                                    data: (customers) => FormDropdown<String>(
+                                      fillColor: Colors.white,
+                                      textStyle: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                        color: _textPrimary,
+                                      ),
+                                      value: _selectedCustomer,
+                                      hint: 'Select Customer',
+                                      items: customers
+                                          .map((e) => e.id)
+                                          .toList(),
+                                      maxVisibleItems: 4,
+                                      itemBuilder:
+                                          (item, isSelected, isHovered) =>
+                                              _commonItemBuilder<String>(
+                                                item,
+                                                isSelected,
+                                                isHovered,
+                                                (id) => customers
+                                                    .firstWhere(
+                                                      (c) => c.id == id,
+                                                    )
+                                                    .displayName,
+                                              ),
+                                      displayStringForValue: (val) {
+                                        final customer = customers.firstWhere(
+                                          (c) => c.id == val,
+                                        );
+                                        return customer.displayName;
+                                      },
+                                      searchStringForValue: (val) {
+                                        final customer = customers.firstWhere(
+                                          (c) => c.id == val,
+                                        );
+                                        return customer.displayName;
+                                      },
+                                      onChanged: (val) {
+                                        setState(() {
+                                          _selectedCustomer = val;
+                                          _selectedSalesOrder = null;
+                                        });
+                                      },
+                                      height: 32,
+                                    ),
+                                    loading: () => const Skeleton(
+                                      height: 32,
+                                      width: double.infinity,
+                                    ),
+                                    error: (e, _) => Text('Error: $e'),
                                   ),
-                                  displayStringForValue: (val) {
-                                    final customer = customers.firstWhere((c) => c.id == val);
-                                    return customer.displayName;
-                                  },
-                                  searchStringForValue: (val) {
-                                    final customer = customers.firstWhere((c) => c.id == val);
-                                    return customer.displayName;
-                                  },
-                                  onChanged: (val) {
-                                    setState(() {
-                                      _selectedCustomer = val;
-                                      _selectedSalesOrder = null;
-                                    });
-                                  },
-                                ),
-                                loading: () => const Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                                error: (e, _) => Text('Error: $e'),
-                              ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 20),
                             _buildFormRow(
                               label: 'Sales Order#',
                               isRequired: true,
                               child: _selectedCustomer == null
                                   ? FormDropdown<String>(
-                                    fillColor: AppTheme.bgDisabled,
-                                    value: null,
-                                    hint: 'Select Sales Order',
-                                    items: const [],
-                                    itemBuilder: (item, isSelected, isHovered) => _commonItemBuilder<String>(item, isSelected, isHovered, (s) => s),
-                                    displayStringForValue: (s) => s,
-                                    searchStringForValue: (s) => s,
-                                    onChanged: (val) {},
-                                  )
+                                      fillColor: AppTheme.bgDisabled,
+                                      value: null,
+                                      hint: 'Select Sales Order',
+                                      items: const [],
+                                      itemBuilder:
+                                          (item, isSelected, isHovered) =>
+                                              _commonItemBuilder<String>(
+                                                item,
+                                                isSelected,
+                                                isHovered,
+                                                (s) => s,
+                                              ),
+                                      displayStringForValue: (s) => s,
+                                      searchStringForValue: (s) => s,
+                                      onChanged: (val) {},
+                                      height: 32,
+                                    )
                                   : ref
-                                      .watch(
-                                        salesOrdersByCustomerProvider(
-                                          _selectedCustomer!,
-                                        ),
-                                      )
-                                    .when(
-                                      data: (orders) => FormDropdown<SalesOrder>(
-                                        fillColor: Colors.white,
-                                        value: _selectedSalesOrderData,
-                                        hint: 'Select Sales Order',
-                                        items: orders,
-                                        maxVisibleItems: 4,
-                                        itemBuilder: (item, isSelected, isHovered) => _commonItemBuilder<SalesOrder>(item, isSelected, isHovered, (val) => val.saleNumber),
-                                        displayStringForValue: (val) => val.saleNumber,
-                                        searchStringForValue: (val) => val.saleNumber,
-                                        onChanged: (val) {
-                                          setState(() {
-                                            _selectedSalesOrder = val?.id;
-                                            _selectedSalesOrderData = val;
-                                          });
-                                          if (val != null) {
-                                            _fetchSalesOrderItems(val.id);
-                                          }
-                                        },
-                                      ),
-                                        loading: () => const Center(
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
+                                        .watch(
+                                          salesOrdersByCustomerProvider(
+                                            _selectedCustomer!,
                                           ),
+                                        )
+                                        .when(
+                                          data: (orders) =>
+                                              FormDropdown<SalesOrder>(
+                                                fillColor: Colors.white,
+                                                textStyle: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w400,
+                                                  color: _textPrimary,
+                                                ),
+                                                value: _selectedSalesOrderData,
+                                                hint: 'Select Sales Order',
+                                                items: orders,
+                                                maxVisibleItems: 4,
+                                                itemBuilder:
+                                                    (
+                                                      item,
+                                                      isSelected,
+                                                      isHovered,
+                                                    ) =>
+                                                        _commonItemBuilder<
+                                                          SalesOrder
+                                                        >(
+                                                          item,
+                                                          isSelected,
+                                                          isHovered,
+                                                          (val) =>
+                                                              val.saleNumber,
+                                                        ),
+                                                displayStringForValue: (val) =>
+                                                    val.saleNumber,
+                                                searchStringForValue: (val) =>
+                                                    val.saleNumber,
+                                                onChanged: (val) {
+                                                  setState(() {
+                                                    _selectedSalesOrder =
+                                                        val?.id;
+                                                    _selectedSalesOrderData =
+                                                        val;
+                                                  });
+                                                  if (val != null) {
+                                                    _fetchSalesOrderItems(
+                                                      val.id,
+                                                    );
+                                                  }
+                                                },
+                                                height: 32,
+                                              ),
+                                          loading: () => const Skeleton(
+                                            height: 32,
+                                            width: double.infinity,
+                                          ),
+                                          error: (e, _) => Text('Error: $e'),
                                         ),
-                                        error: (e, _) => Text('Error: $e'),
-                                      ),
                             ),
                           ],
                         ),
@@ -413,47 +491,20 @@ class _InventoryPackagesCreateScreenState
                                         isRequired: true,
                                         child: SizedBox(
                                           width: 210,
-                                          child: TextField(
+                                          child: CustomTextField(
                                             controller: _packageSlipCtrl,
+                                            height: 32,
                                             readOnly: _isAutoGenerate,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              color: _textPrimary,
-                                              fontFamily: 'Inter',
-                                            ),
-                                            decoration: InputDecoration(
-                                              filled: true,
-                                              fillColor: Colors.white,
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 10,
-                                                  ),
-                                              enabledBorder: OutlineInputBorder(
-                                                borderSide: const BorderSide(
-                                                  color: _borderCol,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderSide: const BorderSide(
-                                                  color: _focusBorder,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              suffixIcon: ZTooltip(
-                                                message:
-                                                    'Click here to enable or disable auto-generation of Package numbers.',
-                                                child: InkWell(
-                                                  onTap:
-                                                      _showPackagePreferencesDialog,
-                                                  child: const Icon(
-                                                    LucideIcons.settings,
-                                                    size: 16,
-                                                    color: _textSecondary,
-                                                  ),
+                                            suffixWidget: ZTooltip(
+                                              message:
+                                                  'Click here to enable or disable auto-generation of Package numbers.',
+                                              child: InkWell(
+                                                onTap:
+                                                    _showPackagePreferencesDialog,
+                                                child: const Icon(
+                                                  LucideIcons.settings,
+                                                  size: 16,
+                                                  color: _textSecondary,
                                                 ),
                                               ),
                                             ),
@@ -469,10 +520,10 @@ class _InventoryPackagesCreateScreenState
                                         isRequired: true,
                                         child: SizedBox(
                                           width: 210,
-                                          child: TextField(
+                                          child: CustomTextField(
                                             controller: _dateCtrl,
+                                            height: 32,
                                             readOnly: true,
-                                            key: _dateFieldKey,
                                             onTap: () async {
                                               final picked =
                                                   await ZerpaiDatePicker.show(
@@ -490,43 +541,10 @@ class _InventoryPackagesCreateScreenState
                                                 });
                                               }
                                             },
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontFamily: 'Inter',
-                                            ),
-                                            decoration: InputDecoration(
-                                              hintText: 'dd-MM-yyyy',
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 10,
-                                                  ),
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                                borderSide: const BorderSide(
-                                                  color: _borderCol,
-                                                ),
-                                              ),
-                                              enabledBorder: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                                borderSide: const BorderSide(
-                                                  color: _borderCol,
-                                                ),
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                                borderSide: const BorderSide(
-                                                  color: _focusBorder,
-                                                ),
-                                              ),
-                                              suffixIcon: const Icon(
-                                                LucideIcons.calendar,
-                                                size: 16,
-                                                color: _textSecondary,
-                                              ),
+                                            suffixWidget: const Icon(
+                                              LucideIcons.calendar,
+                                              size: 16,
+                                              color: _textSecondary,
                                             ),
                                           ),
                                         ),
@@ -544,135 +562,151 @@ class _InventoryPackagesCreateScreenState
                                         label: 'Dimensions',
                                         subLabel: '(Length X Width X Height)',
                                         child: Container(
-                                          height: 40,
+                                          height: 32,
                                           clipBehavior: Clip.antiAlias,
                                           decoration: BoxDecoration(
                                             color: Colors.white,
-                                            borderRadius: BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                             border: Border.all(
-                                              color: _dimFocused ? _focusBorder : _borderCol,
+                                              color: _dimFocused
+                                                  ? _focusBorder
+                                                  : _borderCol,
                                             ),
                                           ),
                                           child: Row(
                                             children: [
                                               Expanded(
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: TextField(
-                                                        controller:
-                                                            _dimensionLengthCtrl,
-                                                        focusNode:
-                                                            _dimLengthFocus,
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                          fontFamily: 'Inter',
+                                                child: SizedBox(
+                                                  height: 30,
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: TextField(
+                                                          controller:
+                                                              _dimensionLengthCtrl,
+                                                          focusNode:
+                                                              _dimLengthFocus,
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 13,
+                                                                fontFamily:
+                                                                    'Inter',
+                                                                height: 1.0,
+                                                              ),
+                                                          decoration:
+                                                              const InputDecoration(
+                                                                contentPadding:
+                                                                    EdgeInsets
+                                                                        .zero,
+                                                                border:
+                                                                    InputBorder
+                                                                        .none,
+                                                                enabledBorder:
+                                                                    InputBorder
+                                                                        .none,
+                                                                focusedBorder:
+                                                                    InputBorder
+                                                                        .none,
+                                                                hoverColor: Colors
+                                                                    .transparent,
+                                                                isDense: true,
+                                                              ),
                                                         ),
-                                                        decoration:
-                                                            const InputDecoration(
-                                                              contentPadding:
-                                                                  EdgeInsets
-                                                                      .zero,
-                                                              border:
-                                                                  InputBorder
-                                                                      .none,
-                                                              enabledBorder:
-                                                                  InputBorder
-                                                                      .none,
-                                                              focusedBorder:
-                                                                  InputBorder
-                                                                      .none,
-                                                              hoverColor: Colors
-                                                                  .transparent,
-                                                              isDense: true,
-                                                            ),
                                                       ),
-                                                    ),
-                                                    const Text(
-                                                      '×',
-                                                      style: TextStyle(
-                                                        color: _textSecondary,
-                                                        fontSize: 14,
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: TextField(
-                                                        controller:
-                                                            _dimensionWidthCtrl,
-                                                        focusNode:
-                                                            _dimWidthFocus,
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                          fontFamily: 'Inter',
+                                                      const Text(
+                                                        '×',
+                                                        style: TextStyle(
+                                                          color: _textSecondary,
+                                                          fontSize: 12,
                                                         ),
-                                                        decoration:
-                                                            const InputDecoration(
-                                                              contentPadding:
-                                                                  EdgeInsets
-                                                                      .zero,
-                                                              border:
-                                                                  InputBorder
-                                                                      .none,
-                                                              enabledBorder:
-                                                                  InputBorder
-                                                                      .none,
-                                                              focusedBorder:
-                                                                  InputBorder
-                                                                      .none,
-                                                              hoverColor: Colors
-                                                                  .transparent,
-                                                              isDense: true,
-                                                            ),
                                                       ),
-                                                    ),
-                                                    const Text(
-                                                      '×',
-                                                      style: TextStyle(
-                                                        color: _textSecondary,
-                                                        fontSize: 14,
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: TextField(
-                                                        controller:
-                                                            _dimensionHeightCtrl,
-                                                        focusNode:
-                                                            _dimHeightFocus,
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                          fontFamily: 'Inter',
+                                                      Expanded(
+                                                        child: TextField(
+                                                          controller:
+                                                              _dimensionWidthCtrl,
+                                                          focusNode:
+                                                              _dimWidthFocus,
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 13,
+                                                                fontFamily:
+                                                                    'Inter',
+                                                                height: 1.0,
+                                                              ),
+                                                          decoration:
+                                                              const InputDecoration(
+                                                                contentPadding:
+                                                                    EdgeInsets
+                                                                        .zero,
+                                                                border:
+                                                                    InputBorder
+                                                                        .none,
+                                                                enabledBorder:
+                                                                    InputBorder
+                                                                        .none,
+                                                                focusedBorder:
+                                                                    InputBorder
+                                                                        .none,
+                                                                hoverColor: Colors
+                                                                    .transparent,
+                                                                isDense: true,
+                                                              ),
                                                         ),
-                                                        decoration:
-                                                            const InputDecoration(
-                                                              contentPadding:
-                                                                  EdgeInsets
-                                                                      .zero,
-                                                              border:
-                                                                  InputBorder
-                                                                      .none,
-                                                              enabledBorder:
-                                                                  InputBorder
-                                                                      .none,
-                                                              focusedBorder:
-                                                                  InputBorder
-                                                                      .none,
-                                                              hoverColor: Colors
-                                                                  .transparent,
-                                                              isDense: true,
-                                                            ),
                                                       ),
-                                                    ),
-                                                  ],
+                                                      const Text(
+                                                        '×',
+                                                        style: TextStyle(
+                                                          color: _textSecondary,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                      Expanded(
+                                                        child: TextField(
+                                                          controller:
+                                                              _dimensionHeightCtrl,
+                                                          focusNode:
+                                                              _dimHeightFocus,
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 13,
+                                                                fontFamily:
+                                                                    'Inter',
+                                                                height: 1.0,
+                                                              ),
+                                                          decoration:
+                                                              const InputDecoration(
+                                                                contentPadding:
+                                                                    EdgeInsets
+                                                                        .zero,
+                                                                border:
+                                                                    InputBorder
+                                                                        .none,
+                                                                enabledBorder:
+                                                                    InputBorder
+                                                                        .none,
+                                                                focusedBorder:
+                                                                    InputBorder
+                                                                        .none,
+                                                                hoverColor: Colors
+                                                                    .transparent,
+                                                                isDense: true,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
                                               Container(
-                                                height: 40,
+                                                height: 30,
                                                 width: 70,
                                                 decoration: const BoxDecoration(
                                                   color: AppTheme.bgDisabled,
@@ -683,22 +717,29 @@ class _InventoryPackagesCreateScreenState
                                                   ),
                                                 ),
                                                 child: FormDropdown<String>(
-                                                  height: 38,
-                                                  fillColor: AppTheme.bgDisabled,
+                                                  height: 30,
+                                                  fillColor:
+                                                      AppTheme.bgDisabled,
                                                   border: Border.all(
                                                     color: Colors.transparent,
                                                   ),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 2,
+                                                      ),
                                                   hideBorderDefault: true,
                                                   showSearch: false,
                                                   value: _dimensionUnit,
                                                   items: const ['cm', 'in'],
-                                                  displayStringForValue: (s) => s,
-                                                  searchStringForValue: (s) => s,
+                                                  displayStringForValue: (s) =>
+                                                      s,
+                                                  searchStringForValue: (s) =>
+                                                      s,
                                                   onChanged: (val) {
                                                     if (val == null) return;
                                                     setState(
-                                                      () => _dimensionUnit = val,
+                                                      () =>
+                                                          _dimensionUnit = val,
                                                     );
                                                   },
                                                 ),
@@ -714,11 +755,13 @@ class _InventoryPackagesCreateScreenState
                                       child: _buildFormRow(
                                         label: 'Weight',
                                         child: Container(
-                                          height: 40,
+                                          height: 32,
                                           clipBehavior: Clip.antiAlias,
                                           decoration: BoxDecoration(
                                             color: Colors.white,
-                                            borderRadius: BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                             border: Border.all(
                                               color: _weightFocusNode.hasFocus
                                                   ? _focusBorder
@@ -734,31 +777,32 @@ class _InventoryPackagesCreateScreenState
                                                     focusNode: _weightFocusNode,
                                                     textAlign: TextAlign.center,
                                                     textAlignVertical:
-                                                        TextAlignVertical.center,
+                                                        TextAlignVertical
+                                                            .center,
                                                     style: const TextStyle(
-                                                      fontSize: 14,
+                                                      fontSize: 13,
                                                       fontFamily: 'Inter',
+                                                      height: 1.0,
                                                     ),
                                                     decoration:
                                                         const InputDecoration(
-                                                      contentPadding:
-                                                          EdgeInsets.symmetric(
-                                                        vertical: 10,
-                                                      ),
-                                                      border: InputBorder.none,
-                                                      enabledBorder:
-                                                          InputBorder.none,
-                                                      focusedBorder:
-                                                          InputBorder.none,
-                                                      hoverColor:
-                                                          Colors.transparent,
-                                                      isDense: true,
-                                                    ),
+                                                          contentPadding:
+                                                              EdgeInsets.zero,
+                                                          border:
+                                                              InputBorder.none,
+                                                          enabledBorder:
+                                                              InputBorder.none,
+                                                          focusedBorder:
+                                                              InputBorder.none,
+                                                          hoverColor: Colors
+                                                              .transparent,
+                                                          isDense: true,
+                                                        ),
                                                   ),
                                                 ),
                                               ),
                                               Container(
-                                                height: 40,
+                                                height: 30,
                                                 width: 60,
                                                 decoration: const BoxDecoration(
                                                   color: AppTheme.bgDisabled,
@@ -769,12 +813,16 @@ class _InventoryPackagesCreateScreenState
                                                   ),
                                                 ),
                                                 child: FormDropdown<String>(
-                                                  height: 38,
-                                                  fillColor: AppTheme.bgDisabled,
+                                                  height: 30,
+                                                  fillColor:
+                                                      AppTheme.bgDisabled,
                                                   border: Border.all(
                                                     color: Colors.transparent,
                                                   ),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 2,
+                                                      ),
                                                   hideBorderDefault: true,
                                                   showSearch: false,
                                                   value: _weightUnit,
@@ -784,8 +832,10 @@ class _InventoryPackagesCreateScreenState
                                                     'lb',
                                                     'oz',
                                                   ],
-                                                  displayStringForValue: (s) => s,
-                                                  searchStringForValue: (s) => s,
+                                                  displayStringForValue: (s) =>
+                                                      s,
+                                                  searchStringForValue: (s) =>
+                                                      s,
                                                   onChanged: (val) {
                                                     if (val == null) return;
                                                     setState(
@@ -839,8 +889,10 @@ class _InventoryPackagesCreateScreenState
                                                     : 'You can also select or scan the items to be included from the sales order. ',
                                               ),
                                               WidgetSpan(
-                                                alignment: PlaceholderAlignment.baseline,
-                                                baseline: TextBaseline.alphabetic,
+                                                alignment: PlaceholderAlignment
+                                                    .baseline,
+                                                baseline:
+                                                    TextBaseline.alphabetic,
                                                 child: InkWell(
                                                   onTap: _isManualMode
                                                       ? _switchToSelectionMode
@@ -851,7 +903,8 @@ class _InventoryPackagesCreateScreenState
                                                         : 'Select or Scan items',
                                                     style: const TextStyle(
                                                       fontSize: 13,
-                                                      fontWeight: FontWeight.w600,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                       color: _focusBorder,
                                                       fontFamily: 'Inter',
                                                     ),
@@ -870,7 +923,8 @@ class _InventoryPackagesCreateScreenState
                                 Align(
                                   alignment: Alignment.centerLeft,
                                   child: SizedBox(
-                                    width: MediaQuery.of(context).size.width * 0.6,
+                                    width:
+                                        MediaQuery.of(context).size.width * 0.6,
                                     child: _buildItemsTable(),
                                   ),
                                 ),
@@ -1102,9 +1156,7 @@ class _InventoryPackagesCreateScreenState
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 48),
-        child: const Center(
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
     }
 
@@ -1156,7 +1208,9 @@ class _InventoryPackagesCreateScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  soItem.item?.productName ?? soItem.description ?? 'Unknown Item',
+                  soItem.item?.productName ??
+                      soItem.description ??
+                      'Unknown Item',
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -1181,55 +1235,6 @@ class _InventoryPackagesCreateScreenState
                       fontFamily: 'Inter',
                     ),
                   ),
-                if (_items[index].batches.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: _items[index].batches.map((batch) {
-                      final hasBin = batch.binLocation != null && batch.binLocation!.isNotEmpty;
-                      final hasRef = batch.batchRef != null && batch.batchRef!.isNotEmpty;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F9F5),
-                          border: Border.all(color: const Color(0xFFCFE9D8)),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Batch: ${batch.batchNo} (${batch.quantity} pcs)',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF065F46),
-                                fontWeight: FontWeight.w600,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                            if (hasBin || hasRef)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  '${hasBin ? "Bin: ${batch.binLocation}" : ""}${hasBin && hasRef ? " | " : ""}${hasRef ? "Ref: ${batch.batchRef}" : ""}',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Color(0xFF065F46),
-                                    fontFamily: 'Inter',
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
               ],
             ),
           ),
@@ -1253,7 +1258,7 @@ class _InventoryPackagesCreateScreenState
             child: Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text(
-                '0', 
+                '0',
                 textAlign: TextAlign.right,
                 style: const TextStyle(
                   fontSize: 13,
@@ -1269,9 +1274,9 @@ class _InventoryPackagesCreateScreenState
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 _buildQuantityCell(
-                  index, 
+                  index,
                   _buildNormalQtyInput(index, soItem),
-                  "ZABNIX PVT/LTD"
+                  "ZABNIX PVT/LTD",
                 ),
               ],
             ),
@@ -1287,16 +1292,10 @@ class _InventoryPackagesCreateScreenState
     return TextField(
       controller: _normalRowControllers[index],
       textAlign: TextAlign.right,
-      style: const TextStyle(
-        fontSize: 13,
-        fontFamily: 'Inter',
-      ),
+      style: const TextStyle(fontSize: 13, fontFamily: 'Inter'),
       decoration: InputDecoration(
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 8,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         filled: true,
         fillColor: Colors.white,
         enabledBorder: OutlineInputBorder(
@@ -1325,9 +1324,7 @@ class _InventoryPackagesCreateScreenState
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 48),
-        child: const Center(
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
       );
     }
 
@@ -1452,27 +1449,37 @@ class _InventoryPackagesCreateScreenState
               children: [
                 FormDropdown<SalesOrderItem>(
                   fillColor: Colors.white,
-                  value: soItems.where((it) => it.itemId == item.itemId).firstOrNull,
+                  value: soItems
+                      .where((it) => it.itemId == item.itemId)
+                      .firstOrNull,
                   hint: 'Select Item',
                   items: soItems,
                   maxVisibleItems: 4,
-                  itemBuilder: (item, isSelected, isHovered) => _commonItemBuilder<SalesOrderItem>(
-                    item, 
-                    isSelected, 
-                    isHovered, 
-                    (it) => it.item?.productName ?? it.description ?? 'Unknown',
-                  ),
-                  displayStringForValue: (it) => it.item?.productName ?? it.description ?? 'Unknown',
-                  searchStringForValue: (it) => it.item?.productName ?? it.description ?? '',
+                  itemBuilder: (item, isSelected, isHovered) =>
+                      _commonItemBuilder<SalesOrderItem>(
+                        item,
+                        isSelected,
+                        isHovered,
+                        (it) =>
+                            it.item?.productName ?? it.description ?? 'Unknown',
+                      ),
+                  displayStringForValue: (it) =>
+                      it.item?.productName ?? it.description ?? 'Unknown',
+                  searchStringForValue: (it) =>
+                      it.item?.productName ?? it.description ?? '',
                   onChanged: (val) {
                     if (val == null) return;
                     setState(() {
                       _items[index] = _items[index].copyWith(
                         itemId: val.itemId,
-                        itemName: val.item?.productName ?? val.description ?? '',
+                        itemName:
+                            val.item?.productName ?? val.description ?? '',
                         ordered: val.quantity,
+                        qtyToPack: val.quantity,
+                        batches: const [], // Reset batches when product changes
                       );
-                      _rowControllers[index].qtyCtrl.text = val.quantity.toString();
+                      _rowControllers[index].qtyCtrl.text = val.quantity
+                          .toString();
                     });
                   },
                 ),
@@ -1488,56 +1495,8 @@ class _InventoryPackagesCreateScreenState
                       ),
                     ),
                   ),
-                if (item.batches.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: item.batches.map((batch) {
-                      final hasBin = batch.binLocation != null && batch.binLocation!.isNotEmpty;
-                      final hasRef = batch.batchRef != null && batch.batchRef!.isNotEmpty;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F9F5),
-                          border: Border.all(color: const Color(0xFFCFE9D8)),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Batch: ${batch.batchNo} (${batch.quantity} pcs)',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF065F46),
-                                fontWeight: FontWeight.w600,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                            if (hasBin || hasRef)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  '${hasBin ? "Bin: ${batch.binLocation}" : ""}${hasBin && hasRef ? " | " : ""}${hasRef ? "Ref: ${batch.batchRef}" : ""}',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Color(0xFF065F46),
-                                    fontFamily: 'Inter',
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
                 ],
-              ],
-            ),
+              ),
           ),
           Expanded(
             flex: 1,
@@ -1577,11 +1536,13 @@ class _InventoryPackagesCreateScreenState
                 IgnorePointer(
                   ignoring: item.itemId == null || item.itemId!.isEmpty,
                   child: Opacity(
-                    opacity: (item.itemId != null && item.itemId!.isNotEmpty) ? 1.0 : 0.4,
+                    opacity: (item.itemId != null && item.itemId!.isNotEmpty)
+                        ? 1.0
+                        : 0.4,
                     child: _buildQuantityCell(
-                      index, 
+                      index,
                       _buildQtyInput(index),
-                      _rowSelectedWarehouses[index] ?? "ZABNIX PVT/LTD"
+                      _rowSelectedWarehouses[index] ?? "ZABNIX PVT/LTD",
                     ),
                   ),
                 ),
@@ -1592,11 +1553,7 @@ class _InventoryPackagesCreateScreenState
             width: 32,
             child: IconButton(
               onPressed: () => _removeItem(index),
-              icon: const Icon(
-                LucideIcons.trash2,
-                size: 16,
-                color: _dangerRed,
-              ),
+              icon: const Icon(LucideIcons.trash2, size: 16, color: _dangerRed),
               splashRadius: 20,
             ),
           ),
@@ -1610,6 +1567,7 @@ class _InventoryPackagesCreateScreenState
     final avlQty = index == 1 ? -2 : 0;
     final isDanger = avlQty <= 0;
     final currentView = _rowSelectedViews[index] ?? 'Available for Sale';
+    final item = _items[index];
 
     return SizedBox(
       width: 160,
@@ -1620,13 +1578,19 @@ class _InventoryPackagesCreateScreenState
           const SizedBox(height: 12),
           Text(
             '$currentView:',
-            style: const TextStyle(fontSize: 11, color: Color(0xFF1F2937), fontFamily: 'Inter'),
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF1F2937),
+              fontFamily: 'Inter',
+            ),
           ),
           Text(
             '$avlQty pcs',
             style: TextStyle(
               fontSize: 11,
-              color: isDanger ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+              color: isDanger
+                  ? const Color(0xFFEF4444)
+                  : const Color(0xFF10B981),
               fontFamily: 'Inter',
             ),
           ),
@@ -1640,37 +1604,54 @@ class _InventoryPackagesCreateScreenState
               });
             },
             onWarehouseChanged: (newName) {
-               setState(() {
-                 _rowSelectedWarehouses[index] = newName;
-               });
+              setState(() {
+                _rowSelectedWarehouses[index] = newName;
+              });
             },
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(LucideIcons.building, size: 12, color: Color(0xFF2563EB)),
+                const Icon(
+                  LucideIcons.building,
+                  size: 12,
+                  color: Color(0xFF2563EB),
+                ),
                 const SizedBox(width: 4),
                 Text(
                   warehouseName,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontFamily: 'Inter'),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF2563EB),
+                    fontFamily: 'Inter',
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 4),
-          InkWell(
-            onTap: () => _showSelectBatchDialog(index),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(LucideIcons.alertTriangle, size: 12, color: Color(0xFFEF4444)),
-                const SizedBox(width: 4),
-                const Text(
-                  'Select Batch',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontFamily: 'Inter'),
-                ),
-              ],
+          if (item.qtyToPack > 0 && item.qtyToPack <= item.ordered)
+            InkWell(
+              onTap: () => _showSelectBatchDialog(index),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    LucideIcons.alertTriangle,
+                    size: 12,
+                    color: Color(0xFFEF4444),
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    'Select Batch',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF2563EB),
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -1680,7 +1661,8 @@ class _InventoryPackagesCreateScreenState
     if (index >= _rowControllers.length) return const SizedBox();
     final ctrl = _rowControllers[index];
     final fieldKey = 'qty-$index';
-    final isActive = _hoveredQtyFields.contains(fieldKey) ||
+    final isActive =
+        _hoveredQtyFields.contains(fieldKey) ||
         _focusedQtyFields.contains(fieldKey);
 
     return MouseRegion(
@@ -1699,10 +1681,7 @@ class _InventoryPackagesCreateScreenState
         child: TextField(
           controller: ctrl.qtyCtrl,
           textAlign: TextAlign.right,
-          style: const TextStyle(
-            fontSize: 13,
-            fontFamily: 'Inter',
-          ),
+          style: const TextStyle(fontSize: 13, fontFamily: 'Inter'),
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(
@@ -1713,12 +1692,22 @@ class _InventoryPackagesCreateScreenState
             fillColor: Colors.white,
             enabledBorder: OutlineInputBorder(
               borderSide: BorderSide(
-                color: isActive ? _focusBorder : _borderCol,
+                color: _items[index].qtyToPack > _items[index].ordered
+                    ? const Color(0xFFEF4444)
+                    : (_items[index].qtyToPack > 0
+                          ? const Color(0xFF2563EB)
+                          : (isActive ? _focusBorder : _borderCol)),
+                width: (_items[index].qtyToPack > 0) ? 1.5 : 1.0,
               ),
               borderRadius: BorderRadius.circular(4),
             ),
             focusedBorder: OutlineInputBorder(
-              borderSide: const BorderSide(color: _focusBorder, width: 1.5),
+              borderSide: BorderSide(
+                color: _items[index].qtyToPack > _items[index].ordered
+                    ? const Color(0xFFEF4444)
+                    : const Color(0xFF2563EB),
+                width: 1.5,
+              ),
               borderRadius: BorderRadius.circular(4),
             ),
           ),
@@ -1739,7 +1728,9 @@ class _InventoryPackagesCreateScreenState
 
     double qtyToPack = item.qtyToPack;
     if (qtyToPack <= 0) {
-      qtyToPack = double.tryParse(_rowControllers[index].qtyCtrl.text) ?? (item.ordered - item.packed);
+      qtyToPack =
+          double.tryParse(_rowControllers[index].qtyCtrl.text) ??
+          (item.ordered - item.packed);
     }
     if (qtyToPack <= 0) qtyToPack = 1.0;
 
@@ -1747,6 +1738,7 @@ class _InventoryPackagesCreateScreenState
       context: context,
       barrierDismissible: true,
       builder: (_) => _PackageBatchSelectionDialog(
+        itemId: item.itemId,
         itemName: item.itemName,
         warehouseName: _rowSelectedViews[index] ?? 'DEMO WAREHOUSE 1',
         totalQuantity: qtyToPack,
@@ -1758,10 +1750,14 @@ class _InventoryPackagesCreateScreenState
       setState(() {
         _items[index] = _items[index].copyWith(
           batches: result.batches,
-          qtyToPack: result.overwriteLineItem ? result.appliedQuantity : item.qtyToPack,
+          qtyToPack: result.overwriteLineItem
+              ? result.appliedQuantity
+              : item.qtyToPack,
         );
         if (result.overwriteLineItem) {
-          _rowControllers[index].qtyCtrl.text = result.appliedQuantity.toInt().toString();
+          _rowControllers[index].qtyCtrl.text = result.appliedQuantity
+              .toInt()
+              .toString();
         }
       });
     }
@@ -1932,7 +1928,11 @@ class __PackagePreferencesDialogState extends State<_PackagePreferencesDialog> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(LucideIcons.x, size: 18, color: textSecondary),
+                    icon: const Icon(
+                      LucideIcons.x,
+                      size: 18,
+                      color: textSecondary,
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -1995,8 +1995,13 @@ class __PackagePreferencesDialogState extends State<_PackagePreferencesDialog> {
                         ),
                         const SizedBox(width: 4),
                         ZTooltip(
-                          message: 'The edited prefix and next number will be updated in the transaction number series associated with your package slip.',
-                          child: const Icon(LucideIcons.info, size: 14, color: textSecondary),
+                          message:
+                              'The edited prefix and next number will be updated in the transaction number series associated with your package slip.',
+                          child: const Icon(
+                            LucideIcons.info,
+                            size: 14,
+                            color: textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -2210,7 +2215,8 @@ class _PackageBatchDialogResult {
   });
 }
 
-class _PackageBatchSelectionDialog extends StatefulWidget {
+class _PackageBatchSelectionDialog extends ConsumerStatefulWidget {
+  final String? itemId;
   final String itemName;
   final String warehouseName;
   final double totalQuantity;
@@ -2218,6 +2224,7 @@ class _PackageBatchSelectionDialog extends StatefulWidget {
   final List<_PackageBatch> savedBatches;
 
   const _PackageBatchSelectionDialog({
+    this.itemId,
     required this.itemName,
     required this.warehouseName,
     required this.totalQuantity,
@@ -2226,17 +2233,25 @@ class _PackageBatchSelectionDialog extends StatefulWidget {
   });
 
   @override
-  State<_PackageBatchSelectionDialog> createState() => _PackageBatchSelectionDialogState();
+  ConsumerState<_PackageBatchSelectionDialog> createState() =>
+      _PackageBatchSelectionDialogState();
 }
 
-class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDialog> {
+class _PackageBatchSelectionDialogState
+    extends ConsumerState<_PackageBatchSelectionDialog> {
   final List<_PackageBatchRowController> _rows = [];
   final List<String> _mockBinLocations = const <String>[
-    'A1-R1-S1', 'A1-R1-S2', 'A1-R2-S1', 'B1-R1-S1', 'B1-R2-S3', 'C1-R4-S2',
+    'A1-R1-S1',
+    'A1-R1-S2',
+    'A1-R2-S1',
+    'B1-R1-S1',
+    'B1-R2-S3',
+    'C1-R4-S2',
   ];
   bool _overwriteLineItem = false;
   bool _showMfgDetails = false;
   bool _showFocColumn = false;
+  String? _dialogErrorMessage;
 
   @override
   void initState() {
@@ -2246,7 +2261,6 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
         final row = _PackageBatchRowController();
         row.binLocationCtrl.text = b.binLocation ?? '';
         row.batchRefCtrl.text = b.batchRef ?? '';
-        row.batchNoCtrl.text = b.batchNo;
         row.unitPackCtrl.text = b.unitPack ?? '';
         row.mrpCtrl.text = b.mrp ?? '';
         row.ptrCtrl.text = b.ptr ?? '';
@@ -2272,14 +2286,20 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
   }
 
   double get _totalQuantityOut => _rows.fold<double>(
-    0, (sum, r) => sum + (double.tryParse(r.qtyOutCtrl.text.trim()) ?? 0));
+    0,
+    (sum, r) => sum + (double.tryParse(r.qtyOutCtrl.text.trim()) ?? 0),
+  );
 
   void _addRow() {
-    setState(() => _rows.add(_PackageBatchRowController()));
+    setState(() {
+      _rows.add(_PackageBatchRowController());
+      _dialogErrorMessage = null;
+    });
   }
 
   void _removeRow(int index) {
     setState(() {
+      _dialogErrorMessage = null;
       if (_rows.length == 1) {
         _rows[index].batchRefCtrl.clear();
         _rows[index].qtyOutCtrl.clear();
@@ -2290,7 +2310,11 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
     });
   }
 
-  Widget _headerCell(String text, int flex, {TextAlign alignment = TextAlign.center}) {
+  Widget _headerCell(
+    String text,
+    int flex, {
+    TextAlign alignment = TextAlign.center,
+  }) {
     final isRequired = text.contains('*');
     return Expanded(
       flex: flex,
@@ -2320,28 +2344,46 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
       flex: flex,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: TextField(
-          controller: controller,
-          keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : null,
-          textAlign: isNumber ? TextAlign.right : TextAlign.left,
-          style: const TextStyle(fontSize: 13, color: _textPrimary, fontFamily: 'Inter'),
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: hint,
-            hintStyle: const TextStyle(color: _textSecondary, fontSize: 13),
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: const BorderSide(color: _borderCol),
+        child: SizedBox(
+          height: 38,
+          child: TextField(
+            controller: controller,
+            keyboardType: isNumber
+                ? const TextInputType.numberWithOptions(decimal: true)
+                : null,
+            inputFormatters: isNumber
+                ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
+                : null,
+            textAlign: isNumber ? TextAlign.right : TextAlign.left,
+            textAlignVertical: TextAlignVertical.center,
+            strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
+            style: const TextStyle(
+              fontSize: 13,
+              color: _textPrimary,
+              fontFamily: 'Inter',
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: const BorderSide(color: _focusBorder, width: 1.4),
+            decoration: InputDecoration(
+              isDense: false,
+              hintText: hint,
+              hintStyle: const TextStyle(color: _textSecondary, fontSize: 13),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 12,
+              ),
+              constraints: const BoxConstraints(minHeight: 38, maxHeight: 38),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: _borderCol),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: _focusBorder, width: 1.4),
+              ),
             ),
+            onChanged: (_) => setState(() => _dialogErrorMessage = null),
           ),
-          onChanged: (_) => setState(() {}),
         ),
       ),
     );
@@ -2355,7 +2397,9 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
       insetPadding: const EdgeInsets.fromLTRB(40, 0, 40, 40),
       child: SizedBox(
-        width: _showMfgDetails ? (_showFocColumn ? 1480 : 1320) : (_showFocColumn ? 1200 : 1000),
+        width: _showMfgDetails
+            ? (_showFocColumn ? 1340 : 1180)
+            : (_showFocColumn ? 1060 : 860),
         height: MediaQuery.of(context).size.height * 0.86,
         child: Column(
           children: [
@@ -2364,23 +2408,90 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
               padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
               child: Row(
                 children: [
-                   const Text('Select Batches', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _textPrimary, fontFamily: 'Inter')),
-                   const Spacer(),
-                   InkWell(
-                     onTap: () => Navigator.pop(context),
-                     child: Container(
-                       padding: const EdgeInsets.all(4),
-                       decoration: BoxDecoration(
-                         border: Border.all(color: const Color(0xFFE5E7EB)),
-                         borderRadius: BorderRadius.circular(4),
-                       ),
-                       child: const Icon(LucideIcons.x, size: 14, color: _dangerRed),
-                     ),
-                   ),
+                  const Text(
+                    'Select Batches',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _textPrimary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                  const Spacer(),
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 14,
+                        color: _dangerRed,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
             const Divider(height: 1),
+            if (_dialogErrorMessage != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFDECEC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFF9D3D3)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '•',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 25,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _dialogErrorMessage!,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: _textPrimary,
+                            fontFamily: 'Inter',
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => setState(() => _dialogErrorMessage = null),
+                        child: const Padding(
+                          padding: EdgeInsets.only(left: 8),
+                          child: Icon(
+                            LucideIcons.x,
+                            size: 16,
+                            color: _dangerRed,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             // Sub-header info
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -2389,21 +2500,67 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
                 children: [
                   Row(
                     children: [
-                      const Icon(LucideIcons.home, size: 14, color: _textSecondary),
+                      const Icon(
+                        LucideIcons.home,
+                        size: 14,
+                        color: _textSecondary,
+                      ),
                       const SizedBox(width: 8),
-                      Text('Location : ${widget.warehouseName.toUpperCase()}', style: const TextStyle(fontSize: 12, color: _textSecondary, fontFamily: 'Inter')),
+                      Text(
+                        'Location : ${widget.warehouseName.toUpperCase()}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: _textSecondary,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Text('BATCH DETAILS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _textSecondary, fontFamily: 'Inter')),
+                      const Text(
+                        'BATCH DETAILS',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: _textSecondary,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
                       const SizedBox(width: 16),
-                      Text('Item: ${widget.itemName}', style: const TextStyle(fontSize: 12, color: _textSecondary, fontFamily: 'Inter')),
+                      Text(
+                        'Item: ${widget.itemName}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: _textSecondary,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
                       const Spacer(),
-                      Text('Total Quantity : ${widget.totalQuantity.toInt()}', style: const TextStyle(fontSize: 12, color: _textSecondary, fontFamily: 'Inter')),
-                      const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('|', style: TextStyle(color: _textSecondary))),
-                      Text('Quantity to be added : ${_totalQuantityOut.toInt()}', style: const TextStyle(fontSize: 12, color: _textSecondary, fontFamily: 'Inter')),
+                      Text(
+                        'Total Quantity : ${widget.totalQuantity.toInt()}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: _textSecondary,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          '|',
+                          style: TextStyle(color: _textSecondary),
+                        ),
+                      ),
+                      Text(
+                        'Quantity to be added : ${_totalQuantityOut.toInt()}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: _textSecondary,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -2414,14 +2571,32 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
                 children: [
-                  Checkbox(value: _showMfgDetails, onChanged: (v) => setState(() => _showMfgDetails = v!)),
-                  const Text('Manufacture Details', style: TextStyle(fontSize: 13, fontFamily: 'Inter')),
+                  Checkbox(
+                    value: _showMfgDetails,
+                    onChanged: (v) => setState(() => _showMfgDetails = v!),
+                  ),
+                  const Text(
+                    'Manufacture Details',
+                    style: TextStyle(fontSize: 13, fontFamily: 'Inter'),
+                  ),
                   const SizedBox(width: 16),
-                  Checkbox(value: _showFocColumn, onChanged: (v) => setState(() => _showFocColumn = v!)),
-                  const Text('FOC', style: TextStyle(fontSize: 13, fontFamily: 'Inter')),
+                  Checkbox(
+                    value: _showFocColumn,
+                    onChanged: (v) => setState(() => _showFocColumn = v!),
+                  ),
+                  const Text(
+                    'FOC',
+                    style: TextStyle(fontSize: 13, fontFamily: 'Inter'),
+                  ),
                   const Spacer(),
-                  Checkbox(value: _overwriteLineItem, onChanged: (v) => setState(() => _overwriteLineItem = v!)),
-                  Text('Overwrite the line item with ${_totalQuantityOut.toInt()} quantities', style: const TextStyle(fontSize: 13, fontFamily: 'Inter')),
+                  Checkbox(
+                    value: _overwriteLineItem,
+                    onChanged: (v) => setState(() => _overwriteLineItem = v!),
+                  ),
+                  Text(
+                    'Overwrite the line item with ${_totalQuantityOut.toInt()} quantities',
+                    style: const TextStyle(fontSize: 13, fontFamily: 'Inter'),
+                  ),
                 ],
               ),
             ),
@@ -2433,19 +2608,18 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
               color: const Color(0xFFF9FAFB),
               child: Row(
                 children: [
-                  _headerCell('BIN LOCATION*', 15),
-                  _headerCell('BATCH REF*', 15),
-                  _headerCell('BATCH NO*', 15),
-                  _headerCell('UNIT PACK*', 15),
-                  _headerCell('MRP*', 15),
-                  _headerCell('PTR', 15),
-                  _headerCell('EXPIRY*', 15),
+                  _headerCell('BIN LOCATION*', 16),
+                  _headerCell('BATCH REF*', 16),
+                  _headerCell('UNIT PACK*', 14),
+                  _headerCell('MRP*', 14),
+                  _headerCell('PTR', 14),
+                  _headerCell('EXPIRY*', 18),
                   if (_showMfgDetails) ...[
-                    _headerCell('MFG DATE', 15),
-                    _headerCell('MFG BATCH', 15),
+                    _headerCell('MFG DATE', 14),
+                    _headerCell('MFG BATCH', 14),
                   ],
-                  _headerCell('QTY OUT*', 15),
-                  if (_showFocColumn) _headerCell('FOC', 15),
+                  _headerCell('QTY OUT*', 14),
+                  if (_showFocColumn) _headerCell('FOC', 14),
                   const SizedBox(width: 40),
                 ],
               ),
@@ -2460,64 +2634,203 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
-                          flex: 15,
-                          child: FormDropdown<String>(
-                            value: _mockBinLocations.contains(r.binLocationCtrl.text) ? r.binLocationCtrl.text : null,
-                            items: _mockBinLocations,
-                            hint: 'Select Bin',
-                            displayStringForValue: (v) => v,
-                            onChanged: (v) => setState(() => r.binLocationCtrl.text = v ?? ''),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 15,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          flex: 16,
+                          child: SizedBox(
+                            height: 38,
                             child: FormDropdown<String>(
-                                value: widget.existingBatchRefs.contains(r.batchRefCtrl.text) ? r.batchRefCtrl.text : null,
-                                items: widget.existingBatchRefs,
-                                hint: 'Select Ref',
-                                displayStringForValue: (v) => v,
-                                onChanged: (v) => setState(() => r.batchRefCtrl.text = v ?? ''),
+                              height: 38,
+                              value:
+                                  _mockBinLocations.contains(
+                                    r.binLocationCtrl.text,
+                                  )
+                                  ? r.binLocationCtrl.text
+                                  : null,
+                              items: _mockBinLocations,
+                              hint: 'Select Bin',
+                              displayStringForValue: (v) => v,
+                              onChanged: (v) => setState(
+                                () => r.binLocationCtrl.text = v ?? '',
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
                             ),
                           ),
                         ),
-                        _buildInput(controller: r.batchNoCtrl, flex: 15, hint: 'Batch No'),
-                        _buildInput(controller: r.unitPackCtrl, flex: 15, hint: 'Unit Pack'),
-                        _buildInput(controller: r.mrpCtrl, flex: 15, hint: 'MRP', isNumber: true),
-                        _buildInput(controller: r.ptrCtrl, flex: 15, hint: 'PTR', isNumber: true),
                         Expanded(
-                          flex: 15,
+                          flex: 16,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: TextField(
-                              key: r.expDateKey,
-                              controller: r.expDateCtrl,
-                              readOnly: true,
-                              decoration: InputDecoration(
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                                suffixIcon: const Icon(LucideIcons.calendar, size: 14),
+                            child: SizedBox(
+                              height: 38,
+                              child: Consumer(
+                                builder: (context, ref, _) {
+                                  final batchesAsync = ref.watch(
+                                    batchLookupProvider(widget.itemId ?? ''),
+                                  );
+                                  final batches = batchesAsync.value ?? [];
+
+                                  return FormDropdown<Map<String, dynamic>>(
+                                    height: 38,
+                                    isLoading: batchesAsync.isLoading,
+                                    value: batches
+                                        .where(
+                                          (b) => b['id'] == r.batchRefCtrl.text,
+                                        )
+                                        .firstOrNull,
+                                    items: batches,
+                                    hint: batchesAsync.isLoading
+                                        ? 'Loading...'
+                                        : (batches.isEmpty
+                                              ? 'No batches available'
+                                              : 'Select Ref'),
+                                    displayStringForValue: (b) =>
+                                        b['batch_no']?.toString() ?? '',
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        setState(() {
+                                          r.batchRefCtrl.text =
+                                              v['id']?.toString() ?? '';
+                                          if (v['expiry_date'] != null) {
+                                            try {
+                                              r.expDateCtrl.text =
+                                                  DateFormat(
+                                                    'dd-MM-yyyy',
+                                                  ).format(
+                                                    DateTime.parse(
+                                                      v['expiry_date']
+                                                          .toString(),
+                                                    ),
+                                                  );
+                                            } catch (_) {}
+                                          }
+                                          if (v['unit_pack'] != null) {
+                                            r.unitPackCtrl.text = v['unit_pack']
+                                                .toString();
+                                          }
+                                        });
+                                      }
+                                    },
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                  );
+                                },
                               ),
-                              onTap: () async {
-                                final d = await ZerpaiDatePicker.show(context, initialDate: DateTime.now(), targetKey: r.expDateKey);
-                                if (d != null) setState(() => r.expDateCtrl.text = DateFormat('dd-MM-yyyy').format(d));
-                              },
+                            ),
+                          ),
+                        ),
+                        _buildInput(
+                          controller: r.unitPackCtrl,
+                          flex: 14,
+                          hint: 'Unit Pack',
+                          isNumber: true,
+                        ),
+                        _buildInput(
+                          controller: r.mrpCtrl,
+                          flex: 14,
+                          hint: 'MRP',
+                          isNumber: true,
+                        ),
+                        _buildInput(
+                          controller: r.ptrCtrl,
+                          flex: 14,
+                          hint: 'PTR',
+                          isNumber: true,
+                        ),
+                        Expanded(
+                          flex: 18,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: SizedBox(
+                              height: 38,
+                              child: TextField(
+                                key: r.expDateKey,
+                                controller: r.expDateCtrl,
+                                readOnly: true,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontFamily: 'Inter',
+                                ),
+                                decoration: InputDecoration(
+                                  isDense: false,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 12,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minHeight: 38,
+                                    maxHeight: 38,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  suffixIconConstraints: const BoxConstraints(
+                                    minHeight: 38,
+                                    maxHeight: 38,
+                                    minWidth: 32,
+                                    maxWidth: 32,
+                                  ),
+                                  suffixIcon: const Padding(
+                                    padding: EdgeInsets.only(right: 8),
+                                    child: Icon(LucideIcons.calendar, size: 14),
+                                  ),
+                                ),
+                                onTap: () async {
+                                  final d = await ZerpaiDatePicker.show(
+                                    context,
+                                    initialDate: DateTime.now(),
+                                    targetKey: r.expDateKey,
+                                  );
+                                  if (d != null) {
+                                    setState(
+                                      () => r.expDateCtrl.text = DateFormat(
+                                        'dd-MM-yyyy',
+                                      ).format(d),
+                                    );
+                                  }
+                                },
+                              ),
                             ),
                           ),
                         ),
                         if (_showMfgDetails) ...[
-                          _buildInput(controller: r.mfgDateCtrl, flex: 15, hint: 'MFG Date'), // Simplified for now
-                          _buildInput(controller: r.mfgBatchCtrl, flex: 15, hint: 'MFG Batch'),
+                          _buildInput(
+                            controller: r.mfgDateCtrl,
+                            flex: 14,
+                            hint: 'MFG Date',
+                          ), // Simplified for now
+                          _buildInput(
+                            controller: r.mfgBatchCtrl,
+                            flex: 14,
+                            hint: 'MFG Batch',
+                          ),
                         ],
-                        _buildInput(controller: r.qtyOutCtrl, flex: 15, hint: 'Qty', isNumber: true),
-                        if (_showFocColumn) _buildInput(controller: r.focCtrl, flex: 15, hint: 'FOC', isNumber: true),
+                        _buildInput(
+                          controller: r.qtyOutCtrl,
+                          flex: 14,
+                          hint: 'Qty',
+                          isNumber: true,
+                        ),
+                        if (_showFocColumn)
+                          _buildInput(
+                            controller: r.focCtrl,
+                            flex: 14,
+                            hint: 'FOC',
+                            isNumber: true,
+                          ),
                         IconButton(
-                          onPressed: () => _removeRow(i), 
-                          icon: const Icon(LucideIcons.xCircle, size: 20, color: _dangerRed)
+                          onPressed: () => _removeRow(i),
+                          icon: const Icon(
+                            LucideIcons.xCircle,
+                            size: 20,
+                            color: _dangerRed,
+                          ),
                         ),
                       ],
                     ),
@@ -2535,7 +2848,11 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(LucideIcons.plusCircle, size: 16, color: _greenBtn),
+                        Icon(
+                          LucideIcons.plusCircle,
+                          size: 16,
+                          color: _greenBtn,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'New Row',
@@ -2569,35 +2886,109 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                       final batches = _rows.map((r) => _PackageBatch(
-                         batchNo: r.batchNoCtrl.text,
-                         quantity: double.tryParse(r.qtyOutCtrl.text) ?? 0,
-                         binLocation: r.binLocationCtrl.text,
-                         batchRef: r.batchRefCtrl.text,
-                         unitPack: r.unitPackCtrl.text,
-                         mrp: r.mrpCtrl.text,
-                         ptr: r.ptrCtrl.text,
-                         expDate: r.expDateCtrl.text,
-                         mfgDate: r.mfgDateCtrl.text,
-                         mfgBatch: r.mfgBatchCtrl.text,
-                         foc: double.tryParse(r.focCtrl.text),
-                       )).where((b) => b.batchNo.isNotEmpty && b.quantity > 0).toList();
-                       
-                       Navigator.pop(context, _PackageBatchDialogResult(
-                         overwriteLineItem: _overwriteLineItem,
-                         batchCount: batches.length,
-                         appliedQuantity: batches.fold(0.0, (s, b) => s + b.quantity),
-                         batches: batches,
-                       ));
+                      // Validate mandatory fields for rows with qty > 0
+                      for (int i = 0; i < _rows.length; i++) {
+                        final r = _rows[i];
+                        final qtyStr = r.qtyOutCtrl.text.trim();
+                        final qty = double.tryParse(qtyStr) ?? 0;
+
+                        if (qty > 0) {
+                          if (r.binLocationCtrl.text.isEmpty) {
+                            setState(
+                              () => _dialogErrorMessage =
+                                  'Please select Bin Location in row ${i + 1}',
+                            );
+                            return;
+                          }
+                          if (r.batchRefCtrl.text.isEmpty) {
+                            setState(
+                              () => _dialogErrorMessage =
+                                  'Please select Batch Reference in row ${i + 1}',
+                            );
+                            return;
+                          }
+                          if (r.unitPackCtrl.text.isEmpty) {
+                            setState(
+                              () => _dialogErrorMessage =
+                                  'Please enter Unit Pack in row ${i + 1}',
+                            );
+                            return;
+                          }
+                          if (r.mrpCtrl.text.isEmpty) {
+                            setState(
+                              () => _dialogErrorMessage =
+                                  'Please enter MRP in row ${i + 1}',
+                            );
+                            return;
+                          }
+                          if (r.expDateCtrl.text.isEmpty) {
+                            setState(
+                              () => _dialogErrorMessage =
+                                  'Please select Expiry Date in row ${i + 1}',
+                            );
+                            return;
+                          }
+                        }
+                      }
+
+                      final batches = _rows
+                          .map(
+                            (r) => _PackageBatch(
+                              batchNo: r.batchRefCtrl.text,
+                              quantity: double.tryParse(r.qtyOutCtrl.text) ?? 0,
+                              binLocation: r.binLocationCtrl.text,
+                              batchRef: r.batchRefCtrl.text,
+                              unitPack: r.unitPackCtrl.text,
+                              mrp: r.mrpCtrl.text,
+                              ptr: r.ptrCtrl.text,
+                              expDate: r.expDateCtrl.text,
+                              mfgDate: r.mfgDateCtrl.text,
+                              mfgBatch: r.mfgBatchCtrl.text,
+                              foc: double.tryParse(r.focCtrl.text),
+                            ),
+                          )
+                          .where((b) => b.quantity > 0)
+                          .toList();
+
+                      if (batches.isEmpty) {
+                        setState(
+                          () => _dialogErrorMessage =
+                              'Please add at least one row with quantity',
+                        );
+                        return;
+                      }
+                      Navigator.pop(
+                        context,
+                        _PackageBatchDialogResult(
+                          overwriteLineItem: _overwriteLineItem,
+                          batchCount: batches.length,
+                          appliedQuantity: batches.fold(
+                            0.0,
+                            (s, b) => s + b.quantity,
+                          ),
+                          batches: batches,
+                        ),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _greenBtn,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       elevation: 0,
                     ),
-                    child: const Text('Save', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    child: const Text(
+                      'Save',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   OutlinedButton(
@@ -2605,10 +2996,21 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _textPrimary,
                       side: const BorderSide(color: _borderCol),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -2623,7 +3025,6 @@ class _PackageBatchSelectionDialogState extends State<_PackageBatchSelectionDial
 class _PackageBatchRowController {
   final TextEditingController binLocationCtrl = TextEditingController();
   final TextEditingController batchRefCtrl = TextEditingController();
-  final TextEditingController batchNoCtrl = TextEditingController();
   final TextEditingController unitPackCtrl = TextEditingController();
   final TextEditingController mrpCtrl = TextEditingController();
   final TextEditingController ptrCtrl = TextEditingController();
@@ -2639,7 +3040,6 @@ class _PackageBatchRowController {
   void dispose() {
     binLocationCtrl.dispose();
     batchRefCtrl.dispose();
-    batchNoCtrl.dispose();
     unitPackCtrl.dispose();
     mrpCtrl.dispose();
     ptrCtrl.dispose();

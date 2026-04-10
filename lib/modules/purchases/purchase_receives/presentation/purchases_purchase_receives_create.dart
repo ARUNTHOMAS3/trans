@@ -802,15 +802,16 @@ class _PRCreateState
   }
 
   Widget _buildFormSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          color: const Color(0xFFF3F4F6),
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
                 _buildFormRow(
                   label: "Vendor Name",
                   isRequired: true,
@@ -818,6 +819,7 @@ class _PRCreateState
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 400),
                       child: FormDropdown<Vendor>(
+                        height: 32,
                         value: ref
                             .read(vendorProvider)
                             .vendors
@@ -844,6 +846,11 @@ class _PRCreateState
                             _fetchPOsForVendor(vendor.id);
                           }
                         },
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: _textPrimary,
+                        ),
                       ),
                     ),
                   ),
@@ -855,6 +862,7 @@ class _PRCreateState
                   child: SizedBox(
                     width: 400,
                     child: FormDropdown<PurchaseOrder>(
+                      height: 32,
                       itemHeight: 60.0,
                       value: _selectedPO,
                       items: _vendorPOs,
@@ -899,7 +907,7 @@ class _PRCreateState
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontFamily: "Inter",
-                                        fontWeight: FontWeight.w500,
+                                        fontWeight: FontWeight.w400,
                                         color: showHover
                                             ? Colors.white
                                             : _textPrimary,
@@ -936,17 +944,26 @@ class _PRCreateState
                           _onPOSelected(po);
                         }
                       },
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: _textPrimary,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                Opacity(
-                  opacity: _hasValidSelection ? 1.0 : 0.5,
-                  child: IgnorePointer(
-                    ignoring: !_hasValidSelection,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          child: Opacity(
+            opacity: _hasValidSelection ? 1.0 : 0.5,
+            child: IgnorePointer(
+              ignoring: !_hasValidSelection,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -956,7 +973,7 @@ class _PRCreateState
                               child: SizedBox(
                                 width: 180,
                                 child: SizedBox(
-                                  height: 44,
+                                  height: 32,
                                   child: TextField(
                                     controller: _billNoCtrl,
                                     inputFormatters: [
@@ -974,10 +991,11 @@ class _PRCreateState
                                       fillColor: _hasValidSelection
                                           ? _bgWhite
                                           : const Color(0xFFF5F5F5),
+                                      isDense: true,
                                       contentPadding:
                                           const EdgeInsets.symmetric(
                                             horizontal: 12,
-                                            vertical: 12,
+                                            vertical: 8,
                                           ),
                                       enabledBorder: OutlineInputBorder(
                                         borderSide: const BorderSide(
@@ -1004,7 +1022,7 @@ class _PRCreateState
                               child: SizedBox(
                                 width: 180,
                                 child: SizedBox(
-                                  height: 44,
+                                  height: 32,
                                   child: TextField(
                                     controller: _billDateCtrl,
                                     key: _billDateFieldKey,
@@ -1034,10 +1052,11 @@ class _PRCreateState
                                       fillColor: _hasValidSelection
                                           ? _bgWhite
                                           : const Color(0xFFF5F5F5),
+                                      isDense: true,
                                       contentPadding:
                                           const EdgeInsets.symmetric(
                                             horizontal: 12,
-                                            vertical: 12,
+                                            vertical: 8,
                                           ),
                                       hintText: "dd-MM-yyyy",
                                       hintStyle: const TextStyle(
@@ -1075,7 +1094,7 @@ class _PRCreateState
                               child: SizedBox(
                                 width: 180,
                                 child: SizedBox(
-                                  height: 44,
+                                  height: 32,
                                   child: TextField(
                                     controller: _invoiceTotalCtrl,
                                     keyboardType: TextInputType.number,
@@ -1103,10 +1122,11 @@ class _PRCreateState
                                       fillColor: _hasValidSelection
                                           ? _bgWhite
                                           : const Color(0xFFF5F5F5),
+                                      isDense: true,
                                       contentPadding:
                                           const EdgeInsets.symmetric(
                                             horizontal: 12,
-                                            vertical: 12,
+                                            vertical: 8,
                                           ),
                                       enabledBorder: OutlineInputBorder(
                                         borderSide: const BorderSide(
@@ -1137,46 +1157,51 @@ class _PRCreateState
                               isRequired: true,
                               child: SizedBox(
                                 width: 180,
-                                child: TextField(
-                                  controller: _receiveNumberCtrl,
-                                  readOnly: _isReceiveAutoGenerate,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: _textPrimary,
-                                    fontFamily: "Inter",
-                                  ),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: _hasValidSelection
-                                        ? _bgWhite
-                                        : const Color(0xFFF5F5F5),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
+                                child: SizedBox(
+                                  height: 32,
+                                  child: TextField(
+                                    controller: _receiveNumberCtrl,
+                                    readOnly: _isReceiveAutoGenerate,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: _textPrimary,
+                                      fontFamily: "Inter",
                                     ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderSide: const BorderSide(
-                                        color: _fieldBorder,
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: _hasValidSelection
+                                          ? _bgWhite
+                                          : const Color(0xFFF5F5F5),
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                          color: _fieldBorder,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
                                       ),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderSide: const BorderSide(
-                                        color: _focusBorder,
-                                        width: 1.5,
+                                      focusedBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                          color: _focusBorder,
+                                          width: 1.5,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
                                       ),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    suffixIcon: ZTooltip(
-                                      message:
-                                          "Click here to enable or disable autogeneration of Purchase Receive numbers.",
-                                      child: InkWell(
-                                        onTap:
-                                            _showPurchaseReceivePreferencesDialog,
-                                        child: const Icon(
-                                          LucideIcons.settings,
-                                          size: 16,
-                                          color: _hintColor,
+                                      suffixIcon: ZTooltip(
+                                        message:
+                                            "Click here to enable or disable autogeneration of Purchase Receive numbers.",
+                                        child: InkWell(
+                                          onTap:
+                                              _showPurchaseReceivePreferencesDialog,
+                                          child: const Icon(
+                                            LucideIcons.settings,
+                                            size: 16,
+                                            color: _hintColor,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1190,55 +1215,61 @@ class _PRCreateState
                               isRequired: true,
                               child: SizedBox(
                                 width: 180,
-                                child: TextField(
-                                  controller: _receivedDateCtrl,
-                                  readOnly: true,
-                                  key: _dateFieldKey,
-                                  onTap: () async {
-                                    final picked = await ZerpaiDatePicker.show(
-                                      context,
-                                      initialDate: DateTime.now(),
-                                      targetKey: _dateFieldKey,
-                                    );
-                                    if (picked != null && mounted) {
-                                      setState(() {
-                                        _receivedDateCtrl.text = DateFormat(
-                                          "dd-MM-yyyy",
-                                        ).format(picked);
-                                      });
-                                    }
-                                  },
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: _textPrimary,
-                                    fontFamily: "Inter",
-                                  ),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: _hasValidSelection
-                                        ? _bgWhite
-                                        : const Color(0xFFF5F5F5),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
+                                child: SizedBox(
+                                  height: 32,
+                                  child: TextField(
+                                    controller: _receivedDateCtrl,
+                                    readOnly: true,
+                                    key: _dateFieldKey,
+                                    onTap: () async {
+                                      final picked =
+                                          await ZerpaiDatePicker.show(
+                                            context,
+                                            initialDate: DateTime.now(),
+                                            targetKey: _dateFieldKey,
+                                          );
+                                      if (picked != null && mounted) {
+                                        setState(() {
+                                          _receivedDateCtrl.text = DateFormat(
+                                            "dd-MM-yyyy",
+                                          ).format(picked);
+                                        });
+                                      }
+                                    },
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: _textPrimary,
+                                      fontFamily: "Inter",
                                     ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderSide: const BorderSide(
-                                        color: _fieldBorder,
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: _hasValidSelection
+                                          ? _bgWhite
+                                          : const Color(0xFFF5F5F5),
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                          color: _fieldBorder,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
                                       ),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderSide: const BorderSide(
-                                        color: _focusBorder,
-                                        width: 1.5,
+                                      focusedBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                          color: _focusBorder,
+                                          width: 1.5,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
                                       ),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    suffixIcon: const Icon(
-                                      LucideIcons.calendar,
-                                      size: 16,
-                                      color: _hintColor,
+                                      suffixIcon: const Icon(
+                                        LucideIcons.calendar,
+                                        size: 16,
+                                        color: _hintColor,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1250,12 +1281,9 @@ class _PRCreateState
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+              ),
+            ],
+          );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1339,6 +1367,7 @@ class _PRCreateState
           SizedBox(
             width: 200,
             child: FormDropdown<String>(
+              height: 32,
               value: _binMode,
               items: const ['transaction', 'item'],
               itemBuilder: (item, isSelected, isHovered) {
@@ -1368,6 +1397,7 @@ class _PRCreateState
             SizedBox(
               width: 220,
               child: FormDropdown<String>(
+                height: 32,
                 value: _selectedTransactionBin,
                 items: _manualBinList,
                 hint: 'Select Bin',
@@ -1605,11 +1635,7 @@ class _PRCreateState
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _buildInsertRowButton(),
-            ),
+            const SizedBox.shrink(),
           ],
         ),
       ),
@@ -2096,8 +2122,9 @@ class _PRCreateState
   Widget _buildDropdownOverlayItem(
     String text,
     bool isSelected,
-    bool isHovered,
-  ) {
+    bool isHovered, {
+    bool isDisabled = false,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -2110,8 +2137,10 @@ class _PRCreateState
         text,
         style: TextStyle(
           fontSize: 13,
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-          color: isHovered ? Colors.white : _textPrimary,
+          fontWeight: FontWeight.w400,
+          color: isHovered
+              ? Colors.white
+              : (isDisabled ? Colors.grey : _textPrimary),
           fontFamily: 'Inter',
         ),
       ),
@@ -2178,44 +2207,13 @@ class _PRCreateState
                   searchStringForValue: (poItem) =>
                       '${poItem.productName ?? ''} ${poItem.itemCode ?? ''}',
                   itemBuilder: (poItem, isSelected, isHovered) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isHovered
-                            ? const Color(0xFF3B82F6)
-                            : (isSelected
-                                  ? const Color(0xFFF3F4F6)
-                                  : Colors.white),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            poItem.productName ?? 'Unnamed item',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: isHovered ? Colors.white : _textPrimary,
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                          if (poItem.itemCode != null)
-                            Text(
-                              poItem.itemCode!,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isHovered
-                                    ? const Color(0xFFEAF2FF)
-                                    : _hintColor,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                        ],
-                      ),
+                    final bool isAlreadySelected = selectedIds.contains(poItem.productId) &&
+                        poItem.productId != item.itemId;
+                    return _buildDropdownOverlayItem(
+                      poItem.productName ?? 'Unnamed item',
+                      isSelected,
+                      isHovered,
+                      isDisabled: isAlreadySelected,
                     );
                   },
                   onChanged: (poItem) {
@@ -3871,7 +3869,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
         child: SizedBox(
-          height: 40,
+          height: 38,
           child: TextField(
             controller: controller,
             readOnly: readOnly,
@@ -3893,7 +3891,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 10,
-                vertical: 10,
+                vertical: 11,
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
@@ -3935,7 +3933,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
         child: SizedBox(
-          height: 40,
+          height: 38,
           width: double.infinity,
           child: RawAutocomplete<String>(
             textEditingController: inputController,
@@ -3976,7 +3974,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 10,
-                        vertical: 10,
+                        vertical: 11,
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(4),
@@ -4112,7 +4110,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
     final dateField = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: SizedBox(
-        height: 40,
+        height: 38,
         child: TextField(
           key: targetKey,
           controller: controller,
@@ -4130,7 +4128,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 10,
-              vertical: 10,
+              vertical: 11,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),

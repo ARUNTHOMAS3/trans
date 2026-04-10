@@ -119,7 +119,7 @@ class _SalesCustomerCreateScreenState
 
   final double _labelWidth = 180.0;
   final double _fieldWidth = 480.0;
-  final double _inputHeight = 36.0;
+  final double _inputHeight = 44.0;
   final double _fieldSpacing = 24.0;
 
   // General Info

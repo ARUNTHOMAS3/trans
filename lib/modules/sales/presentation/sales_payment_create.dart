@@ -8,7 +8,7 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_date_picker_field.dart';
 import 'package:go_router/go_router.dart';
 import '../controllers/sales_order_controller.dart';
 import '../models/sales_customer_model.dart';
@@ -140,6 +140,7 @@ class _SalesPaymentCreateScreenState
                   'Customer Name',
                   FormDropdown<String>(
                     value: selectedCustomerId,
+                    height: 32,
                     items: customers.map((c) => c.id).toList(),
                     hint: 'Select a customer',
                     displayStringForValue: (id) =>
@@ -149,7 +150,7 @@ class _SalesPaymentCreateScreenState
                   ),
                 ),
               ]),
-              loading: () => const Skeleton(height: 44),
+              loading: () => const Skeleton(height: 32),
               error: (err, _) => Text('Error: $err'),
             ),
             const SizedBox(height: 24),
@@ -158,15 +159,16 @@ class _SalesPaymentCreateScreenState
                 'Amount Received',
                 CustomTextField(
                   controller: amountCtrl,
+                  height: 32,
                   keyboardType: TextInputType.number,
                   prefixIcon: LucideIcons.indianRupee,
                 ),
               ),
               _labeledField(
                 'Payment Date',
-                _datePicker(
-                  paymentDate,
-                  (d) => setState(() => paymentDate = d),
+                ZDatePickerField(
+                  selectedDate: paymentDate,
+                  onDateSelected: (d) => setState(() => paymentDate = d),
                 ),
               ),
             ]),
@@ -174,12 +176,16 @@ class _SalesPaymentCreateScreenState
             _row([
               _labeledField(
                 'Payment#',
-                CustomTextField(controller: paymentNumberCtrl),
+                CustomTextField(
+                  controller: paymentNumberCtrl,
+                  height: 36,
+                ),
               ),
               _labeledField(
                 'Payment Mode',
                 FormDropdown<String>(
                   value: paymentMode,
+                  height: 32,
                   items: const [
                     'Cash',
                     'Check',
@@ -197,6 +203,7 @@ class _SalesPaymentCreateScreenState
                 'Deposit To',
                 FormDropdown<String>(
                   value: depositTo,
+                  height: 32,
                   items: const [
                     'Petty Cash',
                     'Undeposited Funds',
@@ -207,7 +214,10 @@ class _SalesPaymentCreateScreenState
               ),
               _labeledField(
                 'Reference#',
-                CustomTextField(controller: referenceCtrl),
+                CustomTextField(
+                  controller: referenceCtrl,
+                  height: 32,
+                ),
               ),
             ]),
             const SizedBox(height: 32),
@@ -243,44 +253,6 @@ class _SalesPaymentCreateScreenState
     return SharedFieldLayout(label: label, required: required, child: child);
   }
 
-  Widget _datePicker(DateTime value, ValueChanged<DateTime> onPicked) {
-    final fieldKey = GlobalKey();
-    return InkWell(
-      key: fieldKey,
-      onTap: () async {
-        final picked = await ZerpaiDatePicker.show(
-          context,
-          initialDate: value,
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2100),
-          targetKey: fieldKey,
-        );
-        if (picked != null) onPicked(picked);
-      },
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.borderColor),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              DateFormat('dd/MM/yyyy').format(value),
-              style: const TextStyle(fontSize: 13),
-            ),
-            const Icon(
-              LucideIcons.calendar,
-              size: 16,
-              color: AppTheme.textSecondary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildFooter() {
     return Container(

@@ -9,9 +9,10 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_date_picker_field.dart';
 
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
-
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import '../controllers/sales_order_controller.dart';
 import '../models/sales_order_model.dart';
@@ -29,8 +30,6 @@ import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_simple_list_dialog.dart';
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
-
-import 'widgets/custom_date_picker.dart';
 import 'widgets/sales_order_preferences_dialog.dart';
 
 // ─── Colour constants ────────────────────────────────────────────────────────
@@ -138,6 +137,8 @@ class _SalesOrderCreateScreenState
   bool _isAutoGenerateSO = true;
   String _soPrefix = 'SO-';
   String _soNextNumber = '00028';
+
+  late TextEditingController adjustmentLabelCtrl;
   bool _isHydratingInitialOrder = false;
 
   bool get _isEditMode =>
@@ -171,6 +172,7 @@ class _SalesOrderCreateScreenState
     termsCtrl = TextEditingController();
     shippingCtrl = TextEditingController(text: '0');
     adjustmentCtrl = TextEditingController(text: '0');
+    adjustmentLabelCtrl = TextEditingController(text: 'Adjustment');
 
     shippingCtrl.addListener(_calculateTotals);
     adjustmentCtrl.addListener(_calculateTotals);
@@ -949,8 +951,8 @@ class _SalesOrderCreateScreenState
                           const SizedBox(width: 8),
                           // Green Search Button
                           Container(
-                            height: 40,
-                            width: 40,
+                            height: 32,
+                            width: 32,
                             decoration: BoxDecoration(
                               color: const Color(0xFF10B981), // Emerald-500
                               borderRadius: BorderRadius.circular(4),
@@ -1076,7 +1078,7 @@ class _SalesOrderCreateScreenState
                 loading: () => const SharedFieldLayout(
                   label: 'Customer Name',
                   labelWidth: 180,
-                  child: Skeleton(height: 44, width: 420),
+                  child: Skeleton(height: 32, width: 420),
                 ),
                 error: (err, _) => SharedFieldLayout(
                   label: 'Customer Name',
@@ -1126,6 +1128,7 @@ class _SalesOrderCreateScreenState
                       flex: 4,
                       child: FormDropdown<String>(
                         value: 'Default Transaction Series',
+                        height: 36,
                         items: const ['Default Transaction Series'],
                         onChanged: (v) {},
                       ),
@@ -1135,26 +1138,10 @@ class _SalesOrderCreateScreenState
                       flex: 3,
                       child: CustomTextField(
                         controller: salesOrderNumberCtrl,
+                        height: 36,
                         hintText: 'SO-00000',
-                        suffixWidget: Tooltip(
-                          message:
-                              'Click here to enable or disable auto-generation of Sales Order numbers.',
-                          preferBelow: false,
-                          verticalOffset: 12,
-                          margin: const EdgeInsets.symmetric(horizontal: 16),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          decoration: const ShapeDecoration(
-                            color: Color(0xFF1F2937),
-                            shape: TooltipShapeBorder(),
-                          ),
-                          textStyle: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            height: 1.5,
-                          ),
+                        suffixWidget: ZTooltip(
+                          message: 'Click here to enable or disable auto-generation of Sales Order numbers.',
                           child: InkWell(
                             onTap: _showSalesOrderPreferencesDialog,
                             child: const Padding(
@@ -1178,9 +1165,10 @@ class _SalesOrderCreateScreenState
                 label: 'Reference#',
                 labelWidth: 180,
                 maxWidth: 450,
-                tooltip:
-                    'Use this field to record any transaction numbers related to this transaction such as purchase order numbers.',
-                child: CustomTextField(controller: referenceCtrl),
+                child: CustomTextField(
+                  controller: referenceCtrl,
+                  height: 32,
+                ),
               ),
 
               // Sales Order Date
@@ -1189,9 +1177,9 @@ class _SalesOrderCreateScreenState
                 required: true,
                 labelWidth: 180,
                 maxWidth: 450,
-                child: CustomDateField(
-                  value: salesOrderDate,
-                  onSelected: (d) => setState(() => salesOrderDate = d),
+                child: ZDatePickerField(
+                  selectedDate: salesOrderDate,
+                  onDateSelected: (d) => setState(() => salesOrderDate = d),
                 ),
               ),
 
@@ -1200,9 +1188,9 @@ class _SalesOrderCreateScreenState
                 label: 'Expected Shipment Date',
                 labelWidth: 180,
                 maxWidth: 450,
-                child: CustomDateField(
-                  value: expectedShipmentDate ?? DateTime.now(),
-                  onSelected: (d) => setState(() => expectedShipmentDate = d),
+                child: ZDatePickerField(
+                  selectedDate: expectedShipmentDate ?? DateTime.now(),
+                  onDateSelected: (d) => setState(() => expectedShipmentDate = d),
                 ),
               ),
 
@@ -1213,6 +1201,7 @@ class _SalesOrderCreateScreenState
                 maxWidth: 450,
                 child: FormDropdown<String>(
                   value: paymentTerms,
+                  height: 32,
                   items: _paymentTermsList
                       .map((t) => t['id'] as String)
                       .toList(),
@@ -1239,6 +1228,7 @@ class _SalesOrderCreateScreenState
                 maxWidth: 600,
                 child: FormDropdown<String>(
                   value: deliveryMethod,
+                  height: 32,
                   hint: 'Select a delivery method or type to add',
                   items: const ['None', 'FedEx', 'UPS', 'DHL', 'Post'],
                   onChanged: (v) => setState(() => deliveryMethod = v),
@@ -1252,6 +1242,7 @@ class _SalesOrderCreateScreenState
                 maxWidth: 600,
                 child: FormDropdown<String>(
                   value: salesperson,
+                  height: 32,
                   allowClear: true,
                   showSettings: true,
                   settingsLabel: 'Manage Salespersons',
@@ -1286,6 +1277,7 @@ class _SalesOrderCreateScreenState
                       width: 180,
                       child: FormDropdown<String>(
                         value: warehouse,
+                        height: 32,
                         items: const ['Main Warehouse', 'Secondary Warehouse'],
                         hint: 'Select Warehouse',
                         onChanged: (v) => setState(() => warehouse = v),
@@ -1306,6 +1298,7 @@ class _SalesOrderCreateScreenState
                       child: priceListsAsync.when(
                         data: (priceLists) => FormDropdown<String>(
                           value: priceListId,
+                          height: 32,
                           items: priceLists.map((p) => p.id).toList(),
                           displayStringForValue: (id) =>
                               priceLists.firstWhere((p) => p.id == id).name,
@@ -1327,7 +1320,7 @@ class _SalesOrderCreateScreenState
                             });
                           },
                         ),
-                        loading: () => const Skeleton(height: 40, width: 180),
+                        loading: () => const Skeleton(height: 32, width: 180),
                         error: (_, __) => const SizedBox(),
                       ),
                     ),
@@ -1843,6 +1836,7 @@ class _SalesOrderCreateScreenState
                                       Expanded(
                                         child: FormDropdown<String>(
                                           value: null,
+                                          height: 32,
                                           hint:
                                               'Type or click to select an item.',
                                           hideBorderDefault: true,
@@ -1902,7 +1896,7 @@ class _SalesOrderCreateScreenState
                           children: [
                             CustomTextField(
                               controller: row.quantityCtrl,
-                              height: 36,
+                              height: 32,
                               hideBorderDefault: true,
                               keyboardType:
                                   const TextInputType.numberWithOptions(
@@ -1978,7 +1972,7 @@ class _SalesOrderCreateScreenState
                           ),
                           child: CustomTextField(
                             controller: row.fQtyCtrl,
-                            height: 36,
+                            height: 32,
                             hideBorderDefault: true,
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
@@ -2003,7 +1997,7 @@ class _SalesOrderCreateScreenState
                           children: [
                             CustomTextField(
                               controller: row.rateCtrl,
-                              height: 36,
+                              height: 32,
                               hideBorderDefault: true,
                               keyboardType:
                                   const TextInputType.numberWithOptions(
@@ -2064,7 +2058,7 @@ class _SalesOrderCreateScreenState
                         ),
                         child: CustomTextField(
                           controller: row.discountCtrl,
-                          height: 36,
+                          height: 32,
                           hideBorderDefault: true,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
@@ -2094,7 +2088,7 @@ class _SalesOrderCreateScreenState
                         ),
                         child: FormDropdown<String>(
                           value: row.taxId,
-                          height: 36,
+                          height: 32,
                           hideBorderDefault: true,
                           hint: 'Tax',
                           items: taxRates.map((t) => t.id).toList(),
@@ -2190,8 +2184,8 @@ class _SalesOrderCreateScreenState
         // Image
         if (_showAdditionalInfo) ...[
           Container(
-            width: 44,
-            height: 44,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(4),
@@ -2531,6 +2525,7 @@ class _SalesOrderCreateScreenState
                     _summaryInputRow(
                       'Adjustment',
                       adjustmentCtrl,
+                      labelCtrl: adjustmentLabelCtrl,
                       isAdjustment: true,
                       tooltip:
                           'Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.',
@@ -3083,44 +3078,39 @@ class _SalesOrderCreateScreenState
     String label,
     TextEditingController ctrl, {
     bool isAdjustment = false,
+    TextEditingController? labelCtrl,
     String? tooltip,
   }) {
     return Row(
       children: [
-        Expanded(
-          child: isAdjustment
-              ? CustomPaint(
-                  painter: _DashedBorderPainter(color: const Color(0xFFD1D5DB)),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: _kBodyText,
-                      ),
-                    ),
-                  ),
-                )
-              : Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: _kBodyText,
-                  ),
-                ),
-        ),
+        if (isAdjustment && labelCtrl != null)
+          SizedBox(
+            width: 140,
+            child: CustomTextField(
+              controller: labelCtrl,
+              height: 32,
+              contentCase: ContentCase.none,
+            ),
+          )
+        else
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: _kBodyText,
+              ),
+            ),
+          ),
+        if (isAdjustment && labelCtrl != null) const Spacer(),
         const SizedBox(width: 12),
         SizedBox(
           width: 80,
-          height: 44,
+          height: 32,
           child: CustomTextField(
             controller: ctrl,
+            height: 32,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
           ),
@@ -3179,9 +3169,10 @@ class _SalesOrderCreateScreenState
         Expanded(
           flex: 2,
           child: SizedBox(
-            height: 44,
+            height: 32,
             child: FormDropdown<String>(
               value: _selectedTdsId,
+              height: 32,
               hint: 'Select a Tax',
               items: _tdsList.map((t) => t['id'] as String).toList(),
               displayStringForValue: (id) =>
@@ -3277,7 +3268,7 @@ class _SalesOrderCreateScreenState
           const SizedBox(width: 12),
           // Split Button: Save and Send
           Container(
-            height: 40,
+            height: 32,
             decoration: BoxDecoration(
               color: const Color(0xFF10B981), // Emerald-500
               borderRadius: BorderRadius.circular(4),
@@ -4771,7 +4762,7 @@ class _ManageTaxInfoDialogState extends ConsumerState<_ManageTaxInfoDialog> {
       hintText: hint,
       hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(
@@ -5078,43 +5069,7 @@ class _ManageTaxInfoDialogState extends ConsumerState<_ManageTaxInfoDialog> {
   }
 }
 
-class _DashedBorderPainter extends CustomPainter {
-  final Color color;
-  _DashedBorderPainter({required this.color});
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
-    const dashWidth = 4.0;
-    const dashSpace = 3.0;
-    final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      const Radius.circular(4),
-    );
-
-    final path = Path()..addRRect(rrect);
-    final dashedPath = Path();
-
-    for (final metric in path.computeMetrics()) {
-      double distance = 0;
-      while (distance < metric.length) {
-        dashedPath.addPath(
-          metric.extractPath(distance, distance + dashWidth),
-          Offset.zero,
-        );
-        distance += dashWidth + dashSpace;
-      }
-    }
-    canvas.drawPath(dashedPath, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
 
 class _TrianglePainter extends CustomPainter {
   final Color color;
@@ -5399,7 +5354,7 @@ class _AddressDialogState extends ConsumerState<_AddressDialog> {
                             );
                             final countries = countriesAsync.value ?? [];
                             return FormDropdown<Map<String, String>>(
-                              height: 36,
+                              height: 32,
                               value: _selectedCountry,
                               hint: 'Select',
                               isLoading: countriesAsync.isLoading,
@@ -5467,7 +5422,7 @@ class _AddressDialogState extends ConsumerState<_AddressDialog> {
                                       );
                                       final states = statesAsync.value ?? [];
                                       return FormDropdown<Map<String, String>>(
-                                        height: 36,
+                                        height: 44,
                                         value: _selectedState,
                                         hint: 'Select or type to add',
                                         isLoading: statesAsync.isLoading,
@@ -5514,7 +5469,7 @@ class _AddressDialogState extends ConsumerState<_AddressDialog> {
                                   Row(
                                     children: [
                                       Container(
-                                        height: 36,
+                                        height: 44,
                                         decoration: BoxDecoration(
                                           color: Colors.white,
                                           border: Border.all(
@@ -5832,7 +5787,7 @@ class _TaxPreferenceDialogState extends State<_TaxPreferenceDialog> {
                     ),
                     const SizedBox(height: 8),
                     SizedBox(
-                      height: 40,
+                      height: 44,
                       child: FormDropdown<_GstTreatmentOption>(
                         value: _gst,
                         items: _options,

@@ -69,13 +69,14 @@ class _SalesPaymentLinkCreateScreenState
                     'Customer Name',
                     FormDropdown<String>(
                       value: selectedCustomerId,
+                      height: 32,
                       items: customers.map((c) => c.id).toList(),
                       displayStringForValue: (id) =>
                           customers.firstWhere((c) => c.id == id).displayName,
                       onChanged: (v) => setState(() => selectedCustomerId = v),
                     ),
                   ),
-                  loading: () => const Skeleton(height: 44),
+                  loading: () => const Skeleton(height: 32),
                   error: (err, _) => Text('Error: $err'),
                 ),
                 const SizedBox(height: 24),
@@ -83,6 +84,7 @@ class _SalesPaymentLinkCreateScreenState
                   'Amount',
                   CustomTextField(
                     controller: amountCtrl,
+                    height: 36,
                     keyboardType: TextInputType.number,
                     prefixIcon: LucideIcons.indianRupee,
                   ),
@@ -92,6 +94,7 @@ class _SalesPaymentLinkCreateScreenState
                   'Payment For',
                   CustomTextField(
                     controller: reasonCtrl,
+                    height: 32,
                     hintText: 'e.g. Subscription, Project Advance',
                   ),
                 ),

@@ -31,6 +31,7 @@
 | `ZSearchField` | `inputs/z_search_field.dart` | Standard ERP search input bar with border animation and its variants |
 | `FormDropdown<T>` | `inputs/dropdown_input.dart` | Generic searchable dropdown — **always use instead of `DropdownButtonFormField`**; supports multi-select, settings footer, custom items |
 | `ZerpaiDatePicker` | `inputs/zerpai_date_picker.dart` | Standard date picker — anchored calendar popup below target field — **use for all ERP date inputs** |
+| `ZDatePickerField` | `inputs/z_date_picker_field.dart` | **Standardized Date Field** — Combines `CustomTextField` and `ZerpaiDatePicker`. High-density by default (32px). Use for all business date inputs. |
 | `ZerpaiCalendar` | `inputs/zerpai_calendar.dart` | Reusable calendar with day/month/year selector modes and date range constraints |
 | `ZTooltip` | `inputs/z_tooltip.dart` | 220px-max-width tooltip with arrow — **always use instead of Flutter's `Tooltip`**; trigger icon `LucideIcons.helpCircle` size 14-15 |
 | `FileUploadButton` | `inputs/file_upload_button.dart` | File picker button with badge count and overlay listing selected files |

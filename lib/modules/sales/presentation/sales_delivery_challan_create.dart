@@ -8,7 +8,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_date_picker_field.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import '../controllers/sales_order_controller.dart';
@@ -166,6 +166,7 @@ class _SalesChallanCreateScreenState
                   'Customer Name',
                   FormDropdown<String>(
                     value: selectedCustomerId,
+                    height: 32,
                     items: customers.map((c) => c.id).toList(),
                     displayStringForValue: (id) =>
                         customers.firstWhere((c) => c.id == id).displayName,
@@ -174,20 +175,23 @@ class _SalesChallanCreateScreenState
                   ),
                 ),
               ]),
-              loading: () => const Skeleton(height: 44),
+              loading: () => const Skeleton(height: 32),
               error: (err, _) => Text('Error: $err'),
             ),
             const SizedBox(height: 20),
             _row([
               _labeledField(
                 'Challan#',
-                CustomTextField(controller: challanNumberCtrl),
+                CustomTextField(
+                  controller: challanNumberCtrl,
+                  height: 36,
+                ),
               ),
               _labeledField(
                 'Challan Date',
-                _datePicker(
-                  challanDate,
-                  (d) => setState(() => challanDate = d),
+                ZDatePickerField(
+                  selectedDate: challanDate,
+                  onDateSelected: (d) => setState(() => challanDate = d),
                 ),
               ),
             ]),
@@ -197,13 +201,17 @@ class _SalesChallanCreateScreenState
                 'Challan Type',
                 FormDropdown<String>(
                   value: challanType,
+                  height: 32,
                   items: const ['Job Work', 'Supply on Approval', 'Others'],
                   onChanged: (v) => setState(() => challanType = v!),
                 ),
               ),
               _labeledField(
                 'Reference#',
-                CustomTextField(controller: referenceCtrl),
+                CustomTextField(
+                  controller: referenceCtrl,
+                  height: 32,
+                ),
               ),
             ]),
           ],
@@ -259,6 +267,7 @@ class _SalesChallanCreateScreenState
                       flex: 4,
                       child: FormDropdown<String>(
                         value: row.itemId.isEmpty ? null : row.itemId,
+                        height: 32,
                         items: productList.map((p) => p.id!).toList(),
                         displayStringForValue: (id) => productList
                             .firstWhere((p) => p.id == id)
@@ -271,6 +280,7 @@ class _SalesChallanCreateScreenState
                       flex: 1,
                       child: CustomTextField(
                         controller: row.quantityCtrl,
+                        height: 32,
                         keyboardType: TextInputType.number,
                       ),
                     ),
@@ -305,37 +315,6 @@ class _SalesChallanCreateScreenState
   );
   Widget _labeledField(String label, Widget child, {bool required = false}) =>
       SharedFieldLayout(label: label, required: required, child: child);
-  Widget _datePicker(DateTime value, ValueChanged<DateTime> onPicked) {
-    final fieldKey = GlobalKey();
-    return InkWell(
-      key: fieldKey,
-      onTap: () async {
-        final picked = await ZerpaiDatePicker.show(
-          context,
-          initialDate: value,
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2100),
-          targetKey: fieldKey,
-        );
-        if (picked != null) onPicked(picked);
-      },
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.borderColor),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(DateFormat('dd/MM/yyyy').format(value)),
-            const Icon(LucideIcons.calendar, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildFooter() => Container(
     padding: const EdgeInsets.all(16),

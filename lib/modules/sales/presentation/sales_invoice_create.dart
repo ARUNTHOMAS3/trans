@@ -11,7 +11,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_date_picker_field.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import '../controllers/sales_order_controller.dart';
@@ -59,6 +59,7 @@ class _SalesInvoiceCreateScreenState
   late final TextEditingController notesCtrl;
   late final TextEditingController shippingCtrl;
   late final TextEditingController adjustmentCtrl;
+  late final TextEditingController adjustmentLabelCtrl;
 
   DateTime invoiceDate = DateTime.now();
   DateTime dueDate = DateTime.now().add(const Duration(days: 15));
@@ -104,6 +105,7 @@ class _SalesInvoiceCreateScreenState
     notesCtrl = TextEditingController();
     shippingCtrl = TextEditingController(text: '0');
     adjustmentCtrl = TextEditingController(text: '0');
+    adjustmentLabelCtrl = TextEditingController(text: 'Adjustment');
 
     shippingCtrl.addListener(_calculateTotals);
     adjustmentCtrl.addListener(_calculateTotals);
@@ -118,6 +120,7 @@ class _SalesInvoiceCreateScreenState
     notesCtrl.dispose();
     shippingCtrl.dispose();
     adjustmentCtrl.dispose();
+    adjustmentLabelCtrl.dispose();
     for (var row in rows) {
       row.dispose();
     }
@@ -245,6 +248,7 @@ class _SalesInvoiceCreateScreenState
                   label: 'Customer Name',
                   child: FormDropdown<String>(
                     value: selectedCustomerId,
+                    height: 32,
                     items: customers.map((c) => c.id).toList(),
                     hint: 'Select or type to add',
                     displayStringForValue: (id) =>
@@ -280,7 +284,7 @@ class _SalesInvoiceCreateScreenState
                   ),
                 ),
               ),
-              loading: () => const Skeleton(height: 44, width: 400),
+              loading: () => const Skeleton(height: 40, width: 400),
               error: (err, _) => Text('Error: $err'),
             ),
             // Smart-Tax indicator: shows once a customer is selected.
@@ -344,24 +348,33 @@ class _SalesInvoiceCreateScreenState
                 _buildFieldCol([
                   _labeledField(
                     'Invoice#',
-                    CustomTextField(controller: invoiceNumberCtrl),
+                    CustomTextField(
+                      controller: invoiceNumberCtrl,
+                      height: 36,
+                    ),
                   ),
                   _labeledField(
                     'Order Number',
-                    CustomTextField(controller: orderNumberCtrl),
+                    CustomTextField(
+                      controller: orderNumberCtrl,
+                      height: 32,
+                    ),
                   ),
                 ]),
                 _buildFieldCol([
                   _labeledField(
                     'Invoice Date',
-                    _datePicker(
-                      invoiceDate,
-                      (d) => setState(() => invoiceDate = d),
+                    ZDatePickerField(
+                      selectedDate: invoiceDate,
+                      onDateSelected: (d) => setState(() => invoiceDate = d),
                     ),
                   ),
                   _labeledField(
                     'Due Date',
-                    _datePicker(dueDate, (d) => setState(() => dueDate = d)),
+                    ZDatePickerField(
+                      selectedDate: dueDate,
+                      onDateSelected: (d) => setState(() => dueDate = d),
+                    ),
                   ),
                 ]),
                 _buildFieldCol([
@@ -369,6 +382,7 @@ class _SalesInvoiceCreateScreenState
                     'Terms',
                     FormDropdown<String>(
                       value: terms,
+                      height: 32,
                       items: const [
                         'Due on Receipt',
                         'Net 15',
@@ -383,6 +397,7 @@ class _SalesInvoiceCreateScreenState
                     'Salesperson',
                     FormDropdown<String>(
                       value: salesperson,
+                      height: 32,
                       items: const ['Self', 'Agent A', 'Agent B'],
                       onChanged: (v) => setState(() => salesperson = v),
                     ),
@@ -412,44 +427,6 @@ class _SalesInvoiceCreateScreenState
     return SharedFieldLayout(label: label, required: required, child: child);
   }
 
-  Widget _datePicker(DateTime value, ValueChanged<DateTime> onPicked) {
-    final fieldKey = GlobalKey();
-    return InkWell(
-      key: fieldKey,
-      onTap: () async {
-        final picked = await ZerpaiDatePicker.show(
-          context,
-          initialDate: value,
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2100),
-          targetKey: fieldKey,
-        );
-        if (picked != null) onPicked(picked);
-      },
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.borderColorDark),
-          borderRadius: BorderRadius.circular(AppTheme.space4),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              DateFormat('dd/MM/yyyy').format(value),
-              style: const TextStyle(fontSize: 13),
-            ),
-            const Icon(
-              LucideIcons.calendar,
-              size: 16,
-              color: AppTheme.textSecondary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildItemsTable(
     List<Item>? productList,
@@ -519,6 +496,7 @@ class _SalesInvoiceCreateScreenState
                       flex: 4,
                       child: FormDropdown<String>(
                         value: row.itemId.isEmpty ? null : row.itemId,
+                        height: 32,
                         items: productList.map((p) => p.id!).toList(),
                         displayStringForValue: (id) => productList
                             .firstWhere((p) => p.id == id)
@@ -559,6 +537,7 @@ class _SalesInvoiceCreateScreenState
                       flex: 1,
                       child: CustomTextField(
                         controller: row.quantityCtrl,
+                        height: 32,
                         keyboardType: TextInputType.number,
                       ),
                     ),
@@ -567,6 +546,7 @@ class _SalesInvoiceCreateScreenState
                       flex: 1,
                       child: CustomTextField(
                         controller: row.rateCtrl,
+                        height: 32,
                         keyboardType: TextInputType.number,
                       ),
                     ),
@@ -575,6 +555,7 @@ class _SalesInvoiceCreateScreenState
                       flex: 1,
                       child: CustomTextField(
                         controller: row.discountCtrl,
+                        height: 32,
                         keyboardType: TextInputType.number,
                       ),
                     ),
@@ -642,7 +623,11 @@ class _SalesInvoiceCreateScreenState
                 const SizedBox(height: 12),
                 _rowInput('Shipping Charges', shippingCtrl),
                 const SizedBox(height: 12),
-                _rowInput('Adjustment', adjustmentCtrl),
+                _rowInput(
+                  'Adjustment',
+                  adjustmentCtrl,
+                  labelCtrl: adjustmentLabelCtrl,
+                ),
                 const Divider(height: 32),
                 _summaryRow('Total (rs)', total, isBold: true, fontSize: 18),
               ],
@@ -678,20 +663,35 @@ class _SalesInvoiceCreateScreenState
     ],
   );
 
-  Widget _rowInput(String label, TextEditingController ctrl) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(label),
-      SizedBox(
-        width: 100,
-        child: CustomTextField(
-          controller: ctrl,
-          textAlign: TextAlign.right,
-          keyboardType: TextInputType.number,
-        ),
-      ),
-    ],
-  );
+  Widget _rowInput(
+    String label,
+    TextEditingController ctrl, {
+    TextEditingController? labelCtrl,
+  }) =>
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: labelCtrl != null
+                ? CustomTextField(
+                    controller: labelCtrl,
+                    height: 32,
+                    contentCase: ContentCase.none,
+                  )
+                : Text(label),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 100,
+            child: CustomTextField(
+              controller: ctrl,
+              height: 32,
+              textAlign: TextAlign.right,
+              keyboardType: TextInputType.number,
+            ),
+          ),
+        ],
+      );
 
   Widget _buildFooter() {
     return Container(

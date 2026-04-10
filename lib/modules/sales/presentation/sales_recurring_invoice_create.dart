@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-import 'package:intl/intl.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_date_picker_field.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import '../controllers/sales_order_controller.dart';
@@ -128,7 +127,10 @@ class _SalesRecurringInvoiceCreateScreenState
             _row([
               _labeledField(
                 'Profile Name',
-                CustomTextField(controller: profileNameCtrl),
+                CustomTextField(
+                  controller: profileNameCtrl,
+                  height: 36,
+                ),
               ),
             ]),
             const SizedBox(height: 16),
@@ -138,6 +140,7 @@ class _SalesRecurringInvoiceCreateScreenState
                   'Customer Name',
                   FormDropdown<String>(
                     value: selectedCustomerId,
+                    height: 32,
                     items: customers.map((c) => c.id).toList(),
                     displayStringForValue: (id) =>
                         customers.firstWhere((c) => c.id == id).displayName,
@@ -145,7 +148,7 @@ class _SalesRecurringInvoiceCreateScreenState
                   ),
                 ),
               ]),
-              loading: () => const Skeleton(height: 44),
+              loading: () => const Skeleton(height: 32),
               error: (err, _) => Text('Error: $err'),
             ),
             const SizedBox(height: 24),
@@ -154,13 +157,17 @@ class _SalesRecurringInvoiceCreateScreenState
                 'Repeat Every',
                 FormDropdown<String>(
                   value: frequency,
+                  height: 32,
                   items: const ['Weekly', 'Monthly', 'Yearly'],
                   onChanged: (v) => setState(() => frequency = v!),
                 ),
               ),
               _labeledField(
                 'Start Date',
-                _datePicker(startDate, (d) => setState(() => startDate = d)),
+                ZDatePickerField(
+                  selectedDate: startDate,
+                  onDateSelected: (d) => setState(() => startDate = d),
+                ),
               ),
             ]),
           ],
@@ -223,6 +230,7 @@ class _SalesRecurringInvoiceCreateScreenState
                       flex: 4,
                       child: FormDropdown<String>(
                         value: row.itemId.isEmpty ? null : row.itemId,
+                        height: 32,
                         items: productList.map((p) => p.id!).toList(),
                         displayStringForValue: (id) => productList
                             .firstWhere((p) => p.id == id)
@@ -235,6 +243,7 @@ class _SalesRecurringInvoiceCreateScreenState
                       flex: 1,
                       child: CustomTextField(
                         controller: row.quantityCtrl,
+                        height: 32,
                         keyboardType: TextInputType.number,
                       ),
                     ),
@@ -243,6 +252,7 @@ class _SalesRecurringInvoiceCreateScreenState
                       flex: 1,
                       child: CustomTextField(
                         controller: row.rateCtrl,
+                        height: 32,
                         keyboardType: TextInputType.number,
                       ),
                     ),
@@ -277,37 +287,6 @@ class _SalesRecurringInvoiceCreateScreenState
   );
   Widget _labeledField(String label, Widget child, {bool required = false}) =>
       SharedFieldLayout(label: label, required: required, child: child);
-  Widget _datePicker(DateTime value, ValueChanged<DateTime> onPicked) {
-    final fieldKey = GlobalKey();
-    return InkWell(
-      key: fieldKey,
-      onTap: () async {
-        final picked = await ZerpaiDatePicker.show(
-          context,
-          initialDate: value,
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2100),
-          targetKey: fieldKey,
-        );
-        if (picked != null) onPicked(picked);
-      },
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.borderColor),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(DateFormat('dd/MM/yyyy').format(value)),
-            const Icon(LucideIcons.calendar, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildFooter() => Container(
     padding: const EdgeInsets.all(16),
