@@ -47,7 +47,7 @@ class _InventoryPicklistsCreateScreenState
     setState(() {
       _validationErrors = [];
       for (var item in _selectedItems) {
-        final picked = _currentPickedQty(item);
+        final picked = _getPickedQtyOutOnly(item);
         final toPick = _currentQtyToPick(item);
         final rowKey = _buildRowKey(item);
         final isFocused =
@@ -55,7 +55,10 @@ class _InventoryPicklistsCreateScreenState
             _focusedQtyFieldKeys.contains('${rowKey}_picked_compact') ||
             _focusedQtyFieldKeys.contains('${rowKey}_picked_mobile');
         final isMatched = (picked - toPick).abs() < 0.0001;
-        if (picked > (toPick + 0.0001) && !isFocused && !isMatched && !_savedBatchKeys.contains(rowKey)) {
+        if (picked > (toPick + 0.0001) &&
+            !isFocused &&
+            !isMatched &&
+            !_savedBatchKeys.contains(rowKey)) {
           _validationErrors.add(
             'Please make sure that you have entered batch reference numbers for all the items.',
           );
@@ -135,6 +138,21 @@ class _InventoryPicklistsCreateScreenState
     return _selectedItems[idx].quantityToPick ?? 1;
   }
 
+  double _getPickedQtyOutOnly(WarehouseStockData item) {
+    final rowKey = _buildRowKey(item);
+    if (_savedBatchKeys.contains(rowKey)) {
+      final batches = _savedBatchData[rowKey];
+      if (batches != null && batches.isNotEmpty) {
+        double totalQty = 0;
+        for (final b in batches) {
+          totalQty += double.tryParse(b['qtyOut']?.toString() ?? '0') ?? 0;
+        }
+        return totalQty;
+      }
+    }
+    return _currentPickedQty(item);
+  }
+
   String _buildBatchSummaryText(WarehouseStockData item) {
     final rowKey = _buildRowKey(item);
     return '${_currentPickedQty(item).toInt()} pcs taken from\n${_savedBatchCounts[rowKey] ?? 1} ${(_savedBatchCounts[rowKey] ?? 1) == 1 ? "batch" : "batches"}.';
@@ -152,10 +170,15 @@ class _InventoryPicklistsCreateScreenState
       totalFoc += double.tryParse(b['foc']?.toString() ?? '0') ?? 0;
     }
 
+    final hasFoc = totalFoc > 0;
+    final text = hasFoc
+        ? '${totalQty.toInt()} pcs + ${totalFoc.toInt()} foc'
+        : '${totalQty.toInt()} pcs';
+
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Text(
-        '${totalQty.toInt()} (Qty Out) + ${totalFoc.toInt()} (FOC)',
+        text,
         textAlign: TextAlign.center,
         style: const TextStyle(
           fontSize: 11,
@@ -181,7 +204,7 @@ class _InventoryPicklistsCreateScreenState
       builder: (_) => _PicklistSelectBatchesDialog(
         itemName: item.productName,
         warehouseName: _selectedWarehouse?.name ?? 'ZABNIX PRIVATE LIMITED',
-        totalQuantity: _currentPickedQty(item),
+        totalQuantity: _getPickedQtyOutOnly(item),
         existingBatchRefs: dropdownRefs,
         savedBatchData: _savedBatchData[_buildRowKey(item)],
       ),
@@ -195,7 +218,7 @@ class _InventoryPicklistsCreateScreenState
       final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == rowKey);
       if (idx != -1) {
         _selectedItems[idx] = _selectedItems[idx].copyWith(
-          quantityPicked: result.appliedQuantity,
+          quantityPicked: result.totalIncludingFoc,
         );
       }
       if (result.overwriteLineItem) {
@@ -3721,12 +3744,14 @@ class _PicklistBatchDialogResult {
   final bool overwriteLineItem;
   final int batchCount;
   final double appliedQuantity;
+  final double totalIncludingFoc;
   final List<Map<String, String>>? batchDataList;
 
   const _PicklistBatchDialogResult({
     required this.overwriteLineItem,
     required this.batchCount,
     required this.appliedQuantity,
+    required this.totalIncludingFoc,
     this.batchDataList,
   });
 }
@@ -4722,6 +4747,7 @@ class _PicklistSelectBatchesDialogState
                               ? _batchCount
                               : _rows.length,
                           appliedQuantity: _totalQuantityOnlyOut,
+                          totalIncludingFoc: _totalAppliedIncludingFoc,
                           batchDataList: batchDataList,
                         ),
                       );

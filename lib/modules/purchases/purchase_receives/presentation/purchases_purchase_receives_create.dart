@@ -145,7 +145,7 @@ class _PRCreateState
   bool _isReceiveAutoGenerate = true;
   String _receiveNumberPrefix = 'PR-';
   int _receiveNextNumber = 35;
-  bool _isManualMode = false;
+  bool _isManualMode = true;
   bool _isDamageEnabled = false;
   final List<String?> _preferredBins = [];
   final List<TextEditingController> _damageControllers = [];
@@ -181,7 +181,7 @@ class _PRCreateState
     final maxBatches = _items.isEmpty
         ? 0
         : _items.map((i) => i.batches.length).fold<int>(0, (m, e) => max(m, e));
-    const baseWidth = 124.0;
+    const baseWidth = 150.0;
     const extraPerBatch = 102.0;
     if (maxBatches > 0) {
       return (116.0 + (maxBatches * extraPerBatch)).clamp(baseWidth, 700.0);
@@ -454,7 +454,35 @@ class _PRCreateState
       _isManualMode = nextIsManual;
 
       if (_isManualMode) {
-        // Preserve existing rows (including batches) when switching to manual.
+        // Filter: Only keep rows from Auto Mode that have actual values.
+        final List<PurchaseReceiveItem> filteredItems = [];
+        final List<_ReceiveItemRowController> filteredCtrls = [];
+        final List<String?> filteredBins = [];
+        final List<TextEditingController> filteredDamageCtrls = [];
+
+        for (int i = 0; i < _items.length; i++) {
+          final item = _items[i];
+          final bool hasValue = item.quantityToReceive > 0 ||
+              _sumBatchFoc(item.batches) > 0 ||
+              item.batches.isNotEmpty;
+
+          if (hasValue) {
+            filteredItems.add(item);
+            filteredCtrls.add(_rowControllers[i]);
+            filteredBins.add(_preferredBins[i]);
+            filteredDamageCtrls.add(_damageControllers[i]);
+          }
+        }
+
+        _items.clear();
+        _items.addAll(filteredItems);
+        _rowControllers.clear();
+        _rowControllers.addAll(filteredCtrls);
+        _preferredBins.clear();
+        _preferredBins.addAll(filteredBins);
+        _damageControllers.clear();
+        _damageControllers.addAll(filteredDamageCtrls);
+
         if (_items.isEmpty) {
           _items.add(PurchaseReceiveItem());
           _rowControllers.add(_ReceiveItemRowController());
@@ -728,7 +756,6 @@ class _PRCreateState
       _selectedPO = null;
       _selectedPONumber = null;
       _selectedPOId = null;
-      _isManualMode = false;
       _clearAllRows();
     });
 
@@ -757,7 +784,6 @@ class _PRCreateState
       _selectedPO = po;
       _selectedPONumber = po.orderNumber;
       _selectedPOId = po.id;
-      _isManualMode = false;
       _isLoadingPOs = true;
     });
 
@@ -770,7 +796,7 @@ class _PRCreateState
         _isLoadingPOs = false;
         _clearAllRows();
 
-        if (fullPO != null && fullPO.items.isNotEmpty) {
+        if (!_isManualMode && fullPO != null && fullPO.items.isNotEmpty) {
           for (var poItem in fullPO.items) {
             _items.add(
               PurchaseReceiveItem(
@@ -807,7 +833,7 @@ class _PRCreateState
       children: [
         Container(
           width: double.infinity,
-          color: const Color(0xFFF3F4F6),
+          color: const Color(0xFFEEEEEE),
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -887,9 +913,9 @@ class _PRCreateState
                         decoration: BoxDecoration(
                           color: showHover
                               ? const Color(0xFF3B82F6)
-                              : (isSelected
-                                    ? const Color(0xFFF3F4F6)
-                                    : Colors.white),
+                              : (isSelected || (po.id == _selectedPO?.id))
+                                  ? const Color(0xFFF3F4F6)
+                                  : Colors.white,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Row(
@@ -910,7 +936,9 @@ class _PRCreateState
                                       fontWeight: FontWeight.w400,
                                       color: showHover
                                           ? Colors.white
-                                          : _textPrimary,
+                                          : (isSelected || (po.id == _selectedPO?.id))
+                                              ? _textPrimary
+                                              : _textPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -923,7 +951,9 @@ class _PRCreateState
                                       fontFamily: "Inter",
                                       color: showHover
                                           ? const Color(0xFFEAF2FF)
-                                          : _hintColor,
+                                          : (isSelected
+                                                ? Colors.grey
+                                                : _hintColor),
                                     ),
                                   ),
                                 ],
@@ -1520,12 +1550,7 @@ class _PRCreateState
                 ),
               ),
             ),
-            // Insert New Row Button
             const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _buildInsertRowButton(),
-            ),
           ],
         ),
       ),
@@ -1568,8 +1593,39 @@ class _PRCreateState
                         child: Row(
                           children: [
                             _tableHeaderCell(
-                              "ITEMS & DESCRIPTION",
+                              "",
                               fixedWidth: 300,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    "ITEMS & DESCRIPTION",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: _textPrimary,
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                  if (_selectedPO != null) ...[
+                                    const SizedBox(height: 2),
+                                    InkWell(
+                                      onTap: _addAllItemsFromPO,
+                                      child: const Text(
+                                        "Add all Items",
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          color: _linkBlue,
+                                          fontFamily: 'Inter',
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                             _tableHeaderCell(
                               "ORDERED",
@@ -1632,7 +1688,12 @@ class _PRCreateState
                 ),
               ),
             ),
-            const SizedBox.shrink(),
+            // Insert New Row Button
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _buildInsertRowButton(),
+            ),
           ],
         ),
       ),
@@ -1645,6 +1706,7 @@ class _PRCreateState
     double? fixedWidth,
     TextAlign? align,
     bool isLastColumn = false,
+    Widget? child,
   }) {
     final content = Container(
       decoration: BoxDecoration(
@@ -1655,17 +1717,18 @@ class _PRCreateState
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Text(
-        text,
-        textAlign: align,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF6B7280),
-          fontFamily: 'Inter',
-          letterSpacing: 0.3,
-        ),
-      ),
+      child: child ??
+          Text(
+            text,
+            textAlign: align,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF6B7280),
+              fontFamily: 'Inter',
+              letterSpacing: 0.3,
+            ),
+          ),
     );
 
     if (fixedWidth != null) {
@@ -1772,8 +1835,9 @@ class _PRCreateState
                 horizontal: 2,
               ),
               enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: isActive ? _focusBorder : _fieldBorder,
+                borderSide: const BorderSide(
+                  color: Color(0xFFBDBDBD),
+                  width: 1.2,
                 ),
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -1948,7 +2012,7 @@ class _PRCreateState
   }
 
   Widget _buildInlineBatchSection(PurchaseReceiveItem item, int index) {
-    if (item.batches.isEmpty) {
+    if (item.batches.isEmpty && item.quantityToReceive > 0) {
       return Align(
         alignment: Alignment.center,
         child: _buildAddBatchButton(index),
@@ -2004,7 +2068,7 @@ class _PRCreateState
               child: const Center(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: Color(0xFFF3F4F6),
+                    color: const Color(0xFFEEEEEE),
                     shape: BoxShape.circle,
                   ),
                   child: Padding(
@@ -2027,10 +2091,10 @@ class _PRCreateState
               child: Container(
                 decoration: BoxDecoration(
                   color: _bgWhite,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(2),
                   border: Border.all(
-                    color: isActive ? _focusBorder : Colors.transparent,
-                    width: isActive ? 1.2 : 1,
+                    color: isActive ? _focusBorder : const Color(0xFFBDBDBD),
+                    width: 1.2,
                   ),
                 ),
                 child: Focus(
@@ -2127,7 +2191,9 @@ class _PRCreateState
       decoration: BoxDecoration(
         color: isHovered
             ? const Color(0xFF3B82F6)
-            : (isSelected ? const Color(0xFFF3F4F6) : Colors.white),
+            : (isDisabled || isSelected)
+                ? const Color(0xFFF3F4F6)
+                : Colors.white,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -2137,7 +2203,7 @@ class _PRCreateState
           fontWeight: FontWeight.w400,
           color: isHovered
               ? Colors.white
-              : (isDisabled ? Colors.grey : _textPrimary),
+              : (isDisabled ? Colors.grey.shade600 : _textPrimary),
           fontFamily: 'Inter',
         ),
       ),
@@ -2194,69 +2260,91 @@ class _PRCreateState
               fixedWidth: 300,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: FormDropdown<PurchaseOrderItem>(
-                  value: selectedItem,
-                  items: availablePoItems,
-                  hint: 'Type or click to select an item',
-                  showSearch: true,
-                  displayStringForValue: (poItem) =>
-                      poItem.productName ?? poItem.itemCode ?? 'Unnamed item',
-                  searchStringForValue: (poItem) =>
-                      '${poItem.productName ?? ''} ${poItem.itemCode ?? ''}',
-                  itemBuilder: (poItem, isSelected, isHovered) {
-                    final bool isAlreadySelected =
-                        selectedIds.contains(poItem.productId) &&
-                        poItem.productId != item.itemId;
-                    return _buildDropdownOverlayItem(
-                      poItem.productName ?? 'Unnamed item',
-                      isSelected,
-                      isHovered,
-                      isDisabled: isAlreadySelected,
-                    );
-                  },
-                  onChanged: (poItem) {
-                    if (poItem == null) return;
-                    setState(() {
-                      if (isEphemeral) {
-                        _items.add(
-                          poItem.productId.isNotEmpty
-                              ? PurchaseReceiveItem(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F0F0),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: _borderCol),
+                      ),
+                      child: const Icon(
+                        LucideIcons.image,
+                        size: 16,
+                        color: _hintColor,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FormDropdown<PurchaseOrderItem>(
+                        value: selectedItem,
+                        items: availablePoItems,
+                        hint: 'Type or click to select an item',
+                        showSearch: true,
+                        displayStringForValue: (poItem) =>
+                            poItem.productName ?? poItem.itemCode ?? 'Unnamed item',
+                        searchStringForValue: (poItem) =>
+                            '${poItem.productName ?? ''} ${poItem.itemCode ?? ''}',
+                        itemBuilder: (poItem, isSelected, isHovered) {
+                          final bool isAlreadySelected =
+                              selectedIds.contains(poItem.productId) &&
+                              poItem.productId != item.itemId;
+                          return _buildDropdownOverlayItem(
+                            poItem.productName ?? 'Unnamed item',
+                            isSelected,
+                            isHovered,
+                            isDisabled: isAlreadySelected,
+                          );
+                        },
+                        onChanged: (poItem) {
+                          if (poItem == null) return;
+                          setState(() {
+                            if (isEphemeral) {
+                              _items.add(
+                                poItem.productId.isNotEmpty
+                                    ? PurchaseReceiveItem(
+                                        itemId: poItem.productId,
+                                        itemName: poItem.productName ?? '',
+                                        description: poItem.description,
+                                        ordered: poItem.quantity,
+                                        received: 0,
+                                        inTransit: 0,
+                                      )
+                                    : PurchaseReceiveItem(),
+                              );
+                              _rowControllers.add(_ReceiveItemRowController());
+                              _preferredBins.add(null);
+                              _damageControllers.add(TextEditingController());
+                              _items.add(PurchaseReceiveItem());
+                              _rowControllers.add(_ReceiveItemRowController());
+                              _preferredBins.add(null);
+                              _damageControllers.add(TextEditingController());
+                            } else {
+                              if (index < _items.length) {
+                                _items[index] = _items[index].copyWith(
                                   itemId: poItem.productId,
                                   itemName: poItem.productName ?? '',
                                   description: poItem.description,
                                   ordered: poItem.quantity,
                                   received: 0,
                                   inTransit: 0,
-                                )
-                              : PurchaseReceiveItem(),
-                        );
-                        _rowControllers.add(_ReceiveItemRowController());
-                        _preferredBins.add(null);
-                        _damageControllers.add(TextEditingController());
-                        _items.add(PurchaseReceiveItem());
-                        _rowControllers.add(_ReceiveItemRowController());
-                        _preferredBins.add(null);
-                        _damageControllers.add(TextEditingController());
-                      } else {
-                        if (index < _items.length) {
-                          _items[index] = _items[index].copyWith(
-                            itemId: poItem.productId,
-                            itemName: poItem.productName ?? '',
-                            description: poItem.description,
-                            ordered: poItem.quantity,
-                            received: 0,
-                            inTransit: 0,
-                          );
-                          if (index == _items.length - 1) {
-                            _items.add(PurchaseReceiveItem());
-                            _rowControllers.add(_ReceiveItemRowController());
-                            _preferredBins.add(null);
-                            _damageControllers.add(TextEditingController());
-                          }
-                        }
-                      }
-                    });
-                  },
+                                );
+                                if (index == _items.length - 1) {
+                                  _items.add(PurchaseReceiveItem());
+                                  _rowControllers.add(_ReceiveItemRowController());
+                                  _preferredBins.add(null);
+                                  _damageControllers.add(TextEditingController());
+                                }
+                              }
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -2365,7 +2453,7 @@ class _PRCreateState
               fixedWidth: _dynamicQtyToReceiveColumnWidth(),
               hideRightBorder: true,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.only(left: 8, right: 4, top: 4, bottom: 4),
                 child: WarehouseHoverPopover(
                   warehouseName:
                       _rowSelectedWarehouses[index] ?? 'ZABNIX PVT/LTD',
@@ -2378,7 +2466,7 @@ class _PRCreateState
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       SizedBox(
-                        width: 94,
+                        width: 120,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -2398,7 +2486,9 @@ class _PRCreateState
                                 _adjustRowQuantity(index, delta: -1);
                               },
                             ),
-                            if (!isEphemeral && !hasBatches) ...[
+                            if (!isEphemeral &&
+                                !hasBatches &&
+                                item.quantityToReceive > 0) ...[
                               const SizedBox(height: 4),
                               _buildAddBatchesLinkButton(index),
                             ],
@@ -2697,7 +2787,7 @@ class _PRCreateState
                               onChanged: (val) => _onRowQtyChanged(index, val),
                               height: 32,
                             ),
-                            if (!hasBatches) ...[
+                            if (!hasBatches && item.quantityToReceive > 0) ...[
                               const SizedBox(height: 4),
                               _buildAddBatchesLinkButton(index),
                             ],
@@ -3218,6 +3308,45 @@ class _PRCreateState
     }
   }
 
+  void _addAllItemsFromPO() async {
+    if (_selectedPO == null) return;
+
+    // Ensure we have the full PO with items
+    PurchaseOrder? fullPO;
+    if (_selectedPO!.items.isEmpty) {
+      if (mounted) setState(() => _isLoadingPOs = true);
+      fullPO = await ref.read(purchaseOrderProvider(_selectedPO!.id!).future);
+      if (mounted) setState(() => _isLoadingPOs = false);
+    } else {
+      fullPO = _selectedPO;
+    }
+
+    if (fullPO != null && fullPO.items.isNotEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _clearAllRows();
+        for (var poItem in fullPO!.items) {
+          _items.add(
+            PurchaseReceiveItem(
+              itemId: poItem.productId,
+              itemName: poItem.productName ?? poItem.itemCode ?? "",
+              description: poItem.description,
+              ordered: poItem.quantity,
+              received: 0,
+              inTransit: 0,
+              quantityToReceive: 0,
+            ),
+          );
+          final controller = _ReceiveItemRowController();
+          controller.qtyCtrl.text = '0';
+          _rowControllers.add(controller);
+          _preferredBins.add(null);
+          _damageControllers.add(TextEditingController());
+        }
+      });
+    }
+  }
+
   Future<void> _showSelectBatchDialog(int itemIndex) async {
     final item = _items[itemIndex];
     final batchOptions = <String>{
@@ -3666,7 +3795,7 @@ class _PurchaseReceivePreferencesDialogState
                       onPressed: () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: textPrimary,
-                        backgroundColor: const Color(0xFFF3F4F6),
+                        backgroundColor: const Color(0xFFEEEEEE),
                         side: const BorderSide(color: Color(0xFFD1D5DB)),
                         padding: const EdgeInsets.symmetric(horizontal: 18),
                         shape: RoundedRectangleBorder(
