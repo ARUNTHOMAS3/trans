@@ -812,136 +812,38 @@ class _PRCreateState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                _buildFormRow(
-                  label: "Vendor Name",
-                  isRequired: true,
-                  child: Flexible(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 400),
-                      child: FormDropdown<Vendor>(
-                        height: 32,
-                        value: ref
-                            .read(vendorProvider)
-                            .vendors
-                            .where((v) => v.id == _selectedVendorId)
-                            .firstOrNull,
-                        items: ref.watch(vendorProvider).vendors,
-                        hint: "Select or type to search",
-                        showSearch: true,
-                        displayStringForValue: (v) => v.displayName,
-                        searchStringForValue: (v) => v.displayName,
-                        itemBuilder: (item, isSelected, isHovered) {
-                          return _buildDropdownOverlayItem(
-                            item.displayName,
-                            isSelected,
-                            isHovered,
-                          );
-                        },
-                        onChanged: (vendor) {
-                          if (vendor != null) {
-                            setState(() {
-                              _selectedVendorId = vendor.id;
-                              _selectedVendorName = vendor.displayName;
-                            });
-                            _fetchPOsForVendor(vendor.id);
-                          }
-                        },
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: _textPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _buildFormRow(
-                  label: "Purchase Order#",
-                  labelColor: _dangerRed,
-                  child: SizedBox(
-                    width: 400,
-                    child: FormDropdown<PurchaseOrder>(
+              _buildFormRow(
+                label: "Vendor Name",
+                isRequired: true,
+                child: Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: FormDropdown<Vendor>(
                       height: 32,
-                      itemHeight: 60.0,
-                      value: _selectedPO,
-                      items: _vendorPOs,
-                      hint: _selectedVendorId == null
-                          ? "Select a vendor first"
-                          : (_vendorPOs.isEmpty && !_isLoadingPOs
-                                ? "No POs found"
-                                : "Select a Purchase Order"),
+                      value: ref
+                          .read(vendorProvider)
+                          .vendors
+                          .where((v) => v.id == _selectedVendorId)
+                          .firstOrNull,
+                      items: ref.watch(vendorProvider).vendors,
+                      hint: "Select or type to search",
                       showSearch: true,
-                      isLoading: _isLoadingPOs,
-                      displayStringForValue: (po) => po.orderNumber,
-                      searchStringForValue: (po) =>
-                          "${po.orderNumber} ${DateFormat("dd-MM-yyyy").format(po.orderDate)}",
-                      itemBuilder: (po, isSelected, isHovered) {
-                        final showHover = isHovered;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          constraints: const BoxConstraints(minHeight: 60),
-                          decoration: BoxDecoration(
-                            color: showHover
-                                ? const Color(0xFF3B82F6)
-                                : (isSelected
-                                      ? const Color(0xFFF3F4F6)
-                                      : Colors.white),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      po.orderNumber,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontFamily: "Inter",
-                                        fontWeight: FontWeight.w400,
-                                        color: showHover
-                                            ? Colors.white
-                                            : _textPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      "Date: ${DateFormat("dd-MM-yyyy").format(po.orderDate)} | Total: ₹${po.total.toStringAsFixed(2)}",
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontFamily: "Inter",
-                                        color: showHover
-                                            ? const Color(0xFFEAF2FF)
-                                            : _hintColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (isSelected)
-                                Icon(
-                                  LucideIcons.check,
-                                  size: 16,
-                                  color: showHover ? Colors.white : _linkBlue,
-                                ),
-                            ],
-                          ),
+                      displayStringForValue: (v) => v.displayName,
+                      searchStringForValue: (v) => v.displayName,
+                      itemBuilder: (item, isSelected, isHovered) {
+                        return _buildDropdownOverlayItem(
+                          item.displayName,
+                          isSelected,
+                          isHovered,
                         );
                       },
-                      onChanged: (po) {
-                        if (po != null) {
-                          _onPOSelected(po);
+                      onChanged: (vendor) {
+                        if (vendor != null) {
+                          setState(() {
+                            _selectedVendorId = vendor.id;
+                            _selectedVendorName = vendor.displayName;
+                          });
+                          _fetchPOsForVendor(vendor.id);
                         }
                       },
                       textStyle: const TextStyle(
@@ -952,6 +854,104 @@ class _PRCreateState
                     ),
                   ),
                 ),
+              ),
+              const SizedBox(height: 20),
+              _buildFormRow(
+                label: "Purchase Order#",
+                labelColor: _dangerRed,
+                child: SizedBox(
+                  width: 400,
+                  child: FormDropdown<PurchaseOrder>(
+                    height: 32,
+                    itemHeight: 60.0,
+                    value: _selectedPO,
+                    items: _vendorPOs,
+                    hint: _selectedVendorId == null
+                        ? "Select a vendor first"
+                        : (_vendorPOs.isEmpty && !_isLoadingPOs
+                              ? "No POs found"
+                              : "Select a Purchase Order"),
+                    showSearch: true,
+                    isLoading: _isLoadingPOs,
+                    displayStringForValue: (po) => po.orderNumber,
+                    searchStringForValue: (po) =>
+                        "${po.orderNumber} ${DateFormat("dd-MM-yyyy").format(po.orderDate)}",
+                    itemBuilder: (po, isSelected, isHovered) {
+                      final showHover = isHovered;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        constraints: const BoxConstraints(minHeight: 60),
+                        decoration: BoxDecoration(
+                          color: showHover
+                              ? const Color(0xFF3B82F6)
+                              : (isSelected
+                                    ? const Color(0xFFF3F4F6)
+                                    : Colors.white),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    po.orderNumber,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontFamily: "Inter",
+                                      fontWeight: FontWeight.w400,
+                                      color: showHover
+                                          ? Colors.white
+                                          : _textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    "Date: ${DateFormat("dd-MM-yyyy").format(po.orderDate)} | Total: ₹${po.total.toStringAsFixed(2)}",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontFamily: "Inter",
+                                      color: showHover
+                                          ? const Color(0xFFEAF2FF)
+                                          : _hintColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (isSelected)
+                              Icon(
+                                LucideIcons.check,
+                                size: 16,
+                                color: showHover ? Colors.white : _linkBlue,
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                    onChanged: (po) {
+                      if (po != null) {
+                        _onPOSelected(po);
+                      }
+                    },
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: _textPrimary,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -964,326 +964,319 @@ class _PRCreateState
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildFormRow(
-                              label: "Bill no#",
-                              isRequired: true,
-                              child: SizedBox(
-                                width: 180,
-                                child: SizedBox(
-                                  height: 32,
-                                  child: TextField(
-                                    controller: _billNoCtrl,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.allow(
-                                        RegExp(r"[a-zA-Z0-9]"),
-                                      ),
-                                    ],
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: _textPrimary,
-                                      fontFamily: "Inter",
-                                    ),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: _hasValidSelection
-                                          ? _bgWhite
-                                          : const Color(0xFFF5F5F5),
-                                      isDense: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
-                                          ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderSide: const BorderSide(
-                                          color: _fieldBorder,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderSide: const BorderSide(
-                                          color: _focusBorder,
-                                          width: 1.5,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFormRow(
+                        label: "Bill no#",
+                        isRequired: true,
+                        child: SizedBox(
+                          width: 180,
+                          child: SizedBox(
+                            height: 32,
+                            child: TextField(
+                              controller: _billNoCtrl,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r"[a-zA-Z0-9]"),
+                                ),
+                              ],
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: _textPrimary,
+                                fontFamily: "Inter",
+                              ),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: _hasValidSelection
+                                    ? _bgWhite
+                                    : const Color(0xFFF5F5F5),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: _fieldBorder,
                                   ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: _focusBorder,
+                                    width: 1.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 20),
-                            _buildFormRow(
-                              label: "Bill date",
-                              isRequired: true,
-                              child: SizedBox(
-                                width: 180,
-                                child: SizedBox(
-                                  height: 32,
-                                  child: TextField(
-                                    controller: _billDateCtrl,
-                                    key: _billDateFieldKey,
-                                    readOnly: true,
-                                    onTap: () async {
-                                      final picked =
-                                          await ZerpaiDatePicker.show(
-                                            context,
-                                            initialDate: DateTime.now(),
-                                            targetKey: _billDateFieldKey,
-                                          );
-                                      if (picked != null && mounted) {
-                                        setState(() {
-                                          _billDateCtrl.text = DateFormat(
-                                            "dd-MM-yyyy",
-                                          ).format(picked);
-                                        });
-                                      }
-                                    },
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: _textPrimary,
-                                      fontFamily: "Inter",
-                                    ),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: _hasValidSelection
-                                          ? _bgWhite
-                                          : const Color(0xFFF5F5F5),
-                                      isDense: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
-                                          ),
-                                      hintText: "dd-MM-yyyy",
-                                      hintStyle: const TextStyle(
-                                        fontSize: 13,
-                                        color: _hintColor,
-                                        fontFamily: "Inter",
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderSide: const BorderSide(
-                                          color: _fieldBorder,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderSide: const BorderSide(
-                                          color: _focusBorder,
-                                          width: 1.5,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      suffixIcon: const Icon(
-                                        LucideIcons.calendar,
-                                        size: 16,
-                                        color: _hintColor,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            _buildFormRow(
-                              label: "Bill invoice total",
-                              isRequired: true,
-                              child: SizedBox(
-                                width: 180,
-                                child: SizedBox(
-                                  height: 32,
-                                  child: TextField(
-                                    controller: _invoiceTotalCtrl,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      TextInputFormatter.withFunction((
-                                        oldValue,
-                                        newValue,
-                                      ) {
-                                        if (newValue.text.isEmpty ||
-                                            RegExp(
-                                              r"^\d*\.?\d*$",
-                                            ).hasMatch(newValue.text)) {
-                                          return newValue;
-                                        }
-                                        return oldValue;
-                                      }),
-                                    ],
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: _textPrimary,
-                                      fontFamily: "Inter",
-                                    ),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: _hasValidSelection
-                                          ? _bgWhite
-                                          : const Color(0xFFF5F5F5),
-                                      isDense: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
-                                          ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderSide: const BorderSide(
-                                          color: _fieldBorder,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderSide: const BorderSide(
-                                          color: _focusBorder,
-                                          width: 1.5,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                        const SizedBox(width: 40),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildFormRow(
-                              label: "Purchase receive#",
-                              isRequired: true,
-                              child: SizedBox(
-                                width: 180,
-                                child: SizedBox(
-                                  height: 32,
-                                  child: TextField(
-                                    controller: _receiveNumberCtrl,
-                                    readOnly: _isReceiveAutoGenerate,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: _textPrimary,
-                                      fontFamily: "Inter",
-                                    ),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: _hasValidSelection
-                                          ? _bgWhite
-                                          : const Color(0xFFF5F5F5),
-                                      isDense: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
-                                          ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderSide: const BorderSide(
-                                          color: _fieldBorder,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderSide: const BorderSide(
-                                          color: _focusBorder,
-                                          width: 1.5,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      suffixIcon: ZTooltip(
-                                        message:
-                                            "Click here to enable or disable autogeneration of Purchase Receive numbers.",
-                                        child: InkWell(
-                                          onTap:
-                                              _showPurchaseReceivePreferencesDialog,
-                                          child: const Icon(
-                                            LucideIcons.settings,
-                                            size: 16,
-                                            color: _hintColor,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildFormRow(
+                        label: "Bill date",
+                        isRequired: true,
+                        child: SizedBox(
+                          width: 180,
+                          child: SizedBox(
+                            height: 32,
+                            child: TextField(
+                              controller: _billDateCtrl,
+                              key: _billDateFieldKey,
+                              readOnly: true,
+                              onTap: () async {
+                                final picked = await ZerpaiDatePicker.show(
+                                  context,
+                                  initialDate: DateTime.now(),
+                                  targetKey: _billDateFieldKey,
+                                );
+                                if (picked != null && mounted) {
+                                  setState(() {
+                                    _billDateCtrl.text = DateFormat(
+                                      "dd-MM-yyyy",
+                                    ).format(picked);
+                                  });
+                                }
+                              },
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: _textPrimary,
+                                fontFamily: "Inter",
+                              ),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: _hasValidSelection
+                                    ? _bgWhite
+                                    : const Color(0xFFF5F5F5),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                hintText: "dd-MM-yyyy",
+                                hintStyle: const TextStyle(
+                                  fontSize: 13,
+                                  color: _hintColor,
+                                  fontFamily: "Inter",
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: _fieldBorder,
                                   ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: _focusBorder,
+                                    width: 1.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                suffixIcon: const Icon(
+                                  LucideIcons.calendar,
+                                  size: 16,
+                                  color: _hintColor,
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 20),
-                            _buildFormRow(
-                              label: "Received date",
-                              isRequired: true,
-                              child: SizedBox(
-                                width: 180,
-                                child: SizedBox(
-                                  height: 32,
-                                  child: TextField(
-                                    controller: _receivedDateCtrl,
-                                    readOnly: true,
-                                    key: _dateFieldKey,
-                                    onTap: () async {
-                                      final picked =
-                                          await ZerpaiDatePicker.show(
-                                            context,
-                                            initialDate: DateTime.now(),
-                                            targetKey: _dateFieldKey,
-                                          );
-                                      if (picked != null && mounted) {
-                                        setState(() {
-                                          _receivedDateCtrl.text = DateFormat(
-                                            "dd-MM-yyyy",
-                                          ).format(picked);
-                                        });
-                                      }
-                                    },
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: _textPrimary,
-                                      fontFamily: "Inter",
-                                    ),
-                                    decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: _hasValidSelection
-                                          ? _bgWhite
-                                          : const Color(0xFFF5F5F5),
-                                      isDense: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
-                                          ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderSide: const BorderSide(
-                                          color: _fieldBorder,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderSide: const BorderSide(
-                                          color: _focusBorder,
-                                          width: 1.5,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      suffixIcon: const Icon(
-                                        LucideIcons.calendar,
-                                        size: 16,
-                                        color: _hintColor,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildFormRow(
+                        label: "Bill invoice total",
+                        isRequired: true,
+                        child: SizedBox(
+                          width: 180,
+                          child: SizedBox(
+                            height: 32,
+                            child: TextField(
+                              controller: _invoiceTotalCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                TextInputFormatter.withFunction((
+                                  oldValue,
+                                  newValue,
+                                ) {
+                                  if (newValue.text.isEmpty ||
+                                      RegExp(
+                                        r"^\d*\.?\d*$",
+                                      ).hasMatch(newValue.text)) {
+                                    return newValue;
+                                  }
+                                  return oldValue;
+                                }),
+                              ],
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: _textPrimary,
+                                fontFamily: "Inter",
+                              ),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: _hasValidSelection
+                                    ? _bgWhite
+                                    : const Color(0xFFF5F5F5),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: _fieldBorder,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: _focusBorder,
+                                    width: 1.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(width: 40),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFormRow(
+                        label: "Purchase receive#",
+                        isRequired: true,
+                        child: SizedBox(
+                          width: 180,
+                          child: SizedBox(
+                            height: 32,
+                            child: TextField(
+                              controller: _receiveNumberCtrl,
+                              readOnly: _isReceiveAutoGenerate,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: _textPrimary,
+                                fontFamily: "Inter",
+                              ),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: _hasValidSelection
+                                    ? _bgWhite
+                                    : const Color(0xFFF5F5F5),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: _fieldBorder,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: _focusBorder,
+                                    width: 1.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                suffixIcon: ZTooltip(
+                                  message:
+                                      "Click here to enable or disable autogeneration of Purchase Receive numbers.",
+                                  child: InkWell(
+                                    onTap:
+                                        _showPurchaseReceivePreferencesDialog,
+                                    child: const Icon(
+                                      LucideIcons.settings,
+                                      size: 16,
+                                      color: _hintColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildFormRow(
+                        label: "Received date",
+                        isRequired: true,
+                        child: SizedBox(
+                          width: 180,
+                          child: SizedBox(
+                            height: 32,
+                            child: TextField(
+                              controller: _receivedDateCtrl,
+                              readOnly: true,
+                              key: _dateFieldKey,
+                              onTap: () async {
+                                final picked = await ZerpaiDatePicker.show(
+                                  context,
+                                  initialDate: DateTime.now(),
+                                  targetKey: _dateFieldKey,
+                                );
+                                if (picked != null && mounted) {
+                                  setState(() {
+                                    _receivedDateCtrl.text = DateFormat(
+                                      "dd-MM-yyyy",
+                                    ).format(picked);
+                                  });
+                                }
+                              },
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: _textPrimary,
+                                fontFamily: "Inter",
+                              ),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: _hasValidSelection
+                                    ? _bgWhite
+                                    : const Color(0xFFF5F5F5),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: _fieldBorder,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(
+                                    color: _focusBorder,
+                                    width: 1.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                suffixIcon: const Icon(
+                                  LucideIcons.calendar,
+                                  size: 16,
+                                  color: _hintColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          );
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1458,7 +1451,9 @@ class _PRCreateState
               child: IntrinsicWidth(
                 child: Container(
                   constraints: BoxConstraints(
-                    minWidth: MediaQuery.of(context).size.width * _tableMinWidthFactor(),
+                    minWidth:
+                        MediaQuery.of(context).size.width *
+                        _tableMinWidthFactor(),
                   ),
                   decoration: const BoxDecoration(
                     border: Border.fromBorderSide(
@@ -1550,7 +1545,9 @@ class _PRCreateState
               child: IntrinsicWidth(
                 child: Container(
                   constraints: BoxConstraints(
-                    minWidth: MediaQuery.of(context).size.width * _tableMinWidthFactor(),
+                    minWidth:
+                        MediaQuery.of(context).size.width *
+                        _tableMinWidthFactor(),
                   ),
                   decoration: const BoxDecoration(
                     border: Border.fromBorderSide(
@@ -2207,7 +2204,8 @@ class _PRCreateState
                   searchStringForValue: (poItem) =>
                       '${poItem.productName ?? ''} ${poItem.itemCode ?? ''}',
                   itemBuilder: (poItem, isSelected, isHovered) {
-                    final bool isAlreadySelected = selectedIds.contains(poItem.productId) &&
+                    final bool isAlreadySelected =
+                        selectedIds.contains(poItem.productId) &&
                         poItem.productId != item.itemId;
                     return _buildDropdownOverlayItem(
                       poItem.productName ?? 'Unnamed item',
@@ -2369,10 +2367,13 @@ class _PRCreateState
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: WarehouseHoverPopover(
-                  warehouseName: _rowSelectedWarehouses[index] ?? 'ZABNIX PVT/LTD',
+                  warehouseName:
+                      _rowSelectedWarehouses[index] ?? 'ZABNIX PVT/LTD',
                   selectedView: _rowSelectedViews[index] ?? 'Accounting',
-                  onWarehouseChanged: (name) => setState(() => _rowSelectedWarehouses[index] = name),
-                  onViewChanged: (view) => setState(() => _rowSelectedViews[index] = view),
+                  onWarehouseChanged: (name) =>
+                      setState(() => _rowSelectedWarehouses[index] = name),
+                  onViewChanged: (view) =>
+                      setState(() => _rowSelectedViews[index] = view),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -2675,10 +2676,13 @@ class _PRCreateState
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: WarehouseHoverPopover(
-                  warehouseName: _rowSelectedWarehouses[index] ?? 'ZABNIX PVT/LTD',
+                  warehouseName:
+                      _rowSelectedWarehouses[index] ?? 'ZABNIX PVT/LTD',
                   selectedView: _rowSelectedViews[index] ?? 'Accounting',
-                  onWarehouseChanged: (name) => setState(() => _rowSelectedWarehouses[index] = name),
-                  onViewChanged: (view) => setState(() => _rowSelectedViews[index] = view),
+                  onWarehouseChanged: (name) =>
+                      setState(() => _rowSelectedWarehouses[index] = name),
+                  onViewChanged: (view) =>
+                      setState(() => _rowSelectedViews[index] = view),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -3071,7 +3075,8 @@ class _PRCreateState
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: labelColor ?? (isRequired ? _requiredLabel : _labelColor),
+                  color:
+                      labelColor ?? (isRequired ? _requiredLabel : _labelColor),
                   fontFamily: 'Inter',
                 ),
                 children: [
@@ -3240,7 +3245,8 @@ class _PRCreateState
         initialBatches: item.batches,
         // Total in batch dialog must follow Ordered quantity in line item.
         ordered: item.ordered,
-        warehouseName: _rowSelectedWarehouses[itemIndex] ?? _resolveWarehouseName(),
+        warehouseName:
+            _rowSelectedWarehouses[itemIndex] ?? _resolveWarehouseName(),
         initialDamageEnabled: _isDamageEnabled,
         onDamageChanged: (enabled) {
           setState(() {
@@ -3272,7 +3278,9 @@ class _PRCreateState
       return warehouseName;
     }
 
-    final idToLookup = _selectedPO?.warehouseId?.trim() ?? _selectedPO?.deliveryWarehouseId?.trim();
+    final idToLookup =
+        _selectedPO?.warehouseId?.trim() ??
+        _selectedPO?.deliveryWarehouseId?.trim();
     if (idToLookup != null && idToLookup.isNotEmpty) {
       final whAsync = ref.read(warehousesProvider);
       if (whAsync.hasValue && whAsync.value != null) {
@@ -3280,7 +3288,7 @@ class _PRCreateState
           final wh = whAsync.value!.firstWhere((w) => w.id == idToLookup);
           return wh.name;
         } catch (_) {
-           // Fallback if not found
+          // Fallback if not found
         }
       }
     }
@@ -3953,12 +3961,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
               row.batchNoCtrl.text = selection;
             },
             fieldViewBuilder:
-                (
-                  context,
-                  textEditingController,
-                  focusNode,
-                  onFieldSubmitted,
-                ) {
+                (context, textEditingController, focusNode, onFieldSubmitted) {
                   return TextField(
                     controller: textEditingController,
                     focusNode: focusNode,
@@ -4036,57 +4039,57 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                             int? hoveredIndex;
                             return StatefulBuilder(
                               builder: (context, setOptionsState) {
-                              return ListView.builder(
-                                padding: EdgeInsets.zero,
-                                shrinkWrap: true,
-                                itemCount: optionList.length,
-                                itemBuilder: (context, index) {
-                                  final item = optionList[index];
-                                  final isHovered = hoveredIndex == index;
-                                  final isSelected =
-                                      row.batchNoCtrl.text.trim() == item;
-                                  return MouseRegion(
-                                    onEnter: (_) => setOptionsState(
-                                      () => hoveredIndex = index,
-                                    ),
-                                    onExit: (_) => setOptionsState(
-                                      () => hoveredIndex = null,
-                                    ),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () => onSelected(item),
-                                        hoverColor: Colors.transparent,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 8,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: isHovered
-                                                ? const Color(0xFF3B82F6)
-                                                : (isSelected
-                                                      ? const Color(
-                                                          0xFFF3F4F6,
-                                                        )
-                                                      : Colors.white),
-                                          ),
-                                          child: Text(
-                                            item,
-                                            style: TextStyle(
-                                              fontSize: 13,
+                                return ListView.builder(
+                                  padding: EdgeInsets.zero,
+                                  shrinkWrap: true,
+                                  itemCount: optionList.length,
+                                  itemBuilder: (context, index) {
+                                    final item = optionList[index];
+                                    final isHovered = hoveredIndex == index;
+                                    final isSelected =
+                                        row.batchNoCtrl.text.trim() == item;
+                                    return MouseRegion(
+                                      onEnter: (_) => setOptionsState(
+                                        () => hoveredIndex = index,
+                                      ),
+                                      onExit: (_) => setOptionsState(
+                                        () => hoveredIndex = null,
+                                      ),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: () => onSelected(item),
+                                          hoverColor: Colors.transparent,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
                                               color: isHovered
-                                                  ? Colors.white
-                                                  : _textPrimary,
-                                              fontFamily: 'Inter',
+                                                  ? const Color(0xFF3B82F6)
+                                                  : (isSelected
+                                                        ? const Color(
+                                                            0xFFF3F4F6,
+                                                          )
+                                                        : Colors.white),
+                                            ),
+                                            child: Text(
+                                              item,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: isHovered
+                                                    ? Colors.white
+                                                    : _textPrimary,
+                                                fontFamily: 'Inter',
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  );
-                                },
-                              );
+                                    );
+                                  },
+                                );
                               },
                             );
                           })(),

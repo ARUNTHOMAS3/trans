@@ -55,7 +55,7 @@ class _InventoryPicklistsCreateScreenState
             _focusedQtyFieldKeys.contains('${rowKey}_picked_compact') ||
             _focusedQtyFieldKeys.contains('${rowKey}_picked_mobile');
         final isMatched = (picked - toPick).abs() < 0.0001;
-        if (picked > (toPick + 0.0001) && !isFocused && !isMatched) {
+        if (picked > (toPick + 0.0001) && !isFocused && !isMatched && !_savedBatchKeys.contains(rowKey)) {
           _validationErrors.add(
             'Please make sure that you have entered batch reference numbers for all the items.',
           );
@@ -135,6 +135,37 @@ class _InventoryPicklistsCreateScreenState
     return _selectedItems[idx].quantityToPick ?? 1;
   }
 
+  String _buildBatchSummaryText(WarehouseStockData item) {
+    final rowKey = _buildRowKey(item);
+    return '${_currentPickedQty(item).toInt()} pcs taken from\n${_savedBatchCounts[rowKey] ?? 1} ${(_savedBatchCounts[rowKey] ?? 1) == 1 ? "batch" : "batches"}.';
+  }
+
+  Widget _buildBatchBreakdownWidget(WarehouseStockData item) {
+    final rowKey = _buildRowKey(item);
+    final batches = _savedBatchData[rowKey];
+    if (batches == null || batches.isEmpty) return const SizedBox.shrink();
+
+    double totalQty = 0;
+    double totalFoc = 0;
+    for (final b in batches) {
+      totalQty += double.tryParse(b['qtyOut']?.toString() ?? '0') ?? 0;
+      totalFoc += double.tryParse(b['foc']?.toString() ?? '0') ?? 0;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        '${totalQty.toInt()} (Qty Out) + ${totalFoc.toInt()} (FOC)',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 11,
+          color: _textSecondary,
+          fontFamily: 'Inter',
+        ),
+      ),
+    );
+  }
+
   Future<void> _showSelectBatchesDialog(WarehouseStockData item) async {
     final existingBatches = _selectedItems
         .map((e) => (e.batchNo ?? '').trim())
@@ -183,6 +214,7 @@ class _InventoryPicklistsCreateScreenState
     bool isBlue = false,
     bool hasError = false,
     bool showPermanentBorder = false,
+    bool readOnly = false,
   }) {
     final showBlueOutline =
         _hoveredQtyFieldKeys.contains(fieldKey) ||
@@ -228,6 +260,7 @@ class _InventoryPicklistsCreateScreenState
               fontFamily: 'Inter',
             ),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            readOnly: readOnly,
             decoration: InputDecoration(
               isDense: false,
               filled: false,
@@ -574,8 +607,20 @@ class _InventoryPicklistsCreateScreenState
                                   ),
                                 ),
                             onChanged: (val) {
-                              if (val != null)
-                                setState(() => _selectedWarehouse = val);
+                              if (val != null &&
+                                  val.id != _selectedWarehouse?.id) {
+                                setState(() {
+                                  _selectedWarehouse = val;
+                                  // Reset all selection state when warehouse changes
+                                  _selectedItems.clear();
+                                  _savedBatchKeys.clear();
+                                  _savedBatchCounts.clear();
+                                  _savedBatchData.clear();
+                                  _qtyPickedOverrideKeys.clear();
+                                  _itemGroupAssigneeByProductId.clear();
+                                  _salesOrderGroupAssigneeByOrderNumber.clear();
+                                });
+                              }
                             },
                           ),
                           loading: () => Container(
@@ -995,6 +1040,7 @@ class _InventoryPicklistsCreateScreenState
                         flex: 4,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               item.productName,
@@ -1060,6 +1106,7 @@ class _InventoryPicklistsCreateScreenState
                         flex: 2,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             _buildQuantityField(
                               fieldKey: '${rowKey}_to_pick_main',
@@ -1100,17 +1147,23 @@ class _InventoryPicklistsCreateScreenState
                         flex: 2,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             _buildQuantityField(
                               fieldKey: '${rowKey}_picked_main',
                               initialValue: _currentPickedQty(item),
-                              isRed: _currentPickedQty(item) > (item.quantityOrdered ?? 0),
-                              isBlue: _currentPickedQty(item) > 0 && _currentPickedQty(item) <= (item.quantityOrdered ?? 0),
-                              showPermanentBorder:
-                                  (_currentPickedQty(item) -
-                                          _currentQtyToPick(item))
-                                      .abs() <
-                                  0.0001,
+                              isRed: _currentPickedQty(item) >
+                                      (item.quantityOrdered ?? 0) &&
+                                  !_savedBatchKeys.contains(rowKey),
+                              isBlue: _currentPickedQty(item) > 0 &&
+                                  (_currentPickedQty(item) <=
+                                          (item.quantityOrdered ?? 0) ||
+                                      _savedBatchKeys.contains(rowKey)),
+                              readOnly: _savedBatchKeys.contains(rowKey),
+                              showPermanentBorder: (_currentPickedQty(item) -
+                                              _currentQtyToPick(item))
+                                          .abs() <
+                                      0.0001,
                               onChanged: (val) {
                                 final d = double.tryParse(val);
                                 if (d != null) {
@@ -1128,25 +1181,29 @@ class _InventoryPicklistsCreateScreenState
                                 }
                               },
                             ),
-                            if (_currentPickedQty(item) > 0 && _currentPickedQty(item) <= (item.quantityOrdered ?? 0)) ...[
+                            if (_currentPickedQty(item) > 0) ...[
                               if (_savedBatchKeys.contains(rowKey)) ...[
                                 const SizedBox(height: 6),
+                                _buildBatchBreakdownWidget(item),
                                 InkWell(
                                   onTap: () => _showSelectBatchesDialog(item),
                                   child: Text(
-                                    '${_currentPickedQty(item).toInt()} pcs taken from\n${_savedBatchCounts[rowKey] ?? 1} ${(_savedBatchCounts[rowKey] ?? 1) == 1 ? 'batch' : 'batches'}.',
+                                    _buildBatchSummaryText(item),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       fontSize: 11,
                                       color: Color(0xFF2563EB),
-                                      fontWeight: FontWeight.w500,
                                       fontFamily: 'Inter',
+                                      decoration: TextDecoration.underline,
                                     ),
                                   ),
                                 ),
-                              ] else ...[
+                              ] else if (_currentPickedQty(item) <=
+                                  (item.quantityOrdered ?? 0)) ...[
                                 const SizedBox(height: 6),
-                                InkWell(
+                                _buildBatchBreakdownWidget(
+                                                      item),
+                                                  InkWell(
                                   onTap: () => _showSelectBatchesDialog(item),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -1201,9 +1258,7 @@ class _InventoryPicklistsCreateScreenState
       ),
     );
   }
-
   Widget _buildTableByItem() {
-    // Group _selectedItems by productId
     final Map<String, List<WarehouseStockData>> grouped = {};
     for (var item in _selectedItems) {
       if (!grouped.containsKey(item.productId)) {
@@ -1280,7 +1335,7 @@ class _InventoryPicklistsCreateScreenState
                         flex: 8,
                         child: Row(
                           children: [
-                            Expanded(
+                            const Expanded(
                               flex: 1,
                               child: Center(
                                 child: Text(
@@ -1294,7 +1349,7 @@ class _InventoryPicklistsCreateScreenState
                               ),
                             ),
                             const VerticalDivider(width: 1, color: _borderCol),
-                            Expanded(
+                            const Expanded(
                               flex: 1,
                               child: Center(
                                 child: Text(
@@ -1309,7 +1364,7 @@ class _InventoryPicklistsCreateScreenState
                               ),
                             ),
                             const VerticalDivider(width: 1, color: _borderCol),
-                            Expanded(
+                            const Expanded(
                               flex: 2,
                               child: Center(
                                 child: Text(
@@ -1408,29 +1463,23 @@ class _InventoryPicklistsCreateScreenState
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Left side spanning details (Item & Assignee)
                           Expanded(
-                            flex: 6, // 4 + 2
+                            flex: 6,
                             child: Container(
                               decoration: const BoxDecoration(
                                 border: Border(
                                   right: BorderSide(color: _borderCol),
                                 ),
                               ),
-                              padding: const EdgeInsets.only(
-                                left: 0,
-                                right: 0,
-                                top: 12,
-                                bottom: 12,
-                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Expanded(
                                     flex: 4,
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Text(
                                           firstItem.productName,
@@ -1471,9 +1520,8 @@ class _InventoryPicklistsCreateScreenState
                                         ),
                                         child: Consumer(
                                           builder: (context, ref, _) {
-                                            final usersAsync = ref.watch(
-                                              allUsersProvider,
-                                            );
+                                            final usersAsync =
+                                                ref.watch(allUsersProvider);
                                             final assigneeOptions = usersAsync
                                                 .maybeWhen(
                                                   data: (users) => users
@@ -1486,78 +1534,39 @@ class _InventoryPicklistsCreateScreenState
                                                       .toList(),
                                                   orElse: () => <String>[],
                                                 );
-                                            const fallbackAssignees = <String>[
-                                              'User 1',
-                                              'User 2',
-                                              'User 3',
-                                            ];
                                             final assigneeItems =
                                                 assigneeOptions.isNotEmpty
-                                                ? assigneeOptions
-                                                : fallbackAssignees;
+                                                    ? assigneeOptions
+                                                    : ['User 1', 'User 2'];
 
                                             return FormDropdown<String>(
                                               hint: 'Select User',
-                                              value:
-                                                  assigneeItems.contains(
-                                                    _itemGroupAssigneeByProductId[productId],
-                                                  )
-                                                  ? _itemGroupAssigneeByProductId[productId]
+                                              value: assigneeItems.contains(
+                                                _itemGroupAssigneeByProductId[
+                                                    productId],
+                                              )
+                                                  ? _itemGroupAssigneeByProductId[
+                                                      productId]
                                                   : null,
                                               items: assigneeItems,
                                               border: Border.all(
-                                                color:
-                                                    _hoveredAssigneeFieldKeys
+                                                color: _hoveredAssigneeFieldKeys
                                                             .contains(
                                                               'item_assignee_$productId',
                                                             ) ||
-                                                        _itemGroupAssigneeByProductId[productId] !=
+                                                        _itemGroupAssigneeByProductId[
+                                                                productId] !=
                                                             null
-                                                    ? const Color(0xFF3B82F6)
+                                                    ? _focusBorder
                                                     : Colors.transparent,
                                               ),
                                               fillColor: Colors.transparent,
-                                              displayStringForValue: (name) =>
-                                                  name,
-                                              searchStringForValue: (name) =>
-                                                  name,
-                                              itemBuilder:
-                                                  (
-                                                    item,
-                                                    isSelected,
-                                                    isHovered,
-                                                  ) => Container(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 12,
-                                                          vertical: 8,
-                                                        ),
-                                                    color: isHovered
-                                                        ? const Color(
-                                                            0xFF3B82F6,
-                                                          )
-                                                        : (isSelected
-                                                              ? const Color(
-                                                                  0xFFF3F4F6,
-                                                                )
-                                                              : Colors
-                                                                    .transparent),
-                                                    child: Text(
-                                                      item,
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        color: isHovered
-                                                            ? Colors.white
-                                                            : const Color(
-                                                                0xFF1F2937,
-                                                              ),
-                                                      ),
-                                                    ),
-                                                  ),
+                                              displayStringForValue: (v) => v,
+                                              searchStringForValue: (v) => v,
                                               onChanged: (val) => setState(
                                                 () =>
-                                                    _itemGroupAssigneeByProductId[productId] =
-                                                        val,
+                                                    _itemGroupAssigneeByProductId[
+                                                        productId] = val,
                                               ),
                                             );
                                           },
@@ -1569,21 +1578,17 @@ class _InventoryPicklistsCreateScreenState
                               ),
                             ),
                           ),
-                          // Right side rows for each order
                           Expanded(
-                            flex: 8, // 3 + 1 + 1 + 2 + 1
+                            flex: 8,
                             child: Column(
                               children: itemsInGroup.map((item) {
                                 final isLast = item == itemsInGroup.last;
                                 final available = item.availableQuantity;
+                                final rowKey = _buildRowKey(item);
 
                                 return Container(
-                                  padding: const EdgeInsets.only(
-                                    left: 0,
-                                    right: 0,
-                                    top: 8,
-                                    bottom: 8,
-                                  ),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
                                   decoration: BoxDecoration(
                                     border: isLast
                                         ? null
@@ -1621,9 +1626,8 @@ class _InventoryPicklistsCreateScreenState
                                             child: Text(
                                               '${item.quantityOrdered?.toInt() ?? 1}',
                                               textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                              ),
+                                              style:
+                                                  const TextStyle(fontSize: 13),
                                             ),
                                           ),
                                         ),
@@ -1653,16 +1657,16 @@ class _InventoryPicklistsCreateScreenState
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.center,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
                                             children: [
                                               _buildQuantityField(
                                                 fieldKey:
-                                                    '${_buildRowKey(item)}_to_pick_compact',
+                                                    '${rowKey}_to_pick_compact',
                                                 initialValue:
                                                     item.quantityToPick ?? 1.0,
                                                 onChanged: (val) {
-                                                  final d = double.tryParse(
-                                                    val,
-                                                  );
+                                                  final d = double.tryParse(val);
                                                   if (d != null) {
                                                     setState(() {
                                                       final idx = _selectedItems
@@ -1672,9 +1676,9 @@ class _InventoryPicklistsCreateScreenState
                                                             d < 0 ? 0.0 : d;
                                                         _selectedItems[idx] =
                                                             item.copyWith(
-                                                              quantityToPick:
-                                                                  normalizedToPick,
-                                                            );
+                                                          quantityToPick:
+                                                              normalizedToPick,
+                                                        );
                                                       }
                                                     });
                                                   }
@@ -1686,8 +1690,7 @@ class _InventoryPicklistsCreateScreenState
                                                 textAlign: TextAlign.center,
                                                 style: TextStyle(
                                                   fontSize: 10,
-                                                  color:
-                                                      available >=
+                                                  color: available >=
                                                           (item.quantityToPick ??
                                                               1.0)
                                                       ? _textSecondary
@@ -1706,41 +1709,46 @@ class _InventoryPicklistsCreateScreenState
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.center,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
                                             children: [
                                               _buildQuantityField(
                                                 fieldKey:
-                                                    '${_buildRowKey(item)}_picked_compact',
-                                                initialValue: _currentPickedQty(
-                                                  item,
-                                                ),
-                                                hasError:
-                                                    _currentPickedQty(item) >
-                                                    (_currentQtyToPick(item) +
-                                                        0.0001),
+                                                    '${rowKey}_picked_compact',
+                                                initialValue:
+                                                    _currentPickedQty(item),
+                                                isRed: _currentPickedQty(item) >
+                                                        (item.quantityOrdered ??
+                                                            0) &&
+                                                    !_savedBatchKeys
+                                                        .contains(rowKey),
+                                                isBlue: _currentPickedQty(item) >
+                                                        0 &&
+                                                    (_currentPickedQty(item) <=
+                                                            (item.quantityOrdered ??
+                                                                0) ||
+                                                        _savedBatchKeys
+                                                            .contains(rowKey)),
+                                                readOnly: _savedBatchKeys
+                                                    .contains(rowKey),
                                                 showPermanentBorder:
                                                     (_currentPickedQty(item) -
-                                                            _currentQtyToPick(
-                                                              item,
-                                                            ))
-                                                        .abs() <
-                                                    0.0001,
+                                                                _currentQtyToPick(
+                                                                    item))
+                                                            .abs() <
+                                                        0.0001,
                                                 onChanged: (val) {
-                                                  final d = double.tryParse(
-                                                    val,
-                                                  );
+                                                  final d = double.tryParse(val);
                                                   if (d != null) {
                                                     setState(() {
-                                                      final nonNegative = d < 0
-                                                          ? 0.0
-                                                          : d;
                                                       final idx = _selectedItems
                                                           .indexOf(item);
                                                       if (idx != -1) {
                                                         _selectedItems[idx] =
                                                             item.copyWith(
-                                                              quantityPicked:
-                                                                  nonNegative,
-                                                            );
+                                                          quantityPicked:
+                                                              d < 0 ? 0.0 : d,
+                                                        );
                                                       }
                                                     });
                                                   }
@@ -1748,50 +1756,66 @@ class _InventoryPicklistsCreateScreenState
                                               ),
                                               if (_currentPickedQty(item) >
                                                   0) ...[
-                                                if (_savedBatchKeys.contains(
-                                                  _buildRowKey(item),
-                                                )) ...[
+                                                if (_savedBatchKeys
+                                                    .contains(rowKey)) ...[
                                                   const SizedBox(height: 6),
+                                                  _buildBatchBreakdownWidget(
+                                                      item),
                                                   InkWell(
                                                     onTap: () =>
                                                         _showSelectBatchesDialog(
-                                                          item,
-                                                        ),
+                                                            item),
                                                     child: Text(
-                                                      '${_currentPickedQty(item).toInt()} pcs taken from\n${_savedBatchCounts[_buildRowKey(item)] ?? 1} ${(_savedBatchCounts[_buildRowKey(item)] ?? 1) == 1 ? 'batch' : 'batches'}.',
+                                                      _buildBatchSummaryText(
+                                                          item),
                                                       textAlign:
                                                           TextAlign.center,
                                                       style: const TextStyle(
                                                         fontSize: 11,
-                                                        color: Color(
-                                                          0xFF2563EB,
-                                                        ),
-                                                        fontWeight:
-                                                            FontWeight.w500,
+                                                        color:
+                                                            Color(0xFF2563EB),
                                                         fontFamily: 'Inter',
+                                                        decoration:
+                                                            TextDecoration
+                                                                .underline,
                                                       ),
                                                     ),
                                                   ),
-                                                ] else ...[
+                                                ] else if (_currentPickedQty(
+                                                        item) <=
+                                                    (item.quantityOrdered ??
+                                                        0)) ...[
                                                   const SizedBox(height: 6),
                                                   InkWell(
                                                     onTap: () =>
                                                         _showSelectBatchesDialog(
-                                                          item,
+                                                            item),
+                                                    child: Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(
+                                                          LucideIcons
+                                                              .alertTriangle,
+                                                          size: 12,
+                                                          color:
+                                                              Color(0xFFEF4444),
                                                         ),
-                                                    child: Text(
-                                                      'Select Batch and Bin',
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        color: Colors
-                                                            .orange
-                                                            .shade700,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        fontFamily: 'Inter',
-                                                      ),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          'Select Batch and Bin',
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            color: Color(
+                                                                0xFF2563EB),
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                            fontFamily: 'Inter',
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
                                                 ],
@@ -1802,12 +1826,10 @@ class _InventoryPicklistsCreateScreenState
                                         SizedBox(
                                           width: 40,
                                           child: InkWell(
-                                            onTap: () => setState(
-                                              () => _selectedItems.remove(item),
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
+                                            onTap: () => setState(() =>
+                                                _selectedItems.remove(item)),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
                                             child: const Padding(
                                               padding: EdgeInsets.all(8),
                                               child: Icon(
@@ -1838,8 +1860,8 @@ class _InventoryPicklistsCreateScreenState
     );
   }
 
+
   Widget _buildTableBySalesOrder() {
-    // Group _selectedItems by salesOrderId
     final Map<String, List<WarehouseStockData>> grouped = {};
     for (var item in _selectedItems) {
       final so = item.salesOrderNumber ?? 'Unknown SO';
@@ -1934,7 +1956,7 @@ class _InventoryPicklistsCreateScreenState
                               ),
                             ),
                             const VerticalDivider(width: 1, color: _borderCol),
-                            Expanded(
+                            const Expanded(
                               flex: 1,
                               child: Center(
                                 child: Text(
@@ -1949,7 +1971,7 @@ class _InventoryPicklistsCreateScreenState
                               ),
                             ),
                             const VerticalDivider(width: 1, color: _borderCol),
-                            Expanded(
+                            const Expanded(
                               flex: 1,
                               child: Center(
                                 child: Text(
@@ -2048,7 +2070,6 @@ class _InventoryPicklistsCreateScreenState
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Left side spanning details (Order & Assignee)
                           Expanded(
                             flex: 5,
                             child: Container(
@@ -2057,20 +2078,15 @@ class _InventoryPicklistsCreateScreenState
                                   right: BorderSide(color: _borderCol),
                                 ),
                               ),
-                              padding: const EdgeInsets.only(
-                                left: 0,
-                                right: 0,
-                                top: 12,
-                                bottom: 12,
-                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Expanded(
                                     flex: 3,
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Text(
                                           so,
@@ -2116,9 +2132,8 @@ class _InventoryPicklistsCreateScreenState
                                         ),
                                         child: Consumer(
                                           builder: (context, ref, _) {
-                                            final usersAsync = ref.watch(
-                                              allUsersProvider,
-                                            );
+                                            final usersAsync =
+                                                ref.watch(allUsersProvider);
                                             final assigneeOptions = usersAsync
                                                 .maybeWhen(
                                                   data: (users) => users
@@ -2131,78 +2146,39 @@ class _InventoryPicklistsCreateScreenState
                                                       .toList(),
                                                   orElse: () => <String>[],
                                                 );
-                                            const fallbackAssignees = <String>[
-                                              'User 1',
-                                              'User 2',
-                                              'User 3',
-                                            ];
                                             final assigneeItems =
                                                 assigneeOptions.isNotEmpty
-                                                ? assigneeOptions
-                                                : fallbackAssignees;
+                                                    ? assigneeOptions
+                                                    : ['User 1', 'User 2'];
 
                                             return FormDropdown<String>(
                                               hint: 'Select User',
-                                              value:
-                                                  assigneeItems.contains(
-                                                    _salesOrderGroupAssigneeByOrderNumber[so],
-                                                  )
-                                                  ? _salesOrderGroupAssigneeByOrderNumber[so]
+                                              value: assigneeItems.contains(
+                                                _salesOrderGroupAssigneeByOrderNumber[
+                                                    so],
+                                              )
+                                                  ? _salesOrderGroupAssigneeByOrderNumber[
+                                                      so]
                                                   : null,
                                               items: assigneeItems,
                                               border: Border.all(
-                                                color:
-                                                    _hoveredAssigneeFieldKeys
+                                                color: _hoveredAssigneeFieldKeys
                                                             .contains(
                                                               'so_assignee_$so',
                                                             ) ||
-                                                        _salesOrderGroupAssigneeByOrderNumber[so] !=
+                                                        _salesOrderGroupAssigneeByOrderNumber[
+                                                                so] !=
                                                             null
-                                                    ? const Color(0xFF3B82F6)
+                                                    ? _focusBorder
                                                     : Colors.transparent,
                                               ),
                                               fillColor: Colors.transparent,
-                                              displayStringForValue: (name) =>
-                                                  name,
-                                              searchStringForValue: (name) =>
-                                                  name,
-                                              itemBuilder:
-                                                  (
-                                                    item,
-                                                    isSelected,
-                                                    isHovered,
-                                                  ) => Container(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 12,
-                                                          vertical: 8,
-                                                        ),
-                                                    color: isHovered
-                                                        ? const Color(
-                                                            0xFF3B82F6,
-                                                          )
-                                                        : (isSelected
-                                                              ? const Color(
-                                                                  0xFFF3F4F6,
-                                                                )
-                                                              : Colors
-                                                                    .transparent),
-                                                    child: Text(
-                                                      item,
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        color: isHovered
-                                                            ? Colors.white
-                                                            : const Color(
-                                                                0xFF1F2937,
-                                                              ),
-                                                      ),
-                                                    ),
-                                                  ),
+                                              displayStringForValue: (v) => v,
+                                              searchStringForValue: (v) => v,
                                               onChanged: (val) => setState(
                                                 () =>
-                                                    _salesOrderGroupAssigneeByOrderNumber[so] =
-                                                        val,
+                                                    _salesOrderGroupAssigneeByOrderNumber[
+                                                        so] = val,
                                               ),
                                             );
                                           },
@@ -2214,21 +2190,17 @@ class _InventoryPicklistsCreateScreenState
                               ),
                             ),
                           ),
-                          // Right side rows for each item
                           Expanded(
-                            flex: 9, // 4 + 1 + 1 + 2 + 1
+                            flex: 9,
                             child: Column(
                               children: itemsInGroup.map((item) {
                                 final isLast = item == itemsInGroup.last;
                                 final available = item.availableQuantity;
+                                final rowKey = _buildRowKey(item);
 
                                 return Container(
-                                  padding: const EdgeInsets.only(
-                                    left: 0,
-                                    right: 0,
-                                    top: 8,
-                                    bottom: 8,
-                                  ),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
                                   decoration: BoxDecoration(
                                     border: isLast
                                         ? null
@@ -2247,11 +2219,12 @@ class _InventoryPicklistsCreateScreenState
                                           flex: 3,
                                           child: Padding(
                                             padding: const EdgeInsets.only(
-                                              left: 12,
-                                            ),
+                                                left: 12),
                                             child: Column(
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
                                               children: [
                                                 Text(
                                                   item.productName,
@@ -2281,9 +2254,8 @@ class _InventoryPicklistsCreateScreenState
                                             child: Text(
                                               '${item.quantityOrdered?.toInt() ?? 1}',
                                               textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                              ),
+                                              style:
+                                                  const TextStyle(fontSize: 13),
                                             ),
                                           ),
                                         ),
@@ -2313,16 +2285,16 @@ class _InventoryPicklistsCreateScreenState
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.center,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
                                             children: [
                                               _buildQuantityField(
                                                 fieldKey:
-                                                    '${_buildRowKey(item)}_to_pick_mobile',
+                                                    '${rowKey}_to_pick_mobile',
                                                 initialValue:
                                                     item.quantityToPick ?? 1.0,
                                                 onChanged: (val) {
-                                                  final d = double.tryParse(
-                                                    val,
-                                                  );
+                                                  final d = double.tryParse(val);
                                                   if (d != null) {
                                                     setState(() {
                                                       final idx = _selectedItems
@@ -2332,9 +2304,9 @@ class _InventoryPicklistsCreateScreenState
                                                             d < 0 ? 0.0 : d;
                                                         _selectedItems[idx] =
                                                             item.copyWith(
-                                                              quantityToPick:
-                                                                  normalizedToPick,
-                                                            );
+                                                          quantityToPick:
+                                                              normalizedToPick,
+                                                        );
                                                       }
                                                     });
                                                   }
@@ -2346,8 +2318,7 @@ class _InventoryPicklistsCreateScreenState
                                                 textAlign: TextAlign.center,
                                                 style: TextStyle(
                                                   fontSize: 10,
-                                                  color:
-                                                      available >=
+                                                  color: available >=
                                                           (item.quantityToPick ??
                                                               1.0)
                                                       ? _textSecondary
@@ -2366,41 +2337,46 @@ class _InventoryPicklistsCreateScreenState
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.center,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
                                             children: [
                                               _buildQuantityField(
                                                 fieldKey:
-                                                    '${_buildRowKey(item)}_picked_mobile',
-                                                initialValue: _currentPickedQty(
-                                                  item,
-                                                ),
-                                                hasError:
-                                                    _currentPickedQty(item) >
-                                                    (_currentQtyToPick(item) +
-                                                        0.0001),
+                                                    '${rowKey}_picked_mobile',
+                                                initialValue:
+                                                    _currentPickedQty(item),
+                                                isRed: _currentPickedQty(item) >
+                                                        (item.quantityOrdered ??
+                                                            0) &&
+                                                    !_savedBatchKeys
+                                                        .contains(rowKey),
+                                                isBlue: _currentPickedQty(item) >
+                                                        0 &&
+                                                    (_currentPickedQty(item) <=
+                                                            (item.quantityOrdered ??
+                                                                0) ||
+                                                        _savedBatchKeys
+                                                            .contains(rowKey)),
+                                                readOnly: _savedBatchKeys
+                                                    .contains(rowKey),
                                                 showPermanentBorder:
                                                     (_currentPickedQty(item) -
-                                                            _currentQtyToPick(
-                                                              item,
-                                                            ))
-                                                        .abs() <
-                                                    0.0001,
+                                                                _currentQtyToPick(
+                                                                    item))
+                                                            .abs() <
+                                                        0.0001,
                                                 onChanged: (val) {
-                                                  final d = double.tryParse(
-                                                    val,
-                                                  );
+                                                  final d = double.tryParse(val);
                                                   if (d != null) {
                                                     setState(() {
-                                                      final nonNegative = d < 0
-                                                          ? 0.0
-                                                          : d;
                                                       final idx = _selectedItems
                                                           .indexOf(item);
                                                       if (idx != -1) {
                                                         _selectedItems[idx] =
                                                             item.copyWith(
-                                                              quantityPicked:
-                                                                  nonNegative,
-                                                            );
+                                                          quantityPicked:
+                                                              d < 0 ? 0.0 : d,
+                                                        );
                                                       }
                                                     });
                                                   }
@@ -2408,37 +2384,40 @@ class _InventoryPicklistsCreateScreenState
                                               ),
                                               if (_currentPickedQty(item) >
                                                   0) ...[
-                                                if (_savedBatchKeys.contains(
-                                                  _buildRowKey(item),
-                                                )) ...[
+                                                if (_savedBatchKeys
+                                                    .contains(rowKey)) ...[
                                                   const SizedBox(height: 6),
+                                                  _buildBatchBreakdownWidget(
+                                                      item),
                                                   InkWell(
                                                     onTap: () =>
                                                         _showSelectBatchesDialog(
-                                                          item,
-                                                        ),
+                                                            item),
                                                     child: Text(
-                                                      '${_currentPickedQty(item).toInt()} pcs taken from\n${_savedBatchCounts[_buildRowKey(item)] ?? 1} ${(_savedBatchCounts[_buildRowKey(item)] ?? 1) == 1 ? 'batch' : 'batches'}.',
+                                                      _buildBatchSummaryText(
+                                                          item),
                                                       textAlign:
                                                           TextAlign.center,
                                                       style: const TextStyle(
                                                         fontSize: 11,
-                                                        color: Color(
-                                                          0xFF2563EB,
-                                                        ),
-                                                        fontWeight:
-                                                            FontWeight.w500,
+                                                        color:
+                                                            Color(0xFF2563EB),
                                                         fontFamily: 'Inter',
+                                                        decoration:
+                                                            TextDecoration
+                                                                .underline,
                                                       ),
                                                     ),
                                                   ),
-                                                ] else ...[
+                                                ] else if (_currentPickedQty(
+                                                        item) <=
+                                                    (item.quantityOrdered ??
+                                                        0)) ...[
                                                   const SizedBox(height: 6),
                                                   InkWell(
                                                     onTap: () =>
                                                         _showSelectBatchesDialog(
-                                                          item,
-                                                        ),
+                                                            item),
                                                     child: Row(
                                                       mainAxisSize:
                                                           MainAxisSize.min,
@@ -2447,13 +2426,10 @@ class _InventoryPicklistsCreateScreenState
                                                           LucideIcons
                                                               .alertTriangle,
                                                           size: 12,
-                                                          color: Color(
-                                                            0xFFEF4444,
-                                                          ),
+                                                          color:
+                                                              Color(0xFFEF4444),
                                                         ),
-                                                        const SizedBox(
-                                                          width: 4,
-                                                        ),
+                                                        const SizedBox(width: 4),
                                                         Text(
                                                           'Select Batch and Bin',
                                                           textAlign:
@@ -2461,8 +2437,7 @@ class _InventoryPicklistsCreateScreenState
                                                           style: TextStyle(
                                                             fontSize: 11,
                                                             color: Color(
-                                                              0xFF2563EB,
-                                                            ),
+                                                                0xFF2563EB),
                                                             fontWeight:
                                                                 FontWeight.w500,
                                                             fontFamily: 'Inter',
@@ -2479,12 +2454,10 @@ class _InventoryPicklistsCreateScreenState
                                         SizedBox(
                                           width: 40,
                                           child: InkWell(
-                                            onTap: () => setState(
-                                              () => _selectedItems.remove(item),
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
+                                            onTap: () => setState(() =>
+                                                _selectedItems.remove(item)),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
                                             child: const Padding(
                                               padding: EdgeInsets.all(8),
                                               child: Icon(
@@ -2669,7 +2642,7 @@ class _InventoryPicklistsCreateScreenState
 
   void _showAddItemsDialog() {
     if (_selectedWarehouse == null) return;
-    final warehouseId = _selectedWarehouse!.outletId ?? _selectedWarehouse!.id;
+    final warehouseId = _selectedWarehouse!.id;
 
     showDialog(
       context: context,
@@ -2715,7 +2688,7 @@ class _InventoryPicklistsCreateScreenState
   }
 }
 
-class _AddItemsDialogContent extends StatefulWidget {
+class _AddItemsDialogContent extends ConsumerStatefulWidget {
   final List<WarehouseStockData> warehouseItems;
   final String warehouseName;
   final String initialGrouping;
@@ -2733,10 +2706,10 @@ class _AddItemsDialogContent extends StatefulWidget {
   });
 
   @override
-  State<_AddItemsDialogContent> createState() => _AddItemsDialogContentState();
+  ConsumerState<_AddItemsDialogContent> createState() => _AddItemsDialogContentState();
 }
 
-class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
+class _AddItemsDialogContentState extends ConsumerState<_AddItemsDialogContent> {
   final Set<String> selectedRowKeys = {};
   bool _isCustomerFilterHovered = false;
   bool _isItemsFilterHovered = false;
@@ -2758,38 +2731,9 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
     selectedRowKeys.addAll(
       widget.initialSelectedItems.map((e) => _buildRowKey(e)),
     );
-
-    // Populate filters from data
-    final distinctCustomers = <String, String>{};
-    final distinctItems = <String, String>{};
-    final distinctOrders = <String, String>{};
-
-    for (var item in widget.warehouseItems) {
-      if (item.customerId != null && item.customerName != null) {
-        distinctCustomers[item.customerId!] = item.customerName!;
-      }
-      distinctItems[item.productId] = item.productName;
-      if (item.salesOrderId != null && item.salesOrderNumber != null) {
-        distinctOrders[item.salesOrderId!] = item.salesOrderNumber!;
-      }
-    }
-
-    customers = distinctCustomers.entries
-        .map((e) => {'id': e.key, 'name': e.value})
-        .toList();
-    items = distinctItems.entries
-        .map((e) => {'id': e.key, 'name': e.value})
-        .toList();
-    salesOrders = distinctOrders.entries
-        .map((e) => {'id': e.key, 'number': e.value})
-        .toList();
   }
 
-  // Real filter data
-  List<dynamic> customers = [];
-  List<dynamic> items = [];
-  List<dynamic> salesOrders = [];
-
+  // Real filter data - removed as we now use local provider data in build()
   bool isLoadingFilters = false;
 
   bool isSearching = false;
@@ -2876,10 +2820,8 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
 
   @override
   Widget build(BuildContext context) {
-    // Only use warehouse items passed from parent to avoid async merge freezes
-    final List<WarehouseStockData> displayItems = widget.warehouseItems
-        .where((item) => (item.availableQuantity) > 0)
-        .toList();
+    // Show all warehouse items (no availableQuantity filter)
+    final List<WarehouseStockData> displayItems = widget.warehouseItems;
 
     final filteredItems = displayItems.where((item) {
       // Apply Text Search
@@ -3036,6 +2978,13 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                 child: Consumer(
                   builder: (context, ref, _) {
                     final customersAsync = ref.watch(salesCustomersProvider);
+                    final customerList = customersAsync.maybeWhen(
+                      data: (list) => list
+                          .map((c) => {'id': c.id, 'name': c.displayName})
+                          .toList(),
+                      orElse: () => <Map<String, dynamic>>[],
+                    );
+
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -3062,15 +3011,17 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                               isHovered: _isCustomerFilterHovered,
                               hasValue: _selectedCustomerId.isNotEmpty,
                             ),
-                            selectedValues: customers
-                                .where((c) => _selectedCustomerId.contains(c['id']))
+                            selectedValues: customerList
+                                .where((c) =>
+                                    _selectedCustomerId.contains(c['id']))
                                 .toList(),
-                            items: customers,
+                            items: customerList,
                             onSelectedValuesChanged: (vals) => setState(() {
                               _selectedCustomerId =
                                   vals.map((v) => v['id'] as String).toSet();
                             }),
-                            displayStringForValue: (val) => val['name'] as String,
+                            displayStringForValue: (val) =>
+                                val['name'] as String,
                             showSearch: true,
                             searchStringForValue: (val) =>
                                 val['name'] as String,
@@ -3093,7 +3044,11 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
               Expanded(
                 child: Consumer(
                   builder: (context, ref, _) {
-                    final productsAsync = ref.watch(itemsControllerProvider);
+                    final itemsState = ref.watch(itemsControllerProvider);
+                    final productsList = itemsState.items
+                        .map((i) => {'id': i.id, 'name': i.productName})
+                        .toList();
+
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -3120,15 +3075,17 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                               isHovered: _isItemsFilterHovered,
                               hasValue: _selectedProductId.isNotEmpty,
                             ),
-                            selectedValues: items
-                                .where((i) => _selectedProductId.contains(i['id']))
+                            selectedValues: productsList
+                                .where((i) =>
+                                    _selectedProductId.contains(i['id']))
                                 .toList(),
-                            items: items,
+                            items: productsList,
                             onSelectedValuesChanged: (vals) => setState(() {
                               _selectedProductId =
                                   vals.map((v) => v['id'] as String).toSet();
                             }),
-                            displayStringForValue: (val) => val['name'] as String,
+                            displayStringForValue: (val) =>
+                                val['name'] as String,
                             showSearch: true,
                             searchStringForValue: (val) =>
                                 val['name'] as String,
@@ -3152,6 +3109,13 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                 child: Consumer(
                   builder: (context, ref, _) {
                     final soAsync = ref.watch(salesOrderControllerProvider);
+                    final ordersList = soAsync.maybeWhen(
+                      data: (list) => list
+                          .map((o) => {'id': o.id, 'number': o.saleNumber})
+                          .toList(),
+                      orElse: () => <Map<String, dynamic>>[],
+                    );
+
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -3180,13 +3144,13 @@ class _AddItemsDialogContentState extends State<_AddItemsDialogContent> {
                               isHovered: _isSalesOrdersFilterHovered,
                               hasValue: _selectedSalesOrderId.isNotEmpty,
                             ),
-                            selectedValues: salesOrders
+                            selectedValues: ordersList
                                 .where(
                                   (s) =>
                                       _selectedSalesOrderId.contains(s['id']),
                                 )
                                 .toList(),
-                            items: salesOrders,
+                            items: ordersList,
                             onSelectedValuesChanged: (vals) => setState(() {
                               _selectedSalesOrderId =
                                   vals.map((v) => v['id'] as String).toSet();
@@ -3836,6 +3800,15 @@ class _PicklistSelectBatchesDialogState
         row.qtyOutCtrl.text =
             batchData['qtyOut'] ?? widget.totalQuantity.toInt().toString();
         row.focCtrl.text = batchData['foc'] ?? '';
+
+        // Preserve checkbox visibility states based on filled data
+        if (row.focCtrl.text.isNotEmpty && (double.tryParse(row.focCtrl.text) ?? 0) > 0) {
+          _showFocColumn = true;
+        }
+        if (row.mfgDateCtrl.text.isNotEmpty || row.mfgBatchCtrl.text.isNotEmpty) {
+          _showMfgDetails = true;
+        }
+
         _rows.add(row);
       }
     } else {
@@ -3853,7 +3826,12 @@ class _PicklistSelectBatchesDialogState
     super.dispose();
   }
 
-  double get _totalQuantityOut => _rows.fold<double>(
+  double get _totalQuantityOnlyOut => _rows.fold<double>(
+    0,
+    (sum, r) => sum + (double.tryParse(r.qtyOutCtrl.text.trim()) ?? 0),
+  );
+
+  double get _totalAppliedIncludingFoc => _rows.fold<double>(
     0,
     (sum, r) =>
         sum +
@@ -3862,9 +3840,9 @@ class _PicklistSelectBatchesDialogState
   );
 
   double get _quantityToBeAdded =>
-      (widget.totalQuantity - _totalQuantityOut).clamp(0, widget.totalQuantity);
+      (widget.totalQuantity - _totalQuantityOnlyOut).clamp(0, widget.totalQuantity);
 
-  bool get _hasQuantityMismatch => _totalQuantityOut != widget.totalQuantity;
+  bool get _hasQuantityMismatch => (_totalQuantityOnlyOut - widget.totalQuantity).abs() > 0.0001;
 
   int get _batchCount {
     final refs = _rows
@@ -4348,7 +4326,7 @@ class _PicklistSelectBatchesDialogState
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Overwrite the line item with ${_totalQuantityOut.toInt()} quantities',
+                    'Overwrite the line item with ${_totalQuantityOnlyOut.toInt()} quantities',
                     style: const TextStyle(fontSize: 13, color: _textPrimary),
                   ),
                 ],
@@ -4550,7 +4528,7 @@ class _PicklistSelectBatchesDialogState
                               controller: row.batchNoCtrl,
                               flex: 15,
                               hint: 'Batch No',
-                              isNumber: true,
+                              isNumber: false,
                             ),
                             _buildInput(
                               controller: row.unitPackCtrl,
@@ -4743,9 +4721,7 @@ class _PicklistSelectBatchesDialogState
                           batchCount: _batchCount > 0
                               ? _batchCount
                               : _rows.length,
-                          appliedQuantity: _overwriteLineItem
-                              ? _totalQuantityOut
-                              : widget.totalQuantity,
+                          appliedQuantity: _totalQuantityOnlyOut,
                           batchDataList: batchDataList,
                         ),
                       );

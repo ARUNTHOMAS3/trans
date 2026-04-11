@@ -615,6 +615,11 @@ export class ProductsController {
     );
   }
 
+  @Get("warehouse/:warehouseId")
+  async getWarehouseProducts(@Param("warehouseId") warehouseId: string) {
+    return this.productsService.getProductsByWarehouse(warehouseId);
+  }
+
   @Delete(":id")
   async remove(@Param("id") id: string) {
     return this.productsService.remove(id);

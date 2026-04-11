@@ -126,13 +126,12 @@ final productStockInWarehouseProvider = FutureProvider.family<
 
 final stockByWarehouseProvider =
     FutureProvider.family<List<WarehouseStockData>, String>((ref, warehouseId) async {
-  final apiClient = ApiClient();
+  final apiClient = ref.watch(apiClientProvider);
   
   try {
     final response = await apiClient.get('/picklists/warehouse/$warehouseId/items');
     
     if (response.success) {
-      // Handle both direct list and wrapped response
       late List<dynamic> itemsData;
       if (response.data is List) {
         itemsData = response.data as List<dynamic>;
@@ -143,34 +142,18 @@ final stockByWarehouseProvider =
         return [];
       }
       
-      return itemsData.map((itemJson) {
-        final json = itemJson as Map<String, dynamic>;
-        return WarehouseStockData(
-          warehouseId: json['warehouseId'] ?? warehouseId,
-          productId: json['productId'] ?? '',
-          productCode: json['productCode'] ?? json['sku'] ?? '',
-          productName: json['productName'] ?? '',
-          customerId: json['customerId'],
-          stock: (json['currentStock'] ?? 0).toDouble(),
-          quantityOnHand: (json['currentStock'] ?? 0).toDouble(),
-          batchNo: json['batchNo'],
-          expiryDate: json['expiryDate'],
-          unitTitle: json['unit'],
-          availableQuantity: (json['currentStock'] ?? 0).toDouble(),
-          salesOrderId: json['salesOrderId'], 
-          salesOrderNumber: json['orderNumber'] ?? '',
-          customerName: json['customerName'] ?? 'Walk-in Customer',
-          quantityOrdered: (json['quantityOrdered'] ?? 0).toDouble(),
-          quantityToPick: (json['quantityToPick'] ?? 0).toDouble(),
-          quantityPicked: (json['quantityPicked'] ?? 0).toDouble(),
-          preferredBin: json['preferredBin'] ?? 'N/A',
-        );
-      }).toList();
+      final result = itemsData
+          .map((itemJson) => WarehouseStockData.fromJson(itemJson as Map<String, dynamic>))
+          .toList();
+      // ignore: avoid_print
+      print('[stockByWarehouseProvider] Loaded ${result.length} items for warehouse $warehouseId');
+      return result;
     } else {
       return [];
     }
   } catch (e) {
-    // Return empty list on error instead of crashing
+    // ignore: avoid_print
+    print('[stockByWarehouseProvider] Error loading items for $warehouseId: $e');
     return [];
   }
 });

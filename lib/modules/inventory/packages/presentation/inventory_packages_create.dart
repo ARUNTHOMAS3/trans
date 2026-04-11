@@ -15,7 +15,6 @@ import '../../../sales/models/sales_order_item_model.dart';
 import '../../../../shared/widgets/inputs/warehouse_popover.dart';
 import '../../../../shared/widgets/inputs/custom_text_field.dart';
 import '../../../../shared/widgets/skeleton.dart';
-import '../../../../shared/widgets/inputs/dropdown_input.dart';
 import '../../../../shared/providers/lookup_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 

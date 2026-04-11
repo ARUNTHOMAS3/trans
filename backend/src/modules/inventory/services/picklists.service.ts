@@ -111,12 +111,26 @@ export class PicklistsService {
 
   async getWarehouseItems(warehouseId: string) {
     try {
-      this.logger.log(`Fetching transaction-based items for warehouse: ${warehouseId}`);
+      this.logger.log(`Fetching items for warehouse: ${warehouseId}`);
       
       const client = this.supabaseService.getClient();
       
-      // BROAD FETCH for diagnostics
-      const { data, error } = await client
+      // STEP 1: Find all sales_order IDs that belong to this warehouse
+      const { data: orders, error: ordersError } = await client
+        .from('sales_orders')
+        .select('id')
+        .eq('warehouse_id', warehouseId);
+
+      if (ordersError) {
+        this.logger.error(`Orders query error: ${ordersError.message}`);
+        throw ordersError;
+      }
+
+      const orderIds: string[] = (orders || []).map((o: any) => o.id);
+      this.logger.log(`Found ${orderIds.length} sales orders for warehouse ${warehouseId}`);
+
+      // STEP 2a: Items where sales_order_items.warehouse_id matches directly
+      const { data: directItems, error: directError } = await client
         .from('sales_order_items')
         .select(`
           id,
@@ -138,52 +152,80 @@ export class PicklistsService {
             sku,
             unit_id,
             unit:units(unit_name),
-            storage:storage_locations(location_name)
+            storage:storage_conditions(location_name)
           )
-        `);
+        `)
+        .eq('warehouse_id', warehouseId);
 
-      if (error) {
-        this.logger.error(`Supabase error: ${error.message}`);
-        throw error;
+      if (directError) {
+        this.logger.error(`Direct query error: ${directError.message}`);
       }
 
-      this.logger.log(`Raw data from DB: Found ${data?.length || 0} items total.`);
-      
-      // Try to find ANY match for debug purposes
-      const directMatch = (data || []).filter((item: any) => 
-        item.warehouse_id === warehouseId || item.outlet_id === warehouseId
-      );
-      this.logger.log(`Direct warehouse match count: ${directMatch.length}`);
+      // STEP 2b: Items whose parent sales_order belongs to this warehouse
+      let parentItems: any[] = [];
+      if (orderIds.length > 0) {
+        const { data, error: parentError } = await client
+          .from('sales_order_items')
+          .select(`
+            id,
+            productId:product_id,
+            salesOrderId:sales_order_id,
+            quantity,
+            outlet_id,
+            warehouse_id,
+            salesOrder:sales_orders(
+              sale_number, 
+              warehouse_id,
+              status,
+              customer_id,
+              customer:customers(display_name)
+            ),
+            product:products(
+              id,
+              product_name,
+              sku,
+              unit_id,
+              unit:units(unit_name),
+              storage:storage_conditions(location_name)
+            )
+          `)
+          .in('sales_order_id', orderIds)
+          .is('warehouse_id', null);
 
-      const orderMatch = (data || []).filter((item: any) => 
-        item.salesOrder?.warehouse_id === warehouseId
-      );
-      this.logger.log(`Order warehouse match count: ${orderMatch.length}`);
-
-      // Final dataset: Use matches if they exist, otherwise FALLBACK to everything non-draft for testing
-      let finalData = directMatch.length > 0 ? directMatch : (orderMatch.length > 0 ? orderMatch : (data || []));
-      
-      // Filter out Draft orders if we have lots of data
-      if (finalData.length > 50) {
-        finalData = finalData.filter((item: any) => item.salesOrder?.status?.toLowerCase() !== 'draft');
+        if (parentError) {
+          this.logger.error(`Parent query error: ${parentError.message}`);
+        }
+        parentItems = data || [];
       }
 
-      this.logger.log(`Returning ${finalData.length} items to frontend for warehouse ${warehouseId}`);
+      // Merge and deduplicate by item id
+      const allItems = [...(directItems || []), ...parentItems];
+      const seen = new Set<string>();
+      const uniqueItems = allItems.filter((item: any) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+
+      this.logger.log(`Direct: ${directItems?.length || 0}, Parent: ${parentItems.length}, Unique: ${uniqueItems.length}`);
 
       return {
-        data: finalData.map((item: any) => ({
-          warehouseId: item.warehouse_id || item.outlet_id || warehouseId,
-          productId: item.productId,
-          salesOrderId: item.salesOrderId,
-          customerId: item.salesOrder?.customer_id,
+        data: uniqueItems.map((item: any) => ({
+          warehouseId: item.warehouse_id || item.salesOrder?.warehouse_id || warehouseId,
+          productId: item.productId || '',
+          salesOrderId: item.salesOrderId || '',
+          customerId: item.salesOrder?.customer_id || '',
           productCode: item.product?.sku || '',
           productName: item.product?.product_name || '',
           currentStock: 0, 
-          quantityOrdered: item.quantity || 0,
+          quantityOnHand: 0,
+          availableQuantity: Number(item.quantity) || 0,
+          quantityToPick: Number(item.quantity) || 0,
+          quantityOrdered: Number(item.quantity) || 0,
           orderNumber: item.salesOrder?.sale_number || '',
           customerName: item.salesOrder?.customer?.display_name || 'Walk-in Customer',
           preferredBin: item.product?.storage?.location_name || 'N/A',
-          unit: item.product?.unit?.unit_name || item.product?.unit_id,
+          unit: item.product?.unit?.unit_name || item.product?.unit_id || '',
         })),
         success: true,
       };

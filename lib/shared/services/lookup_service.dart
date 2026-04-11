@@ -85,6 +85,20 @@ class LookupService {
     }
     return [];
   }
+
+  Future<List<Map<String, dynamic>>> getWarehouseProducts(
+    String warehouseId,
+  ) async {
+    try {
+      final response = await _api.get('/products/warehouse/$warehouseId');
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching warehouse products', error: e);
+    }
+    return [];
+  }
 }
 
 final lookupServiceProvider = Provider<LookupService>((ref) {

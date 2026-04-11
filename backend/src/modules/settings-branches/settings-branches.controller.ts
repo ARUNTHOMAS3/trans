@@ -10,11 +10,11 @@ import {
   Query,
   HttpStatus,
 } from "@nestjs/common";
-import { BranchesService } from "./branches.service";
+import { SettingsBranchesService } from "./settings-branches.service";
 
 @Controller("branches")
-export class BranchesController {
-  constructor(private readonly branchesService: BranchesService) {}
+export class SettingsBranchesController {
+  constructor(private readonly settingsBranchesService: SettingsBranchesService) {}
 
   @Get("business-types")
   async findBusinessTypes(@Query("org_id") orgId: string) {
@@ -25,7 +25,7 @@ export class BranchesController {
       };
     }
     try {
-      return await this.branchesService.findBusinessTypes(orgId);
+      return await this.settingsBranchesService.findBusinessTypes(orgId);
     } catch (error: any) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -43,7 +43,7 @@ export class BranchesController {
       };
     }
     try {
-      const data = await this.branchesService.createBusinessType(body);
+      const data = await this.settingsBranchesService.createBusinessType(body);
       return { data, message: "Business type created successfully" };
     } catch (error: any) {
       return {
@@ -61,7 +61,7 @@ export class BranchesController {
         message: "org_id is required",
       };
     try {
-      return await this.branchesService.findAll(orgId);
+      return await this.settingsBranchesService.findAll(orgId);
     } catch (error: any) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -77,7 +77,7 @@ export class BranchesController {
         statusCode: HttpStatus.BAD_REQUEST,
         message: "org_id is required",
       };
-    const branch = await this.branchesService.findOne(id, orgId);
+    const branch = await this.settingsBranchesService.findOne(id, orgId);
     if (!branch)
       return { statusCode: HttpStatus.NOT_FOUND, message: "Branch not found" };
     return branch;
@@ -86,7 +86,7 @@ export class BranchesController {
   @Post()
   async create(@Body() body: any) {
     try {
-      const data = await this.branchesService.create(body);
+      const data = await this.settingsBranchesService.create(body);
       return { data, message: "Branch created successfully" };
     } catch (error: any) {
       return {
@@ -106,7 +106,7 @@ export class BranchesController {
         message: "org_id is required",
       };
     try {
-      const data = await this.branchesService.update(id, orgId, body);
+      const data = await this.settingsBranchesService.update(id, orgId, body);
       return { data, message: "Branch updated successfully" };
     } catch (error: any) {
       return {
@@ -124,7 +124,7 @@ export class BranchesController {
         message: "org_id is required",
       };
     try {
-      await this.branchesService.remove(id, orgId);
+      await this.settingsBranchesService.remove(id, orgId);
       return { message: "Branch deleted successfully" };
     } catch (error: any) {
       return {

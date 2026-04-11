@@ -139,7 +139,7 @@ class _InventoryShipmentsCreateScreenState
       hintStyle: const TextStyle(color: _textSecondary, fontSize: 13),
       filled: true,
       fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       suffixIcon: suffixIcon,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
@@ -224,30 +224,36 @@ class _InventoryShipmentsCreateScreenState
                           children: [
                             _buildFormRow(
                               label: 'Customer Name',
-                              isRequired: true,
+                              isRequired: false,
                               child: MouseRegion(
                                 onEnter: (_) => _onHover('customer', true),
                                 onExit: (_) => _onHover('customer', false),
                                 child: ref.watch(salesCustomersProvider).when(
-                                  data: (customers) => FormDropdown<String>(
-                                    fillColor: Colors.white,
-                                    value: _selectedCustomer,
-                                    isHovered: _hoveredFields.contains('customer'),
-                                    hint: 'Select Customer',
-                                    items: customers.map((e) => e.id).toList(),
-                                    maxVisibleItems: 4,
-                                    itemBuilder: (item, isSelected, isHovered) => _commonItemBuilder<String>(
-                                      item, 
-                                      isSelected, 
-                                      isHovered, 
-                                      (id) => customers.firstWhere((c) => c.id == id).displayName,
-                                    ),
-                                    displayStringForValue: (val) {
-                                      final customer = customers.firstWhere((c) => c.id == val);
-                                      return customer.displayName;
-                                    },
-                                    searchStringForValue: (val) {
-                                      final customer = customers.firstWhere((c) => c.id == val);
+                                    data: (customers) => FormDropdown<String>(
+                                      fillColor: Colors.white,
+                                      value: _selectedCustomer,
+                                      height: 32,
+                                      isHovered: _hoveredFields.contains('customer'),
+                                      hint: 'Select Customer',
+                                      items: customers.map((e) => e.id).toList(),
+                                      maxVisibleItems: 4,
+                                      textStyle: const TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 13,
+                                        fontFamily: 'Inter',
+                                      ),
+                                      itemBuilder: (item, isSelected, isHovered) => _commonItemBuilder<String>(
+                                        item, 
+                                        isSelected, 
+                                        isHovered, 
+                                        (id) => customers.firstWhere((c) => c.id == id).displayName,
+                                      ),
+                                      displayStringForValue: (val) {
+                                        final customer = customers.firstWhere((c) => c.id == val);
+                                        return customer.displayName;
+                                      },
+                                      searchStringForValue: (val) {
+                                        final customer = customers.firstWhere((c) => c.id == val);
                                       return customer.displayName;
                                     },
                                     onChanged: (val) {
@@ -258,17 +264,16 @@ class _InventoryShipmentsCreateScreenState
                                         _selectedSalesOrderData = null;
                                       });
                                     },
-                                    height: 32,
                                   ),
                                   loading: () => const Skeleton(
-                                    height: 40,
+                                    height: 32,
                                     width: double.infinity,
                                   ),
                                   error: (e, _) => Text('Error: $e'),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 20),
                             _buildFormRow(
                               label: 'Sales Order#',
                               isRequired: true,
@@ -286,6 +291,12 @@ class _InventoryShipmentsCreateScreenState
                                       displayStringForValue: (s) => s,
                                       searchStringForValue: (s) => s,
                                       onChanged: (val) {},
+                                      height: 32,
+                                      textStyle: const TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 13,
+                                        fontFamily: 'Inter',
+                                      ),
                                     )
                                     : ref
                                         .watch(
@@ -311,9 +322,14 @@ class _InventoryShipmentsCreateScreenState
                                             });
                                           },
                                           height: 32,
+                                          textStyle: const TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 13,
+                                            fontFamily: 'Inter',
+                                          ),
                                         ),
                                         loading: () => const Skeleton(
-                                          height: 40,
+                                          height: 32,
                                           width: double.infinity,
                                         ),
                                         error: (e, _) => Text('Error: $e'),
@@ -327,12 +343,39 @@ class _InventoryShipmentsCreateScreenState
                   ),
 
                     Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1100),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          const SizedBox(height: 12),
+                          // Info Banner
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF7ED),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFFFEDD5)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(LucideIcons.info, size: 18, color: Color(0xFFC2410C)),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Text(
+                                    'Create multiple shipments for a single sales order if needed.',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF9A3412),
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
                           Opacity(
                             opacity: _isSalesOrderSelected ? 1.0 : 0.3,
                             child: IgnorePointer(
@@ -344,7 +387,7 @@ class _InventoryShipmentsCreateScreenState
                                     onEnter: (_) => _onHover('package', true),
                                     onExit: (_) => _onHover('package', false),
                                     child: SizedBox(
-                                      width: 500,
+                                      width: 380,
                                       child: _buildFormRow(
                                         label: 'Package#',
                                         isRequired: true,
@@ -376,13 +419,13 @@ class _InventoryShipmentsCreateScreenState
                                     onEnter: (_) => _onHover('shipmentOrder', true),
                                     onExit: (_) => _onHover('shipmentOrder', false),
                                     child: SizedBox(
-                                      width: 500,
+                                      width: 380,
                                       child: _buildFormRow(
                                         label: 'Shipment Order#',
                                         isRequired: true,
                                         child: CustomTextField(
                                           controller: _shipmentOrderCtrl,
-                                          height: 36,
+                                          height: 32,
                                           suffixWidget: const ZTooltip(
                                             message: 'Click here to enable or disable auto-generation of Shipment numbers.',
                                             child: Icon(LucideIcons.settings, size: 16, color: Color(0xFF0088FF)),
@@ -398,7 +441,7 @@ class _InventoryShipmentsCreateScreenState
                                     onEnter: (_) => _onHover('shipDate', true),
                                     onExit: (_) => _onHover('shipDate', false),
                                     child: SizedBox(
-                                      width: 500,
+                                      width: 380,
                                       child: _buildFormRow(
                                         label: 'Ship Date',
                                         isRequired: true,
@@ -434,7 +477,7 @@ class _InventoryShipmentsCreateScreenState
                                         onEnter: (_) => _onHover('carrier', true),
                                         onExit: (_) => _onHover('carrier', false),
                                         child: SizedBox(
-                                          width: 500,
+                                          width: 380,
                                           child: _buildFormRow(
                                             label: 'Carrier',
                                             isRequired: true,
@@ -457,7 +500,7 @@ class _InventoryShipmentsCreateScreenState
                                         onEnter: (_) => _onHover('tracking', true),
                                         onExit: (_) => _onHover('tracking', false),
                                         child: SizedBox(
-                                          width: 500,
+                                          width: 380,
                                           child: _buildFormRow(
                                             label: 'Tracking#',
                                             child: CustomTextField(
@@ -476,7 +519,7 @@ class _InventoryShipmentsCreateScreenState
                                     onEnter: (_) => _onHover('trackingUrl', true),
                                     onExit: (_) => _onHover('trackingUrl', false),
                                     child: SizedBox(
-                                      width: 500,
+                                      width: 380,
                                       child: _buildFormRow(
                                         label: 'Tracking URL',
                                         child: CustomTextField(
@@ -486,13 +529,13 @@ class _InventoryShipmentsCreateScreenState
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 20),
 
                                   MouseRegion(
                                     onEnter: (_) => _onHover('shippingCharges', true),
                                     onExit: (_) => _onHover('shippingCharges', false),
                                     child: SizedBox(
-                                      width: 500,
+                                      width: 380,
                                       child: _buildFormRow(
                                         label: 'Shipping Charges',
                                         child: Container(
@@ -501,7 +544,7 @@ class _InventoryShipmentsCreateScreenState
                                           decoration: BoxDecoration(
                                             color: Colors.white,
                                             borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: _borderCol), // Always transparent
+                                            border: Border.all(color: _borderCol), 
                                           ),
                                           child: Row(
                                             children: [
@@ -519,12 +562,14 @@ class _InventoryShipmentsCreateScreenState
                                                 child: TextField(
                                                   controller: _shippingChargesCtrl,
                                                   textAlign: TextAlign.right,
+                                                  keyboardType: TextInputType.number,
                                                   style: const TextStyle(fontSize: 14, fontFamily: 'Inter'),
                                                   decoration: _standardInputDecoration(
                                                     isHovered: _hoveredFields.contains('shippingCharges'),
                                                     hint: '0.00',
                                                   ).copyWith(
                                                     fillColor: Colors.transparent,
+                                                    contentPadding: EdgeInsets.zero,
                                                     enabledBorder: OutlineInputBorder(
                                                       borderRadius: BorderRadius.circular(4),
                                                       borderSide: BorderSide(
@@ -541,7 +586,7 @@ class _InventoryShipmentsCreateScreenState
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 20),
 
                                   // Notes
                                   MouseRegion(
@@ -592,7 +637,7 @@ class _InventoryShipmentsCreateScreenState
                                   ),
 
                                   if (_isDelivered) ...[
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: 20),
                                     Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
@@ -608,7 +653,7 @@ class _InventoryShipmentsCreateScreenState
                                         const SizedBox(height: 8),
                                         Container(
                                           width: 380,
-                                          height: 44,
+                                          height: 32,
                                           decoration: BoxDecoration(
                                             color: Colors.white,
                                             borderRadius: BorderRadius.circular(6),
@@ -650,12 +695,15 @@ class _InventoryShipmentsCreateScreenState
                                                           width: 1.4,
                                                         ),
                                                       ),
-                                                      prefixIcon: Icon(LucideIcons.calendar, size: 16, color: _textSecondary),
+                                                      prefixIcon: const Icon(LucideIcons.calendar, size: 16, color: _textSecondary),
                                                     ),
                                                   ),
                                                 ),
                                               ),
-                                              const VerticalDivider(width: 1, thickness: 1, color: _borderCol),
+                                              SizedBox(
+                                                height: 18,
+                                                child: const VerticalDivider(width: 1, thickness: 1, color: _borderCol),
+                                              ),
                                               Expanded(
                                                 flex: 2,
                                                 child: MouseRegion(
@@ -664,6 +712,7 @@ class _InventoryShipmentsCreateScreenState
                                                   child: FormDropdown<String>(
                                                     value: _selectedTime,
                                                     items: _times,
+                                                    height: 30,
                                                     isHovered: _hoveredFields.contains('delTime'),
                                                     hint: 'HH:MM',
                                                     maxVisibleItems: 5,
@@ -672,6 +721,11 @@ class _InventoryShipmentsCreateScreenState
                                                       setState(() => _selectedTime = val);
                                                     },
                                                     prefixWidget: const Icon(LucideIcons.clock, size: 16, color: _textSecondary),
+                                                    textStyle: const TextStyle(
+                                                      color: _textPrimary,
+                                                      fontSize: 12,
+                                                      fontFamily: 'Inter',
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -710,7 +764,7 @@ class _InventoryShipmentsCreateScreenState
                                       const Icon(LucideIcons.alertTriangle, size: 14, color: _dangerRed),
                                     ],
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 20),
                                   Container(
                                     width: 750,
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -787,13 +841,8 @@ class _InventoryShipmentsCreateScreenState
     String? subLabel,
     bool isRequired = false,
   }) {
-    final Color labelColor = isRequired
-        ? const Color(0xFFDC2626)
-        : const Color(0xFF1F2937); // Match Packages label color logic
     return Row(
-      crossAxisAlignment: subLabel != null
-          ? CrossAxisAlignment.start
-          : CrossAxisAlignment.center,
+      crossAxisAlignment: subLabel != null ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
         SizedBox(
           width: 150,
@@ -809,10 +858,19 @@ class _InventoryShipmentsCreateScreenState
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
-                      color: labelColor,
+                      color: isRequired ? _dangerRed : _textPrimary,
                       fontFamily: 'Inter',
                     ),
                   ),
+                  if (isRequired)
+                    const Text(
+                      ' *',
+                      style: TextStyle(
+                        color: _dangerRed,
+                        fontSize: 13,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
                 ],
               ),
               if (subLabel != null)

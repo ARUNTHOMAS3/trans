@@ -19,17 +19,17 @@ const ROUTE_TABLE_MAP: RouteEntry[] = [
   // Accountant — order matters: specific sub-routes before catch-all
   {
     pattern: /\/accountant\/manual-journals\/[0-9a-fA-F-]{36}/,
-    table: "accounts_manual_journals",
+    table: "manual_journals",
     module: "accountant",
   },
   {
     pattern: /\/accountant\/recurring-journals\/[0-9a-fA-F-]{36}/,
-    table: "accounts_recurring_journals",
+    table: "recurring_journals",
     module: "accountant",
   },
   {
     pattern: /\/accountant\/journal-templates\/[0-9a-fA-F-]{36}/,
-    table: "accounts_journal_templates",
+    table: "journal_templates",
     module: "accountant",
   },
   {
@@ -64,12 +64,12 @@ const ROUTE_TABLE_MAP: RouteEntry[] = [
   // Purchases
   {
     pattern: /\/purchase-orders\/[0-9a-fA-F-]{36}/,
-    table: "purchases_purchase_orders",
+    table: "purchase_orders",
     module: "purchases",
   },
   {
     pattern: /^\/api\/v1\/purchase-orders$/,
-    table: "purchases_purchase_orders",
+    table: "purchase_orders",
     module: "purchases",
   },
   {

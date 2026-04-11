@@ -91,7 +91,7 @@ describe("ReportsService.getAuditLogs", () => {
       page: 0,
       pageSize: 500,
       search: "manual journals",
-      tables: ["accounts_manual_journals"],
+      tables: ["manual_journals"],
       actions: ["UPDATE", "DELETE"],
       requestId: "req-123",
       source: "api",
@@ -111,7 +111,7 @@ describe("ReportsService.getAuditLogs", () => {
     expect(calls.eq).toHaveBeenCalledWith("request_id", "req-123");
     expect(calls.eq).toHaveBeenCalledWith("source", "api");
     expect(calls.in).toHaveBeenCalledWith("table_name", [
-      "accounts_manual_journals",
+      "manual_journals",
     ]);
     expect(calls.in).toHaveBeenCalledWith("action", ["UPDATE", "DELETE"]);
     expect(calls.gte).toHaveBeenCalledWith(

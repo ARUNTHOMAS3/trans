@@ -76,7 +76,7 @@ export class SalesService {
       throw new BadRequestException("documentType is required");
 
     // Build a map of taxId → { associateTaxId, taxRate } by resolving tax groups
-    // sales_order_items.tax_id FK references associate_taxes, but the UI sends tax_groups UUIDs.
+    // sales_order_items.tax_id FK references tax_rates, but the UI sends tax_groups UUIDs.
     const taxIdSet = [
       ...new Set((items as any[]).map((i) => i.taxId).filter(Boolean)),
     ];
@@ -86,9 +86,9 @@ export class SalesService {
     >();
 
     if (taxIdSet.length > 0) {
-      // Check which IDs exist in associate_taxes
+      // Check which IDs exist in tax_rates
       const { data: assocTaxes } = await client
-        .from("associate_taxes")
+        .from("tax_rates")
         .select("id, tax_rate")
         .in("id", taxIdSet);
 
@@ -99,7 +99,7 @@ export class SalesService {
         });
       }
 
-      // For IDs not found in associate_taxes, resolve via tax_groups
+      // For IDs not found in tax_rates, resolve via tax_groups
       const unresolved = taxIdSet.filter((id) => !taxResolutionMap.has(id));
       if (unresolved.length > 0) {
         const { data: groups } = await client
@@ -260,7 +260,7 @@ export class SalesService {
 
     if (taxIdSet.length > 0) {
       const { data: assocTaxes } = await client
-        .from("associate_taxes")
+        .from("tax_rates")
         .select("id, tax_rate")
         .in("id", taxIdSet);
 

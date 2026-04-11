@@ -128,6 +128,7 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                   setState(() => _selectedCompositeItem = val);
                   _markDirty();
                 },
+                height: 32,
               ),
             ),
             if (_selectedCompositeItem != null) ...[
@@ -138,6 +139,7 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                 labelWidth: 180,
                 child: CustomTextField(
                   controller: _assemblyNumCtrl,
+                  height: 36,
                   prefixIcon: Icons
                       .settings_outlined, // Fallback to prefix since suffix not supported
                 ),
@@ -178,6 +180,7 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                   child: IgnorePointer(
                     child: CustomTextField(
                       controller: _assembledDateCtrl,
+                      height: 32,
                       prefixIcon: Icons.calendar_today_outlined,
                     ),
                   ),
@@ -193,6 +196,7 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                   children: [
                     CustomTextField(
                       controller: _quantityCtrl,
+                      height: 32,
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 4),
@@ -251,6 +255,7 @@ class _AssemblyCreateScreenState extends State<AssemblyCreateScreen> {
                     setState(() => _selectedWarehouse = val);
                     _markDirty();
                   },
+                  height: 32,
                 ),
               ),
             ],

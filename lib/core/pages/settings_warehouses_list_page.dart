@@ -259,7 +259,7 @@ class _SettingsWarehousesListPageState
       }
 
       final res = await _apiClient.get(
-        'warehouses-settings',
+        'warehouses',
         queryParameters: <String, dynamic>{'org_id': orgId},
       );
       if (!mounted) return;
@@ -900,7 +900,7 @@ class _SettingsWarehousesListPageState
     final nextActive = !warehouse.isActive;
     try {
       final res = await _apiClient.put(
-        'warehouses-settings/${warehouse.id}',
+        'warehouses/${warehouse.id}',
         data: {'org_id': _currentOrgId, 'is_active': nextActive},
       );
       if (!mounted) return;
@@ -938,7 +938,7 @@ class _SettingsWarehousesListPageState
 
     try {
       final res = await _apiClient.delete(
-        'warehouses-settings/${warehouse.id}?org_id=$_currentOrgId',
+        'warehouses/${warehouse.id}?org_id=$_currentOrgId',
       );
       if (!mounted) return;
       if (res.success) {
@@ -1147,7 +1147,7 @@ class _SettingsWarehousesListPageState
                               Navigator.of(dialogContext).pop();
                               try {
                                 final res = await _apiClient.put(
-                                  'warehouses-settings/${warehouse.id}',
+                                  'warehouses/${warehouse.id}',
                                   data: {
                                     'org_id': orgId,
                                     'customer_id': selectedCustomerId,

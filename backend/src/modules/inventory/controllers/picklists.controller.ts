@@ -29,6 +29,12 @@ export class PicklistsController {
     );
   }
 
+  // Must be ABOVE :id so NestJS matches "warehouse/xxx/items" first
+  @Get("warehouse/:warehouseId/items")
+  getWarehouseItems(@Param("warehouseId") warehouseId: string) {
+    return this.picklistsService.getWarehouseItems(warehouseId);
+  }
+
   @Get(":id")
   findOne(@Param("id") id: string) {
     return this.picklistsService.findOne(id);
@@ -47,10 +53,5 @@ export class PicklistsController {
   @Delete(":id")
   remove(@Param("id") id: string) {
     return this.picklistsService.remove(id);
-  }
-
-  @Get("warehouse/:warehouseId/items")
-  getWarehouseItems(@Param("warehouseId") warehouseId: string) {
-    return this.picklistsService.getWarehouseItems(warehouseId);
   }
 }

@@ -945,13 +945,13 @@ export const organizations = pgTable("organization", {
   hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false),
   districtId: uuid("district_id"),
   localBodyId: uuid("local_body_id"),
-  assemblyId: uuid("assembly_id").references(() => settingsAssemblies.id),
+  assemblyId: uuid("assembly_id").references(() => assembliesConstituencies.id),
   wardId: uuid("ward_id"),
   paymentStubDistrictId: uuid("payment_stub_district_id"),
   paymentStubLocalBodyId: uuid("payment_stub_local_body_id"),
   paymentStubWardId: uuid("payment_stub_ward_id"),
   paymentStubAssemblyId: uuid("payment_stub_assembly_id").references(
-    () => settingsAssemblies.id,
+    () => assembliesConstituencies.id,
   ),
 
   isActive: boolean("is_active").default(true),
@@ -960,24 +960,24 @@ export const organizations = pgTable("organization", {
 });
 
 // LSGD Hierarchy Masters
-export const settingsDistricts = pgTable("settings_districts", {
+export const lsgdDistricts = pgTable("lsgd_districts", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
   stateId: uuid("state_id").notNull(),
 });
 
-export const settingsLocalBodies = pgTable("settings_local_bodies", {
+export const lsgdLocalBodies = pgTable("lsgd_local_bodies", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
-  districtId: uuid("district_id").notNull().references(() => settingsDistricts.id),
+  districtId: uuid("district_id").notNull().references(() => lsgdDistricts.id),
   bodyType: varchar("body_type", { length: 50 }),
 });
 
-export const settingsAssemblies = pgTable("settings_assemblies", {
+export const assembliesConstituencies = pgTable("assemblies_constituencies", {
   id: uuid("id").primaryKey().defaultRandom(),
   districtId: uuid("district_id")
     .notNull()
-    .references(() => settingsDistricts.id),
+    .references(() => lsgdDistricts.id),
   name: varchar("name", { length: 150 }).notNull(),
   code: varchar("code", { length: 50 }),
   isActive: boolean("is_active").notNull().default(true),
@@ -985,11 +985,11 @@ export const settingsAssemblies = pgTable("settings_assemblies", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const settingsWards = pgTable("settings_wards", {
+export const lsgdWards = pgTable("lsgd_wards", {
   id: uuid("id").primaryKey().defaultRandom(),
   wardNumber: integer("ward_number").notNull(),
   wardName: varchar("ward_name", { length: 255 }),
-  localBodyId: uuid("local_body_id").notNull().references(() => settingsLocalBodies.id),
+  localBodyId: uuid("local_body_id").notNull().references(() => lsgdLocalBodies.id),
 });
 
 export const settingsLSGDSeedStage = pgTable("settings_lsgd_seed_stage", {
@@ -1016,10 +1016,10 @@ export const settingsBranches = pgTable("settings_branches", {
   state: varchar("state", { length: 100 }),
   country: varchar("country", { length: 100 }).default("India"),
   pincode: varchar("pincode", { length: 20 }),
-  districtId: uuid("district_id").references(() => settingsDistricts.id),
-  localBodyId: uuid("local_body_id").references(() => settingsLocalBodies.id),
-  assemblyId: uuid("assembly_id").references(() => settingsAssemblies.id),
-  wardId: uuid("ward_id").references(() => settingsWards.id),
+  districtId: uuid("district_id").references(() => lsgdDistricts.id),
+  localBodyId: uuid("local_body_id").references(() => lsgdLocalBodies.id),
+  assemblyId: uuid("assembly_id").references(() => assembliesConstituencies.id),
+  wardId: uuid("ward_id").references(() => lsgdWards.id),
   landmark: text("landmark"),
   isPrimary: boolean("is_primary").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
@@ -1065,10 +1065,10 @@ export const settingsBranches = pgTable("settings_branches", {
   // Payment Stub Address (Independent for each branch)
   hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false),
   paymentStubAddress: text("payment_stub_address"),
-  paymentStubDistrictId: uuid("payment_stub_district_id").references(() => settingsDistricts.id),
-  paymentStubLocalBodyId: uuid("payment_stub_local_body_id").references(() => settingsLocalBodies.id),
-  paymentStubWardId: uuid("payment_stub_ward_id").references(() => settingsWards.id),
-  paymentStubAssemblyId: uuid("payment_stub_assembly_id").references(() => settingsAssemblies.id),
+  paymentStubDistrictId: uuid("payment_stub_district_id").references(() => lsgdDistricts.id),
+  paymentStubLocalBodyId: uuid("payment_stub_local_body_id").references(() => lsgdLocalBodies.id),
+  paymentStubWardId: uuid("payment_stub_ward_id").references(() => lsgdWards.id),
+  paymentStubAssemblyId: uuid("payment_stub_assembly_id").references(() => assembliesConstituencies.id),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1458,9 +1458,9 @@ export const warehouses = pgTable("warehouses", {
   addressStreet2: text("address_street_2"),
   city: text("city"),
   state: text("state"),
-  districtId: uuid("district_id").references(() => settingsDistricts.id),
-  localBodyId: uuid("local_body_id").references(() => settingsLocalBodies.id),
-  wardId: uuid("ward_id").references(() => settingsWards.id),
+  districtId: uuid("district_id").references(() => lsgdDistricts.id),
+  localBodyId: uuid("local_body_id").references(() => lsgdLocalBodies.id),
+  wardId: uuid("ward_id").references(() => lsgdWards.id),
   zipCode: varchar("zip_code", { length: 20 }),
   countryRegion: text("country_region").notNull(),
   phone: varchar("phone", { length: 50 }),

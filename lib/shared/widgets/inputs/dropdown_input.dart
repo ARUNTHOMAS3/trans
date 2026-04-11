@@ -65,6 +65,7 @@ class FormDropdown<T> extends StatefulWidget {
   final bool hideSelectedItemsInMultiSelect;
   final Widget? prefixWidget;
   final bool isHovered;
+  final TextStyle? textStyle;
 
   const FormDropdown({
     super.key,
@@ -115,6 +116,7 @@ class FormDropdown<T> extends StatefulWidget {
     this.hideSelectedItemsInMultiSelect = false,
     this.prefixWidget,
     this.isHovered = false,
+    this.textStyle,
   });
 
   @override
@@ -230,7 +232,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
 
     // Remove already selected items in multiSelect mode
     if (widget.multiSelect && widget.hideSelectedItemsInMultiSelect) {
-      baseItems = baseItems.where((item) => !widget.selectedValues.contains(item));
+      final selectedList = widget.selectedValues ?? [];
+      baseItems = baseItems.where((item) => !selectedList.contains(item));
     }
 
     if (normalized.isEmpty) {
@@ -623,7 +626,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                       child: widget.listBuilder!(_filteredItems, (item) {
                         final int index = _filteredItems.indexOf(item);
                         final bool isSelected = widget.multiSelect
-                            ? widget.selectedValues.contains(item)
+                            ? (widget.selectedValues ?? []).contains(item)
                             : item == widget.value;
                         final bool isHovered = _hoveredIndex == index;
                         final bool enabled =
@@ -688,7 +691,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                             itemBuilder: (context, index) {
                               final item = _filteredItems[index];
                               final bool isSelected = widget.multiSelect
-                                  ? widget.selectedValues.contains(item)
+                                  ? (widget.selectedValues ?? []).contains(item)
                                   : item == widget.value;
                               final bool isHovered = _hoveredIndex == index;
                               final bool enabled =
@@ -1019,7 +1022,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                                           : widget.value.toString())
                                     : (widget.hint ?? ''),
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
+                                style: widget.textStyle ?? TextStyle(
                                   fontSize: 13,
                                   color: hasValue
                                       ? AppTheme.textPrimary

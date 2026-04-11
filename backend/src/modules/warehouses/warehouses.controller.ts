@@ -10,12 +10,12 @@ import {
   Query,
   HttpStatus,
 } from "@nestjs/common";
-import { WarehousesSettingsService } from "./warehouses-settings.service";
+import { WarehousesService } from "./warehouses.service";
 
-@Controller("warehouses-settings")
-export class WarehousesSettingsController {
+@Controller("warehouses")
+export class WarehousesController {
   constructor(
-    private readonly warehousesSettingsService: WarehousesSettingsService,
+    private readonly warehousesService: WarehousesService,
   ) {}
 
   @Get()
@@ -26,7 +26,7 @@ export class WarehousesSettingsController {
         message: "org_id is required",
       };
     try {
-      return await this.warehousesSettingsService.findAll(orgId);
+      return await this.warehousesService.findAll(orgId);
     } catch (error: any) {
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -42,7 +42,7 @@ export class WarehousesSettingsController {
         statusCode: HttpStatus.BAD_REQUEST,
         message: "org_id is required",
       };
-    const warehouse = await this.warehousesSettingsService.findOne(id, orgId);
+    const warehouse = await this.warehousesService.findOne(id, orgId);
     if (!warehouse)
       return {
         statusCode: HttpStatus.NOT_FOUND,
@@ -54,7 +54,7 @@ export class WarehousesSettingsController {
   @Post()
   async create(@Body() body: any) {
     try {
-      const data = await this.warehousesSettingsService.create(body);
+      const data = await this.warehousesService.create(body);
       return { data, message: "Warehouse created successfully" };
     } catch (error: any) {
       return {
@@ -74,7 +74,7 @@ export class WarehousesSettingsController {
         message: "org_id is required",
       };
     try {
-      const data = await this.warehousesSettingsService.update(id, orgId, body);
+      const data = await this.warehousesService.update(id, orgId, body);
       return { data, message: "Warehouse updated successfully" };
     } catch (error: any) {
       return {
@@ -92,7 +92,7 @@ export class WarehousesSettingsController {
         message: "org_id is required",
       };
     try {
-      await this.warehousesSettingsService.remove(id, orgId);
+      await this.warehousesService.remove(id, orgId);
       return { message: "Warehouse deleted successfully" };
     } catch (error: any) {
       return {

@@ -1632,7 +1632,7 @@ export class AccountantService {
       // 1. Fetch attachment keys for R2 cleanup
       const supabase = this.supabaseService.getClient();
       const { data: attachments } = await supabase
-        .from("accounts_manual_journal_attachments")
+        .from("manual_journal_attachments")
         .select("file_path")
         .eq("manual_journal_id", id);
 
@@ -1866,7 +1866,7 @@ export class AccountantService {
 
     const supabase = this.supabaseService.getClient();
     let query = supabase
-      .from("accounts_manual_journal_attachments")
+      .from("manual_journal_attachments")
       .select(
         "id, manual_journal_id, file_name, file_path, file_size, uploaded_at",
       )
@@ -2010,7 +2010,7 @@ export class AccountantService {
 
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
-      .from("accounts_manual_journal_attachments")
+      .from("manual_journal_attachments")
       .insert(rows)
       .select("id, manual_journal_id, file_name, file_size, uploaded_at");
 
@@ -2027,7 +2027,7 @@ export class AccountantService {
   async findFiscalYears(orgId?: string) {
     const supabase = this.supabaseService.getClient();
     let query = supabase
-      .from("accounts_fiscal_years")
+      .from("fiscal_years")
       .select("*")
       .eq("is_active", true)
       .order("start_date", { ascending: true });
@@ -2063,13 +2063,13 @@ export class AccountantService {
 
     // Deactivate existing active fiscal years for this org first
     await supabase
-      .from("accounts_fiscal_years")
+      .from("fiscal_years")
       .update({ is_active: false })
       .eq("org_id", resolvedOrgId)
       .eq("is_active", true);
 
     const { data: created, error } = await supabase
-      .from("accounts_fiscal_years")
+      .from("fiscal_years")
       .insert({
         org_id: resolvedOrgId,
         name,
@@ -2154,7 +2154,7 @@ export class AccountantService {
     let result;
     if (current && current.id) {
       const { data: updated, error } = await supabase
-        .from("accounts_journal_number_settings")
+        .from("journal_number_settings")
         .update(dbData)
         .eq("id", current.id)
         .select()
@@ -2163,7 +2163,7 @@ export class AccountantService {
       result = updated;
     } else {
       const { data: created, error } = await supabase
-        .from("accounts_journal_number_settings")
+        .from("journal_number_settings")
         .insert(dbData)
         .select()
         .single();
@@ -2207,9 +2207,9 @@ export class AccountantService {
     const scope = this.parseSettingsScope(scopeInput);
 
     let query = supabase
-      .from("accounts_journal_templates")
+      .from("journal_templates")
       .select(
-        "*, items:accounts_journal_template_items(*, account:accounts(user_account_name, system_account_name))",
+        "*, items:journal_template_items(*, account:accounts(user_account_name, system_account_name))",
       )
       .eq("org_id", scope.orgId)
       .eq("is_active", true)
@@ -2241,9 +2241,9 @@ export class AccountantService {
   async findJournalTemplate(id: string, orgId?: string) {
     const supabase = this.supabaseService.getClient();
     let query = supabase
-      .from("accounts_journal_templates")
+      .from("journal_templates")
       .select(
-        "*, items:accounts_journal_template_items(*, account:accounts(user_account_name, system_account_name))",
+        "*, items:journal_template_items(*, account:accounts(user_account_name, system_account_name))",
       )
       .eq("id", id);
 
@@ -2435,7 +2435,7 @@ export class AccountantService {
   async deleteJournalTemplate(id: string, orgId?: string) {
     const supabase = this.supabaseService.getClient();
     let query = supabase
-      .from("accounts_journal_templates")
+      .from("journal_templates")
       .delete()
       .eq("id", id);
 
@@ -2484,7 +2484,7 @@ export class AccountantService {
     scope: { orgId: string; branchId: string | null; userId: string | null },
   ) {
     let query = supabase
-      .from("accounts_journal_number_settings")
+      .from("journal_number_settings")
       .select("*")
       .eq("org_id", scope.orgId);
 
@@ -2520,7 +2520,7 @@ export class AccountantService {
   ): Promise<boolean> {
     const supabase = this.supabaseService.getClient();
     let query = supabase
-      .from("accounts_manual_journals")
+      .from("manual_journals")
       .select("id")
       .eq("journal_number", journalNumber);
 
@@ -2672,9 +2672,9 @@ export class AccountantService {
   async findRecurringJournals(orgId?: string) {
     const supabase = this.supabaseService.getClient();
     let query = supabase
-      .from("accounts_recurring_journals")
+      .from("recurring_journals")
       .select(
-        "*, items:accounts_recurring_journal_items(*, account:accounts(id, user_account_name, system_account_name))",
+        "*, items:recurring_journal_items(*, account:accounts(id, user_account_name, system_account_name))",
       );
 
     if (orgId) {
@@ -2697,9 +2697,9 @@ export class AccountantService {
   async findRecurringJournal(id: string, orgId?: string) {
     const supabase = this.supabaseService.getClient();
     let query = supabase
-      .from("accounts_recurring_journals")
+      .from("recurring_journals")
       .select(
-        "*, items:accounts_recurring_journal_items(*, account:accounts(id, user_account_name, system_account_name))",
+        "*, items:recurring_journal_items(*, account:accounts(id, user_account_name, system_account_name))",
       )
       .eq("id", id);
 
@@ -2804,7 +2804,7 @@ export class AccountantService {
   async updateRecurringJournalStatus(id: string, status: string) {
     const supabase = this.supabaseService.getClient();
     const { error } = await supabase
-      .from("accounts_recurring_journals")
+      .from("recurring_journals")
       .update({ status: status })
       .eq("id", id);
 
@@ -2820,7 +2820,7 @@ export class AccountantService {
   ) {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
-      .from("accounts_manual_journals")
+      .from("manual_journals")
       .select("id")
       .eq("recurring_journal_id", recurringJournalId)
       .eq("journal_date", journalDate)
@@ -2833,7 +2833,7 @@ export class AccountantService {
   async findRecurringChildJournals(recurringJournalId: string, orgId?: string) {
     const supabase = this.supabaseService.getClient();
     let query = supabase
-      .from("accounts_manual_journals")
+      .from("manual_journals")
       .select("*")
       .eq("recurring_journal_id", recurringJournalId);
 
@@ -2895,7 +2895,7 @@ export class AccountantService {
     const supabase = this.supabaseService.getClient();
 
     const { data: original, error: fetchError } = await supabase
-      .from("accounts_recurring_journals")
+      .from("recurring_journals")
       .select("*")
       .eq("id", id)
       .single();
@@ -2908,7 +2908,7 @@ export class AccountantService {
     }
 
     const { data: items, error: itemsError } = await supabase
-      .from("accounts_recurring_journal_items")
+      .from("recurring_journal_items")
       .select("*")
       .eq("recurring_journal_id", id)
       .order("sort_order", { ascending: true });
@@ -2938,7 +2938,7 @@ export class AccountantService {
     };
 
     const { data: createdJournal, error: createError } = await supabase
-      .from("accounts_recurring_journals")
+      .from("recurring_journals")
       .insert(dbData)
       .select()
       .single();
@@ -2963,12 +2963,12 @@ export class AccountantService {
       }));
 
       const { error: itemsInsertError } = await supabase
-        .from("accounts_recurring_journal_items")
+        .from("recurring_journal_items")
         .insert(newItems);
 
       if (itemsInsertError) {
         await supabase
-          .from("accounts_recurring_journals")
+          .from("recurring_journals")
           .delete()
           .eq("id", createdJournal.id);
         this.throwFriendlySupabaseError(
@@ -2984,7 +2984,7 @@ export class AccountantService {
   async deleteRecurringJournal(id: string) {
     const supabase = this.supabaseService.getClient();
     const { error } = await supabase
-      .from("accounts_recurring_journals")
+      .from("recurring_journals")
       .delete()
       .eq("id", id);
 
@@ -3186,7 +3186,7 @@ export class AccountantService {
   ) {
     const supabase = this.supabaseService.getClient();
     let query = supabase
-      .from("accounts_manual_journals")
+      .from("manual_journals")
       .select("id")
       .eq("journal_number", journalNumber);
 
@@ -3216,7 +3216,7 @@ export class AccountantService {
   ) {
     const supabase = this.supabaseService.getClient();
     let query = supabase
-      .from("accounts_manual_journals")
+      .from("manual_journals")
       .select("id, status")
       .eq("id", id);
 
@@ -3288,7 +3288,7 @@ export class AccountantService {
 
     for (const candidate of candidates) {
       const { error } = await supabase
-        .from("accounts_manual_journals")
+        .from("manual_journals")
         .update({ status: candidate })
         .eq("id", manualJournalId);
 
@@ -3364,7 +3364,7 @@ export class AccountantService {
     const journalDate = this.normalizeDateOnly(journalDateInput);
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
-      .from("accounts_fiscal_years")
+      .from("fiscal_years")
       .select("id")
       .eq("is_active", true)
       .lte("start_date", journalDate)
@@ -3896,7 +3896,7 @@ export class AccountantService {
         (COALESCE(SUM(i.current_stock), 0) * COALESCE(p.cost_price, 0)) as "assetValue"
       FROM outlet_inventory i
       JOIN products p ON i.product_id = p.id
-      LEFT JOIN storage_locations s ON p.storage_id = s.id
+      LEFT JOIN storage_conditions s ON p.storage_id = s.id
       WHERE ${whereClause}
       GROUP BY p.id, p.product_name, p.sku, s.location_name, p.cost_price
       HAVING SUM(i.current_stock) > 0

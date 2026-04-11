@@ -47,173 +47,16 @@ branch_id uuid,
 CONSTRAINT accounts_pkey PRIMARY KEY (id),
 CONSTRAINT fk_accounts_parent FOREIGN KEY (parent_id) REFERENCES public.accounts(id)
 );
-CREATE TABLE public.accounts_fiscal_years (
+CREATE TABLE public.assemblies_constituencies (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-outlet_id uuid,
+district_id uuid NOT NULL,
+code character varying,
 name character varying NOT NULL,
-start_date date NOT NULL,
-end_date date NOT NULL,
-is_active boolean DEFAULT true,
-created_at timestamp without time zone DEFAULT now(),
-CONSTRAINT accounts_fiscal_years_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.accounts_journal_number_settings (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-outlet_id uuid,
-auto_generate boolean DEFAULT true,
-prefix character varying,
-next_number integer DEFAULT 1,
-is_manual_override_allowed boolean DEFAULT false,
-user_id uuid,
-CONSTRAINT accounts_journal_number_settings_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.accounts_journal_template_items (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-outlet_id uuid,
-template_id uuid NOT NULL,
-account_id uuid NOT NULL,
-description text,
-contact_id uuid,
-contact_type USER-DEFINED,
-type USER-DEFINED,
-debit numeric DEFAULT 0.00,
-credit numeric DEFAULT 0.00,
-sort_order integer,
-CONSTRAINT accounts_journal_template_items_pkey PRIMARY KEY (id),
-CONSTRAINT accounts_journal_template_items_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.accounts_journal_templates(id),
-CONSTRAINT accounts_journal_template_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
-);
-CREATE TABLE public.accounts_journal_templates (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-outlet_id uuid,
-template_name character varying NOT NULL,
-reference_number character varying,
-notes text,
-reporting_method USER-DEFINED,
-currency_code character varying DEFAULT 'INR'::character varying,
-is_active boolean DEFAULT true,
-enter_amount boolean DEFAULT false,
-created_at timestamp with time zone DEFAULT now(),
-updated_at timestamp with time zone DEFAULT now(),
-CONSTRAINT accounts_journal_templates_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.accounts_manual_journal_attachments (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-outlet_id uuid,
-manual_journal_id uuid NOT NULL,
-file_name character varying NOT NULL,
-file_path text NOT NULL,
-file_size integer,
-uploaded_at timestamp without time zone DEFAULT now(),
-CONSTRAINT accounts_manual_journal_attachments_pkey PRIMARY KEY (id),
-CONSTRAINT accounts_manual_journal_attachments_manual_journal_id_fkey FOREIGN KEY (manual_journal_id) REFERENCES public.accounts_manual_journals(id)
-);
-CREATE TABLE public.accounts_manual_journal_items (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-outlet_id uuid,
-manual_journal_id uuid NOT NULL,
-account_id uuid NOT NULL,
-description text,
-contact_id uuid,
-contact_type USER-DEFINED,
-debit numeric DEFAULT 0.00,
-credit numeric DEFAULT 0.00,
-sort_order integer,
-created_at timestamp with time zone DEFAULT now(),
-updated_at timestamp with time zone DEFAULT now(),
-contact_name character varying,
-CONSTRAINT accounts_manual_journal_items_pkey PRIMARY KEY (id),
-CONSTRAINT accounts_manual_journal_items_manual_journal_id_fkey FOREIGN KEY (manual_journal_id) REFERENCES public.accounts_manual_journals(id),
-CONSTRAINT accounts_manual_journal_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
-);
-CREATE TABLE public.accounts_manual_journal_tag_mappings (
-manual_journal_item_id uuid NOT NULL,
-reporting_tag_id uuid NOT NULL,
-CONSTRAINT accounts_manual_journal_tag_mappings_pkey PRIMARY KEY (manual_journal_item_id, reporting_tag_id),
-CONSTRAINT accounts_manual_journal_tag_mapping_manual_journal_item_id_fkey FOREIGN KEY (manual_journal_item_id) REFERENCES public.accounts_manual_journal_items(id),
-CONSTRAINT accounts_manual_journal_tag_mappings_reporting_tag_id_fkey FOREIGN KEY (reporting_tag_id) REFERENCES public.accounts_reporting_tags(id)
-);
-CREATE TABLE public.accounts_manual_journals (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-outlet_id uuid,
-journal_number character varying NOT NULL UNIQUE,
-fiscal_year_id uuid,
-reference_number character varying,
-journal_date date DEFAULT CURRENT_DATE,
-notes text,
-is_13th_month_adjustment boolean DEFAULT false,
-reporting_method USER-DEFINED DEFAULT 'accrual_and_cash'::accounts_reporting_method,
-currency_code character varying DEFAULT 'INR'::character varying,
-status USER-DEFINED DEFAULT 'draft'::accounts_manual_journal_status,
-total_amount numeric DEFAULT 0.00,
-created_by uuid,
-created_at timestamp without time zone DEFAULT now(),
-recurring_journal_id uuid,
-updated_at timestamp with time zone DEFAULT now(),
-is_deleted boolean NOT NULL DEFAULT false,
-CONSTRAINT accounts_manual_journals_pkey PRIMARY KEY (id),
-CONSTRAINT accounts_manual_journals_recurring_journal_id_fkey FOREIGN KEY (recurring_journal_id) REFERENCES public.accounts_recurring_journals(id),
-CONSTRAINT accounts_manual_journals_fiscal_year_id_fkey FOREIGN KEY (fiscal_year_id) REFERENCES public.accounts_fiscal_years(id)
-);
-CREATE TABLE public.accounts_recurring_journal_items (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-recurring_journal_id uuid NOT NULL,
-account_id uuid NOT NULL,
-description text,
-contact_id uuid,
-contact_type character varying,
-debit numeric DEFAULT 0.00,
-credit numeric DEFAULT 0.00,
-sort_order integer,
-contact_name character varying,
-CONSTRAINT accounts_recurring_journal_items_pkey PRIMARY KEY (id),
-CONSTRAINT accounts_recurring_journal_items_recur_journal_id_fkey FOREIGN KEY (recurring_journal_id) REFERENCES public.accounts_recurring_journals(id),
-CONSTRAINT accounts_recurring_journal_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
-);
-CREATE TABLE public.accounts_recurring_journals (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-outlet_id uuid,
-profile_name character varying NOT NULL,
-repeat_every character varying NOT NULL,
-interval integer NOT NULL DEFAULT 1,
-start_date date NOT NULL,
-end_date date,
-never_expires boolean DEFAULT true,
-reference_number character varying,
-notes text,
-currency_code character varying DEFAULT 'INR'::character varying,
-reporting_method character varying DEFAULT 'accrual_and_cash'::character varying,
-status character varying DEFAULT 'active'::character varying,
-last_generated_date timestamp without time zone,
-created_at timestamp without time zone DEFAULT now(),
-updated_at timestamp without time zone DEFAULT now(),
-created_by uuid,
-CONSTRAINT accounts_recurring_journals_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.accounts_reporting_tags (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-outlet_id uuid,
-tag_name character varying NOT NULL,
-is_active boolean DEFAULT true,
-CONSTRAINT accounts_reporting_tags_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.associate_taxes (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-tax_name character varying NOT NULL UNIQUE,
-tax_rate numeric NOT NULL,
-tax_type USER-DEFINED,
-is_active boolean DEFAULT true,
-created_at timestamp without time zone DEFAULT now(),
-CONSTRAINT associate_taxes_pkey PRIMARY KEY (id)
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT assemblies_constituencies_pkey PRIMARY KEY (id),
+CONSTRAINT settings_assemblies_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.lsgd_districts(id)
 );
 CREATE TABLE public.audit_logs (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -275,12 +118,124 @@ source_type character varying,
 CONSTRAINT batch_master_pkey PRIMARY KEY (id),
 CONSTRAINT batches_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
 );
+CREATE TABLE public.batch_stock_layers (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+batch_id uuid NOT NULL,
+product_id uuid NOT NULL,
+entity_id uuid NOT NULL,
+warehouse_id uuid NOT NULL,
+bin_id uuid NOT NULL,
+vendor_id uuid,
+purchase_rate numeric NOT NULL DEFAULT 0,
+mrp numeric NOT NULL DEFAULT 0,
+qty numeric NOT NULL DEFAULT 0,
+foc_qty numeric DEFAULT 0,
+ref_id uuid,
+ref_type character varying NOT NULL,
+created_at timestamp with time zone DEFAULT now(),
+updated_at timestamp with time zone DEFAULT now(),
+CONSTRAINT batch_stock_layers_pkey PRIMARY KEY (id),
+CONSTRAINT fk_batch FOREIGN KEY (batch_id) REFERENCES public.batch_master(id)
+);
+CREATE TABLE public.batch_transactions (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+batch_id uuid NOT NULL,
+layer_id uuid,
+product_id uuid NOT NULL,
+entity_id uuid NOT NULL,
+warehouse_id uuid NOT NULL,
+bin_id uuid,
+trans_type character varying NOT NULL,
+ref_id uuid,
+ref_no character varying,
+qty_in numeric DEFAULT 0,
+qty_out numeric DEFAULT 0,
+rate numeric,
+trans_date timestamp with time zone NOT NULL DEFAULT now(),
+created_at timestamp with time zone DEFAULT now(),
+CONSTRAINT batch_transactions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.bin_master (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+entity_id uuid NOT NULL,
+warehouse_id uuid NOT NULL,
+zone_id uuid NOT NULL,
+bin_code character varying NOT NULL,
+level_path text,
+bin_type character varying,
+is_active boolean DEFAULT true,
+created_at timestamp with time zone DEFAULT now(),
+CONSTRAINT bin_master_pkey PRIMARY KEY (id),
+CONSTRAINT fk_zone FOREIGN KEY (zone_id) REFERENCES public.zone_master(id)
+);
+CREATE TABLE public.branch_transaction_series (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL,
+branch_id uuid NOT NULL,
+transaction_series_id uuid NOT NULL,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT branch_transaction_series_pkey PRIMARY KEY (id),
+CONSTRAINT settings_branch_transaction_series_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id),
+CONSTRAINT settings_branch_transaction_series_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.settings_branches(id),
+CONSTRAINT settings_branch_transaction_series_transaction_series_id_fkey FOREIGN KEY (transaction_series_id) REFERENCES public.transaction_series(id)
+);
+CREATE TABLE public.branch_user_access (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL,
+branch_id uuid NOT NULL,
+user_id uuid NOT NULL,
+role_id uuid,
+is_default_branch boolean DEFAULT false,
+permissions jsonb DEFAULT '{}'::jsonb,
+created_at timestamp with time zone DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT branch_user_access_pkey PRIMARY KEY (id),
+CONSTRAINT settings_branch_user_access_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id),
+CONSTRAINT settings_branch_user_access_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.settings_branches(id),
+CONSTRAINT settings_branch_user_access_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+CONSTRAINT settings_branch_user_access_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id)
+);
+CREATE TABLE public.branch_users (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL,
+branch_id uuid NOT NULL,
+user_id uuid NOT NULL,
+role character varying,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT branch_users_pkey PRIMARY KEY (id),
+CONSTRAINT settings_branch_users_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id),
+CONSTRAINT settings_branch_users_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.settings_branches(id),
+CONSTRAINT settings_branch_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.branding (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL UNIQUE,
+accent_color character varying NOT NULL DEFAULT '#22A95E'::character varying,
+theme_mode character varying NOT NULL DEFAULT 'dark'::character varying CHECK (theme_mode::text = ANY (ARRAY['dark'::character varying, 'light'::character varying]::text[])),
+keep_branding boolean NOT NULL DEFAULT false,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT branding_pkey PRIMARY KEY (id),
+CONSTRAINT settings_branding_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id)
+);
 CREATE TABLE public.brands (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
 name character varying NOT NULL UNIQUE,
 is_active boolean DEFAULT true,
 created_at timestamp without time zone DEFAULT now(),
 CONSTRAINT brands_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.business_types (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+code character varying NOT NULL UNIQUE,
+label character varying NOT NULL,
+description text NOT NULL DEFAULT ''::text,
+sort_order integer NOT NULL DEFAULT 0,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT business_types_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.buying_rules (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -320,22 +275,6 @@ label character varying NOT NULL UNIQUE,
 is_active boolean NOT NULL DEFAULT true,
 sort_order smallint NOT NULL DEFAULT 0,
 CONSTRAINT company_id_labels_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.composite_item_outlet_inventory_settings (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-outlet_id uuid,
-composite_item_id uuid NOT NULL,
-reorder_point integer NOT NULL DEFAULT 0 CHECK (reorder_point >= 0),
-reorder_term_id uuid,
-is_active boolean NOT NULL DEFAULT true,
-created_by_id uuid,
-updated_by_id uuid,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT composite_item_outlet_inventory_settings_pkey PRIMARY KEY (id),
-CONSTRAINT composite_item_outlet_inventory_settings_composite_item_fkey FOREIGN KEY (composite_item_id) REFERENCES public.composite_items(id),
-CONSTRAINT composite_item_outlet_inventory_settings_reorder_term_fkey FOREIGN KEY (reorder_term_id) REFERENCES public.reorder_terms(id)
 );
 CREATE TABLE public.composite_item_parts (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -401,8 +340,8 @@ updated_by_id uuid,
 CONSTRAINT composite_items_pkey PRIMARY KEY (id),
 CONSTRAINT composite_items_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id),
 CONSTRAINT composite_items_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id),
-CONSTRAINT composite_items_intra_state_tax_id_fkey FOREIGN KEY (intra_state_tax_id) REFERENCES public.associate_taxes(id),
-CONSTRAINT composite_items_inter_state_tax_id_fkey FOREIGN KEY (inter_state_tax_id) REFERENCES public.associate_taxes(id),
+CONSTRAINT composite_items_intra_state_tax_id_fkey FOREIGN KEY (intra_state_tax_id) REFERENCES public.tax_rates(id),
+CONSTRAINT composite_items_inter_state_tax_id_fkey FOREIGN KEY (inter_state_tax_id) REFERENCES public.tax_rates(id),
 CONSTRAINT composite_items_sales_account_id_fkey FOREIGN KEY (sales_account_id) REFERENCES public.accounts(id),
 CONSTRAINT composite_items_purchase_account_id_fkey FOREIGN KEY (purchase_account_id) REFERENCES public.accounts(id),
 CONSTRAINT composite_items_manufacturer_id_fkey FOREIGN KEY (manufacturer_id) REFERENCES public.manufacturers(id),
@@ -543,6 +482,104 @@ CONSTRAINT customers_shipping_address_state_id_states_id_fk FOREIGN KEY (shippin
 CONSTRAINT customers_billing_address_country_id_fkey FOREIGN KEY (billing_address_country_id) REFERENCES public.countries(id),
 CONSTRAINT customers_shipping_address_country_id_fkey FOREIGN KEY (shipping_address_country_id) REFERENCES public.countries(id)
 );
+CREATE TABLE public.date_format (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+code character varying NOT NULL UNIQUE,
+format_pattern character varying NOT NULL,
+group_name character varying NOT NULL,
+label character varying NOT NULL,
+sort_order integer NOT NULL DEFAULT 0,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT date_format_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.date_separator (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+code character varying NOT NULL UNIQUE,
+separator character varying NOT NULL,
+label character varying NOT NULL,
+sort_order integer NOT NULL DEFAULT 0,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT date_separator_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.drug_licence_types (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+code character varying NOT NULL UNIQUE,
+label character varying NOT NULL,
+sort_order integer NOT NULL DEFAULT 0,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT drug_licence_types_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.drug_schedules (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+shedule_name character varying NOT NULL UNIQUE,
+is_active boolean DEFAULT true,
+created_at timestamp without time zone DEFAULT now(),
+schedule_code character varying,
+reference_description text,
+requires_prescription boolean NOT NULL DEFAULT false,
+requires_h1_register boolean NOT NULL DEFAULT false,
+is_narcotic boolean NOT NULL DEFAULT false,
+requires_batch_tracking boolean NOT NULL DEFAULT false,
+sort_order integer NOT NULL DEFAULT 0,
+is_common boolean NOT NULL DEFAULT false,
+CONSTRAINT drug_schedules_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.drug_strengths (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+strength_name character varying NOT NULL UNIQUE,
+is_active boolean DEFAULT true,
+created_at timestamp without time zone DEFAULT now(),
+CONSTRAINT drug_strengths_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.fiscal_year_presets (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+code character varying NOT NULL UNIQUE,
+label character varying NOT NULL,
+start_month smallint NOT NULL,
+end_month smallint NOT NULL,
+sort_order integer NOT NULL DEFAULT 0,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT fiscal_year_presets_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.fiscal_years (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+outlet_id uuid,
+name character varying NOT NULL,
+start_date date NOT NULL,
+end_date date NOT NULL,
+is_active boolean DEFAULT true,
+created_at timestamp without time zone DEFAULT now(),
+CONSTRAINT fiscal_years_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.gst_treatments (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+code character varying NOT NULL UNIQUE,
+label character varying NOT NULL,
+sort_order integer NOT NULL DEFAULT 0,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT gst_treatments_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.gstin_registration_types (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+code character varying NOT NULL UNIQUE,
+label character varying NOT NULL,
+sort_order integer NOT NULL DEFAULT 0,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT gstin_registration_types_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.hsn_sac_codes (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
 type USER-DEFINED NOT NULL,
@@ -557,16 +594,144 @@ is_active boolean NOT NULL DEFAULT true,
 sort_order smallint NOT NULL DEFAULT 0,
 CONSTRAINT industries_pkey PRIMARY KEY (id)
 );
-CREATE TABLE public.item_vendor_mappings (
+CREATE TABLE public.journal_number_settings (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
-vendor_id uuid NOT NULL,
-item_id uuid NOT NULL,
-mapping_name character varying NOT NULL,
-vendor_product_code character varying,
+org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+outlet_id uuid,
+auto_generate boolean DEFAULT true,
+prefix character varying,
+next_number integer DEFAULT 1,
+is_manual_override_allowed boolean DEFAULT false,
+user_id uuid,
+CONSTRAINT journal_number_settings_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.journal_template_items (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+outlet_id uuid,
+template_id uuid NOT NULL,
+account_id uuid NOT NULL,
+description text,
+contact_id uuid,
+contact_type USER-DEFINED,
+type USER-DEFINED,
+debit numeric DEFAULT 0.00,
+credit numeric DEFAULT 0.00,
+sort_order integer,
+CONSTRAINT journal_template_items_pkey PRIMARY KEY (id),
+CONSTRAINT accounts_journal_template_items_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.journal_templates(id),
+CONSTRAINT accounts_journal_template_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.journal_templates (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+outlet_id uuid,
+template_name character varying NOT NULL,
+reference_number character varying,
+notes text,
+reporting_method USER-DEFINED,
+currency_code character varying DEFAULT 'INR'::character varying,
+is_active boolean DEFAULT true,
+enter_amount boolean DEFAULT false,
 created_at timestamp with time zone DEFAULT now(),
 updated_at timestamp with time zone DEFAULT now(),
-CONSTRAINT item_vendor_mappings_pkey PRIMARY KEY (id),
-CONSTRAINT item_vendor_mappings_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.products(id)
+CONSTRAINT journal_templates_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.lsgd_districts (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+state_id uuid NOT NULL,
+name character varying NOT NULL,
+code character varying,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp without time zone DEFAULT now(),
+updated_at timestamp without time zone DEFAULT now(),
+CONSTRAINT lsgd_districts_pkey PRIMARY KEY (id),
+CONSTRAINT settings_districts_state_id_fkey FOREIGN KEY (state_id) REFERENCES public.states(id)
+);
+CREATE TABLE public.lsgd_local_bodies (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+district_id uuid NOT NULL,
+name character varying NOT NULL,
+code character varying,
+body_type character varying NOT NULL CHECK (body_type::text = ANY (ARRAY['grama_panchayat'::character varying::text, 'municipality'::character varying::text, 'corporation'::character varying::text, 'town_panchayat'::character varying::text])),
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp without time zone DEFAULT now(),
+updated_at timestamp without time zone DEFAULT now(),
+CONSTRAINT lsgd_local_bodies_pkey PRIMARY KEY (id),
+CONSTRAINT settings_local_bodies_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.lsgd_districts(id)
+);
+CREATE TABLE public.lsgd_wards (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+local_body_id uuid NOT NULL,
+ward_no integer,
+name character varying NOT NULL,
+code character varying,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp without time zone DEFAULT now(),
+updated_at timestamp without time zone DEFAULT now(),
+CONSTRAINT lsgd_wards_pkey PRIMARY KEY (id),
+CONSTRAINT settings_wards_local_body_id_fkey FOREIGN KEY (local_body_id) REFERENCES public.lsgd_local_bodies(id)
+);
+CREATE TABLE public.manual_journal_attachments (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+outlet_id uuid,
+manual_journal_id uuid NOT NULL,
+file_name character varying NOT NULL,
+file_path text NOT NULL,
+file_size integer,
+uploaded_at timestamp without time zone DEFAULT now(),
+CONSTRAINT manual_journal_attachments_pkey PRIMARY KEY (id),
+CONSTRAINT accounts_manual_journal_attachments_manual_journal_id_fkey FOREIGN KEY (manual_journal_id) REFERENCES public.manual_journals(id)
+);
+CREATE TABLE public.manual_journal_items (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+outlet_id uuid,
+manual_journal_id uuid NOT NULL,
+account_id uuid NOT NULL,
+description text,
+contact_id uuid,
+contact_type USER-DEFINED,
+debit numeric DEFAULT 0.00,
+credit numeric DEFAULT 0.00,
+sort_order integer,
+created_at timestamp with time zone DEFAULT now(),
+updated_at timestamp with time zone DEFAULT now(),
+contact_name character varying,
+CONSTRAINT manual_journal_items_pkey PRIMARY KEY (id),
+CONSTRAINT accounts_manual_journal_items_manual_journal_id_fkey FOREIGN KEY (manual_journal_id) REFERENCES public.manual_journals(id),
+CONSTRAINT accounts_manual_journal_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.manual_journal_tag_mappings (
+manual_journal_item_id uuid NOT NULL,
+reporting_tag_id uuid NOT NULL,
+CONSTRAINT manual_journal_tag_mappings_pkey PRIMARY KEY (manual_journal_item_id, reporting_tag_id),
+CONSTRAINT accounts_manual_journal_tag_mapping_manual_journal_item_id_fkey FOREIGN KEY (manual_journal_item_id) REFERENCES public.manual_journal_items(id),
+CONSTRAINT accounts_manual_journal_tag_mappings_reporting_tag_id_fkey FOREIGN KEY (reporting_tag_id) REFERENCES public.reporting_tags(id)
+);
+CREATE TABLE public.manual_journals (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+outlet_id uuid,
+journal_number character varying NOT NULL UNIQUE,
+fiscal_year_id uuid,
+reference_number character varying,
+journal_date date DEFAULT CURRENT_DATE,
+notes text,
+is_13th_month_adjustment boolean DEFAULT false,
+reporting_method USER-DEFINED DEFAULT 'accrual_and_cash'::accounts_reporting_method,
+currency_code character varying DEFAULT 'INR'::character varying,
+status USER-DEFINED DEFAULT 'draft'::accounts_manual_journal_status,
+total_amount numeric DEFAULT 0.00,
+created_by uuid,
+created_at timestamp without time zone DEFAULT now(),
+recurring_journal_id uuid,
+updated_at timestamp with time zone DEFAULT now(),
+is_deleted boolean NOT NULL DEFAULT false,
+CONSTRAINT manual_journals_pkey PRIMARY KEY (id),
+CONSTRAINT accounts_manual_journals_recurring_journal_id_fkey FOREIGN KEY (recurring_journal_id) REFERENCES public.recurring_journals(id),
+CONSTRAINT accounts_manual_journals_fiscal_year_id_fkey FOREIGN KEY (fiscal_year_id) REFERENCES public.fiscal_years(id)
 );
 CREATE TABLE public.manufacturers (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -626,29 +791,15 @@ local_body_id uuid,
 assembly_id uuid,
 ward_id uuid,
 CONSTRAINT organization_pkey PRIMARY KEY (id),
-CONSTRAINT organization_payment_stub_assembly_id_fkey FOREIGN KEY (payment_stub_assembly_id) REFERENCES public.settings_assemblies(id),
+CONSTRAINT organization_payment_stub_assembly_id_fkey FOREIGN KEY (payment_stub_assembly_id) REFERENCES public.assemblies_constituencies(id),
 CONSTRAINT organization_state_id_fkey FOREIGN KEY (state_id) REFERENCES public.states(id),
-CONSTRAINT organization_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.settings_districts(id),
-CONSTRAINT organization_local_body_id_fkey FOREIGN KEY (local_body_id) REFERENCES public.settings_local_bodies(id),
-CONSTRAINT organization_assembly_id_fkey FOREIGN KEY (assembly_id) REFERENCES public.settings_assemblies(id),
-CONSTRAINT organization_ward_id_fkey FOREIGN KEY (ward_id) REFERENCES public.settings_wards(id),
-CONSTRAINT organization_payment_stub_district_id_fkey FOREIGN KEY (payment_stub_district_id) REFERENCES public.settings_districts(id),
-CONSTRAINT organization_payment_stub_local_body_id_fkey FOREIGN KEY (payment_stub_local_body_id) REFERENCES public.settings_local_bodies(id),
-CONSTRAINT organization_payment_stub_ward_id_fkey FOREIGN KEY (payment_stub_ward_id) REFERENCES public.settings_wards(id)
-);
-CREATE TABLE public.outlet_inventory (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-outlet_id uuid NOT NULL,
-product_id uuid NOT NULL,
-current_stock integer NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
-reserved_stock integer DEFAULT 0,
-available_stock integer DEFAULT (current_stock - reserved_stock),
-batch_no character varying,
-expiry_date date,
-min_stock_level integer DEFAULT 0,
-max_stock_level integer DEFAULT 0,
-last_stock_update timestamp with time zone DEFAULT now(),
-CONSTRAINT outlet_inventory_pkey PRIMARY KEY (id)
+CONSTRAINT organization_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.lsgd_districts(id),
+CONSTRAINT organization_local_body_id_fkey FOREIGN KEY (local_body_id) REFERENCES public.lsgd_local_bodies(id),
+CONSTRAINT organization_assembly_id_fkey FOREIGN KEY (assembly_id) REFERENCES public.assemblies_constituencies(id),
+CONSTRAINT organization_ward_id_fkey FOREIGN KEY (ward_id) REFERENCES public.lsgd_wards(id),
+CONSTRAINT organization_payment_stub_district_id_fkey FOREIGN KEY (payment_stub_district_id) REFERENCES public.lsgd_districts(id),
+CONSTRAINT organization_payment_stub_local_body_id_fkey FOREIGN KEY (payment_stub_local_body_id) REFERENCES public.lsgd_local_bodies(id),
+CONSTRAINT organization_payment_stub_ward_id_fkey FOREIGN KEY (payment_stub_ward_id) REFERENCES public.lsgd_wards(id)
 );
 CREATE TABLE public.payment_terms (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -711,25 +862,20 @@ display_order integer DEFAULT 0,
 created_at timestamp without time zone DEFAULT now(),
 CONSTRAINT product_contents_pkey PRIMARY KEY (id),
 CONSTRAINT product_contents_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
-CONSTRAINT product_contents_strength_id_fkey FOREIGN KEY (strength_id) REFERENCES public.strengths(id),
+CONSTRAINT product_contents_strength_id_fkey FOREIGN KEY (strength_id) REFERENCES public.drug_strengths(id),
 CONSTRAINT product_contents_content_id_fkey FOREIGN KEY (content_id) REFERENCES public.contents(id),
-CONSTRAINT product_contents_schedule_id_fkey FOREIGN KEY (shedule_id) REFERENCES public.schedules(id)
+CONSTRAINT product_contents_schedule_id_fkey FOREIGN KEY (shedule_id) REFERENCES public.drug_schedules(id)
 );
-CREATE TABLE public.product_outlet_inventory_settings (
+CREATE TABLE public.product_vendor_mappings (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-outlet_id uuid,
-product_id uuid NOT NULL,
-reorder_point integer NOT NULL DEFAULT 0 CHECK (reorder_point >= 0),
-reorder_term_id uuid,
-is_active boolean NOT NULL DEFAULT true,
-created_by_id uuid,
-updated_by_id uuid,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT product_outlet_inventory_settings_pkey PRIMARY KEY (id),
-CONSTRAINT product_outlet_inventory_settings_product_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
-CONSTRAINT product_outlet_inventory_settings_reorder_term_fkey FOREIGN KEY (reorder_term_id) REFERENCES public.reorder_terms(id)
+vendor_id uuid NOT NULL,
+item_id uuid NOT NULL,
+mapping_name character varying NOT NULL,
+vendor_product_code character varying,
+created_at timestamp with time zone DEFAULT now(),
+updated_at timestamp with time zone DEFAULT now(),
+CONSTRAINT product_vendor_mappings_pkey PRIMARY KEY (id),
+CONSTRAINT item_vendor_mappings_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.products(id)
 );
 CREATE TABLE public.products (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -805,8 +951,8 @@ faq_text jsonb,
 CONSTRAINT products_pkey PRIMARY KEY (id),
 CONSTRAINT products_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id),
 CONSTRAINT products_intra_state_tax_id_fkey FOREIGN KEY (intra_state_tax_id) REFERENCES public.tax_groups(id),
-CONSTRAINT products_storage_id_fkey FOREIGN KEY (storage_id) REFERENCES public.storage_locations(id),
-CONSTRAINT products_inter_state_tax_id_fkey FOREIGN KEY (inter_state_tax_id) REFERENCES public.associate_taxes(id),
+CONSTRAINT products_storage_id_fkey FOREIGN KEY (storage_id) REFERENCES public.storage_conditions(id),
+CONSTRAINT products_inter_state_tax_id_fkey FOREIGN KEY (inter_state_tax_id) REFERENCES public.tax_rates(id),
 CONSTRAINT products_manufacturer_id_fkey FOREIGN KEY (manufacturer_id) REFERENCES public.manufacturers(id),
 CONSTRAINT products_unit_id_units_id_fk FOREIGN KEY (unit_id) REFERENCES public.units(id),
 CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id),
@@ -816,9 +962,9 @@ CONSTRAINT products_purchase_account_id_accounts_id_fk FOREIGN KEY (purchase_acc
 CONSTRAINT products_inventory_account_id_accounts_id_fk FOREIGN KEY (inventory_account_id) REFERENCES public.accounts(id),
 CONSTRAINT products_rack_id_racks_id_fk FOREIGN KEY (rack_id) REFERENCES public.racks(id),
 CONSTRAINT products_buying_rule_id_buying_rules_id_fk FOREIGN KEY (buying_rule_id) REFERENCES public.buying_rules(id),
-CONSTRAINT products_schedule_of_drug_id_schedules_id_fk FOREIGN KEY (schedule_of_drug_id) REFERENCES public.schedules(id)
+CONSTRAINT products_schedule_of_drug_id_schedules_id_fk FOREIGN KEY (schedule_of_drug_id) REFERENCES public.drug_schedules(id)
 );
-CREATE TABLE public.purchases_purchase_order_attachments (
+CREATE TABLE public.purchase_order_attachments (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
 purchase_order_id uuid NOT NULL,
 file_name character varying NOT NULL,
@@ -826,10 +972,10 @@ file_path text NOT NULL,
 file_size integer,
 file_type character varying,
 uploaded_at timestamp with time zone DEFAULT now(),
-CONSTRAINT purchases_purchase_order_attachments_pkey PRIMARY KEY (id),
-CONSTRAINT purchases_purchase_order_attachments_purchase_order_id_fkey FOREIGN KEY (purchase_order_id) REFERENCES public.purchases_purchase_orders(id)
+CONSTRAINT purchase_order_attachments_pkey PRIMARY KEY (id),
+CONSTRAINT purchases_purchase_order_attachments_purchase_order_id_fkey FOREIGN KEY (purchase_order_id) REFERENCES public.purchase_orders(id)
 );
-CREATE TABLE public.purchases_purchase_order_items (
+CREATE TABLE public.purchase_order_items (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
 purchase_order_id uuid NOT NULL,
 sort_order integer,
@@ -848,13 +994,13 @@ discount_type character varying DEFAULT 'percentage'::character varying,
 amount numeric DEFAULT 0.00,
 created_at timestamp with time zone DEFAULT now(),
 updated_at timestamp with time zone DEFAULT now(),
-CONSTRAINT purchases_purchase_order_items_pkey PRIMARY KEY (id),
-CONSTRAINT purchases_purchase_order_items_purchase_order_id_fkey FOREIGN KEY (purchase_order_id) REFERENCES public.purchases_purchase_orders(id),
+CONSTRAINT purchase_order_items_pkey PRIMARY KEY (id),
+CONSTRAINT purchases_purchase_order_items_purchase_order_id_fkey FOREIGN KEY (purchase_order_id) REFERENCES public.purchase_orders(id),
 CONSTRAINT purchases_purchase_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
 CONSTRAINT purchases_purchase_order_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id),
-CONSTRAINT purchases_purchase_order_items_tax_id_fkey FOREIGN KEY (tax_id) REFERENCES public.associate_taxes(id)
+CONSTRAINT purchases_purchase_order_items_tax_id_fkey FOREIGN KEY (tax_id) REFERENCES public.tax_rates(id)
 );
-CREATE TABLE public.purchases_purchase_orders (
+CREATE TABLE public.purchase_orders (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
 org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
 outlet_id uuid,
@@ -888,7 +1034,7 @@ terms_and_conditions text,
 is_reverse_charge boolean DEFAULT false,
 created_at timestamp with time zone DEFAULT now(),
 updated_at timestamp with time zone DEFAULT now(),
-CONSTRAINT purchases_purchase_orders_pkey PRIMARY KEY (id),
+CONSTRAINT purchase_orders_pkey PRIMARY KEY (id),
 CONSTRAINT purchases_purchase_orders_vendor_id_fkey FOREIGN KEY (vendor_id) REFERENCES public.vendors(id),
 CONSTRAINT purchases_purchase_orders_payment_terms_id_fkey FOREIGN KEY (payment_terms_id) REFERENCES public.payment_terms(id),
 CONSTRAINT purchases_purchase_orders_shipment_preference_id_fkey FOREIGN KEY (shipment_preference_id) REFERENCES public.shipment_preferences(id),
@@ -907,6 +1053,42 @@ is_active boolean DEFAULT true,
 created_at timestamp without time zone DEFAULT now(),
 CONSTRAINT racks_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.recurring_journal_items (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+recurring_journal_id uuid NOT NULL,
+account_id uuid NOT NULL,
+description text,
+contact_id uuid,
+contact_type character varying,
+debit numeric DEFAULT 0.00,
+credit numeric DEFAULT 0.00,
+sort_order integer,
+contact_name character varying,
+CONSTRAINT recurring_journal_items_pkey PRIMARY KEY (id),
+CONSTRAINT accounts_recurring_journal_items_recur_journal_id_fkey FOREIGN KEY (recurring_journal_id) REFERENCES public.recurring_journals(id),
+CONSTRAINT accounts_recurring_journal_items_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.recurring_journals (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+outlet_id uuid,
+profile_name character varying NOT NULL,
+repeat_every character varying NOT NULL,
+interval integer NOT NULL DEFAULT 1,
+start_date date NOT NULL,
+end_date date,
+never_expires boolean DEFAULT true,
+reference_number character varying,
+notes text,
+currency_code character varying DEFAULT 'INR'::character varying,
+reporting_method character varying DEFAULT 'accrual_and_cash'::character varying,
+status character varying DEFAULT 'active'::character varying,
+last_generated_date timestamp without time zone,
+created_at timestamp without time zone DEFAULT now(),
+updated_at timestamp without time zone DEFAULT now(),
+created_by uuid,
+CONSTRAINT recurring_journals_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.reorder_terms (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
 term_name character varying NOT NULL,
@@ -918,6 +1100,26 @@ org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
 outlet_id uuid,
 updated_at timestamp with time zone NOT NULL DEFAULT now(),
 CONSTRAINT reorder_terms_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.reporting_tags (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
+outlet_id uuid,
+tag_name character varying NOT NULL,
+is_active boolean DEFAULT true,
+CONSTRAINT reporting_tags_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.roles (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL,
+label character varying NOT NULL,
+description text NOT NULL DEFAULT ''::text,
+permissions jsonb NOT NULL DEFAULT '{}'::jsonb,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT roles_pkey PRIMARY KEY (id),
+CONSTRAINT settings_roles_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id)
 );
 CREATE TABLE public.sales_order_attachments (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -960,8 +1162,9 @@ updated_at timestamp without time zone DEFAULT now(),
 CONSTRAINT sales_order_items_pkey PRIMARY KEY (id),
 CONSTRAINT sales_order_items_sales_order_id_fkey FOREIGN KEY (sales_order_id) REFERENCES public.sales_orders(id),
 CONSTRAINT sales_order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
-CONSTRAINT sales_order_items_tax_id_fkey FOREIGN KEY (tax_id) REFERENCES public.associate_taxes(id),
-CONSTRAINT sales_order_items_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id)
+CONSTRAINT sales_order_items_tax_id_fkey FOREIGN KEY (tax_id) REFERENCES public.tax_rates(id),
+CONSTRAINT sales_order_items_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id),
+CONSTRAINT sales_order_items_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id)
 );
 CREATE TABLE public.sales_orders (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1032,72 +1235,6 @@ created_at timestamp without time zone DEFAULT now(),
 CONSTRAINT sales_payments_pkey PRIMARY KEY (id),
 CONSTRAINT sales_payments_customer_id_customers_id_fk FOREIGN KEY (customer_id) REFERENCES public.customers(id)
 );
-CREATE TABLE public.schedules (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-shedule_name character varying NOT NULL UNIQUE,
-is_active boolean DEFAULT true,
-created_at timestamp without time zone DEFAULT now(),
-schedule_code character varying,
-reference_description text,
-requires_prescription boolean NOT NULL DEFAULT false,
-requires_h1_register boolean NOT NULL DEFAULT false,
-is_narcotic boolean NOT NULL DEFAULT false,
-requires_batch_tracking boolean NOT NULL DEFAULT false,
-sort_order integer NOT NULL DEFAULT 0,
-is_common boolean NOT NULL DEFAULT false,
-CONSTRAINT schedules_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_assemblies (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-district_id uuid NOT NULL,
-code character varying,
-name character varying NOT NULL,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_assemblies_pkey PRIMARY KEY (id),
-CONSTRAINT settings_assemblies_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.settings_districts(id)
-);
-CREATE TABLE public.settings_branch_transaction_series (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL,
-branch_id uuid NOT NULL,
-transaction_series_id uuid NOT NULL,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_branch_transaction_series_pkey PRIMARY KEY (id),
-CONSTRAINT settings_branch_transaction_series_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id),
-CONSTRAINT settings_branch_transaction_series_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.settings_branches(id),
-CONSTRAINT settings_branch_transaction_series_transaction_series_id_fkey FOREIGN KEY (transaction_series_id) REFERENCES public.settings_transaction_series(id)
-);
-CREATE TABLE public.settings_branch_user_access (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL,
-branch_id uuid NOT NULL,
-user_id uuid NOT NULL,
-role_id uuid,
-is_default_branch boolean DEFAULT false,
-permissions jsonb DEFAULT '{}'::jsonb,
-created_at timestamp with time zone DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_branch_user_access_pkey PRIMARY KEY (id),
-CONSTRAINT settings_branch_user_access_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id),
-CONSTRAINT settings_branch_user_access_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.settings_branches(id),
-CONSTRAINT settings_branch_user_access_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
-CONSTRAINT settings_branch_user_access_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.settings_roles(id)
-);
-CREATE TABLE public.settings_branch_users (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL,
-branch_id uuid NOT NULL,
-user_id uuid NOT NULL,
-role character varying,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_branch_users_pkey PRIMARY KEY (id),
-CONSTRAINT settings_branch_users_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id),
-CONSTRAINT settings_branch_users_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.settings_branches(id),
-CONSTRAINT settings_branch_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
 CREATE TABLE public.settings_branches (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
 org_id uuid NOT NULL,
@@ -1161,222 +1298,16 @@ assembly_id uuid,
 CONSTRAINT settings_branches_pkey PRIMARY KEY (id),
 CONSTRAINT settings_branches_parent_branch_id_fkey FOREIGN KEY (parent_branch_id) REFERENCES public.settings_branches(id),
 CONSTRAINT settings_branches_gstin_import_export_account_id_fkey FOREIGN KEY (gstin_import_export_account_id) REFERENCES public.accounts(id),
-CONSTRAINT settings_branches_default_transaction_series_id_fkey FOREIGN KEY (default_transaction_series_id) REFERENCES public.settings_transaction_series(id),
-CONSTRAINT settings_branches_payment_stub_assembly_id_fkey FOREIGN KEY (payment_stub_assembly_id) REFERENCES public.settings_assemblies(id),
-CONSTRAINT settings_branches_branch_type_fkey FOREIGN KEY (branch_type) REFERENCES public.settings_business_types(code),
-CONSTRAINT settings_branches_gst_treatment_fkey FOREIGN KEY (gst_treatment) REFERENCES public.settings_gst_treatments(code),
-CONSTRAINT settings_branches_gstin_registration_type_fkey FOREIGN KEY (gstin_registration_type) REFERENCES public.settings_gstin_registration_types(code),
+CONSTRAINT settings_branches_default_transaction_series_id_fkey FOREIGN KEY (default_transaction_series_id) REFERENCES public.transaction_series(id),
+CONSTRAINT settings_branches_payment_stub_assembly_id_fkey FOREIGN KEY (payment_stub_assembly_id) REFERENCES public.assemblies_constituencies(id),
+CONSTRAINT settings_branches_branch_type_fkey FOREIGN KEY (branch_type) REFERENCES public.business_types(code),
+CONSTRAINT settings_branches_gst_treatment_fkey FOREIGN KEY (gst_treatment) REFERENCES public.gst_treatments(code),
+CONSTRAINT settings_branches_gstin_registration_type_fkey FOREIGN KEY (gstin_registration_type) REFERENCES public.gstin_registration_types(code),
 CONSTRAINT settings_branches_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id),
-CONSTRAINT settings_branches_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.settings_districts(id),
-CONSTRAINT settings_branches_local_body_id_fkey FOREIGN KEY (local_body_id) REFERENCES public.settings_local_bodies(id),
-CONSTRAINT settings_branches_ward_id_fkey FOREIGN KEY (ward_id) REFERENCES public.settings_wards(id),
-CONSTRAINT settings_branches_assembly_id_fkey FOREIGN KEY (assembly_id) REFERENCES public.settings_assemblies(id)
-);
-CREATE TABLE public.settings_branding (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL UNIQUE,
-accent_color character varying NOT NULL DEFAULT '#22A95E'::character varying,
-theme_mode character varying NOT NULL DEFAULT 'dark'::character varying CHECK (theme_mode::text = ANY (ARRAY['dark'::character varying, 'light'::character varying]::text[])),
-keep_branding boolean NOT NULL DEFAULT false,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_branding_pkey PRIMARY KEY (id),
-CONSTRAINT settings_branding_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id)
-);
-CREATE TABLE public.settings_business_types (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-code character varying NOT NULL UNIQUE,
-label character varying NOT NULL,
-description text NOT NULL DEFAULT ''::text,
-sort_order integer NOT NULL DEFAULT 0,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_business_types_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_date_format_options (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-code character varying NOT NULL UNIQUE,
-format_pattern character varying NOT NULL,
-group_name character varying NOT NULL,
-label character varying NOT NULL,
-sort_order integer NOT NULL DEFAULT 0,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_date_format_options_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_date_separator_options (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-code character varying NOT NULL UNIQUE,
-separator character varying NOT NULL,
-label character varying NOT NULL,
-sort_order integer NOT NULL DEFAULT 0,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_date_separator_options_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_districts (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-state_id uuid NOT NULL,
-name character varying NOT NULL,
-code character varying,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp without time zone DEFAULT now(),
-updated_at timestamp without time zone DEFAULT now(),
-CONSTRAINT settings_districts_pkey PRIMARY KEY (id),
-CONSTRAINT settings_districts_state_id_fkey FOREIGN KEY (state_id) REFERENCES public.states(id)
-);
-CREATE TABLE public.settings_drug_licence_types (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-code character varying NOT NULL UNIQUE,
-label character varying NOT NULL,
-sort_order integer NOT NULL DEFAULT 0,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_drug_licence_types_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_fiscal_year_presets (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-code character varying NOT NULL UNIQUE,
-label character varying NOT NULL,
-start_month smallint NOT NULL,
-end_month smallint NOT NULL,
-sort_order integer NOT NULL DEFAULT 0,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_fiscal_year_presets_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_gst_treatments (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-code character varying NOT NULL UNIQUE,
-label character varying NOT NULL,
-sort_order integer NOT NULL DEFAULT 0,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_gst_treatments_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_gstin_registration_types (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-code character varying NOT NULL UNIQUE,
-label character varying NOT NULL,
-sort_order integer NOT NULL DEFAULT 0,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_gstin_registration_types_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_local_bodies (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-district_id uuid NOT NULL,
-name character varying NOT NULL,
-code character varying,
-body_type character varying NOT NULL CHECK (body_type::text = ANY (ARRAY['grama_panchayat'::character varying::text, 'municipality'::character varying::text, 'corporation'::character varying::text, 'town_panchayat'::character varying::text])),
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp without time zone DEFAULT now(),
-updated_at timestamp without time zone DEFAULT now(),
-CONSTRAINT settings_local_bodies_pkey PRIMARY KEY (id),
-CONSTRAINT settings_local_bodies_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.settings_districts(id)
-);
-CREATE TABLE public.settings_lsgd_seed_stage (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-state_code character varying,
-state_name character varying NOT NULL,
-district_name character varying NOT NULL,
-district_code character varying,
-assembly_name character varying,
-assembly_code character varying,
-local_body_type character varying NOT NULL,
-local_body_name character varying NOT NULL,
-local_body_code character varying,
-ward_no integer,
-ward_name character varying,
-ward_code character varying,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp without time zone DEFAULT now(),
-CONSTRAINT settings_lsgd_seed_stage_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_roles (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL,
-label character varying NOT NULL,
-description text NOT NULL DEFAULT ''::text,
-permissions jsonb NOT NULL DEFAULT '{}'::jsonb,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_roles_pkey PRIMARY KEY (id),
-CONSTRAINT settings_roles_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id)
-);
-CREATE TABLE public.settings_transaction_modules (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-code character varying NOT NULL UNIQUE,
-label character varying NOT NULL,
-sort_order integer NOT NULL DEFAULT 0,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_transaction_modules_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_transaction_prefix_placeholders (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-token character varying NOT NULL UNIQUE,
-label character varying NOT NULL,
-sort_order integer NOT NULL DEFAULT 0,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_transaction_prefix_placeholders_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_transaction_restart_options (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-code character varying NOT NULL UNIQUE,
-label character varying NOT NULL,
-sort_order integer NOT NULL DEFAULT 0,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_transaction_restart_options_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_transaction_series (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL,
-name character varying NOT NULL,
-modules jsonb NOT NULL DEFAULT '[]'::jsonb,
-created_at timestamp without time zone DEFAULT now(),
-updated_at timestamp without time zone DEFAULT now(),
-code character varying,
-branch_code character varying,
-warehouse_code character varying,
-CONSTRAINT settings_transaction_series_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.settings_user_location_access (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-org_id uuid NOT NULL,
-user_id uuid NOT NULL,
-outlet_id uuid NOT NULL,
-is_default_business boolean NOT NULL DEFAULT false,
-is_default_warehouse boolean NOT NULL DEFAULT false,
-created_at timestamp with time zone NOT NULL DEFAULT now(),
-updated_at timestamp with time zone NOT NULL DEFAULT now(),
-CONSTRAINT settings_user_location_access_pkey PRIMARY KEY (id),
-CONSTRAINT settings_user_location_access_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id)
-);
-CREATE TABLE public.settings_wards (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-local_body_id uuid NOT NULL,
-ward_no integer,
-name character varying NOT NULL,
-code character varying,
-is_active boolean NOT NULL DEFAULT true,
-created_at timestamp without time zone DEFAULT now(),
-updated_at timestamp without time zone DEFAULT now(),
-CONSTRAINT settings_wards_pkey PRIMARY KEY (id),
-CONSTRAINT settings_wards_local_body_id_fkey FOREIGN KEY (local_body_id) REFERENCES public.settings_local_bodies(id)
+CONSTRAINT settings_branches_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.lsgd_districts(id),
+CONSTRAINT settings_branches_local_body_id_fkey FOREIGN KEY (local_body_id) REFERENCES public.lsgd_local_bodies(id),
+CONSTRAINT settings_branches_ward_id_fkey FOREIGN KEY (ward_id) REFERENCES public.lsgd_wards(id),
+CONSTRAINT settings_branches_assembly_id_fkey FOREIGN KEY (assembly_id) REFERENCES public.assemblies_constituencies(id)
 );
 CREATE TABLE public.shipment_preferences (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1395,7 +1326,7 @@ created_at timestamp without time zone DEFAULT now(),
 CONSTRAINT states_pkey PRIMARY KEY (id),
 CONSTRAINT states_state_id_fkey FOREIGN KEY (state_id) REFERENCES public.countries(id)
 );
-CREATE TABLE public.storage_locations (
+CREATE TABLE public.storage_conditions (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
 location_name character varying NOT NULL UNIQUE,
 temperature_range character varying,
@@ -1410,23 +1341,16 @@ is_cold_chain boolean NOT NULL DEFAULT false,
 requires_fridge boolean NOT NULL DEFAULT false,
 sort_order integer NOT NULL DEFAULT 0,
 storage_type character varying,
-CONSTRAINT storage_locations_pkey PRIMARY KEY (id)
+CONSTRAINT storage_conditions_pkey PRIMARY KEY (id)
 );
-CREATE TABLE public.strengths (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
-strength_name character varying NOT NULL UNIQUE,
-is_active boolean DEFAULT true,
-created_at timestamp without time zone DEFAULT now(),
-CONSTRAINT strengths_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.tax_group_taxes (
+CREATE TABLE public.tax_group_rates (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
 tax_group_id uuid,
 tax_id uuid,
 created_at timestamp with time zone DEFAULT now(),
-CONSTRAINT tax_group_taxes_pkey PRIMARY KEY (id),
+CONSTRAINT tax_group_rates_pkey PRIMARY KEY (id),
 CONSTRAINT tax_group_taxes_tax_group_id_fkey FOREIGN KEY (tax_group_id) REFERENCES public.tax_groups(id),
-CONSTRAINT tax_group_taxes_tax_id_fkey FOREIGN KEY (tax_id) REFERENCES public.associate_taxes(id)
+CONSTRAINT tax_group_taxes_tax_id_fkey FOREIGN KEY (tax_id) REFERENCES public.tax_rates(id)
 );
 CREATE TABLE public.tax_groups (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1435,6 +1359,15 @@ tax_rate numeric NOT NULL,
 is_active boolean DEFAULT true,
 created_at timestamp with time zone DEFAULT now(),
 CONSTRAINT tax_groups_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tax_rates (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+tax_name character varying NOT NULL UNIQUE,
+tax_rate numeric NOT NULL,
+tax_type USER-DEFINED,
+is_active boolean DEFAULT true,
+created_at timestamp without time zone DEFAULT now(),
+CONSTRAINT tax_rates_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.tds_group_items (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1503,18 +1436,47 @@ reason text,
 updated_at timestamp without time zone DEFAULT now(),
 CONSTRAINT transaction_locks_pkey PRIMARY KEY (id)
 );
-CREATE TABLE public.transactional_sequences (
+CREATE TABLE public.transaction_series (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
-module character varying NOT NULL,
-prefix character varying NOT NULL DEFAULT ''::character varying,
-next_number integer NOT NULL DEFAULT 1,
-padding integer NOT NULL DEFAULT 6,
-is_active boolean DEFAULT true,
-updated_at timestamp with time zone DEFAULT now(),
-suffix character varying DEFAULT ''::character varying,
-outlet_id uuid,
-is_auto boolean DEFAULT true,
-CONSTRAINT transactional_sequences_pkey PRIMARY KEY (id)
+org_id uuid NOT NULL,
+name character varying NOT NULL,
+modules jsonb NOT NULL DEFAULT '[]'::jsonb,
+created_at timestamp without time zone DEFAULT now(),
+updated_at timestamp without time zone DEFAULT now(),
+code character varying,
+branch_code character varying,
+warehouse_code character varying,
+CONSTRAINT transaction_series_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.transaction_series_modules (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+code character varying NOT NULL UNIQUE,
+label character varying NOT NULL,
+sort_order integer NOT NULL DEFAULT 0,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT transaction_series_modules_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.transaction_series_placeholders (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+token character varying NOT NULL UNIQUE,
+label character varying NOT NULL,
+sort_order integer NOT NULL DEFAULT 0,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT transaction_series_placeholders_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.transaction_series_restart_options (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+code character varying NOT NULL UNIQUE,
+label character varying NOT NULL,
+sort_order integer NOT NULL DEFAULT 0,
+is_active boolean NOT NULL DEFAULT true,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT transaction_series_restart_options_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.units (
 id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1534,6 +1496,18 @@ description character varying NOT NULL,
 is_active boolean DEFAULT true,
 created_at timestamp without time zone DEFAULT now(),
 CONSTRAINT uqc_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.user_branch_access (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+org_id uuid NOT NULL,
+user_id uuid NOT NULL,
+outlet_id uuid NOT NULL,
+is_default_business boolean NOT NULL DEFAULT false,
+is_default_warehouse boolean NOT NULL DEFAULT false,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+updated_at timestamp with time zone NOT NULL DEFAULT now(),
+CONSTRAINT user_branch_access_pkey PRIMARY KEY (id),
+CONSTRAINT settings_user_location_access_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id)
 );
 CREATE TABLE public.users (
 id uuid NOT NULL,
@@ -1671,9 +1645,30 @@ CONSTRAINT warehouses_pkey PRIMARY KEY (id),
 CONSTRAINT warehouses_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
 CONSTRAINT warehouses_vendor_id_fkey FOREIGN KEY (vendor_id) REFERENCES public.vendors(id),
 CONSTRAINT warehouses_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organization(id),
-CONSTRAINT warehouses_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.settings_districts(id),
-CONSTRAINT warehouses_local_body_id_fkey FOREIGN KEY (local_body_id) REFERENCES public.settings_local_bodies(id),
-CONSTRAINT warehouses_ward_id_fkey FOREIGN KEY (ward_id) REFERENCES public.settings_wards(id),
+CONSTRAINT warehouses_district_id_fkey FOREIGN KEY (district_id) REFERENCES public.lsgd_districts(id),
+CONSTRAINT warehouses_local_body_id_fkey FOREIGN KEY (local_body_id) REFERENCES public.lsgd_local_bodies(id),
+CONSTRAINT warehouses_ward_id_fkey FOREIGN KEY (ward_id) REFERENCES public.lsgd_wards(id),
 CONSTRAINT warehouses_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.settings_branches(id),
-CONSTRAINT warehouses_assembly_id_fkey FOREIGN KEY (assembly_id) REFERENCES public.settings_assemblies(id)
+CONSTRAINT warehouses_assembly_id_fkey FOREIGN KEY (assembly_id) REFERENCES public.assemblies_constituencies(id)
+);
+CREATE TABLE public.zone_levels (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+zone_id uuid NOT NULL,
+level_no integer NOT NULL,
+level_name character varying,
+alias character varying,
+delimiter character varying DEFAULT '-'::character varying,
+total integer NOT NULL,
+created_at timestamp with time zone DEFAULT now(),
+CONSTRAINT zone_levels_pkey PRIMARY KEY (id),
+CONSTRAINT fk_zone FOREIGN KEY (zone_id) REFERENCES public.zone_master(id)
+);
+CREATE TABLE public.zone_master (
+id uuid NOT NULL DEFAULT gen_random_uuid(),
+entity_id uuid NOT NULL,
+warehouse_id uuid NOT NULL,
+zone_name character varying NOT NULL,
+is_active boolean DEFAULT true,
+created_at timestamp with time zone DEFAULT now(),
+CONSTRAINT zone_master_pkey PRIMARY KEY (id)
 );

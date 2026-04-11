@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
 
-const TABLE = "settings_transaction_series";
+const TABLE = "transaction_series";
 
 @Injectable()
 export class TransactionSeriesService {

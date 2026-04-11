@@ -286,7 +286,7 @@ class _SettingsWarehouseCreatePageState
       final user = ref.read(authUserProvider);
       final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
       final res = await _apiClient.get(
-        'warehouses-settings/${widget.warehouseId}',
+        'warehouses/${widget.warehouseId}',
         queryParameters: {'org_id': orgId},
       );
       if (!mounted) return;
@@ -331,7 +331,7 @@ class _SettingsWarehouseCreatePageState
       final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : _kDevOrgId;
       final nameCheck = await ref
           .read(apiClientProvider)
-          .get('warehouses-settings', queryParameters: {'org_id': orgId});
+          .get('warehouses', queryParameters: {'org_id': orgId});
       if (nameCheck.success && nameCheck.data is List) {
         final trimmed = _nameCtrl.text.trim().toLowerCase();
         final duplicate = (nameCheck.data as List).any((o) {
@@ -371,10 +371,10 @@ class _SettingsWarehouseCreatePageState
       final apiClient = ref.read(apiClientProvider);
       final res = _isEditing
           ? await apiClient.put(
-              'warehouses-settings/${widget.warehouseId}',
+              'warehouses/${widget.warehouseId}',
               data: body,
             )
-          : await apiClient.post('warehouses-settings', data: body);
+          : await apiClient.post('warehouses', data: body);
       if (!mounted) return;
       if (res.success) {
         ZerpaiToast.success(

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { BranchesService } from "../branches/branches.service";
+import { SettingsBranchesService } from "../settings-branches/settings-branches.service";
 import { SupabaseService } from "../supabase/supabase.service";
-import { WarehousesSettingsService } from "../warehouses-settings/warehouses-settings.service";
+import { WarehousesService } from "../warehouses/warehouses.service";
 
 type OutletLocationType = "business" | "warehouse";
 
@@ -9,8 +9,8 @@ type OutletLocationType = "business" | "warehouse";
 export class OutletsService {
   constructor(
     private readonly supabaseService: SupabaseService,
-    private readonly branchesService: BranchesService,
-    private readonly warehousesSettingsService: WarehousesSettingsService,
+    private readonly settingsBranchesService: SettingsBranchesService,
+    private readonly warehousesService: WarehousesService,
   ) {}
 
   private normalizeUuid(value: unknown): string | null {
@@ -34,14 +34,14 @@ export class OutletsService {
 
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_branch_transaction_series")
+      .from("branch_transaction_series")
       .select("branch_id, transaction_series_id")
       .eq("org_id", orgId)
       .in("branch_id", branchIds);
 
     if (error) {
       throw new Error(
-        `Failed to fetch settings_branch_transaction_series: ${error.message}`,
+        `Failed to fetch branch_transaction_series: ${error.message}`,
       );
     }
 
@@ -292,13 +292,13 @@ export class OutletsService {
     const locationType = this.normalizeLocationType(dto.location_type);
 
     if (locationType === "warehouse") {
-      const created = await this.warehousesSettingsService.create(
+      const created = await this.warehousesService.create(
         this.mapWarehousePayload(dto),
       );
       return this.findOne(created.id, dto.org_id);
     }
 
-    const created = await this.branchesService.create(
+    const created = await this.settingsBranchesService.create(
       this.mapBranchPayload(dto),
     );
     return this.findOne(created.id, dto.org_id);
@@ -319,7 +319,7 @@ export class OutletsService {
     }
 
     if (requestedType === "warehouse") {
-      await this.warehousesSettingsService.update(
+      await this.warehousesService.update(
         id,
         orgId,
         this.mapWarehousePayload({ ...dto, org_id: orgId }),
@@ -327,7 +327,7 @@ export class OutletsService {
       return this.findOne(id, orgId);
     }
 
-    await this.branchesService.update(
+    await this.settingsBranchesService.update(
       id,
       orgId,
       this.mapBranchPayload({ ...dto, org_id: orgId }),
@@ -346,7 +346,7 @@ export class OutletsService {
       );
     }
 
-    await this.warehousesSettingsService.update(id, orgId, {
+    await this.warehousesService.update(id, orgId, {
       customer_id: this.normalizeUuid(dto.customer_id),
       vendor_id: this.normalizeUuid(dto.vendor_id),
     });
@@ -360,9 +360,9 @@ export class OutletsService {
     }
 
     if (existing.location_type === "warehouse") {
-      return this.warehousesSettingsService.remove(id, orgId);
+      return this.warehousesService.remove(id, orgId);
     }
 
-    return this.branchesService.remove(id, orgId);
+    return this.settingsBranchesService.remove(id, orgId);
   }
 }

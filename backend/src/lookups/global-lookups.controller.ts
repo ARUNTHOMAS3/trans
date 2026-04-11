@@ -50,7 +50,7 @@ export class GlobalLookupsController {
   @Get(":type")
   async getGenericLookup(@Param("type") type: string) {
     const tableMap = {
-      "storage-locations": "storage_locations",
+      "storage-locations": "storage_conditions",
       units: "units",
       categories: "categories",
       vendors: "vendors",

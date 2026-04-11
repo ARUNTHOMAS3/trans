@@ -473,7 +473,7 @@ export class ReportsService {
         (COALESCE(SUM(i.current_stock), 0) * COALESCE(p.cost_price, 0)) as "assetValue"
       FROM outlet_inventory i
       JOIN products p ON i.product_id = p.id
-      LEFT JOIN storage_locations s ON p.storage_id = s.id
+      LEFT JOIN storage_conditions s ON p.storage_id = s.id
       GROUP BY p.id, p.product_name, p.sku, s.location_name, p.cost_price
       HAVING SUM(i.current_stock) > 0
       ORDER BY "assetValue" DESC

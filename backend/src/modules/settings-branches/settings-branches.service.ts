@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
 
 @Injectable()
-export class BranchesService {
+export class SettingsBranchesService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
   private normalizeBranchType(value: unknown) {
@@ -79,7 +79,7 @@ export class BranchesService {
     const client = this.supabaseService.getClient();
     const fetchBy = async (column: "code" | "name") => {
       const { data, error } = await client
-        .from("settings_assemblies")
+        .from("assemblies_constituencies")
         .select("id,code,name")
         .eq("district_id", normalizedDistrictId)
         .eq("is_active", true)
@@ -87,7 +87,7 @@ export class BranchesService {
         .maybeSingle();
 
       if (error) {
-        throw new Error(`Failed to fetch settings_assemblies: ${error.message}`);
+        throw new Error(`Failed to fetch assemblies_constituencies: ${error.message}`);
       }
 
       return data ?? null;
@@ -111,13 +111,13 @@ export class BranchesService {
 
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_assemblies")
+      .from("assemblies_constituencies")
       .select("id,code,name")
       .eq("id", assemblyId.trim())
       .maybeSingle();
 
     if (error) {
-      throw new Error(`Failed to fetch settings_assemblies: ${error.message}`);
+      throw new Error(`Failed to fetch assemblies_constituencies: ${error.message}`);
     }
     if (!data) {
       return rawAddress;
@@ -146,14 +146,14 @@ export class BranchesService {
 
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_roles")
+      .from("roles")
       .select("id,label")
       .eq("org_id", orgId)
       .eq("is_active", true)
       .in("label", roleLabels);
 
     if (error) {
-      throw new Error(`Failed to fetch settings_roles: ${error.message}`);
+      throw new Error(`Failed to fetch roles: ${error.message}`);
     }
 
     const roleIdMap = new Map<string, string | null>();
@@ -180,21 +180,21 @@ export class BranchesService {
     const client = this.supabaseService.getClient();
 
     const { error: deleteError } = await client
-      .from("settings_branch_transaction_series")
+      .from("branch_transaction_series")
       .delete()
       .eq("org_id", orgId)
       .eq("branch_id", branchId);
 
     if (deleteError) {
       throw new Error(
-        `Failed to replace settings_branch_transaction_series: ${deleteError.message}`,
+        `Failed to replace branch_transaction_series: ${deleteError.message}`,
       );
     }
 
     if (transactionSeriesIds.length === 0) return;
 
     const { error: insertError } = await client
-      .from("settings_branch_transaction_series")
+      .from("branch_transaction_series")
       .insert(
         transactionSeriesIds.map((transactionSeriesId) => ({
           org_id: orgId,
@@ -205,7 +205,7 @@ export class BranchesService {
 
     if (insertError) {
       throw new Error(
-        `Failed to insert settings_branch_transaction_series: ${insertError.message}`,
+        `Failed to insert branch_transaction_series: ${insertError.message}`,
       );
     }
   }
@@ -222,21 +222,21 @@ export class BranchesService {
     );
 
     const { error: deleteError } = await client
-      .from("settings_branch_user_access")
+      .from("branch_user_access")
       .delete()
       .eq("org_id", orgId)
       .eq("branch_id", branchId);
 
     if (deleteError) {
       throw new Error(
-        `Failed to replace settings_branch_user_access: ${deleteError.message}`,
+        `Failed to replace branch_user_access: ${deleteError.message}`,
       );
     }
 
     if (locationUsers.length === 0) return;
 
     const { error: insertError } = await client
-      .from("settings_branch_user_access")
+      .from("branch_user_access")
       .insert(
         locationUsers.map((user) => ({
           org_id: orgId,
@@ -248,7 +248,7 @@ export class BranchesService {
 
     if (insertError) {
       throw new Error(
-        `Failed to insert settings_branch_user_access: ${insertError.message}`,
+        `Failed to insert branch_user_access: ${insertError.message}`,
       );
     }
   }
@@ -259,12 +259,12 @@ export class BranchesService {
     const client = this.supabaseService.getClient();
     const [transactionSeriesRes, locationUsersRes] = await Promise.all([
       client
-        .from("settings_branch_transaction_series")
+        .from("branch_transaction_series")
         .select("transaction_series_id")
         .eq("org_id", branch.org_id)
         .eq("branch_id", branch.id),
       client
-        .from("settings_branch_user_access")
+        .from("branch_user_access")
         .select("user_id, role_id")
         .eq("org_id", branch.org_id)
         .eq("branch_id", branch.id),
@@ -298,7 +298,7 @@ export class BranchesService {
         : Promise.resolve({ data: [], error: null }),
       assignedRoleIds.length > 0
         ? client
-            .from("settings_roles")
+            .from("roles")
             .select("id,label")
             .eq("org_id", branch.org_id)
             .in("id", assignedRoleIds)
@@ -348,7 +348,7 @@ export class BranchesService {
   async findBusinessTypes(_orgId: string) {
     const client = this.supabaseService.getClient();
     const { data, error } = await client
-      .from("settings_business_types")
+      .from("business_types")
       .select("code,label,description,sort_order")
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
@@ -356,7 +356,7 @@ export class BranchesService {
 
     if (error) {
       throw new Error(
-        `Failed to fetch settings_business_types: ${error.message}`,
+        `Failed to fetch business_types: ${error.message}`,
       );
     }
 
@@ -385,7 +385,7 @@ export class BranchesService {
 
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_business_types")
+      .from("business_types")
       .insert({
         code: businessType,
         label,

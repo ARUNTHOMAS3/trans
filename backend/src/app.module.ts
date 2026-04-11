@@ -13,8 +13,8 @@ import { DocumentsModule } from "./modules/documents/documents.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { SequencesModule } from "./sequences/sequences.module";
 import { TransactionLockingModule } from "./modules/transaction-locking/transaction-locking.module";
-import { BranchesModule } from "./modules/branches/branches.module";
-import { WarehousesSettingsModule } from "./modules/warehouses-settings/warehouses-settings.module";
+import { SettingsBranchesModule } from "./modules/settings-branches/settings-branches.module";
+import { WarehousesModule } from "./modules/warehouses/warehouses.module";
 import { GstModule } from "./modules/gst/gst.module";
 import { TransactionSeriesModule } from "./modules/transaction-series/transaction-series.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -37,8 +37,8 @@ import { OutletsModule } from "./modules/outlets/outlets.module";
     DocumentsModule,
     SequencesModule,
     TransactionLockingModule,
-    BranchesModule,
-    WarehousesSettingsModule,
+    SettingsBranchesModule,
+    WarehousesModule,
     GstModule,
     TransactionSeriesModule,
     UsersModule,

@@ -37,14 +37,14 @@ export class ProductsService {
     inventoryAccount:accounts!products_inventory_account_id_accounts_id_fk(id, user_account_name),
     rack:racks(id, rack_name),
     buyingRule:buying_rules(id, buying_rule, rule_description, system_behavior, associated_schedule_codes, requires_rx, requires_patient_info, is_saleable, log_to_special_register, requires_doctor_name, requires_prescription_date, requires_age_check, institutional_only, blocks_retail_sale, quantity_limit, allows_refill, sort_order),
-    drugSchedule:schedules(id, shedule_name, schedule_code, reference_description, requires_prescription, requires_h1_register, is_narcotic, requires_batch_tracking, sort_order, is_common),
-    storage:storage_locations(id, location_name, storage_type, temperature_range, display_text, description, common_examples, min_temp_c, max_temp_c, is_cold_chain, requires_fridge, sort_order),
+    drugSchedule:drug_schedules(id, shedule_name, schedule_code, reference_description, requires_prescription, requires_h1_register, is_narcotic, requires_batch_tracking, sort_order, is_common),
+    storage:storage_conditions(id, location_name, storage_type, temperature_range, display_text, description, common_examples, min_temp_c, max_temp_c, is_cold_chain, requires_fridge, sort_order),
     compositions:product_contents(
       content_id,
       strength_id,
       display_order,
       content:contents(id, content_name),
-      strength:strengths(id, strength_name)
+      strength:drug_strengths(id, strength_name)
     )
   `;
 
@@ -1381,7 +1381,7 @@ export class ProductsService {
           filterActive: true,
         });
         break;
-      case "storage-locations":
+      case "storage-conditions":
         checks.push({
           table: "products",
           column: "storage_id",
@@ -1458,6 +1458,7 @@ export class ProductsService {
         });
         break;
       case "strengths":
+      case "drug_strengths":
         checks.push({
           table: "product_compositions",
           column: "strength_id",
@@ -1477,6 +1478,8 @@ export class ProductsService {
         });
         break;
       case "drug-schedules":
+      case "drug_schedules":
+      case "drug-drug_schedules":
         checks.push({
           table: "products",
           column: "schedule_of_drug_id",
@@ -1523,7 +1526,7 @@ export class ProductsService {
         break;
       case "tax-rates":
       case "associate-taxes":
-      case "associate_taxes":
+      case "tax_rates":
         checks.push({
           table: "products",
           column: "inter_state_tax_id",
@@ -1531,7 +1534,7 @@ export class ProductsService {
           filterActive: false,
         });
         checks.push({
-          table: "tax_group_taxes",
+          table: "tax_group_rates",
           column: "tax_id",
           description: "tax groups",
           filterActive: false,
@@ -1617,7 +1620,7 @@ export class ProductsService {
   async getTaxRates() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
-      .from("associate_taxes")
+      .from("tax_rates")
       .select("*")
       .eq("is_active", true);
 
@@ -1627,7 +1630,7 @@ export class ProductsService {
 
   async syncTaxRates(items: any[]) {
     return this.syncTableMetadata(
-      "associate_taxes",
+      "tax_rates",
       items,
       (item) => ({
         tax_name: item.tax_name || item.taxName,
@@ -1776,7 +1779,7 @@ export class ProductsService {
   async getStorageLocations() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
-      .from("storage_locations")
+      .from("storage_conditions")
       .select(
         "id, location_name, storage_type, temperature_range, display_text, description, common_examples, min_temp_c, max_temp_c, is_cold_chain, requires_fridge, sort_order, is_active",
       )
@@ -1802,7 +1805,7 @@ export class ProductsService {
 
   async syncStorageLocations(items: any[]) {
     return this.syncTableMetadata(
-      "storage_locations",
+      "storage_conditions",
       items,
       (item) => ({ location_name: item.name }),
       "location_name",
@@ -2125,7 +2128,7 @@ export class ProductsService {
   async getStrengths() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
-      .from("strengths")
+      .from("drug_strengths")
       .select("id, strength_name, is_active")
       .eq("is_active", true)
       .order("strength_name", { ascending: true });
@@ -2136,7 +2139,7 @@ export class ProductsService {
 
   async syncStrengths(items: any[]) {
     return this.syncTableMetadata(
-      "strengths",
+      "drug_strengths",
       items,
       (item) => ({ strength_name: item.name?.trim() || item.name }),
       "strength_name",
@@ -2170,7 +2173,7 @@ export class ProductsService {
   async getDrugSchedules() {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
-      .from("schedules")
+      .from("drug_schedules")
       .select(
         "id, shedule_name, schedule_code, reference_description, requires_prescription, requires_h1_register, is_narcotic, requires_batch_tracking, sort_order, is_common, is_active",
       )
@@ -2247,7 +2250,7 @@ export class ProductsService {
 
   async syncDrugSchedules(items: any[]) {
     return this.syncTableMetadata(
-      "schedules",
+      "drug_schedules",
       items,
       (item) => ({ shedule_name: item.name?.trim() || item.name }),
       "shedule_name",
@@ -2801,5 +2804,47 @@ export class ProductsService {
       to_be_billed: null,
       last_purchase_price: productData.last_purchase_price || 0,
     };
+  }
+
+  async getProductsByWarehouse(warehouseId: string) {
+    const supabase = this.supabaseService.getClient();
+
+    const { data: items, error } = await supabase
+      .from("sales_order_items")
+      .select(`
+        product_id,
+        product:products (
+          id,
+          product_name,
+          item_code
+        )
+      `)
+      .eq("warehouse_id", warehouseId);
+
+    if (error) {
+      console.error("❌ Error fetching warehouse products:", error);
+      throw new Error(`Failed to fetch warehouse products: ${error.message}`);
+    }
+
+    if (!items) return [];
+
+    // Filter out rows where product might be null (due to data inconsistency)
+    // and distinct products by ID
+    const seen = new Set<string>();
+    const distinctProducts: any[] = [];
+
+    for (const item of items) {
+      const p = item.product as any;
+      if (p && p.id && !seen.has(p.id)) {
+        seen.add(p.id);
+        distinctProducts.push({
+          id: p.id,
+          productName: p.product_name,
+          itemCode: p.item_code,
+        });
+      }
+    }
+
+    return distinctProducts;
   }
 }

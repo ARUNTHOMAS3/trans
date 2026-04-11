@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
 
 @Injectable()
-export class WarehousesSettingsService {
+export class WarehousesService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
   private normalizeUuid(value: unknown) {

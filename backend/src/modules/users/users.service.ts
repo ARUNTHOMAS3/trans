@@ -38,14 +38,14 @@ export class UsersService {
   private async fetchCustomRoles(orgId: string): Promise<any[]> {
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_roles")
+      .from("roles")
       .select("*")
       .eq("org_id", orgId)
       .eq("is_active", true)
       .order("label", { ascending: true });
 
     if (error) {
-      throw new Error(`Failed to fetch settings_roles: ${error.message}`);
+      throw new Error(`Failed to fetch roles: ${error.message}`);
     }
 
     return data ?? [];
@@ -162,7 +162,7 @@ export class UsersService {
   ): Promise<any[]> {
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_user_location_access")
+      .from("user_branch_access")
       .select("*")
       .eq("org_id", orgId)
       .eq("user_id", userId)
@@ -170,7 +170,7 @@ export class UsersService {
 
     if (error) {
       throw new Error(
-        `Failed to fetch settings_user_location_access: ${error.message}`,
+        `Failed to fetch user_branch_access: ${error.message}`,
       );
     }
 
@@ -246,14 +246,14 @@ export class UsersService {
     const client = this.supabaseService.getClient();
 
     const { error: deleteError } = await client
-      .from("settings_user_location_access")
+      .from("user_branch_access")
       .delete()
       .eq("org_id", orgId)
       .eq("user_id", userId);
 
     if (deleteError) {
       throw new Error(
-        `Failed to replace settings_user_location_access: ${deleteError.message}`,
+        `Failed to replace user_branch_access: ${deleteError.message}`,
       );
     }
 
@@ -283,7 +283,7 @@ export class UsersService {
     }
 
     const { error: insertError } = await client
-      .from("settings_user_location_access")
+      .from("user_branch_access")
       .insert(
         outletIds.map((outletId) => ({
           org_id: orgId,
@@ -296,7 +296,7 @@ export class UsersService {
 
     if (insertError) {
       throw new Error(
-        `Failed to insert settings_user_location_access: ${insertError.message}`,
+        `Failed to insert user_branch_access: ${insertError.message}`,
       );
     }
 
@@ -353,7 +353,7 @@ export class UsersService {
       client.auth.admin.listUsers({ perPage: 1000 }),
       this.fetchPublicUsers(orgId),
       client
-        .from("settings_user_location_access")
+        .from("user_branch_access")
         .select("user_id")
         .eq("org_id", orgId),
       this.getRoleMap(orgId),
@@ -364,7 +364,7 @@ export class UsersService {
     }
     if (accessRows.error) {
       throw new Error(
-        `Failed to fetch settings_user_location_access: ${accessRows.error.message}`,
+        `Failed to fetch user_branch_access: ${accessRows.error.message}`,
       );
     }
 
@@ -631,14 +631,14 @@ export class UsersService {
     const client = this.supabaseService.getClient();
 
     const { error: accessError } = await client
-      .from("settings_user_location_access")
+      .from("user_branch_access")
       .delete()
       .eq("org_id", orgId)
       .eq("user_id", id);
 
     if (accessError) {
       throw new Error(
-        `Failed to delete settings_user_location_access: ${accessError.message}`,
+        `Failed to delete user_branch_access: ${accessError.message}`,
       );
     }
 
@@ -696,7 +696,7 @@ export class UsersService {
 
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_roles")
+      .from("roles")
       .select("*")
       .eq("org_id", orgId)
       .eq("id", id)
@@ -725,7 +725,7 @@ export class UsersService {
 
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_roles")
+      .from("roles")
       .insert({
         org_id: orgId,
         label,
@@ -762,7 +762,7 @@ export class UsersService {
 
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_roles")
+      .from("roles")
       .update({
         label,
         description: body?.description?.toString().trim() ?? "",

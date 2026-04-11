@@ -671,18 +671,21 @@ class _SalesInvoiceCreateScreenState
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: labelCtrl != null
-                ? CustomTextField(
-                    controller: labelCtrl,
-                    height: 32,
-                    contentCase: ContentCase.none,
-                  )
-                : Text(label),
-          ),
+          if (labelCtrl != null)
+            SizedBox(
+              width: 140,
+              child: CustomTextField(
+                controller: labelCtrl,
+                height: 32,
+                contentCase: ContentCase.none,
+              ),
+            )
+          else
+            Expanded(child: Text(label)),
+          if (labelCtrl != null) const Spacer(),
           const SizedBox(width: 12),
           SizedBox(
-            width: 100,
+            width: 80,
             child: CustomTextField(
               controller: ctrl,
               height: 32,

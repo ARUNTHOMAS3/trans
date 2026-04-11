@@ -136,7 +136,7 @@ export class GlobalLookupsController {
     const client = this.supabaseService.getClient();
     const fetchBy = async (column: "code" | "name") => {
       const { data, error } = await client
-        .from("settings_assemblies")
+        .from("assemblies_constituencies")
         .select("id,code,name")
         .eq("district_id", normalizedDistrictId)
         .eq("is_active", true)
@@ -165,7 +165,7 @@ export class GlobalLookupsController {
 
     const client = this.supabaseService.getClient();
     const { data, error } = await client
-      .from("settings_assemblies")
+      .from("assemblies_constituencies")
       .select("id,code,name")
       .eq("id", assemblyId.trim())
       .maybeSingle();
@@ -264,7 +264,7 @@ export class GlobalLookupsController {
   @Get("business-types")
   async getBusinessTypes() {
     return this.fetchActiveOptions(
-      "settings_business_types",
+      "business_types",
       "code,label,description,sort_order",
     );
   }
@@ -272,7 +272,7 @@ export class GlobalLookupsController {
   @Get("gst-treatments")
   async getGstTreatments() {
     return this.fetchActiveOptions(
-      "settings_gst_treatments",
+      "gst_treatments",
       "code,label,sort_order",
     );
   }
@@ -280,7 +280,7 @@ export class GlobalLookupsController {
   @Get("gst-registration-types")
   async getGstRegistrationTypes() {
     return this.fetchActiveOptions(
-      "settings_gstin_registration_types",
+      "gstin_registration_types",
       "code,label,sort_order",
     );
   }
@@ -288,7 +288,7 @@ export class GlobalLookupsController {
   @Get("drug-licence-types")
   async getDrugLicenceTypes() {
     return this.fetchActiveOptions(
-      "settings_drug_licence_types",
+      "drug_licence_types",
       "code,label,sort_order",
     );
   }
@@ -296,7 +296,7 @@ export class GlobalLookupsController {
   @Get("fiscal-year-presets")
   async getFiscalYearPresets() {
     return this.fetchActiveOptions(
-      "settings_fiscal_year_presets",
+      "fiscal_year_presets",
       "code,label,start_month,end_month,sort_order",
     );
   }
@@ -304,7 +304,7 @@ export class GlobalLookupsController {
   @Get("date-format-options")
   async getDateFormatOptions() {
     return this.fetchActiveOptions(
-      "settings_date_format_options",
+      "date_format",
       "code,format_pattern,group_name,label,sort_order",
     );
   }
@@ -312,7 +312,7 @@ export class GlobalLookupsController {
   @Get("date-separator-options")
   async getDateSeparatorOptions() {
     return this.fetchActiveOptions(
-      "settings_date_separator_options",
+      "date_separator",
       "code,separator,label,sort_order",
     );
   }
@@ -320,7 +320,7 @@ export class GlobalLookupsController {
   @Get("transaction-modules")
   async getTransactionModules() {
     return this.fetchActiveOptions(
-      "settings_transaction_modules",
+      "transaction_series_modules",
       "code,label,sort_order",
     );
   }
@@ -328,7 +328,7 @@ export class GlobalLookupsController {
   @Get("transaction-restart-options")
   async getTransactionRestartOptions() {
     return this.fetchActiveOptions(
-      "settings_transaction_restart_options",
+      "transaction_series_restart_options",
       "code,label,sort_order",
     );
   }
@@ -336,7 +336,7 @@ export class GlobalLookupsController {
   @Get("transaction-prefix-placeholders")
   async getTransactionPrefixPlaceholders() {
     return this.fetchActiveOptions(
-      "settings_transaction_prefix_placeholders",
+      "transaction_series_placeholders",
       "token,label,sort_order",
     );
   }
@@ -404,7 +404,7 @@ export class GlobalLookupsController {
 
     const client = this.supabaseService.getClient();
     const { data, error } = await client
-      .from("settings_districts")
+      .from("lsgd_districts")
       .select("id,name,code")
       .eq("state_id", stateId.trim())
       .eq("is_active", true)
@@ -425,7 +425,7 @@ export class GlobalLookupsController {
 
     const client = this.supabaseService.getClient();
     let query = client
-      .from("settings_local_bodies")
+      .from("lsgd_local_bodies")
       .select("id,name,code,body_type")
       .eq("district_id", districtId.trim())
       .eq("is_active", true);
@@ -447,7 +447,7 @@ export class GlobalLookupsController {
 
     const client = this.supabaseService.getClient();
     const { data, error } = await client
-      .from("settings_wards")
+      .from("lsgd_wards")
       .select("id,ward_no,name,code")
       .eq("local_body_id", localBodyId.trim())
       .eq("is_active", true)
@@ -471,7 +471,7 @@ export class GlobalLookupsController {
 
     const client = this.supabaseService.getClient();
     const { data, error } = await client
-      .from("settings_assemblies")
+      .from("assemblies_constituencies")
       .select("id,code,name")
       .eq("district_id", districtId.trim())
       .eq("is_active", true)
@@ -486,7 +486,7 @@ export class GlobalLookupsController {
   }
 
   /** Returns full org profile — all columns live directly on the organization table,
-   *  merged with branding settings from settings_branding.
+   *  merged with branding settings from branding.
    *  Also resolves country name from state_id → states.state_id → countries. */
   @Get("org/:orgId")
   async getOrgDetails(@Param("orgId") orgId: string) {
@@ -501,7 +501,7 @@ export class GlobalLookupsController {
         .eq("id", orgId)
         .single(),
       client
-        .from("settings_branding")
+        .from("branding")
         .select("accent_color, theme_mode, keep_branding")
         .eq("org_id", orgId)
         .maybeSingle(),
@@ -560,7 +560,7 @@ export class GlobalLookupsController {
   async getOrgBranding(@Param("orgId") orgId: string) {
     const client = this.supabaseService.getClient();
     const { data, error } = await client
-      .from("settings_branding")
+      .from("branding")
       .select("accent_color, theme_mode, keep_branding")
       .eq("org_id", orgId)
       .maybeSingle();
@@ -572,7 +572,7 @@ export class GlobalLookupsController {
     };
   }
 
-  /** Upsert branding settings — creates or updates the settings_branding row. */
+  /** Upsert branding settings — creates or updates the branding row. */
   @Post("org/:orgId/branding")
   @HttpCode(HttpStatus.OK)
   async saveOrgBranding(
@@ -594,7 +594,7 @@ export class GlobalLookupsController {
       payload.keep_branding = body.keep_branding;
 
     const { error } = await client
-      .from("settings_branding")
+      .from("branding")
       .upsert(payload, { onConflict: "org_id" });
 
     if (error) throw error;
