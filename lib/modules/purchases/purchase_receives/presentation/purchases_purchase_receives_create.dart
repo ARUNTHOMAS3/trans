@@ -22,6 +22,7 @@ import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_ve
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
+import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 
 const _bgWhite = Color(0xFFFFFFFF);
 const _borderCol = Color(0xFFE8E8E8);
@@ -139,13 +140,14 @@ class _PRCreateState
   PurchaseOrder? _selectedPO;
   String? _selectedPONumber;
   String? _selectedPOId;
+  String? _selectedWarehouseName;
   List<PurchaseOrder> _vendorPOs = [];
   bool _isLoadingPOs = false;
   bool _isSaving = false;
   bool _isReceiveAutoGenerate = true;
   String _receiveNumberPrefix = 'PR-';
   int _receiveNextNumber = 35;
-  bool _isManualMode = true;
+  bool _isManualMode = false;
   bool _isDamageEnabled = false;
   final List<String?> _preferredBins = [];
   final List<TextEditingController> _damageControllers = [];
@@ -756,12 +758,15 @@ class _PRCreateState
       _selectedPO = null;
       _selectedPONumber = null;
       _selectedPOId = null;
+      _selectedWarehouseName = null;
       _clearAllRows();
     });
 
     try {
       final pos = await ref.read(
-        purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)).future,
+        purchaseOrdersProvider(
+          PurchaseOrderFilter(vendorId: vendorId, limit: 500),
+        ).future,
       );
       if (mounted) {
         setState(() {
@@ -791,8 +796,46 @@ class _PRCreateState
       final fullPO = await ref.read(purchaseOrderProvider(po.id!).future);
       if (!mounted) return;
 
+      // Resolve warehouse name explicitly
+      String? resolvedName;
+      final poToUse = fullPO ?? po;
+      
+      final idToLookup = (poToUse.deliveryWarehouseId?.trim() ?? 
+                         poToUse.warehouseId?.trim() ?? 
+                         poToUse.outletId?.trim())?.toLowerCase();
+
+      final warehouseList = await ref.read(warehousesProvider.future);
+      
+      AppLogger.debug('Resolving warehouse', data: {
+        'idToLookup': idToLookup,
+        'poWarehouseName': poToUse.warehouseName,
+        'availableCount': warehouseList.length,
+      }, module: 'purchases');
+
+      if (idToLookup != null && idToLookup.isNotEmpty) {
+        // 1. Try exact ID match (case-insensitive)
+        final match = warehouseList.where((w) => w.id.toLowerCase() == idToLookup).firstOrNull ??
+                      warehouseList.where((w) => w.parentOutletId?.toLowerCase() == idToLookup).firstOrNull;
+        
+        if (match != null) {
+          resolvedName = match.name;
+        } else if (poToUse.warehouseName != null && poToUse.warehouseName!.isNotEmpty) {
+          // 2. Try matching by name string if ID lookup failed
+          final nameMatch = warehouseList.where((w) => w.name.toLowerCase() == poToUse.warehouseName!.toLowerCase()).firstOrNull;
+          resolvedName = nameMatch?.name ?? poToUse.warehouseName;
+        } else {
+          resolvedName = 'Not Available';
+        }
+      } else {
+        // 3. No ID found, use name from PO directly or fallback
+        resolvedName = (poToUse.warehouseName != null && poToUse.warehouseName!.isNotEmpty)
+            ? poToUse.warehouseName
+            : 'Not Available';
+      }
+
       setState(() {
         _selectedPO = fullPO ?? po;
+        _selectedWarehouseName = resolvedName;
         _isLoadingPOs = false;
         _clearAllRows();
 
@@ -889,7 +932,8 @@ class _PRCreateState
                   width: 400,
                   child: FormDropdown<PurchaseOrder>(
                     height: 32,
-                    itemHeight: 60.0,
+                    maxVisibleItems: 3,
+                    itemHeight: 60,
                     value: _selectedPO,
                     items: _vendorPOs,
                     hint: _selectedVendorId == null
@@ -899,6 +943,11 @@ class _PRCreateState
                               : "Select a Purchase Order"),
                     showSearch: true,
                     isLoading: _isLoadingPOs,
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontFamily: "Inter",
+                      color: _textPrimary,
+                    ),
                     displayStringForValue: (po) => po.orderNumber,
                     searchStringForValue: (po) =>
                         "${po.orderNumber} ${DateFormat("dd-MM-yyyy").format(po.orderDate)}",
@@ -974,11 +1023,6 @@ class _PRCreateState
                         _onPOSelected(po);
                       }
                     },
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      color: _textPrimary,
-                    ),
                   ),
                 ),
               ),
@@ -2112,7 +2156,7 @@ class _PRCreateState
                     onChanged: onChanged,
                     style: const TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w400,
                       fontFamily: 'Inter',
                     ),
                     textAlign: TextAlign.center,
@@ -2216,7 +2260,7 @@ class _PRCreateState
     bool isEphemeral = false,
   }) {
     if (!_rowSelectedWarehouses.containsKey(index)) {
-      _rowSelectedWarehouses[index] = 'ZABNIX PVT/LTD';
+      _rowSelectedWarehouses[index] = _selectedWarehouseName ?? '';
     }
     if (!_rowSelectedViews.containsKey(index)) {
       _rowSelectedViews[index] = 'Accounting';
@@ -2454,97 +2498,88 @@ class _PRCreateState
               hideRightBorder: true,
               child: Padding(
                 padding: const EdgeInsets.only(left: 8, right: 4, top: 4, bottom: 4),
-                child: WarehouseHoverPopover(
-                  warehouseName:
-                      _rowSelectedWarehouses[index] ?? 'ZABNIX PVT/LTD',
-                  selectedView: _rowSelectedViews[index] ?? 'Accounting',
-                  onWarehouseChanged: (name) =>
-                      setState(() => _rowSelectedWarehouses[index] = name),
-                  onViewChanged: (view) =>
-                      setState(() => _rowSelectedViews[index] = view),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 120,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildQtyControl(
-                              fieldKey: 'manual-$index',
-                              controller: ctrl.qtyCtrl,
-                              onChanged: (val) {
-                                if (isEphemeral) return;
-                                _onRowQtyChanged(index, val);
-                              },
-                              onIncrement: () {
-                                if (isEphemeral) return;
-                                _adjustRowQuantity(index, delta: 1);
-                              },
-                              onDecrement: () {
-                                if (isEphemeral) return;
-                                _adjustRowQuantity(index, delta: -1);
-                              },
-                            ),
-                            if (!isEphemeral &&
-                                !hasBatches &&
-                                item.quantityToReceive > 0) ...[
-                              const SizedBox(height: 4),
-                              _buildAddBatchesLinkButton(index),
-                            ],
-                            if (!isEphemeral) _buildQtyAndFocBreakdown(item),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 94,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildQtyControl(
+                            fieldKey: 'manual-$index',
+                            controller: ctrl.qtyCtrl,
+                            onChanged: (val) {
+                              if (isEphemeral) return;
+                              _onRowQtyChanged(index, val);
+                            },
+                            onIncrement: () {
+                              if (isEphemeral) return;
+                              _adjustRowQuantity(index, delta: 1);
+                            },
+                            onDecrement: () {
+                              if (isEphemeral) return;
+                              _adjustRowQuantity(index, delta: -1);
+                            },
+                          ),
+                          if (!isEphemeral &&
+                              !hasBatches &&
+                              item.quantityToReceive > 0) ...[
+                            const SizedBox(height: 4),
+                            _buildAddBatchesLinkButton(index),
                           ],
-                        ),
+                          if (!isEphemeral) _buildQtyAndFocBreakdown(item),
+                        ],
                       ),
-                      const SizedBox(width: 6),
-                      if (hasBatches)
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: item.batches.map((batch) {
-                                return GestureDetector(
-                                  onTap: () => _showSelectBatchDialog(index),
-                                  child: Container(
-                                    width: 94,
-                                    margin: const EdgeInsets.only(right: 2),
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF3F9F5),
-                                      border: Border.all(
-                                        color: const Color(0xFFCFE9D8),
-                                      ),
-                                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    const SizedBox(width: 6),
+                    if (hasBatches)
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: item.batches.map((batch) {
+                              return GestureDetector(
+                                onTap: () => _showSelectBatchDialog(index),
+                                child: Container(
+                                  width: 94,
+                                  margin: const EdgeInsets.only(right: 2),
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3F9F5),
+                                    border: Border.all(
+                                      color: const Color(0xFFCFE9D8),
                                     ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        _batchText('Batch: ${batch.batchNo}'),
-                                        _batchText(
-                                          'Qty: ${_fmtPcs(batch.quantity)} pcs',
-                                        ),
-                                        if (batch.foc > 0)
-                                          _batchText(
-                                            'FOC: ${_fmtPcs(batch.foc)} pcs',
-                                          ),
-                                        _batchText('Pack: ${batch.unitPack}'),
-                                        _batchText('MRP: ${batch.mrp}'),
-                                        _batchText('P Rate: ${batch.ptr}'),
-                                        _batchText(
-                                          'Exp: ${batch.expiryDate != null ? DateFormat('dd-MM-yyyy').format(batch.expiryDate!) : ''}',
-                                        ),
-                                      ],
-                                    ),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
-                                );
-                              }).toList(),
-                            ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _batchText('Batch: ${batch.batchNo}'),
+                                      _batchText(
+                                        'Qty: ${_fmtPcs(batch.quantity)} pcs',
+                                      ),
+                                      if (batch.foc > 0)
+                                        _batchText(
+                                          'FOC: ${_fmtPcs(batch.foc)} pcs',
+                                        ),
+                                      _batchText('Pack: ${batch.unitPack}'),
+                                      _batchText('MRP: ${batch.mrp}'),
+                                      _batchText('P Rate: ${batch.ptr}'),
+                                      _batchText(
+                                        'Exp: ${batch.expiryDate != null ? DateFormat('dd-MM-yyyy').format(batch.expiryDate!) : ''}',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                           ),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -2765,85 +2800,76 @@ class _PRCreateState
               hideRightBorder: true,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: WarehouseHoverPopover(
-                  warehouseName:
-                      _rowSelectedWarehouses[index] ?? 'ZABNIX PVT/LTD',
-                  selectedView: _rowSelectedViews[index] ?? 'Accounting',
-                  onWarehouseChanged: (name) =>
-                      setState(() => _rowSelectedWarehouses[index] = name),
-                  onViewChanged: (view) =>
-                      setState(() => _rowSelectedViews[index] = view),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 94,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildQtyInputField(
-                              fieldKey: "item-$index",
-                              controller: ctrl.qtyCtrl,
-                              onChanged: (val) => _onRowQtyChanged(index, val),
-                              height: 32,
-                            ),
-                            if (!hasBatches && item.quantityToReceive > 0) ...[
-                              const SizedBox(height: 4),
-                              _buildAddBatchesLinkButton(index),
-                            ],
-                            _buildQtyAndFocBreakdown(item),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 94,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildQtyInputField(
+                            fieldKey: "item-$index",
+                            controller: ctrl.qtyCtrl,
+                            onChanged: (val) => _onRowQtyChanged(index, val),
+                            height: 32,
+                          ),
+                          if (!hasBatches && item.quantityToReceive > 0) ...[
+                            const SizedBox(height: 4),
+                            _buildAddBatchesLinkButton(index),
                           ],
-                        ),
+                          _buildQtyAndFocBreakdown(item),
+                        ],
                       ),
-                      const SizedBox(width: 6),
-                      if (hasBatches)
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: item.batches.map((batch) {
-                                return GestureDetector(
-                                  onTap: () => _showSelectBatchDialog(index),
-                                  child: Container(
-                                    width: 94,
-                                    margin: const EdgeInsets.only(right: 2),
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF3F9F5),
-                                      border: Border.all(
-                                        color: const Color(0xFFCFE9D8),
-                                      ),
-                                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    const SizedBox(width: 6),
+                    if (hasBatches)
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: item.batches.map((batch) {
+                              return GestureDetector(
+                                onTap: () => _showSelectBatchDialog(index),
+                                child: Container(
+                                  width: 94,
+                                  margin: const EdgeInsets.only(right: 2),
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3F9F5),
+                                    border: Border.all(
+                                      color: const Color(0xFFCFE9D8),
                                     ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        _batchText('Batch: ${batch.batchNo}'),
-                                        _batchText(
-                                          'Qty: ${_fmtPcs(batch.quantity)} pcs',
-                                        ),
-                                        if (batch.foc > 0)
-                                          _batchText(
-                                            'FOC: ${_fmtPcs(batch.foc)} pcs',
-                                          ),
-                                        _batchText('Pack: ${batch.unitPack}'),
-                                        _batchText('MRP: ${batch.mrp}'),
-                                        _batchText('P Rate: ${batch.ptr}'),
-                                        _batchText(
-                                          'Exp: ${batch.expiryDate != null ? DateFormat('dd-MM-yyyy').format(batch.expiryDate!) : ''}',
-                                        ),
-                                      ],
-                                    ),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
-                                );
-                              }).toList(),
-                            ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _batchText('Batch: ${batch.batchNo}'),
+                                      _batchText(
+                                        'Qty: ${_fmtPcs(batch.quantity)} pcs',
+                                      ),
+                                      if (batch.foc > 0)
+                                        _batchText(
+                                          'FOC: ${_fmtPcs(batch.foc)} pcs',
+                                        ),
+                                      _batchText('Pack: ${batch.unitPack}'),
+                                      _batchText('MRP: ${batch.mrp}'),
+                                      _batchText('P Rate: ${batch.ptr}'),
+                                      _batchText(
+                                        'Exp: ${batch.expiryDate != null ? DateFormat('dd-MM-yyyy').format(batch.expiryDate!) : ''}',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                           ),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -3356,9 +3382,14 @@ class _PRCreateState
     final itemId = item.itemId?.trim();
     if (itemId != null && itemId.isNotEmpty) {
       try {
-        final dbBatchNumbers = await ref.refresh(
-          itemBatchNumbersProvider(itemId).future,
+        await ref.read(warehousesProvider.future);
+        final dbBatches = await ref.refresh(
+          batchLookupProvider(itemId).future,
         );
+        final dbBatchNumbers = dbBatches
+            .map((b) => b['batch_no']?.toString().trim() ?? '')
+            .where((v) => v.isNotEmpty)
+            .toList();
         batchOptions.addAll(dbBatchNumbers);
       } catch (_) {
         // keep existing local options if remote lookup fails
@@ -3375,7 +3406,7 @@ class _PRCreateState
         // Total in batch dialog must follow Ordered quantity in line item.
         ordered: item.ordered,
         warehouseName:
-            _rowSelectedWarehouses[itemIndex] ?? _resolveWarehouseName(),
+            _rowSelectedWarehouses[itemIndex] ?? _selectedWarehouseName ?? "Not Available",
         initialDamageEnabled: _isDamageEnabled,
         onDamageChanged: (enabled) {
           setState(() {
@@ -3400,31 +3431,8 @@ class _PRCreateState
       ),
     );
   }
-
-  String _resolveWarehouseName() {
-    final warehouseName = _selectedPO?.warehouseName?.trim();
-    if (warehouseName != null && warehouseName.isNotEmpty) {
-      return warehouseName;
-    }
-
-    final idToLookup =
-        _selectedPO?.warehouseId?.trim() ??
-        _selectedPO?.deliveryWarehouseId?.trim();
-    if (idToLookup != null && idToLookup.isNotEmpty) {
-      final whAsync = ref.read(warehousesProvider);
-      if (whAsync.hasValue && whAsync.value != null) {
-        try {
-          final wh = whAsync.value!.firstWhere((w) => w.id == idToLookup);
-          return wh.name;
-        } catch (_) {
-          // Fallback if not found
-        }
-      }
-    }
-
-    return 'ZABNIX PVT/LTD';
-  }
 }
+
 
 class _SelectBatchDialog extends StatefulWidget {
   final String itemName;

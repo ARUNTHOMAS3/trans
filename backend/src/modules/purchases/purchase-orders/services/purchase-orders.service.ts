@@ -12,6 +12,7 @@ export class PurchaseOrdersService {
     limit: number = 100,
     search?: string,
     status?: string,
+    vendorId?: string,
   ) {
     const offset = (page - 1) * limit;
 
@@ -35,6 +36,10 @@ export class PurchaseOrdersService {
 
     if (status) {
       query = query.eq("status", status);
+    }
+
+    if (vendorId) {
+      query = query.eq("vendor_id", vendorId);
     }
 
     const { data, error, count } = await query;

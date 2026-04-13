@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { db } from "../../db/db";
-import { batches, product, outletInventory } from "../../db/schema";
+import { batches, batchMaster, product, outletInventory } from "../../db/schema";
 import { eq, sql } from "drizzle-orm";
 import { SupabaseService } from "../supabase/supabase.service";
 import { CreateProductDto } from "./dto/create-product.dto";
@@ -883,27 +883,39 @@ export class ProductsService {
   async getBatches(productId: string) {
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase
-      .from("batches")
-      .select("*")
+      .from("batch_master")
+      .select("id, product_id, batch_no, expiry_date, unit_pack, is_manufacture_details, manufacture_batch_number, manufacture_exp, is_active")
       .eq("product_id", productId)
       .eq("is_active", true)
-      .order("exp", { ascending: true });
+      .order("expiry_date", { ascending: true });
 
     if (error) {
       console.error("Error fetching batches:", error);
       throw new Error(`Failed to fetch batches: ${error.message}`);
     }
-    return data;
+
+    // Map database fields to API response format
+    return (data || []).map((batch: any) => ({
+      batch: batch.batch_no,
+      batch_no: batch.batch_no,
+      exp: batch.expiry_date,
+      expiry_date: batch.expiry_date,
+      unit_pack: batch.unit_pack,
+      mrp: null, // batch_master doesn't have mrp/ptr pricing fields
+      ptr: null,
+      is_manufacture_details: batch.is_manufacture_details,
+      manufacture_batch_number: batch.manufacture_batch_number,
+      manufacture_exp: batch.manufacture_exp,
+      is_active: batch.is_active,
+    }));
   }
 
   async createBatch(productId: string, body: any) {
     const supabase = this.supabaseService.getClient();
     const payload = {
       product_id: productId,
-      batch: body.batch,
-      exp: body.exp,
-      mrp: body.mrp !== undefined ? Number(body.mrp) : undefined,
-      ptr: body.ptr !== undefined ? Number(body.ptr) : undefined,
+      batch_no: body.batch || body.batch_no,
+      expiry_date: body.exp || body.expiry_date,
       unit_pack: body.unit_pack != null ? String(body.unit_pack) : null,
       is_manufacture_details: body.is_manufacture_details ?? false,
       manufacture_batch_number: body.manufacture_batch_number || null,
@@ -912,7 +924,7 @@ export class ProductsService {
     };
 
     const { data, error } = await supabase
-      .from("batches")
+      .from("batch_master")
       .insert([payload])
       .select()
       .single();
@@ -921,21 +933,19 @@ export class ProductsService {
       console.error("Error creating batch:", error);
 
       if (
-        (error.message || "").includes("permission denied for table batches")
+        (error.message || "").includes("permission denied for table batch_master")
       ) {
         try {
           const [fallbackCreated] = await db
-            .insert(batches)
+            .insert(batchMaster)
             .values({
               productId,
-              batchNumber: payload.batch,
-              expiryDate: payload.exp,
-              mrp: payload.mrp as any,
-              ptr: payload.ptr as any,
+              batchNo: payload.batch_no,
+              expiryDate: payload.expiry_date,
               unitPack: payload.unit_pack,
               isManufactureDetails: payload.is_manufacture_details,
               manufactureBatchNumber: payload.manufacture_batch_number,
-              manufactureExpiryDate: payload.manufacture_exp,
+              manufactureExp: payload.manufacture_exp,
               isActive: true,
             })
             .returning();
@@ -944,7 +954,7 @@ export class ProductsService {
             return fallbackCreated;
           }
         } catch (fallbackError: any) {
-          console.error("Fallback insert into batches failed:", fallbackError);
+          console.error("Fallback insert into batch_master failed:", fallbackError);
         }
       }
 

@@ -16,6 +16,7 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
     int limit = 100,
     String? search,
     String? status,
+    String? vendorId,
   }) async {
     try {
       final queryParameters = {
@@ -23,6 +24,7 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         'limit': limit,
         if (search != null && search.isNotEmpty) 'search': search,
         if (status != null) 'status': status,
+        if (vendorId != null && vendorId.isNotEmpty) 'vendorId': vendorId,
       };
 
       final response = await _apiClient.get(
@@ -160,35 +162,50 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
       final queryParameters = <String, dynamic>{
         if (orgId != null && orgId.isNotEmpty) 'org_id': orgId,
       };
-      final outletsResponse = await _apiClient.get(
-        'outlets',
-        queryParameters: queryParameters,
-      );
 
-      final outletsList = _normalizeList(outletsResponse.data);
-      final settingsWarehouses = outletsList
-          .whereType<Map<String, dynamic>>()
-          .where(
-            (row) =>
-                (row['location_type']?.toString().toLowerCase() == 'warehouse') &&
-                (row['is_active'] as bool? ?? true),
-          )
-          .map(WarehouseModel.fromJson)
-          .toList();
+      final List<WarehouseModel> allWarehouses = [];
 
-      if (settingsWarehouses.isNotEmpty) {
-        return settingsWarehouses;
+      try {
+        final settingsResponse = await _apiClient.get(
+          'outlets',
+          queryParameters: queryParameters,
+        );
+        if (settingsResponse.statusCode == 200 && settingsResponse.data != null) {
+          final List<dynamic> settingsOutlets = settingsResponse.data is List 
+              ? settingsResponse.data 
+              : (settingsResponse.data['data'] as List<dynamic>? ?? []);
+          final warehouses = settingsOutlets
+              .map((json) => WarehouseModel.fromJson(json))
+              .where((w) => w.locationType == 'warehouse')
+              .toList();
+          allWarehouses.addAll(warehouses);
+        }
+      } catch (e) {
+        AppLogger.warning('Failed to fetch from outlets endpoint, skipping...', error: e, module: 'purchases');
       }
 
-      final legacyResponse = await _apiClient.get(
-        ApiEndpoints.warehouses,
-        queryParameters: queryParameters,
-      );
+      try {
+        final legacyResponse = await _apiClient.get(
+          ApiEndpoints.warehouses,
+          queryParameters: queryParameters,
+        );
 
-      return _normalizeList(legacyResponse.data)
-          .whereType<Map<String, dynamic>>()
-          .map(WarehouseModel.fromJson)
-          .toList();
+        if (legacyResponse.statusCode == 200 && legacyResponse.data != null) {
+          final List<dynamic> legacyWarehousesJson = legacyResponse.data is List
+              ? legacyResponse.data
+              : (legacyResponse.data['data'] as List<dynamic>? ?? []);
+          final legacyWarehouses =
+              legacyWarehousesJson.map((json) => WarehouseModel.fromJson(json)).toList();
+          for (var wh in legacyWarehouses) {
+            if (!allWarehouses.any((element) => element.id == wh.id)) {
+              allWarehouses.add(wh);
+            }
+          }
+        }
+      } catch (e) {
+        AppLogger.error('Failed to fetch from warehouses endpoint', error: e, module: 'purchases');
+      }
+      return allWarehouses;
     } catch (e, st) {
       AppLogger.error('GET WAREHOUSES error', error: e, stackTrace: st, module: 'purchases');
       return [];

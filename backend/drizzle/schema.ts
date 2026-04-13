@@ -23,7 +23,7 @@ export const unitType = pgEnum("unit_type", ['count', 'weight', 'volume', 'lengt
 export const vendorType = pgEnum("vendor_type", ['manufacturer', 'distributor', 'wholesaler'])
 
 export const organizationSystemIdSeq = pgSequence("organization_system_id_seq", {  startWith: "60000000000", increment: "1", minValue: "1", maxValue: "9223372036854775807", cache: "1", cycle: false })
-export const settingsBranchesSystemIdSeq = pgSequence("settings_branches_system_id_seq", {  startWith: "60000000000", increment: "1", minValue: "1", maxValue: "9223372036854775807", cache: "1", cycle: false })
+export const branchesSystemIdSeq = pgSequence("branches_system_id_seq", {  startWith: "60000000000", increment: "1", minValue: "1", maxValue: "9223372036854775807", cache: "1", cycle: false })
 
 export const batchMaster = pgTable("batch_master", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
@@ -831,7 +831,7 @@ export const branchTransactionSeries = pgTable("branch_transaction_series", {
 	index("idx_settings_branch_transaction_series_transaction_series_id").using("btree", table.transactionSeriesId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.branchId],
-			foreignColumns: [settingsBranches.id],
+			foreignColumns: [branches.id],
 			name: "settings_branch_transaction_series_branch_id_fkey"
 		}).onDelete("cascade"),
 	foreignKey({
@@ -893,7 +893,7 @@ export const branchUsers = pgTable("branch_users", {
 	index("idx_settings_branch_users_user_id").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.branchId],
-			foreignColumns: [settingsBranches.id],
+			foreignColumns: [branches.id],
 			name: "settings_branch_users_branch_id_fkey"
 		}).onDelete("cascade"),
 	foreignKey({
@@ -1978,6 +1978,20 @@ export const productVendorMappings = pgTable("product_vendor_mappings", {
 		}).onDelete("cascade"),
 ]);
 
+export const organisationBranchMaster = pgTable("organisation_branch_master", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: varchar({ length: 150 }).notNull(),
+	type: varchar({ length: 20 }).notNull(),
+	refId: uuid("ref_id").notNull(),
+	parentId: uuid("parent_id"),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_organisation_branch_master_parent_id").using("btree", table.parentId.asc().nullsLast().op("uuid_ops")),
+	index("idx_organisation_branch_master_type").using("btree", table.type.asc().nullsLast().op("text_ops")),
+	unique("unique_entity").on(table.type, table.refId),
+]);
+
 export const timezones = pgTable("timezones", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 150 }).notNull(),
@@ -2199,7 +2213,7 @@ export const branchUserAccess = pgTable("branch_user_access", {
 	index("idx_settings_branch_user_access_user_id").using("btree", table.userId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.branchId],
-			foreignColumns: [settingsBranches.id],
+			foreignColumns: [branches.id],
 			name: "settings_branch_user_access_branch_id_fkey"
 		}).onDelete("cascade"),
 	foreignKey({
@@ -2251,7 +2265,7 @@ export const organization = pgTable("organization", {
 	baseCurrencyDecimals: smallint("base_currency_decimals"),
 	baseCurrencyFormat: varchar("base_currency_format", { length: 50 }),
 	organizationLanguage: varchar("organization_language", { length: 50 }).default('English'),
-	communicationLanguages: text("communication_languages").array().default(sql`ARRAY['English'::text]`).notNull(),
+	communicationLanguages: text("communication_languages").array().default(['English']).notNull(),
 	paymentStubDistrictId: uuid("payment_stub_district_id"),
 	paymentStubLocalBodyId: uuid("payment_stub_local_body_id"),
 	paymentStubWardId: uuid("payment_stub_ward_id"),
@@ -2332,7 +2346,85 @@ export const organization = pgTable("organization", {
 	unique("organization_slug_key").on(table.slug),
 ]);
 
-export const settingsBranches = pgTable("settings_branches", {
+export const warehouses = pgTable("warehouses", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	orgId: uuid("org_id").notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	attention: text(),
+	addressStreet1: text("address_street_1"),
+	addressStreet2: text("address_street_2"),
+	city: text(),
+	state: text(),
+	phone: varchar({ length: 50 }),
+	email: varchar({ length: 255 }),
+	isActive: boolean("is_active").default(true).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+	outletId: uuid("outlet_id"),
+	warehouseCode: varchar("warehouse_code", { length: 50 }),
+	branchId: uuid("branch_id"),
+	pincode: varchar({ length: 20 }),
+	country: varchar({ length: 100 }).default('India').notNull(),
+	customerId: uuid("customer_id"),
+	vendorId: uuid("vendor_id"),
+	districtId: uuid("district_id"),
+	localBodyId: uuid("local_body_id"),
+	wardId: uuid("ward_id"),
+	assemblyId: uuid("assembly_id"),
+}, (table) => [
+	index("idx_warehouses_assembly_id").using("btree", table.assemblyId.asc().nullsLast().op("uuid_ops")),
+	index("idx_warehouses_branch_id").using("btree", table.branchId.asc().nullsLast().op("uuid_ops")),
+	index("idx_warehouses_customer_id").using("btree", table.customerId.asc().nullsLast().op("uuid_ops")),
+	index("idx_warehouses_district_id").using("btree", table.districtId.asc().nullsLast().op("uuid_ops")),
+	index("idx_warehouses_local_body_id").using("btree", table.localBodyId.asc().nullsLast().op("uuid_ops")),
+	index("idx_warehouses_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
+	index("idx_warehouses_vendor_id").using("btree", table.vendorId.asc().nullsLast().op("uuid_ops")),
+	index("idx_warehouses_ward_id").using("btree", table.wardId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.assemblyId],
+			foreignColumns: [assembliesConstituencies.id],
+			name: "warehouses_assembly_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.branchId],
+			foreignColumns: [branches.id],
+			name: "warehouses_branch_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.customerId],
+			foreignColumns: [customers.id],
+			name: "warehouses_customer_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.districtId],
+			foreignColumns: [lsgdDistricts.id],
+			name: "warehouses_district_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.localBodyId],
+			foreignColumns: [lsgdLocalBodies.id],
+			name: "warehouses_local_body_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.orgId],
+			foreignColumns: [organization.id],
+			name: "warehouses_org_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.vendorId],
+			foreignColumns: [vendors.id],
+			name: "warehouses_vendor_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.wardId],
+			foreignColumns: [lsgdWards.id],
+			name: "warehouses_ward_id_fkey"
+		}).onDelete("set null"),
+	unique("warehouses_org_code_unique").on(table.orgId, table.warehouseCode),
+	unique("warehouses_org_name_unique").on(table.orgId, table.name),
+]);
+
+export const branches = pgTable("branches", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	orgId: uuid("org_id").notNull(),
 	name: varchar({ length: 255 }).notNull(),
@@ -2370,7 +2462,7 @@ export const settingsBranches = pgTable("settings_branches", {
 	districtId: uuid("district_id"),
 	localBodyId: uuid("local_body_id"),
 	wardId: uuid("ward_id"),
-	systemId: varchar("system_id", { length: 20 }).default(sql`nextval('settings_branches_system_id_seq')`).notNull(),
+	systemId: varchar("system_id", { length: 20 }).default(sql`nextval('branches_system_id_seq')`).notNull(),
 	pan: varchar(),
 	industry: varchar(),
 	gstTreatment: varchar("gst_treatment"),
@@ -2469,84 +2561,6 @@ export const settingsBranches = pgTable("settings_branches", {
 	unique("settings_branches_org_name_unique").on(table.orgId, table.name),
 ]);
 
-export const warehouses = pgTable("warehouses", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	orgId: uuid("org_id").notNull(),
-	name: varchar({ length: 255 }).notNull(),
-	attention: text(),
-	addressStreet1: text("address_street_1"),
-	addressStreet2: text("address_street_2"),
-	city: text(),
-	state: text(),
-	phone: varchar({ length: 50 }),
-	email: varchar({ length: 255 }),
-	isActive: boolean("is_active").default(true).notNull(),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
-	outletId: uuid("outlet_id"),
-	warehouseCode: varchar("warehouse_code", { length: 50 }),
-	branchId: uuid("branch_id"),
-	pincode: varchar({ length: 20 }),
-	country: varchar({ length: 100 }).default('India').notNull(),
-	customerId: uuid("customer_id"),
-	vendorId: uuid("vendor_id"),
-	districtId: uuid("district_id"),
-	localBodyId: uuid("local_body_id"),
-	wardId: uuid("ward_id"),
-	assemblyId: uuid("assembly_id"),
-}, (table) => [
-	index("idx_warehouses_assembly_id").using("btree", table.assemblyId.asc().nullsLast().op("uuid_ops")),
-	index("idx_warehouses_branch_id").using("btree", table.branchId.asc().nullsLast().op("uuid_ops")),
-	index("idx_warehouses_customer_id").using("btree", table.customerId.asc().nullsLast().op("uuid_ops")),
-	index("idx_warehouses_district_id").using("btree", table.districtId.asc().nullsLast().op("uuid_ops")),
-	index("idx_warehouses_local_body_id").using("btree", table.localBodyId.asc().nullsLast().op("uuid_ops")),
-	index("idx_warehouses_org_id").using("btree", table.orgId.asc().nullsLast().op("uuid_ops")),
-	index("idx_warehouses_vendor_id").using("btree", table.vendorId.asc().nullsLast().op("uuid_ops")),
-	index("idx_warehouses_ward_id").using("btree", table.wardId.asc().nullsLast().op("uuid_ops")),
-	foreignKey({
-			columns: [table.assemblyId],
-			foreignColumns: [assembliesConstituencies.id],
-			name: "warehouses_assembly_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.branchId],
-			foreignColumns: [settingsBranches.id],
-			name: "warehouses_branch_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.customerId],
-			foreignColumns: [customers.id],
-			name: "warehouses_customer_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.districtId],
-			foreignColumns: [lsgdDistricts.id],
-			name: "warehouses_district_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.localBodyId],
-			foreignColumns: [lsgdLocalBodies.id],
-			name: "warehouses_local_body_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.orgId],
-			foreignColumns: [organization.id],
-			name: "warehouses_org_id_fkey"
-		}),
-	foreignKey({
-			columns: [table.vendorId],
-			foreignColumns: [vendors.id],
-			name: "warehouses_vendor_id_fkey"
-		}).onDelete("set null"),
-	foreignKey({
-			columns: [table.wardId],
-			foreignColumns: [lsgdWards.id],
-			name: "warehouses_ward_id_fkey"
-		}).onDelete("set null"),
-	unique("warehouses_org_code_unique").on(table.orgId, table.warehouseCode),
-	unique("warehouses_org_name_unique").on(table.orgId, table.name),
-]);
-
 export const manualJournalTagMappings = pgTable("manual_journal_tag_mappings", {
 	manualJournalItemId: uuid("manual_journal_item_id").notNull(),
 	reportingTagId: uuid("reporting_tag_id").notNull(),
@@ -2606,4 +2620,4 @@ export const auditLogsWithBranchSystemId = pgView("audit_logs_with_branch_system
 	requestId: text("request_id"),
 	branchSystemId: varchar("branch_system_id", { length: 20 }),
 	branchName: varchar("branch_name", { length: 255 }),
-}).as(sql`SELECT a.id, a.table_name, a.record_id, a.action, a.old_values, a.new_values, a.user_id, a.created_at, a.org_id, a.outlet_id, a.actor_name, a.schema_name, a.record_pk, a.changed_columns, a.txid, a.source, a.module_name, a.request_id, b.system_id AS branch_system_id, b.name AS branch_name FROM audit_logs a LEFT JOIN settings_branches b ON b.id = a.outlet_id`);
+}).as(sql`SELECT a.id, a.table_name, a.record_id, a.action, a.old_values, a.new_values, a.user_id, a.created_at, a.org_id, a.outlet_id, a.actor_name, a.schema_name, a.record_pk, a.changed_columns, a.txid, a.source, a.module_name, a.request_id, b.system_id AS branch_system_id, b.name AS branch_name FROM audit_logs a LEFT JOIN branches b ON b.id = a.outlet_id`);

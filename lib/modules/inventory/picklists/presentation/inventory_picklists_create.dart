@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
@@ -14,11 +15,10 @@ import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
 import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
-import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
-import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
-import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
+import 'package:zerpai_erp/modules/items/items/models/items_stock_models.dart';
+import 'package:zerpai_erp/modules/items/items/repositories/items_repository_provider.dart';
 
 const _textPrimary = Color(0xFF1F2937);
 const _textSecondary = Color(0xFF6B7280);
@@ -190,22 +190,14 @@ class _InventoryPicklistsCreateScreenState
   }
 
   Future<void> _showSelectBatchesDialog(WarehouseStockData item) async {
-    final existingBatches = _selectedItems
-        .map((e) => (e.batchNo ?? '').trim())
-        .where((e) => e.isNotEmpty)
-        .toSet()
-        .toList();
-
-    final dropdownRefs = {'REF-2024-001', ...existingBatches}.toList();
-
     final result = await showDialog<_PicklistBatchDialogResult>(
       context: context,
       barrierDismissible: true,
       builder: (_) => _PicklistSelectBatchesDialog(
         itemName: item.productName,
+        productId: item.productId,
         warehouseName: _selectedWarehouse?.name ?? 'ZABNIX PRIVATE LIMITED',
         totalQuantity: _getPickedQtyOutOnly(item),
-        existingBatchRefs: dropdownRefs,
         savedBatchData: _savedBatchData[_buildRowKey(item)],
       ),
     );
@@ -3756,28 +3748,28 @@ class _PicklistBatchDialogResult {
   });
 }
 
-class _PicklistSelectBatchesDialog extends StatefulWidget {
+class _PicklistSelectBatchesDialog extends ConsumerStatefulWidget {
   final String itemName;
+  final String productId;
   final String warehouseName;
   final double totalQuantity;
-  final List<String> existingBatchRefs;
   final List<Map<String, String>>? savedBatchData;
 
   const _PicklistSelectBatchesDialog({
     required this.itemName,
+    required this.productId,
     required this.warehouseName,
     required this.totalQuantity,
-    required this.existingBatchRefs,
     this.savedBatchData,
   });
 
   @override
-  State<_PicklistSelectBatchesDialog> createState() =>
+  ConsumerState<_PicklistSelectBatchesDialog> createState() =>
       _PicklistSelectBatchesDialogState();
 }
 
 class _PicklistSelectBatchesDialogState
-    extends State<_PicklistSelectBatchesDialog> {
+    extends ConsumerState<_PicklistSelectBatchesDialog> {
   static const double _batchDropdownHeight = 38;
   static const double _batchTextFieldHeight = 38;
   final List<_PicklistBatchRowController> _rows = [];
@@ -3790,6 +3782,8 @@ class _PicklistSelectBatchesDialogState
     'B1-R2-S3',
     'C1-R4-S2',
   ];
+  List<String> _batchNumbers = []; // Fetched batch numbers for this product
+  List<BatchData> _fetchedBatchData = []; // Full batch data for auto-fill functionality
   bool _overwriteLineItem = false;
   bool _showMfgDetails = false;
   bool _showFocColumn = false;
@@ -3800,6 +3794,7 @@ class _PicklistSelectBatchesDialogState
   @override
   void initState() {
     super.initState();
+    _loadBatchNumbers();
     if (widget.savedBatchData != null && widget.savedBatchData!.isNotEmpty) {
       for (var batchData in widget.savedBatchData!) {
         final row = _PicklistBatchRowController();
@@ -3840,6 +3835,108 @@ class _PicklistSelectBatchesDialogState
       final firstRow = _PicklistBatchRowController();
       firstRow.qtyOutCtrl.text = widget.totalQuantity.toInt().toString();
       _rows.add(firstRow);
+    }
+  }
+
+  Future<void> _loadBatchNumbers() async {
+    if (!mounted) return;
+    
+    try {
+      // Get the repository from Riverpod
+      final repository = ref.read(itemRepositoryProvider);
+      
+      // Fetch all batches for this product from the API
+      _fetchedBatchData = await repository.getItemBatches(widget.productId);
+      
+      // Extract batch numbers (using 'batchReference' field from BatchData model)
+      final batchNumbers = _fetchedBatchData
+          .map((batch) => batch.batchReference)
+          .where((ref) => ref.isNotEmpty)
+          .toSet()
+          .toList()
+          ..sort();
+      
+      if (mounted) {
+        setState(() {
+          _batchNumbers = batchNumbers;
+        });
+      }
+      
+      AppLogger.debug(
+        'Loaded ${_batchNumbers.length} batches for product ${widget.productId}',
+        module: 'inventory_picklists',
+      );
+    } catch (e) {
+      AppLogger.error(
+        'Failed to load batch numbers',
+        error: e,
+        module: 'inventory_picklists',
+      );
+      
+      if (mounted) {
+        setState(() {
+          _dialogErrorMessage = 'Failed to load batch data. Please try again.';
+        });
+      }
+    }
+  }
+
+  Future<void> _autofillBatchDetails(String selectedBatchRef, int rowIndex) async {
+    if (rowIndex >= _rows.length || rowIndex < 0) return;
+    
+    try {
+      // Find the batch data matching the selected batch reference
+      BatchData? activeBatch;
+      try {
+        activeBatch = _fetchedBatchData.firstWhere(
+          (batch) => batch.batchReference == selectedBatchRef,
+        );
+      } catch (_) {
+        activeBatch = null;
+      }
+      
+      if (activeBatch == null) {
+        AppLogger.warning('Batch not found: $selectedBatchRef', module: 'inventory_picklists');
+        return;
+      }
+      
+      final row = _rows[rowIndex];
+      
+      // Auto-fill fields from batch data (read-only fields)
+      row.unitPackCtrl.text = activeBatch.unitPack.toString();
+      row.expDateCtrl.text = activeBatch.expiryDate;
+      if (activeBatch.expiryDate.isNotEmpty) {
+        try {
+          row.expDate = DateFormat('dd-MM-yyyy').parse(activeBatch.expiryDate);
+        } catch (_) {}
+      }
+      row.mfgBatchCtrl.text = activeBatch.manufacturerBatch;
+      row.mfgDateCtrl.text = activeBatch.manufacturedDate;
+      if (activeBatch.manufacturedDate.isNotEmpty) {
+        try {
+          row.mfgDate = DateFormat('dd-MM-yyyy').parse(activeBatch.manufacturedDate);
+        } catch (_) {}
+      }
+      
+      // Only set MRP/PTR if they're available (from the API response)
+      // Check if the batch has mrp/ptr data
+      // Note: BatchData model might not have mrp/ptr, those might come from different field
+      // For now, leaving as empty - this can be enhanced if BatchData includes pricing
+      
+      setState(() {
+        // Trigger rebuild to show auto-filled values
+      });
+      
+      AppLogger.debug(
+        'Auto-filled batch details for batch: $selectedBatchRef',
+        module: 'inventory_picklists',
+      );
+    } catch (e) {
+      AppLogger.warning(
+        'Error auto-filling batch details',
+        error: e,
+        module: 'inventory_picklists',
+      );
     }
   }
 
@@ -3925,6 +4022,7 @@ class _PicklistSelectBatchesDialogState
     required int flex,
     required String hint,
     bool isNumber = false,
+    bool readOnly = false,
   }) {
     return Expanded(
       flex: flex,
@@ -3933,6 +4031,7 @@ class _PicklistSelectBatchesDialogState
         child: Container(
           child: TextField(
             controller: controller,
+            readOnly: readOnly,
             keyboardType: isNumber
                 ? const TextInputType.numberWithOptions(decimal: true)
                 : null,
@@ -3942,9 +4041,9 @@ class _PicklistSelectBatchesDialogState
             textAlign: isNumber ? TextAlign.right : TextAlign.left,
             textAlignVertical: TextAlignVertical.center,
             strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
-              color: _textPrimary,
+              color: readOnly ? _textSecondary : _textPrimary,
               fontFamily: 'Inter',
             ),
             onChanged: (_) => setState(() {
@@ -3955,7 +4054,7 @@ class _PicklistSelectBatchesDialogState
               hintText: hint,
               hintStyle: const TextStyle(color: _textSecondary, fontSize: 13),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: readOnly ? const Color(0xFFF9FAFB) : Colors.white,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 10,
                 vertical: 12,
@@ -3966,11 +4065,11 @@ class _PicklistSelectBatchesDialogState
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: _borderCol),
+                borderSide: BorderSide(color: readOnly ? const Color(0xFFE5E7EB) : _borderCol),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: _focusBorder, width: 1.4),
+                borderSide: BorderSide(color: readOnly ? const Color(0xFFE5E7EB) : _focusBorder, width: 1.4),
               ),
             ),
           ),
@@ -3985,6 +4084,7 @@ class _PicklistSelectBatchesDialogState
     required int flex,
     required DateTime? currentDate,
     required ValueChanged<DateTime?> onDateChanged,
+    bool readOnly = false,
   }) {
     return Expanded(
       flex: flex,
@@ -3998,9 +4098,9 @@ class _PicklistSelectBatchesDialogState
             readOnly: true,
             textAlignVertical: TextAlignVertical.center,
             strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
-              color: _textPrimary,
+              color: readOnly ? _textSecondary : _textPrimary,
               fontFamily: 'Inter',
             ),
             decoration: InputDecoration(
@@ -4008,7 +4108,7 @@ class _PicklistSelectBatchesDialogState
               hintText: '',
               hintStyle: const TextStyle(color: _textSecondary, fontSize: 13),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: readOnly ? const Color(0xFFF9FAFB) : Colors.white,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 10,
                 vertical: 12,
@@ -4017,10 +4117,10 @@ class _PicklistSelectBatchesDialogState
                 minHeight: _batchTextFieldHeight,
                 maxHeight: _batchTextFieldHeight,
               ),
-              suffixIcon: const Icon(
+              suffixIcon: Icon(
                 LucideIcons.calendar,
                 size: 14,
-                color: _textSecondary,
+                color: readOnly ? const Color(0xFFD1D5DB) : _textSecondary,
               ),
               suffixIconConstraints: const BoxConstraints(
                 minWidth: 32,
@@ -4030,14 +4130,15 @@ class _PicklistSelectBatchesDialogState
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: _borderCol),
+                borderSide: BorderSide(color: readOnly ? const Color(0xFFE5E7EB) : _borderCol),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: _focusBorder, width: 1.4),
+                borderSide: BorderSide(color: readOnly ? const Color(0xFFE5E7EB) : _focusBorder, width: 1.4),
               ),
             ),
             onTap: () async {
+              if (readOnly) return; // Don't show date picker if field is read-only
               final picked = await ZerpaiDatePicker.show(
                 context,
                 initialDate: currentDate ?? DateTime.now(),
@@ -4371,11 +4472,6 @@ class _PicklistSelectBatchesDialogState
               child: Row(
                 children: [
                   _headerCell('BIN LOCATION*', 15),
-                  _headerCell(
-                    'BATCH REFERENCE*',
-                    15,
-                    alignment: TextAlign.center,
-                  ),
                   _headerCell('BATCH NO*', 15),
                   _headerCell('UNIT PACK*', 15),
                   _headerCell('MRP*', 15),
@@ -4481,7 +4577,7 @@ class _PicklistSelectBatchesDialogState
                                 ),
                               ),
                             ),
-                            // Batch Reference — always a FormDropdown
+                            // Batch No — FormDropdown from batch_master
                             Expanded(
                               flex: 15,
                               child: Padding(
@@ -4499,13 +4595,13 @@ class _PicklistSelectBatchesDialogState
                                       vertical: 8,
                                     ),
                                     value:
-                                        widget.existingBatchRefs.contains(
+                                        _batchNumbers.contains(
                                           row.batchRefCtrl.text.trim(),
                                         )
                                         ? row.batchRefCtrl.text.trim()
                                         : null,
-                                    items: widget.existingBatchRefs,
-                                    hint: 'Select Ref',
+                                    items: _batchNumbers,
+                                    hint: 'Select Batch',
                                     showSearch: true,
                                     displayStringForValue: (v) => v,
                                     searchStringForValue: (v) => v,
@@ -4541,37 +4637,40 @@ class _PicklistSelectBatchesDialogState
                                           ),
                                         ),
                                     onChanged: (val) {
+                                      final rowIndex = _rows.indexOf(row);
                                       setState(() {
                                         row.batchRefCtrl.text = val ?? '';
+                                        row.batchNoCtrl.text = val ?? '';
                                       });
+                                      // Auto-fill batch details when batch is selected
+                                      if (val != null && val.isNotEmpty) {
+                                        _autofillBatchDetails(val, rowIndex);
+                                      }
                                     },
                                   ),
                                 ),
                               ),
                             ),
                             _buildInput(
-                              controller: row.batchNoCtrl,
-                              flex: 15,
-                              hint: 'Batch No',
-                              isNumber: false,
-                            ),
-                            _buildInput(
                               controller: row.unitPackCtrl,
                               flex: 15,
                               hint: 'Pack',
                               isNumber: true,
+                              readOnly: true,
                             ),
                             _buildInput(
                               controller: row.mrpCtrl,
                               flex: 15,
                               hint: '0',
                               isNumber: true,
+                              readOnly: true,
                             ),
                             _buildInput(
                               controller: row.ptrCtrl,
                               flex: 15,
                               hint: '0',
                               isNumber: true,
+                              readOnly: true,
                             ),
                             _buildDatePicker(
                               controller: row.expDateCtrl,
@@ -4580,6 +4679,7 @@ class _PicklistSelectBatchesDialogState
                               currentDate: row.expDate,
                               onDateChanged: (d) =>
                                   setState(() => row.expDate = d),
+                              readOnly: true,
                             ),
                             if (_showMfgDetails) ...[
                               _buildDatePicker(
@@ -4589,11 +4689,13 @@ class _PicklistSelectBatchesDialogState
                                 currentDate: row.mfgDate,
                                 onDateChanged: (d) =>
                                     setState(() => row.mfgDate = d),
+                                readOnly: true,
                               ),
                               _buildInput(
                                 controller: row.mfgBatchCtrl,
                                 flex: 15,
                                 hint: 'Mfg Batch',
+                                readOnly: true,
                               ),
                             ],
                             _buildInput(

@@ -67,7 +67,7 @@ export class WarehousesService {
     const warehouses = data ?? [];
     const [branchNames, customerNames, vendorNames] = await Promise.all([
       this.fetchNameMap(
-        "settings_branches",
+        "branches",
         warehouses.map(
           (warehouse: any) => warehouse.branch_id?.toString() ?? "",
         ),
@@ -103,7 +103,7 @@ export class WarehousesService {
 
     if (error) return null;
     const [branchNames, customerNames, vendorNames] = await Promise.all([
-      this.fetchNameMap("settings_branches", [
+      this.fetchNameMap("branches", [
         data.branch_id?.toString() ?? "",
       ]),
       this.fetchNameMap(

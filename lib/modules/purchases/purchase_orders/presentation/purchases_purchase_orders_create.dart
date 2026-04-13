@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
@@ -737,6 +738,36 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // BUILD
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.fileText, size: 22, color: _textPrimary),
+          const SizedBox(width: 10),
+          const Text(
+            'New Purchase Order',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: _textPrimary,
+              fontFamily: 'Inter',
+            ),
+          ),
+          const Spacer(),
+          InkWell(
+            onTap: () => context.pop(),
+            borderRadius: BorderRadius.circular(4),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(LucideIcons.x, size: 20, color: _hintColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
@@ -836,7 +867,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
 
     return ZerpaiLayout(
-      pageTitle: 'New Purchase Order',
+      pageTitle: '',
       enableBodyScroll: true,
       useHorizontalPadding: false,
       useTopPadding: false,
@@ -845,6 +876,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildHeader(),
+          const SizedBox(height: 8),
           // ── FORM SECTION ──
           _buildFormSection(vendors, customers, warehouses, poState),
           Padding(
@@ -859,7 +892,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   child: SizedBox(
                     width: 320,
                     child: FormDropdown<String>(
-                      height: 36,
+                      height: 32,
                       value: poState.warehouseId,
                       items: warehouses.map((w) => w.id).toList(),
                       displayStringForValue: (id) => warehouses
@@ -906,7 +939,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       SizedBox(
                         width: 180,
                         child: FormDropdown<String>(
-                          height: 36,
+                          height: 32,
                           value: poState.discountLevel,
                           items: const ['transaction', 'item'],
                           displayStringForValue: (v) => v == 'transaction'
@@ -933,7 +966,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         SizedBox(
                           width: 280,
                           child: FormDropdown<AccountNode>(
-                            height: 36,
+                            height: 32,
                             value: availableAccounts.firstWhere(
                               (a) => a.id == poState.discountAccountId,
                               orElse: () => const AccountNode(
@@ -976,18 +1009,29 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 // ── ITEM TABLE ──
                 _itemTableSection(allItems, availableAccounts, poState),
                 const SizedBox(height: 16),
-                // ── NOTES (left) + TOTALS (right) — Zoho style ──
+
+                // ── NOTES & TOTALS (Side-by-side, just above the banner) ──
                 _notesAndTotals(allItems, poState),
-                const SizedBox(height: 24),
-                // ── TERMS & CONDITIONS + FILE UPLOAD ──
-                _termsAndFileRow(),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+
+          // ── SHADED BLUE BANNER (Full-width Terms & Files) ──
+          _footerBanner(poState),
+
+          // ── ADDITIONAL FIELDS INFO (In padded area) ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 const SizedBox(height: 32),
-                // ── ADDITIONAL FIELDS INFO ──
                 Text(
                   'Additional Fields: Start adding custom fields for your purchase orders by going to Settings ⇒ Purchases ⇒ Purchase Orders.',
                   style: TextStyle(fontSize: 12, color: _hintColor),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 60),
               ],
             ),
           ),
@@ -1101,7 +1145,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     SizedBox(
                       width: 180,
                       child: FormDropdown<String>(
-                        height: 36,
+                        height: 32,
                         value: 'Default Transaction Series',
                         items: const ['Default Transaction Series'],
                         onChanged: (v) {},
@@ -1121,7 +1165,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     const SizedBox(width: 6),
                     SizedBox(
                       width: 30,
-                      height: 36,
+                      height: 32,
                       child: IconButton(
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -1185,7 +1229,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     SizedBox(
                       width: 220,
                       child: FormDropdown<String>(
-                        height: 36,
+                        height: 32,
                         value: poState.paymentTerms,
                         items: _paymentTermsList
                             .map((t) => t['id'] as String)
@@ -1235,7 +1279,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 child: SizedBox(
                   width: 320,
                   child: FormDropdown<String>(
-                    height: 36,
+                    height: 32,
                     value: poState.shipmentPreference,
                     items: _shipmentPreferencesList
                         .map((p) => p['name'] as String)
@@ -1558,7 +1602,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 SizedBox(
                   width: 320,
                   child: FormDropdown<Vendor>(
-                    height: 36,
+                    height: 32,
                     value: selectedVendor.id.isEmpty ? null : selectedVendor,
                     items: vendors,
                     hint: 'Select a Vendor',
@@ -1580,7 +1624,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   const SizedBox(width: 8),
                   // INR badge
                   Container(
-                    height: 36,
+                    height: 32,
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
                       border: Border.all(color: _fieldBorder),
@@ -1855,7 +1899,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 child: SizedBox(
                   width: 320,
                   child: FormDropdown<String>(
-                    height: 36,
+                    height: 32,
                     value: poState.destinationOfSupply.isNotEmpty
                         ? poState.destinationOfSupply
                         : '[KL] - Kerala',
@@ -2051,7 +2095,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             width: 320,
             child: warehouseAsync.isLoading
                 ? Container(
-                    height: 36,
+                    height: 32,
                     decoration: BoxDecoration(
                       border: Border.all(color: _fieldBorder),
                       borderRadius: BorderRadius.circular(3),
@@ -2066,7 +2110,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   )
                 : warehouseAsync.hasError
                 ? Container(
-                    height: 36,
+                    height: 32,
                     decoration: BoxDecoration(
                       border: Border.all(
                         color: Colors.red.withValues(alpha: 0.3),
@@ -2084,7 +2128,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     ),
                   )
                 : FormDropdown<WarehouseModel>(
-                    height: 36,
+                    height: 32,
                     value: wh.id.isEmpty ? null : wh,
                     items: liveWarehouses,
                     hint: liveWarehouses.isEmpty
@@ -4533,30 +4577,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _notesAndTotals(List<Item> allItems, PurchaseOrderState poState) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        // LEFT — Notes + GST breakdown
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _notesSection(),
-              if (poState.items.any((i) => i.productId.isNotEmpty)) ...[
-                const SizedBox(height: 16),
-                Text(
-                  'Total Quantity: ${poState.items.fold(0.0, (sum, i) => sum + i.quantity).toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                _buildGstDetails(poState),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(width: 32),
-        // RIGHT — Totals panel
+        // LEFT — Notes
+        _notesSection(),
+        const SizedBox(width: 64), // Fixed gap for "immediate" placement
+        // Totals panel (Appearing immediately to the right of notes)
         SizedBox(
-          width: 360,
+          width: 420,
           child: _buildTotalsPanel(poState),
         ),
       ],
@@ -4573,11 +4601,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        border: Border.all(color: _borderCol),
-        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xFFEBF5FF), // Soft Blue
+        border: Border.all(color: const Color(0xFFDBEAFE)),
+        borderRadius: BorderRadius.circular(4),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -4782,19 +4810,53 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   Widget _tdsTcsRow(PurchaseOrderState s) {
     return Row(
       children: [
-        _zRadio('TDS', 'tds', s.tdsTcsType ?? 'none', (_) {}),
-        const SizedBox(width: 8),
-        _zRadio('TCS', 'tcs', s.tdsTcsType ?? 'none', (_) {}),
-        const SizedBox(width: 8),
-        Expanded(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: Radio<String>(
+                value: 'tds',
+                groupValue: s.tdsTcsType ?? 'none',
+                onChanged: (_) {},
+                activeColor: _linkBlue,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text('TDS', style: TextStyle(fontSize: 13)),
+          ],
+        ),
+        const SizedBox(width: 16),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: Radio<String>(
+                value: 'tcs',
+                groupValue: s.tdsTcsType ?? 'none',
+                onChanged: (_) {},
+                activeColor: _linkBlue,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text('TCS', style: TextStyle(fontSize: 13)),
+          ],
+        ),
+        const Spacer(),
+        SizedBox(
+          width: 180,
           child: FormDropdown<String>(
+            height: 32,
             value: null,
             items: const ['TDS - 1%', 'TDS - 2%', 'TCS - 0.1%'],
             hint: 'Select a Tax',
             onChanged: (v) {},
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 12),
         const Text(
           '- 0.00',
           textAlign: TextAlign.right,
@@ -4847,33 +4909,81 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final taxableAmount = poState.subTotal;
     final cgst = taxableAmount * 0.09;
     final sgst = taxableAmount * 0.09;
+    final totalQty = poState.items
+        .where((i) => !i.isHeader && i.productId.isNotEmpty)
+        .fold(0.0, (sum, i) => sum + i.quantity);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (taxableAmount > 0) ...[
+    return Container(
+      width: 280,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEBF5FF), // Light Blue Box
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFFD0E3FF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           const Text(
-            'GST Details:',
+            'SUMMARY',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: _labelColor,
+              color: Color(0xFF2563EB),
+              letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'CGST (9%): ${cgst.toStringAsFixed(2)}',
-            style: TextStyle(fontSize: 12, color: _hintColor),
+          const SizedBox(height: 12),
+          _summaryLine('Total Quantity', totalQty.toStringAsFixed(0)),
+          const SizedBox(height: 8),
+          _summaryLine('Taxable Amount', taxableAmount.toStringAsFixed(2)),
+          const Divider(height: 24, color: Color(0xFFD0E3FF)),
+          _summaryLine('CGST (9%)', cgst.toStringAsFixed(2)),
+          const SizedBox(height: 6),
+          _summaryLine('SGST (9%)', sgst.toStringAsFixed(2)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Tax',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              Text(
+                (cgst + sgst).toStringAsFixed(2),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+            ],
           ),
-          Text(
-            'SGST (9%): ${sgst.toStringAsFixed(2)}',
-            style: TextStyle(fontSize: 12, color: _hintColor),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryLine(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563)),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF111827),
           ),
-        ] else
-          Text(
-            'No GST details available',
-            style: TextStyle(fontSize: 12, color: _hintColor),
-          ),
+        ),
       ],
     );
   }
@@ -4948,82 +5058,116 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
+  Widget _footerBanner(PurchaseOrderState poState) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Color(0xFFEBF5FF), // Soft Blue Banner background
+        border: Border(
+          top: BorderSide(color: Color(0xFFDBEAFE)),
+          bottom: BorderSide(color: Color(0xFFDBEAFE)),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1600),
+          child: _termsAndFileRow(),
+        ),
+      ),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // TERMS & CONDITIONS + FILE UPLOAD
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _termsAndFileRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Terms
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Terms & Conditions',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: _labelColor,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Terms
+          SizedBox(
+            width: 650, // Wider Terms box
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Terms & Conditions',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _labelColor,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              _HoverableField(
-                builder: (isHovered) => TextField(
-                  controller: _termsCtrl,
-                  maxLines: 5,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: InputDecoration(
-                    hintText:
-                        'Enter the terms and conditions of your business to be displayed in your transaction',
-                    hintStyle: TextStyle(color: _hintColor),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: isHovered ? _linkBlue : _fieldBorder,
+                const SizedBox(height: 8),
+                _HoverableField(
+                  builder: (isHovered) => TextField(
+                    controller: _termsCtrl,
+                    maxLines: 5,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText:
+                          'Enter the terms and conditions of your business to be displayed in your transaction',
+                      hintStyle: TextStyle(color: _hintColor),
+                      contentPadding: const EdgeInsets.all(12),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: isHovered ? _linkBlue : _fieldBorder,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderSide: BorderSide(color: _linkBlue, width: 1.5),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide:
+                            const BorderSide(color: _linkBlue, width: 1.5),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        // File Upload
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Attach File(s) to Purchase Order',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: _labelColor,
-              ),
+          const SizedBox(width: 40),
+          // Vertical Partition
+          Container(
+            width: 1,
+            color: const Color(0xFFDBEAFE),
+            margin: const EdgeInsets.symmetric(vertical: 8),
+          ),
+          const SizedBox(width: 40),
+          // File Upload
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Attach File(s) to Purchase Order',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _labelColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: Icon(Icons.upload_file, size: 16, color: _linkBlue),
+                  label: Text(
+                    'Upload File',
+                    style: TextStyle(color: _linkBlue, fontSize: 13),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You can upload a maximum of 10 files, 10MB each',
+                  style: TextStyle(fontSize: 12, color: _hintColor),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: Icon(Icons.upload_file, size: 16, color: _linkBlue),
-              label: Text(
-                'Upload File',
-                style: TextStyle(color: _linkBlue, fontSize: 13),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: _fieldBorder),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'You can upload a maximum of 10 files, 10MB each',
-              style: TextStyle(fontSize: 11, color: _hintColor),
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -5706,7 +5850,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   }) {
     return _HoverableField(
       builder: (isHovered) => SizedBox(
-        height: 36,
+        height: 32,
         child: TextField(
           controller: ctrl,
           onChanged: onChanged,
@@ -5718,7 +5862,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             isDense: true,
             hintText: hint,
             hintStyle: TextStyle(color: _hintColor),
-            contentPadding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+            contentPadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
             enabledBorder: OutlineInputBorder(
               borderSide: BorderSide(
                 color: isHovered ? _linkBlue : _fieldBorder,

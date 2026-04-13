@@ -205,7 +205,7 @@ export class OutletsService {
     const client = this.supabaseService.getClient();
     const [branchesRes, warehousesRes] = await Promise.all([
       client
-        .from("settings_branches")
+        .from("branches")
         .select("*")
         .eq("org_id", orgId)
         .order("created_at", { ascending: true }),
@@ -218,7 +218,7 @@ export class OutletsService {
 
     if (branchesRes.error) {
       throw new Error(
-        `Failed to fetch settings_branches: ${branchesRes.error.message}`,
+        `Failed to fetch branches: ${branchesRes.error.message}`,
       );
     }
     if (warehousesRes.error) {
@@ -256,7 +256,7 @@ export class OutletsService {
   async findOne(id: string, orgId: string) {
     const client = this.supabaseService.getClient();
     const { data: branch, error: branchError } = await client
-      .from("settings_branches")
+      .from("branches")
       .select("*")
       .eq("id", id)
       .eq("org_id", orgId)
@@ -264,7 +264,7 @@ export class OutletsService {
 
     if (branchError) {
       throw new Error(
-        `Failed to fetch settings_branches row: ${branchError.message}`,
+        `Failed to fetch branches row: ${branchError.message}`,
       );
     }
     if (branch) {

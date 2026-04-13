@@ -1145,6 +1145,23 @@ export const batches = pgTable("batches", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Batch Master Table
+export const batchMaster = pgTable("batch_master", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id").references(() => product.id, {
+    onDelete: "cascade",
+  }),
+  batchNo: varchar("batch_no", { length: 100 }).notNull(),
+  expiryDate: date("expiry_date").notNull(),
+  unitPack: varchar("unit_pack", { length: 50 }),
+  isManufactureDetails: boolean("is_manufacture_details").default(false),
+  manufactureBatchNumber: varchar("manufacture_batch_number", { length: 100 }),
+  manufactureExp: date("manufacture_exp"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // HSN/SAC Codes Table
 export const hsnSacCodes = pgTable(
   "hsn_sac_codes",

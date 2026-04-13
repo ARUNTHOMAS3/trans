@@ -411,20 +411,20 @@ export class SettingsBranchesService {
   async findAll(orgId: string) {
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_branches")
+      .from("branches")
       .select("*")
       .eq("org_id", orgId)
       .order("created_at", { ascending: true });
 
     if (error)
-      throw new Error(`Failed to fetch settings_branches: ${error.message}`);
+      throw new Error(`Failed to fetch branches: ${error.message}`);
     return data ?? [];
   }
 
   async findOne(id: string, orgId: string) {
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_branches")
+      .from("branches")
       .select("*")
       .eq("id", id)
       .eq("org_id", orgId)
@@ -456,7 +456,7 @@ export class SettingsBranchesService {
       : null;
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_branches")
+      .from("branches")
       .insert({
         org_id: dto.org_id,
         name: dto.name,
@@ -659,7 +659,7 @@ export class SettingsBranchesService {
 
     const { data, error } = await this.supabaseService
       .getClient()
-      .from("settings_branches")
+      .from("branches")
       .update(payload)
       .eq("id", id)
       .eq("org_id", orgId)
@@ -690,7 +690,7 @@ export class SettingsBranchesService {
   async remove(id: string, orgId: string) {
     const { error } = await this.supabaseService
       .getClient()
-      .from("settings_branches")
+      .from("branches")
       .delete()
       .eq("id", id)
       .eq("org_id", orgId);

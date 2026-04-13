@@ -257,11 +257,17 @@ class PurchaseOrder {
       deliveryType: json['delivery_type'] as String? ?? 'warehouse',
       deliveryWarehouseId: json['delivery_warehouse_id'] as String?,
       deliveryCustomerId: json['delivery_customer_id'] as String?,
-      warehouseId: json['warehouse_id'] as String?,
-        warehouseName:
-          json['warehouse_name'] as String? ??
+      warehouseId: (json['warehouse_id'] ??
+              json['delivery_warehouse_id'] ??
+              json['warehouse']?['id'] ??
+              json['warehouses']?['id'] ??
+              json['outlet_id'] ??
+              json['outletId'])
+          ?.toString(),
+      warehouseName: json['warehouse_name'] as String? ??
           json['warehouse']?['name'] as String? ??
-          json['warehouses']?['name'] as String?,
+          json['warehouses']?['name'] as String? ??
+          json['delivery_warehouse_name'] as String?,
       subTotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
       taxAmount: double.tryParse(json['tax_amount']?.toString() ?? '0') ?? 0.0,
       discount: double.tryParse(json['discount']?.toString() ?? '0') ?? 0.0,
@@ -414,6 +420,8 @@ class WarehouseModel {
   final String? phone;
   final String? email;
   final bool isActive;
+  final String? locationType;
+  final String? parentOutletId;
 
   WarehouseModel({
     required this.id,
@@ -429,6 +437,8 @@ class WarehouseModel {
     this.phone,
     this.email,
     this.isActive = true,
+    this.locationType,
+    this.parentOutletId,
   });
 
   factory WarehouseModel.fromJson(Map<String, dynamic> json) {
@@ -453,6 +463,8 @@ class WarehouseModel {
       phone: json['phone']?.toString(),
       email: json['email']?.toString(),
       isActive: json['isActive'] ?? json['is_active'] ?? true,
+      locationType: (json['locationType'] ?? json['location_type'])?.toString(),
+      parentOutletId: (json['parentOutletId'] ?? json['parent_outlet_id'] ?? json['branch_id'])?.toString(),
     );
   }
 
@@ -470,6 +482,8 @@ class WarehouseModel {
       'phone': phone,
       'email': email,
       'is_active': isActive,
+      'location_type': locationType,
+      'parent_outlet_id': parentOutletId,
     };
   }
 

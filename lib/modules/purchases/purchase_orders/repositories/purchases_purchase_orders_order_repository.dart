@@ -8,6 +8,7 @@ abstract class PurchaseOrderRepository {
     int limit = 100,
     String? search,
     String? status,
+    String? vendorId,
   });
 
   Future<PurchaseOrder?> getPurchaseOrder(String id);

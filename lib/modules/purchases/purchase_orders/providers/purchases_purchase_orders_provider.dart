@@ -24,6 +24,7 @@ final purchaseOrdersProvider =
         limit: filter.limit,
         search: filter.search,
         status: filter.status,
+        vendorId: filter.vendorId,
       );
     });
 

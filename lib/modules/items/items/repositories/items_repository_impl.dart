@@ -613,12 +613,12 @@ class ItemsRepositoryImpl implements ItemRepository {
         }
 
         return BatchData(
-          batchReference: (batch['batch'] ?? '').toString(),
+          batchReference: (batch['batch_no'] ?? batch['batch'] ?? '').toString(),
           manufacturerBatch: (batch['manufacture_batch_number'] ?? '')
               .toString(),
           unitPack: int.tryParse((batch['unit_pack'] ?? '0').toString()) ?? 0,
           manufacturedDate: formatDate(batch['manufacture_exp']),
-          expiryDate: formatDate(batch['exp']),
+          expiryDate: formatDate(batch['expiry_date'] ?? batch['exp']),
           quantityIn: 0,
           quantityAvailable: 0,
         );
