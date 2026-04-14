@@ -253,8 +253,24 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
   }
 
   void removeItemRow(int index) {
-    if (state.items.length <= 1) return; // Keep at least one
+    if (state.items.length <= 1) {
+      clearItemRow(index);
+      return;
+    }
     final newItems = List<PurchaseOrderItem>.from(state.items)..removeAt(index);
+    state = state.copyWith(items: newItems);
+  }
+
+  void clearItemRow(int index) {
+    final newItems = List<PurchaseOrderItem>.from(state.items);
+    newItems[index] = PurchaseOrderItem(
+      productId: '',
+      quantity: 1.0,
+      rate: 0.0,
+      amount: 0.0,
+      discount: 0.0,
+      description: '',
+    );
     state = state.copyWith(items: newItems);
   }
 

@@ -10,9 +10,9 @@ import '../../../../shared/widgets/inputs/z_tooltip.dart';
 import '../../../../shared/widgets/inputs/custom_text_field.dart';
 import '../../../../shared/widgets/skeleton.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../sales/controllers/sales_order_controller.dart';
-import '../../../sales/models/sales_order_model.dart';
-import '../../../sales/models/sales_customer_model.dart';
+import 'package:zerpai_erp/modules/sales/sales_orders/notifiers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/sales/sales_orders/models/sales_order_model.dart';
+import 'package:zerpai_erp/modules/sales/customers/models/sales_customer_model.dart';
 
 // ignore: constant_identifier_names
 const Color _textPrimary = Color(0xFF1F2937);

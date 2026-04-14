@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/sales/sales_orders/notifiers/sales_order_controller.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';

@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
-import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
-import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
+import 'package:zerpai_erp/modules/sales/customers/models/sales_customer_model.dart';
+import 'package:zerpai_erp/modules/sales/sales_orders/models/sales_order_model.dart';
 
 class ItemAdapter extends TypeAdapter<Item> {
   @override

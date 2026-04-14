@@ -13,7 +13,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
-import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/sales/sales_orders/notifiers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';

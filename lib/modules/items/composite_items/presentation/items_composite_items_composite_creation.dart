@@ -15,7 +15,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
-import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
+import 'package:zerpai_erp/modules/sales/shared/models/hsn_sac_model.dart';
 import 'package:zerpai_erp/shared/widgets/hsn_sac_search_modal.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/category_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_categories_dialog.dart';

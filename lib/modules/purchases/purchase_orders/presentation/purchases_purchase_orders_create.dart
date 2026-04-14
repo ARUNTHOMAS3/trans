@@ -13,8 +13,8 @@ import 'package:zerpai_erp/modules/items/items/controllers/items_state.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/items/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/items/pricelist/providers/pricelist_provider.dart';
-import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
-import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
+import 'package:zerpai_erp/modules/sales/sales_orders/notifiers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/sales/customers/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/accountant/models/accountant_chart_of_accounts_account_model.dart';
 import 'package:zerpai_erp/modules/accountant/providers/accountant_chart_of_accounts_provider.dart';
@@ -42,6 +42,12 @@ const _textPrimary = Color(0xFF333333);
 const _linkBlue = Color(0xFF2A95BF);
 const _greenBtn = Color(0xFF19A05E);
 const _dangerRed = Color(0xFFD32F2F);
+const _kBg = Color(0xFFF9FAFB);
+const _kBorder = Color(0xFFE5E7EB);
+const _kLabelGrey = Color(0xFF6B7280);
+const _kBlue = Color(0xFF2563EB);
+const _kBodyText = Color(0xFF111827);
+const _kWhite = Colors.white;
 
 // ── Extension ────────────────────────────────────────────────────────────────
 
@@ -106,6 +112,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   final _termsCtrl = TextEditingController();
   final _discountCtrl = TextEditingController();
   final _adjustmentCtrl = TextEditingController();
+  final _adjustmentLabelCtrl = TextEditingController();
+  final FocusNode _adjustmentLabelFocusNode = FocusNode();
   final _deliveryNameCtrl = TextEditingController(); // Editable warehouse name
   final GlobalKey _orderDateFieldKey = GlobalKey();
   final GlobalKey _deliveryDateFieldKey = GlobalKey();
@@ -134,7 +142,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   bool _showStockInfo = true;
   bool _showRecentTransactions = true;
   bool _showPriceList = true;
-  
+
   // Lookup lists
   List<Map<String, dynamic>> _paymentTermsList = [];
   List<Map<String, dynamic>> _shipmentPreferencesList = [];
@@ -153,7 +161,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         });
       }
     } catch (e) {
-      AppLogger.error('Error loading payment terms', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error loading payment terms',
+        error: e,
+        module: 'purchases',
+      );
     }
   }
 
@@ -167,7 +179,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         });
       }
     } catch (e) {
-      AppLogger.error('Error loading shipment preferences', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error loading shipment preferences',
+        error: e,
+        module: 'purchases',
+      );
     }
   }
 
@@ -203,7 +219,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         );
 
         if (!exists) {
-          AppLogger.info('Saving new global shipment preference', data: {'value': poState.shipmentPreference}, module: 'purchases');
+          AppLogger.info(
+            'Saving new global shipment preference',
+            data: {'value': poState.shipmentPreference},
+            module: 'purchases',
+          );
           await lookupsService.syncShipmentPreferences([
             {'name': poState.shipmentPreference, 'is_active': true},
           ]);
@@ -249,7 +269,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         context.pop(); // Go back to list
       }
     } catch (e) {
-      AppLogger.error('Error saving purchase order', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error saving purchase order',
+        error: e,
+        module: 'purchases',
+      );
       if (mounted) {
         ZerpaiToast.error(context, 'Error saving PO: $e');
       }
@@ -298,7 +322,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   'This payment term is in use and cannot be deleted.';
             }
           } catch (e) {
-            AppLogger.error('Error checking payment term usage', error: e, module: 'purchases');
+            AppLogger.error(
+              'Error checking payment term usage',
+              error: e,
+              module: 'purchases',
+            );
           }
           return null;
         },
@@ -312,6 +340,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     _orderDateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
     _discountCtrl.text = '0';
     _adjustmentCtrl.text = '0';
+    _adjustmentLabelCtrl.text = 'Adjustment';
+    _adjustmentLabelFocusNode.addListener(_onAdjustmentLabelFocusChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Load vendors on init
       ref.read(vendorProvider.notifier).loadVendors();
@@ -332,6 +362,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         );
       }
     });
+  }
+
+  void _onAdjustmentLabelFocusChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   _ItemRowController _makeRowController({
@@ -428,6 +463,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     _termsCtrl.dispose();
     _discountCtrl.dispose();
     _adjustmentCtrl.dispose();
+    _adjustmentLabelCtrl.dispose();
+    _adjustmentLabelFocusNode.dispose();
     _deliveryNameCtrl.dispose();
     for (var c in _rowControllers) {
       c.dispose();
@@ -492,7 +529,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.add_circle_outline, size: 14, color: _linkBlue),
+                        Icon(
+                          Icons.add_circle_outline,
+                          size: 14,
+                          color: _linkBlue,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'Add New Header',
@@ -584,7 +625,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.edit_outlined, size: 14, color: Color(0xFF0088FF)),
+                              Icon(
+                                Icons.edit_outlined,
+                                size: 14,
+                                color: Color(0xFF0088FF),
+                              ),
                               SizedBox(width: 8),
                               Text(
                                 'Edit Item',
@@ -614,7 +659,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.store_outlined, size: 14, color: _labelColor),
+                              Icon(
+                                Icons.store_outlined,
+                                size: 14,
+                                color: _labelColor,
+                              ),
                               SizedBox(width: 8),
                               Text(
                                 'View Item Details',
@@ -714,7 +763,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         });
       }
     } catch (e) {
-      AppLogger.error('Error loading countries/phone codes', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error loading countries/phone codes',
+        error: e,
+        module: 'purchases',
+      );
     }
   }
 
@@ -732,7 +785,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         });
       }
     } catch (e) {
-      AppLogger.error('Error loading source of supply states', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error loading source of supply states',
+        error: e,
+        module: 'purchases',
+      );
     }
   }
 
@@ -952,8 +1009,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           itemBuilder: (id, isSelected, isHovered) =>
                               _buildStandardLookupRow(
                                 id == 'transaction'
-                                  ? 'At Transaction Level'
-                                  : 'At Line Item Level',
+                                    ? 'At Transaction Level'
+                                    : 'At Line Item Level',
                                 isSelected,
                                 isHovered,
                               ),
@@ -983,10 +1040,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             ),
                             items: availableAccounts.where((node) {
                               final group = node.accountGroup.toLowerCase();
-                              return group.contains('expense') || group.contains('cost of goods sold');
+                              return group.contains('expense') ||
+                                  group.contains('cost of goods sold');
                             }).toList(),
-                            displayStringForValue: (a) => a.name.isEmpty ? 'Select Discount Account' : a.name,
-                            onChanged: (v) => notifier.updateField(discountAccountId: v?.id),
+                            displayStringForValue: (a) => a.name.isEmpty
+                                ? 'Select Discount Account'
+                                : a.name,
+                            onChanged: (v) =>
+                                notifier.updateField(discountAccountId: v?.id),
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: _fieldBorder),
                             itemBuilder: (account, isSelected, isHovered) =>
@@ -2764,7 +2825,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         Container(
           clipBehavior: Clip.hardEdge,
           decoration: BoxDecoration(
-            color: _bgWhite,
+            color: Color(0xFFF9FAFB),
             border: Border.all(color: _borderCol),
             borderRadius: BorderRadius.circular(8),
           ),
@@ -2780,18 +2841,20 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Text(
-                      'Item Table',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: _textPrimary,
+                    ZTooltip(
+                      message: 'Line items to be purchased',
+                      child: const Text(
+                        'Item Table',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: _textPrimary,
+                        ),
                       ),
                     ),
                     const Spacer(),
 
                     // (Table settings was here - moved after Bulk Actions)
-
                     Theme(
                       data: Theme.of(context).copyWith(
                         hoverColor: Colors.transparent,
@@ -2813,8 +2876,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               _selectedRows.clear();
                             });
                           } else if (val == 'hide_all') {
-                            final poState = ref.read(purchaseOrderFormNotifierProvider);
-                            final allHidden = poState.items.asMap().keys.every((i) => _hiddenDetails.contains(i));
+                            final poState = ref.read(
+                              purchaseOrderFormNotifierProvider,
+                            );
+                            final allHidden = poState.items.asMap().keys.every(
+                              (i) => _hiddenDetails.contains(i),
+                            );
                             setState(() {
                               if (allHidden) {
                                 _hiddenDetails.clear();
@@ -2827,14 +2894,20 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           }
                         },
                         itemBuilder: (_) {
-                          final poState = ref.read(purchaseOrderFormNotifierProvider);
-                          final allHidden = poState.items.asMap().keys.every((i) => _hiddenDetails.contains(i));
+                          final poState = ref.read(
+                            purchaseOrderFormNotifierProvider,
+                          );
+                          final allHidden = poState.items.asMap().keys.every(
+                            (i) => _hiddenDetails.contains(i),
+                          );
                           return [
                             const PopupMenuItem(
                               value: 'bulk_update',
                               padding: EdgeInsets.zero,
                               height: 40,
-                              child: _HoverableMenuItem('Bulk Update Line Items'),
+                              child: _HoverableMenuItem(
+                                'Bulk Update Line Items',
+                              ),
                             ),
                             PopupMenuItem(
                               value: 'hide_all',
@@ -2888,9 +2961,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         ),
                         onSelected: (val) {
                           setState(() {
-                            if (val == 'stock') _showStockInfo = !_showStockInfo;
-                            if (val == 'recent') _showRecentTransactions = !_showRecentTransactions;
-                            if (val == 'pricelist') _showPriceList = !_showPriceList;
+                            if (val == 'stock')
+                              _showStockInfo = !_showStockInfo;
+                            if (val == 'recent')
+                              _showRecentTransactions =
+                                  !_showRecentTransactions;
+                            if (val == 'pricelist')
+                              _showPriceList = !_showPriceList;
                           });
                         },
                         itemBuilder: (_) => [
@@ -2899,7 +2976,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             padding: EdgeInsets.zero,
                             height: 40,
                             child: _HoverableToggleMenuItem(
-                              _showStockInfo ? 'Hide Available stock for sale' : 'Show Available stock for sale',
+                              _showStockInfo
+                                  ? 'Hide Available stock for sale'
+                                  : 'Show Available stock for sale',
                               _showStockInfo,
                             ),
                           ),
@@ -2908,7 +2987,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             padding: EdgeInsets.zero,
                             height: 40,
                             child: _HoverableToggleMenuItem(
-                              _showRecentTransactions ? 'Hide Recent Transaction' : 'Show Recent Transaction',
+                              _showRecentTransactions
+                                  ? 'Hide Recent Transaction'
+                                  : 'Show Recent Transaction',
                               _showRecentTransactions,
                             ),
                           ),
@@ -2917,7 +2998,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             padding: EdgeInsets.zero,
                             height: 40,
                             child: _HoverableToggleMenuItem(
-                              _showPriceList ? 'Hide PriceList' : 'Show PriceList',
+                              _showPriceList
+                                  ? 'Hide PriceList'
+                                  : 'Show PriceList',
                               _showPriceList,
                             ),
                           ),
@@ -2932,8 +3015,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: const [
-                              Icon(Icons.settings_outlined, size: 16, color: _textPrimary),
-                              Icon(Icons.arrow_drop_down, size: 14, color: _hintColor),
+                              Icon(
+                                Icons.settings_outlined,
+                                size: 16,
+                                color: _textPrimary,
+                              ),
+                              Icon(
+                                Icons.arrow_drop_down,
+                                size: 14,
+                                color: _hintColor,
+                              ),
                             ],
                           ),
                         ),
@@ -2945,9 +3036,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               // ── Bulk mode banner ──
               if (_bulkMode)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEBF3FF),
+                    color: const Color(0xFFF3F4F6),
                     border: Border(bottom: BorderSide(color: _borderCol)),
                   ),
                   child: Row(
@@ -2957,7 +3051,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF28A745),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
                           textStyle: const TextStyle(fontSize: 13),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -2972,15 +3069,19 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           _bulkMode = false;
                           _selectedRows.clear();
                         }),
-                        child: const Icon(Icons.close, size: 18, color: _labelColor),
+                        child: const Icon(
+                          Icons.close,
+                          size: 18,
+                          color: _labelColor,
+                        ),
                       ),
                     ],
                   ),
                 ),
               // ── Column headers ──
               Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
                   border: Border.symmetric(
                     horizontal: BorderSide(color: _borderCol),
                   ),
@@ -2988,49 +3089,68 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 height: 40,
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (_bulkMode)
-                      SizedBox(
-                        width: 28,
-                        child: Checkbox(
-                          value: _selectedRows.length == ref.watch(purchaseOrderFormNotifierProvider).items.length,
-                          onChanged: (v) => setState(() {
-                            if (v == true) {
-                              _selectedRows.addAll(List.generate(ref.read(purchaseOrderFormNotifierProvider).items.length, (i) => i));
-                            } else {
-                              _selectedRows.clear();
-                            }
-                          }),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                    const SizedBox(width: 24), // drag handle space
-                    const Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: Text(
-                          'ITEM DETAILS',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: _textPrimary,
+                    // Consolidated Prefix Area (56px) to match row
+                    SizedBox(
+                      width: 56,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_bulkMode)
+                            SizedBox(
+                              width: 24,
+                              child: Checkbox(
+                                value: _selectedRows.length ==
+                                    ref
+                                        .watch(purchaseOrderFormNotifierProvider)
+                                        .items
+                                        .length,
+                                onChanged: (v) => setState(() {
+                                  if (v == true) {
+                                    _selectedRows.addAll(
+                                      List.generate(
+                                        ref
+                                            .read(purchaseOrderFormNotifierProvider)
+                                            .items
+                                            .length,
+                                        (i) => i,
+                                      ),
+                                    );
+                                  } else {
+                                    _selectedRows.clear();
+                                  }
+                                }),
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.drag_indicator,
+                            size: 16,
+                            color: Colors.transparent,
                           ),
-                        ),
+                        ],
                       ),
                     ),
-                                        _headerDivider(),
-                    const Expanded(
-                      flex: 1,
+                    Expanded(
+                      flex: 2,
                       child: Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: Text(
-                          'QUANTITY',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: _textPrimary,
+                        padding: const EdgeInsets.only(left: 8),
+                        child: ZTooltip(
+                          message: 'Product/Service details',
+                          child: const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'ITEM DETAILS',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: _textPrimary,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -3039,21 +3159,47 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     Expanded(
                       flex: 1,
                       child: Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'RATE',
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: ZTooltip(
+                            message: 'Quantity to purchase',
+                            child: const Text(
+                              'QUANTITY',
                               style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
                                 color: _textPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    _headerDivider(),
+                    Expanded(
+                      flex: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.max,
+                          children: [
+                            ZTooltip(
+                              message: 'Rate per unit',
+                              child: const Text(
+                                'RATE',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _textPrimary,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 4),
                             ZTooltip(
-                              message: 'You can perform basic calculations directly in this field using parentheses ( ) and arithmetic operators: + - / *',
+                              message:
+                                  'You can perform basic calculations directly in this field using parentheses ( ) and arithmetic operators: + - / *',
                               child: SvgPicture.string(
                                 '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>',
                                 width: 16,
@@ -3068,29 +3214,36 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         ),
                       ),
                     ),
-                    
+
                     if (poState.discountLevel == 'item') ...[
                       _headerDivider(),
                       Expanded(
                         flex: 1,
                         child: Padding(
-                          padding: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.only(right: 8),
                           child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.max,
                             children: [
-                              const Text(
-                                'DISCOUNT',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: _textPrimary,
+                              ZTooltip(
+                                message: 'Item level discount',
+                                child: const Text(
+                                  'DISCOUNT',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: _textPrimary,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              Icon(
-                                Icons.info_outline,
-                                size: 12,
-                                color: _hintColor.withValues(alpha: 0.7),
+                              ZTooltip(
+                                message: 'Percentage or Fixed amount discount',
+                                child: Icon(
+                                  Icons.info_outline,
+                                  size: 12,
+                                  color: _hintColor.withValues(alpha: 0.7),
+                                ),
                               ),
                             ],
                           ),
@@ -3101,16 +3254,20 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     Expanded(
                       flex: 1,
                       child: Padding(
-                        padding: const EdgeInsets.only(left: 8),
+                        padding: const EdgeInsets.only(right: 8),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.max,
                           children: [
-                            const Text(
-                              'TAX',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: _textPrimary,
+                            ZTooltip(
+                              message: 'GST or other taxes',
+                              child: const Text(
+                                'TAX',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _textPrimary,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 4),
@@ -3128,13 +3285,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       width: 100,
                       child: Padding(
                         padding: EdgeInsets.only(right: 8),
-                        child: Text(
-                          'AMOUNT',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: _textPrimary,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            'AMOUNT',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _textPrimary,
+                            ),
                           ),
                         ),
                       ),
@@ -3192,7 +3352,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.add_circle_outline, size: 14, color: _linkBlue),
+                            Icon(
+                              Icons.add_circle_outline,
+                              size: 14,
+                              color: _linkBlue,
+                            ),
                             SizedBox(width: 6),
                             Text(
                               'Add New Row',
@@ -3207,13 +3371,21 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       ),
                     ),
                     // Divider
-                    Container(width: 1, height: 20, color: _linkBlue.withValues(alpha: 0.3)),
+                    Container(
+                      width: 1,
+                      height: 20,
+                      color: _linkBlue.withValues(alpha: 0.3),
+                    ),
                     // Chevron dropdown trigger
                     GestureDetector(
                       onTap: () => _toggleAddRowDropdown(notifier),
                       child: const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 6),
-                        child: Icon(Icons.keyboard_arrow_down, size: 16, color: _linkBlue),
+                        child: Icon(
+                          Icons.keyboard_arrow_down,
+                          size: 16,
+                          color: _linkBlue,
+                        ),
                       ),
                     ),
                   ],
@@ -3233,7 +3405,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   }
 
   Widget _headerDivider() {
-    return Container(width: 1, height: 40, color: _borderCol);
+    return Container(width: 1, height: double.infinity, color: _borderCol);
   }
 
   Widget _buildItemRow(
@@ -3245,11 +3417,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   ) {
     // Ensure controller exists for this index (no setState during build)
     while (_rowControllers.length <= index) {
-      _rowControllers.add(_makeRowController(
-        initialQty: item.quantity,
-        initialRate: item.rate,
-        initialDiscount: item.discount,
-      ));
+      _rowControllers.add(
+        _makeRowController(
+          initialQty: item.quantity,
+          initialRate: item.rate,
+          initialDiscount: item.discount,
+        ),
+      );
     }
     final ctrl = _rowControllers[index];
     final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
@@ -3318,31 +3492,52 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       children: [
         ClipRect(
           child: Container(
-            constraints: BoxConstraints(minHeight: item.productId.isEmpty ? 54 : 120),
+            constraints: BoxConstraints(
+              minHeight: item.productId.isEmpty ? 54 : 120,
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white, // Light GreyBlue row background
+              border: Border(
+                bottom: BorderSide(color: _borderCol),
+              ),
+            ),
             child: IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Bulk checkbox (only in bulk mode)
-                  if (_bulkMode)
-                    SizedBox(
-                      width: 28,
-                      child: Center(
-                        child: Checkbox(
-                          value: _selectedRows.contains(index),
-                          onChanged: (v) => setState(() {
-                            if (v == true) {
-                              _selectedRows.add(index);
-                            } else {
-                              _selectedRows.remove(index);
-                            }
-                          }),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
+                  // Prefix Area (56px) - Synchronized with Header
+                  SizedBox(
+                    width: 56,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_bulkMode)
+                          SizedBox(
+                            width: 24,
+                            child: Checkbox(
+                              value: _selectedRows.contains(index),
+                              onChanged: (v) => setState(() {
+                                if (v == true) {
+                                  _selectedRows.add(index);
+                                } else {
+                                  _selectedRows.remove(index);
+                                }
+                              }),
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.drag_indicator,
+                          size: 16,
+                          color: _hintColor,
                         ),
-                      ),
+                      ],
                     ),
+                  ),
                   Expanded(
                     flex: 2,
                     child: Padding(
@@ -3411,11 +3606,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                   children: [
                                     // Drag handle (inside card)
                                     Padding(
-                                      padding: const EdgeInsets.only(top: 10, right: 6),
+                                      padding: const EdgeInsets.only(
+                                        top: 10,
+                                        right: 6,
+                                      ),
                                       child: Icon(
                                         Icons.drag_indicator,
                                         size: 16,
-                                        color: _hintColor.withValues(alpha: 0.5),
+                                        color: _hintColor.withValues(
+                                          alpha: 0.5,
+                                        ),
                                       ),
                                     ),
                                     // Image placeholder
@@ -3479,13 +3679,15 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                               ),
                                               // 3-dot menu
                                               CompositedTransformTarget(
-                                                link: _rowControllers[index].itemDetailsMenuLink,
+                                                link: _rowControllers[index]
+                                                    .itemDetailsMenuLink,
                                                 child: GestureDetector(
                                                   onTap: () => _showItemMenu(
                                                     context,
                                                     index,
                                                     item,
-                                                    _rowControllers[index].itemDetailsMenuLink,
+                                                    _rowControllers[index]
+                                                        .itemDetailsMenuLink,
                                                   ),
                                                   child: const Padding(
                                                     padding: EdgeInsets.all(4),
@@ -3498,27 +3700,36 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                 ),
                                               ),
                                               const SizedBox(width: 2),
-                                              // X close
-                                              GestureDetector(
-                                                onTap: () {
-                                                  notifier.removeItemRow(index);
-                                                  if (index < _rowControllers.length) {
-                                                    _rowControllers[index].dispose();
-                                                    setState(() => _rowControllers.removeAt(index));
-                                                  }
-                                                },
-                                                child: const Padding(
-                                                  padding: EdgeInsets.all(4),
-                                                  child: Icon(
-                                                    Icons.cancel_outlined,
-                                                    size: 16,
-                                                    color: _hintColor,
+                                              // X clear logic (Empty row instead of removing)
+                                              ZTooltip(
+                                                message: 'Clear Item Data',
+                                                child: GestureDetector(
+                                                  onTap: () {
+                                                    ctrl.nameCtrl.clear();
+                                                    ctrl.qtyCtrl.text = '1.00';
+                                                    ctrl.rateCtrl.text = '0.00';
+                                                    ctrl.discountCtrl.text =
+                                                        '0.00';
+                                                    ctrl.descCtrl.clear();
+                                                    notifier.clearItemRow(
+                                                      index,
+                                                    );
+                                                  },
+                                                  child: const Padding(
+                                                    padding: EdgeInsets.all(4),
+                                                    child: Icon(
+                                                      Icons.cancel_outlined,
+                                                      size: 16,
+                                                      color: _hintColor,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
                                             ],
                                           ),
-                                          if (!_hiddenDetails.contains(index)) ...[
+                                          if (!_hiddenDetails.contains(
+                                            index,
+                                          )) ...[
                                             const SizedBox(height: 4),
                                             // Description
                                             Container(
@@ -3586,14 +3797,17 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                 ),
                                               ),
                                               CompositedTransformTarget(
-                                                link: _rowControllers[index].hsnLink,
+                                                link: _rowControllers[index]
+                                                    .hsnLink,
                                                 child: GestureDetector(
-                                                  onTap: () => _showHsnEditDialog(
-                                                    context,
-                                                    index,
-                                                    item,
-                                                    _rowControllers[index].hsnLink,
-                                                  ),
+                                                  onTap: () =>
+                                                      _showHsnEditDialog(
+                                                        context,
+                                                        index,
+                                                        item,
+                                                        _rowControllers[index]
+                                                            .hsnLink,
+                                                      ),
                                                   child: Row(
                                                     mainAxisSize:
                                                         MainAxisSize.min,
@@ -3601,12 +3815,15 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                       const Icon(
                                                         Icons.edit_outlined,
                                                         size: 12,
-                                                        color: Color(0xFF0088FF),
+                                                        color: Color(
+                                                          0xFF0088FF,
+                                                        ),
                                                       ),
                                                       const SizedBox(width: 3),
                                                       Text(
                                                         item.hsnCode != null &&
-                                                                item.hsnCode!
+                                                                item
+                                                                    .hsnCode!
                                                                     .isNotEmpty
                                                             ? item.hsnCode!
                                                             : 'Update',
@@ -3700,40 +3917,44 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                       ),
                                     ),
                                     if (wh.name.isNotEmpty)
-                                        CompositedTransformTarget(
-                                          link: _rowControllers[index].warehouseSelectionLink,
-                                          child: GestureDetector(
-                                            onTap: () => _showWarehouseStockDialog(
-                                              context,
-                                              item,
-                                              warehouses,
-                                              _rowControllers[index].warehouseSelectionLink,
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(
-                                                  Icons.warehouse_outlined,
-                                                  size: 11,
-                                                  color: Color(0xFF0088FF),
-                                                ),
-                                                const SizedBox(width: 2),
-                                                SizedBox(
-                                                  width: 72,
-                                                  child: Text(
-                                                    wh.name,
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      color: Color(0xFF0088FF),
-                                                    ),
-                                                    overflow: TextOverflow.ellipsis,
-                                                    maxLines: 1,
+                                      CompositedTransformTarget(
+                                        link: _rowControllers[index]
+                                            .warehouseSelectionLink,
+                                        child: GestureDetector(
+                                          onTap: () =>
+                                              _showWarehouseStockDialog(
+                                                context,
+                                                item,
+                                                warehouses,
+                                                _rowControllers[index]
+                                                    .warehouseSelectionLink,
+                                              ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(
+                                                Icons.warehouse_outlined,
+                                                size: 11,
+                                                color: Color(0xFF0088FF),
+                                              ),
+                                              const SizedBox(width: 2),
+                                              SizedBox(
+                                                width: 72,
+                                                child: Text(
+                                                  wh.name,
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    color: Color(0xFF0088FF),
                                                   ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  maxLines: 1,
                                                 ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
                                           ),
                                         ),
+                                      ),
                                   ],
                                 );
                               },
@@ -3760,8 +3981,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           _gridField(
                             ctrl.rateCtrl,
                             focusNode: ctrl.rateFocus,
-                            onSubmitted: (_) =>
-                                _handleRateCalculation(ctrl),
+                            onSubmitted: (_) => _handleRateCalculation(ctrl),
                             hint: '0.00',
                             textAlign: TextAlign.right,
                             onChanged: (v) {
@@ -3853,7 +4073,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                         itemCode: item.itemCode ?? '',
                                       ),
                                     );
-                                    ref.read(itemDetailsSidebarProvider.notifier).state = selectedProduct;
+                                    ref
+                                            .read(
+                                              itemDetailsSidebarProvider
+                                                  .notifier,
+                                            )
+                                            .state =
+                                        selectedProduct;
                                     Scaffold.of(innerContext).openEndDrawer();
                                   },
                                   child: const Text(
@@ -3892,6 +4118,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                     ctrl.discountCtrl,
                                     hint: '0',
                                     textAlign: TextAlign.right,
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(2),
+                                      bottomLeft: Radius.circular(2),
+                                    ),
                                     onChanged: (v) {
                                       final d = double.tryParse(v) ?? 0;
                                       notifier.updateItem(
@@ -3901,45 +4131,43 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                     },
                                   ),
                                 ),
-                                const SizedBox(width: 4),
                                 Container(
                                   height: 32,
                                   decoration: BoxDecoration(
                                     border: Border.all(color: _fieldBorder),
-                                    borderRadius: BorderRadius.circular(4),
-                                    color: const Color(0xFFF9FAFB),
-                                  ),
-                                  child: CompositedTransformTarget(
-                                    link: ctrl.discountTypeLink,
-                                    child: GestureDetector(
-                                      onTap: () => _showDiscountMenu(context, index, item),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              item.discountType == 'percentage'
-                                                  ? '%'
-                                                  : '₹',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: _textPrimary,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 2),
-                                            const Icon(
-                                              Icons.arrow_drop_down,
-                                              size: 14,
-                                              color: _hintColor,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                                    borderRadius: const BorderRadius.only(
+                                      topRight: Radius.circular(2),
+                                      bottomRight: Radius.circular(2),
                                     ),
+                                    color: const Color(0xFFF3F4F6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _toggleBtn(
+                                        '%',
+                                        item.discountType == 'percentage',
+                                        () => notifier.updateItem(
+                                          index,
+                                          item.copyWith(
+                                            discountType: 'percentage',
+                                          ),
+                                        ),
+                                        small: true,
+                                      ),
+                                      Container(width: 1, color: _fieldBorder),
+                                      _toggleBtn(
+                                        '₹',
+                                        item.discountType == 'fixed',
+                                        () => notifier.updateItem(
+                                          index,
+                                          item.copyWith(
+                                            discountType: 'fixed',
+                                          ),
+                                        ),
+                                        small: true,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -3989,6 +4217,33 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  if (item.taxId != null &&
+                                      item.taxId!.isNotEmpty)
+                                    ZTooltip(
+                                      message: 'Clear Tax',
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          notifier.updateItem(
+                                            index,
+                                            item.copyWith(
+                                              taxId: '',
+                                              taxName: null,
+                                              taxRate: 0.0,
+                                            ),
+                                          );
+                                        },
+                                        child: const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                          ),
+                                          child: Icon(
+                                            Icons.close,
+                                            size: 14,
+                                            color: _dangerRed,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   const Icon(
                                     Icons.arrow_drop_down,
                                     size: 16,
@@ -4027,42 +4282,48 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CompositedTransformTarget(
-                          link: _rowControllers[index].rowActionsMenuLink,
-                          child: GestureDetector(
-                            onTap: () => _showItemMenu(
-                              context,
-                              index,
-                              item,
-                              _rowControllers[index].rowActionsMenuLink,
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(4),
-                              child: Icon(
-                                Icons.more_vert,
-                                size: 18,
-                                color: _hintColor,
+                        ZTooltip(
+                          message: 'More Row Actions',
+                          child: CompositedTransformTarget(
+                            link: _rowControllers[index].rowActionsMenuLink,
+                            child: GestureDetector(
+                              onTap: () => _showItemMenu(
+                                context,
+                                index,
+                                item,
+                                _rowControllers[index].rowActionsMenuLink,
+                              ),
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.more_vert,
+                                  size: 18,
+                                  color: _hintColor,
+                                ),
                               ),
                             ),
                           ),
                         ),
                         const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () {
-                            if (poState.items.length > 1) {
-                              _rowControllers[index].dispose();
-                              setState(() {
-                                _rowControllers.removeAt(index);
-                              });
-                              notifier.removeItemRow(index);
-                            }
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.all(4),
-                            child: Icon(
-                              Icons.close,
-                              size: 16,
-                              color: _dangerRed,
+                        ZTooltip(
+                          message: 'Delete Row',
+                          child: GestureDetector(
+                            onTap: () {
+                              if (poState.items.length > 1) {
+                                _rowControllers[index].dispose();
+                                setState(() {
+                                  _rowControllers.removeAt(index);
+                                });
+                                notifier.removeItemRow(index);
+                              }
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: _dangerRed,
+                              ),
                             ),
                           ),
                         ),
@@ -4079,10 +4340,15 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFF9FAFB),
+              color: const Color(0xFFF3F4F6),
               border: Border(top: BorderSide(color: _borderCol)),
             ),
-            child: _itemExpandedProperties(index, item, availableAccounts, poState),
+            child: _itemExpandedProperties(
+              index,
+              item,
+              availableAccounts,
+              poState,
+            ),
           ),
       ],
     );
@@ -4152,7 +4418,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     _discountOverlay = null;
   }
 
-
   void _showTaxPopover(
     BuildContext context,
     int index,
@@ -4201,7 +4466,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
     Overlay.of(context).insert(_taxOverlay!);
   }
-
 
   // ── Warehouse Stock Dialog ────────────────────────────────────────────────────
   void _showWarehouseStockDialog(
@@ -4338,8 +4602,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     required Function(String) onChanged,
     Function(String)? onSubmitted,
     FocusNode? focusNode,
+    BorderRadius? borderRadius,
   }) {
     final fn = focusNode ?? FocusNode();
+    final br = borderRadius ?? BorderRadius.circular(4);
     return _HoverableField(
       builder: (isHovered) {
         return ListenableBuilder(
@@ -4357,7 +4623,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       : Colors.transparent,
                   width: 1,
                 ),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: br,
               ),
               child: TextField(
                 controller: ctrl,
@@ -4418,7 +4684,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     PurchaseOrderState poState,
   ) {
     final ctrl = _rowControllers[index];
-    
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -4432,7 +4698,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           ),
           label: item.accountName ?? 'Select an account',
           onTap: () {
-            _showAccountMenu(context, index, item, accounts, link: ctrl.accountLink);
+            _showAccountMenu(
+              context,
+              index,
+              item,
+              accounts,
+              link: ctrl.accountLink,
+            );
           },
         ),
         _propertySeparator(),
@@ -4501,10 +4773,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
 
     if (link != null) {
-      return CompositedTransformTarget(
-        link: link,
-        child: content,
-      );
+      return CompositedTransformTarget(link: link, child: content);
     }
     return content;
   }
@@ -4571,7 +4840,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     overlay.insert(_accountOverlay!);
   }
 
-
   // ═══════════════════════════════════════════════════════════════════════════
   // NOTES (left) + TOTALS (right) — Zoho style
   // ═══════════════════════════════════════════════════════════════════════════
@@ -4583,10 +4851,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         _notesSection(),
         const SizedBox(width: 64), // Fixed gap for "immediate" placement
         // Totals panel (Appearing immediately to the right of notes)
-        SizedBox(
-          width: 420,
-          child: _buildTotalsPanel(poState),
-        ),
+        SizedBox(width: 420, child: _buildTotalsPanel(poState)),
       ],
     );
   }
@@ -4595,44 +4860,34 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final totalQty = poState.items
         .where((i) => !i.isHeader)
         .fold(0.0, (sum, i) => sum + i.quantity);
-    final qtyStr = totalQty % 1 == 0
-        ? totalQty.toInt().toString()
-        : totalQty.toStringAsFixed(2);
+    final itemCount = poState.items.where((i) => !i.isHeader).length;
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFEBF5FF), // Soft Blue
-        border: Border.all(color: const Color(0xFFDBEAFE)),
+        color: const Color(0xFFF3F4F6),
+        border: Border.all(color: const Color(0xFFF9FAFB)),
         borderRadius: BorderRadius.circular(4),
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Sub Total + Total Quantity
+          // Sub-Total + Total Quantity
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Sub Total',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: _labelColor,
+                  const Text('Sub Total', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _labelColor)),
+                  if (itemCount > 0)
+                    Text(
+                      'Total Quantity: ${totalQty.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: _hintColor,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Total Quantity : $qtyStr',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _labelColor,
-                    ),
-                  ),
                 ],
               ),
               const Spacer(),
@@ -4640,20 +4895,21 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 poState.subTotal.toStringAsFixed(2),
                 style: const TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w700,
+                  color: _textPrimary,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          // Per-tax breakdown rows
-          ..._buildTaxBreakdownRows(poState),
+          // Moved Blue Box higher (above calculating fields)
+          _buildGstDetails(poState),
+          const SizedBox(height: 16),
+          // Discount Row (Attached Style)
+          _discountRow(poState),
+          const SizedBox(height: 12),
           // Total Tax Amount with editable field + pencil
           _buildTotalTaxRow(poState),
-          if (poState.discountLevel == 'transaction') ...[
-            const SizedBox(height: 12),
-            _discountRow(poState),
-          ],
           const SizedBox(height: 12),
           // TDS / TCS
           _tdsTcsRow(poState),
@@ -4675,12 +4931,18 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
   List<Widget> _buildTaxBreakdownRows(PurchaseOrderState poState) {
     final Map<String, ({String name, double rate, double amount})> groups = {};
-    for (final item in poState.items.where((i) => !i.isHeader && i.taxAmount > 0)) {
+    for (final item in poState.items.where(
+      (i) => !i.isHeader && i.taxAmount > 0,
+    )) {
       final key = item.taxId ?? item.taxName ?? '';
       if (key.isEmpty) continue;
       if (groups.containsKey(key)) {
         final e = groups[key]!;
-        groups[key] = (name: e.name, rate: e.rate, amount: e.amount + item.taxAmount);
+        groups[key] = (
+          name: e.name,
+          rate: e.rate,
+          amount: e.amount + item.taxAmount,
+        );
       } else {
         groups[key] = (
           name: item.taxName ?? 'Tax',
@@ -4694,29 +4956,41 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     for (final tax in groups.values) {
       final half = tax.rate / 2;
       final halfAmt = tax.amount / 2;
-      final halfStr = half % 1 == 0 ? half.toInt().toString() : half.toStringAsFixed(1);
+      final halfStr = half % 1 == 0
+          ? half.toInt().toString()
+          : half.toStringAsFixed(1);
 
-      widgets.add(Row(
-        children: [
-          Text(
-            'CGST$halfStr [$halfStr%]',
-            style: const TextStyle(fontSize: 13, color: _labelColor),
-          ),
-          const Spacer(),
-          Text(halfAmt.toStringAsFixed(2), style: const TextStyle(fontSize: 13)),
-        ],
-      ));
+      widgets.add(
+        Row(
+          children: [
+            Text(
+              'CGST$halfStr [$halfStr%]',
+              style: const TextStyle(fontSize: 13, color: _labelColor),
+            ),
+            const Spacer(),
+            Text(
+              halfAmt.toStringAsFixed(2),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+      );
       widgets.add(const SizedBox(height: 8));
-      widgets.add(Row(
-        children: [
-          Text(
-            'SGST$halfStr [$halfStr%]',
-            style: const TextStyle(fontSize: 13, color: _labelColor),
-          ),
-          const Spacer(),
-          Text(halfAmt.toStringAsFixed(2), style: const TextStyle(fontSize: 13)),
-        ],
-      ));
+      widgets.add(
+        Row(
+          children: [
+            Text(
+              'SGST$halfStr [$halfStr%]',
+              style: const TextStyle(fontSize: 13, color: _labelColor),
+            ),
+            const Spacer(),
+            Text(
+              halfAmt.toStringAsFixed(2),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+      );
       widgets.add(const SizedBox(height: 12));
     }
     return widgets;
@@ -4738,8 +5012,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             textAlign: TextAlign.right,
             style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 6,
+              ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(3),
                 borderSide: const BorderSide(color: _fieldBorder),
@@ -4871,20 +5147,47 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     return Row(
       children: [
         CustomPaint(
-          painter: const _DashedBorderPainter(),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-            child: Text(
-              'Adjustment',
-              style: TextStyle(fontSize: 13, color: _labelColor),
+          foregroundPainter: _DashedBorderPainter(
+            color: _adjustmentLabelFocusNode.hasFocus
+                ? const Color(0xFF2563EB)
+                : const Color(0xFFCCCCCC),
+            isFocused: _adjustmentLabelFocusNode.hasFocus,
+          ),
+          child: SizedBox(
+            width: 140,
+            height: 32,
+            child: TextField(
+              controller: _adjustmentLabelCtrl,
+              focusNode: _adjustmentLabelFocusNode,
+              style: const TextStyle(fontSize: 13, color: _textPrimary),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                isDense: true,
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 10,
+                ),
+              ),
             ),
           ),
         ),
         const Spacer(),
         SizedBox(
-          width: 80,
+          width: 100,
           child: _zField(
             _adjustmentCtrl,
+            readOnly: false,
+            keyboardType: const TextInputType.numberWithOptions(
+              decimal: true,
+              signed: true,
+            ),
             onChanged: (v) =>
                 notifier.updateField(adjustment: double.tryParse(v) ?? 0),
           ),
@@ -5062,7 +5365,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
-        color: Color(0xFFEBF5FF), // Soft Blue Banner background
+        color: Color(0xFFF9FAFB), // Soft Blue Banner background
         border: Border(
           top: BorderSide(color: Color(0xFFDBEAFE)),
           bottom: BorderSide(color: Color(0xFFDBEAFE)),
@@ -5118,8 +5421,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide:
-                            const BorderSide(color: _linkBlue, width: 1.5),
+                        borderSide: const BorderSide(
+                          color: _linkBlue,
+                          width: 1.5,
+                        ),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -5150,12 +5455,71 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: Icon(Icons.upload_file, size: 16, color: _linkBlue),
-                  label: Text(
-                    'Upload File',
-                    style: TextStyle(color: _linkBlue, fontSize: 13),
+                CustomPaint(
+                  foregroundPainter: const _DashedBorderPainter(
+                    color: Color(0xFFD1D5DB),
+                  ),
+                  child: Container(
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          onTap: () {},
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  LucideIcons.upload,
+                                  size: 14,
+                                  color: Color(0xFF6B7280),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Upload File',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF374151),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(
+                          width: 1,
+                          color: Color(0xFFE5E7EB),
+                          thickness: 1,
+                          indent: 6,
+                          endIndent: 6,
+                        ),
+                        InkWell(
+                          onTap: () {},
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(4),
+                            bottomRight: Radius.circular(4),
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(
+                              LucideIcons.chevronDown,
+                              size: 16,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -5845,6 +6209,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     Function(String)? onChanged,
     VoidCallback? onTap,
     bool readOnly = false,
+    TextInputType keyboardType = TextInputType.text,
     Widget? suffixIcon,
     TextAlign textAlign = TextAlign.start,
   }) {
@@ -5855,6 +6220,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           controller: ctrl,
           onChanged: onChanged,
           onTap: onTap,
+          keyboardType: keyboardType,
           textAlign: textAlign,
           readOnly: readOnly || (onTap != null && onChanged == null),
           style: const TextStyle(fontSize: 13),
@@ -6269,7 +6635,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       ),
     );
   }
-
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -6301,13 +6666,15 @@ class _BulkAddModalState extends State<_BulkAddModal> {
   }
 
   List<Item> get _filtered => widget.items.where((i) {
-        final matchSearch = _search.isEmpty ||
-            i.productName.toLowerCase().contains(_search.toLowerCase()) ||
-            i.itemCode.toLowerCase().contains(_search.toLowerCase());
-        final matchCat = _selectedCategory == 'All' ||
-            i.type.toLowerCase() == _selectedCategory.toLowerCase();
-        return matchSearch && matchCat;
-      }).toList();
+    final matchSearch =
+        _search.isEmpty ||
+        i.productName.toLowerCase().contains(_search.toLowerCase()) ||
+        i.itemCode.toLowerCase().contains(_search.toLowerCase());
+    final matchCat =
+        _selectedCategory == 'All' ||
+        i.type.toLowerCase() == _selectedCategory.toLowerCase();
+    return matchSearch && matchCat;
+  }).toList();
 
   List<Item> get _selectedItems =>
       widget.items.where((i) => (_counts[i.id ?? ''] ?? 0) > 0).toList();
@@ -6386,7 +6753,9 @@ class _BulkAddModalState extends State<_BulkAddModal> {
                                     color: Colors.white,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 5),
+                                        horizontal: 10,
+                                        vertical: 5,
+                                      ),
                                       decoration: BoxDecoration(
                                         border: Border.all(color: _fieldBorder),
                                         borderRadius: BorderRadius.circular(4),
@@ -6394,25 +6763,40 @@ class _BulkAddModalState extends State<_BulkAddModal> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.filter_alt_outlined,
-                                              size: 18, color: Color(0xFF0088FF)),
+                                          Icon(
+                                            Icons.filter_alt_outlined,
+                                            size: 18,
+                                            color: Color(0xFF0088FF),
+                                          ),
                                           const SizedBox(width: 4),
-                                          Text('Category',
-                                              style: const TextStyle(
-                                                  fontSize: 13,
-                                                  color: _textPrimary)),
+                                          Text(
+                                            'Category',
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: _textPrimary,
+                                            ),
+                                          ),
                                           const SizedBox(width: 4),
-                                          const Icon(Icons.keyboard_arrow_down,
-                                              size: 16, color: _hintColor),
+                                          const Icon(
+                                            Icons.keyboard_arrow_down,
+                                            size: 16,
+                                            color: _hintColor,
+                                          ),
                                         ],
                                       ),
                                     ),
                                     itemBuilder: (_) => _categories
-                                        .map((c) => PopupMenuItem(
+                                        .map(
+                                          (c) => PopupMenuItem(
                                             value: c,
-                                            child: Text(c,
-                                                style: const TextStyle(
-                                                    fontSize: 13))))
+                                            child: Text(
+                                              c,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        )
                                         .toList(),
                                     onSelected: (v) =>
                                         setState(() => _selectedCategory = v),
@@ -6423,31 +6807,37 @@ class _BulkAddModalState extends State<_BulkAddModal> {
                               // Search
                               TextField(
                                 controller: _searchCtrl,
-                                onChanged: (v) =>
-                                    setState(() => _search = v),
+                                onChanged: (v) => setState(() => _search = v),
                                 style: const TextStyle(fontSize: 13),
                                 decoration: InputDecoration(
                                   hintText:
                                       'Type to search or scan the barcode of the item',
                                   hintStyle: const TextStyle(
-                                      fontSize: 12, color: _hintColor),
+                                    fontSize: 12,
+                                    color: _hintColor,
+                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(3),
-                                    borderSide:
-                                        const BorderSide(color: _fieldBorder),
+                                    borderSide: const BorderSide(
+                                      color: _fieldBorder,
+                                    ),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(3),
-                                    borderSide:
-                                        const BorderSide(color: _fieldBorder),
+                                    borderSide: const BorderSide(
+                                      color: _fieldBorder,
+                                    ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(3),
                                     borderSide: const BorderSide(
-                                        color: Color(0xFF0088FF)),
+                                      color: Color(0xFF0088FF),
+                                    ),
                                   ),
                                   contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
                                   isDense: true,
                                 ),
                               ),
@@ -6469,7 +6859,9 @@ class _BulkAddModalState extends State<_BulkAddModal> {
                                       ? const Color(0xFFEFF6FF)
                                       : null,
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 10),
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
                                   child: Row(
                                     children: [
                                       Expanded(
@@ -6491,8 +6883,9 @@ class _BulkAddModalState extends State<_BulkAddModal> {
                                             Text(
                                               'Purchase Rate: ₹${(item.costPrice ?? 0.0).toStringAsFixed(2)}',
                                               style: const TextStyle(
-                                                  fontSize: 11,
-                                                  color: _hintColor),
+                                                fontSize: 11,
+                                                color: _hintColor,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -6525,33 +6918,44 @@ class _BulkAddModalState extends State<_BulkAddModal> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                           child: Row(
                             children: [
-                              const Text('Selected Items',
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: _textPrimary)),
+                              const Text(
+                                'Selected Items',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: _textPrimary,
+                                ),
+                              ),
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF3F4F6),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: Text('$_selectedCount',
-                                    style: const TextStyle(
-                                        fontSize: 12, 
-                                        fontWeight: FontWeight.w600,
-                                        color: _textPrimary)),
+                                child: Text(
+                                  '$_selectedCount',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textPrimary,
+                                  ),
+                                ),
                               ),
                               const Spacer(),
-                              Text('Total Quantity: $_totalQty',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: _hintColor)),
+                              Text(
+                                'Total Quantity: $_totalQty',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: _hintColor,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -6565,7 +6969,9 @@ class _BulkAddModalState extends State<_BulkAddModal> {
                                       'Click the item names from the left pane to select them',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                          fontSize: 13, color: _hintColor),
+                                        fontSize: 13,
+                                        color: _hintColor,
+                                      ),
                                     ),
                                   ),
                                 )
@@ -6577,20 +6983,28 @@ class _BulkAddModalState extends State<_BulkAddModal> {
                                     final count = _counts[id] ?? 1;
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 8),
+                                        horizontal: 16,
+                                        vertical: 8,
+                                      ),
                                       child: Row(
                                         children: [
                                           Expanded(
-                                            child: Text(item.productName,
-                                                style: const TextStyle(
-                                                    fontSize: 13,
-                                                    color: _textPrimary)),
+                                            child: Text(
+                                              item.productName,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                color: _textPrimary,
+                                              ),
+                                            ),
                                           ),
                                           Container(
                                             height: 28,
                                             decoration: BoxDecoration(
-                                              border: Border.all(color: _fieldBorder),
-                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: _fieldBorder,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
                                             ),
                                             child: Row(
                                               children: [
@@ -6604,7 +7018,10 @@ class _BulkAddModalState extends State<_BulkAddModal> {
                                                     }
                                                   }),
                                                   child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                        ),
                                                     child: const Icon(
                                                       Icons.remove,
                                                       size: 14,
@@ -6612,22 +7029,37 @@ class _BulkAddModalState extends State<_BulkAddModal> {
                                                     ),
                                                   ),
                                                 ),
-                                                const VerticalDivider(width: 1, color: _borderCol),
+                                                const VerticalDivider(
+                                                  width: 1,
+                                                  color: _borderCol,
+                                                ),
                                                 Container(
                                                   width: 32,
                                                   alignment: Alignment.center,
-                                                  child: Text('$count',
-                                                      style: const TextStyle(
-                                                          fontSize: 12,
-                                                          fontWeight: FontWeight.w500,
-                                                          color: _textPrimary)),
+                                                  child: Text(
+                                                    '$count',
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color: _textPrimary,
+                                                    ),
+                                                  ),
                                                 ),
-                                                const VerticalDivider(width: 1, color: _borderCol),
+                                                const VerticalDivider(
+                                                  width: 1,
+                                                  color: _borderCol,
+                                                ),
                                                 GestureDetector(
                                                   onTap: () => setState(
-                                                      () => _counts[id] = count + 1),
+                                                    () =>
+                                                        _counts[id] = count + 1,
+                                                  ),
                                                   child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                        ),
                                                     child: const Icon(
                                                       Icons.add,
                                                       size: 14,
@@ -6652,10 +7084,10 @@ class _BulkAddModalState extends State<_BulkAddModal> {
             ),
             // ── Footer ──
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: _borderCol))),
+                border: Border(top: BorderSide(color: _borderCol)),
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -6664,8 +7096,7 @@ class _BulkAddModalState extends State<_BulkAddModal> {
                         ? null
                         : () {
                             final result = _selectedItems.map((i) {
-                              final qty =
-                                  (_counts[i.id ?? ''] ?? 1).toDouble();
+                              final qty = (_counts[i.id ?? ''] ?? 1).toDouble();
                               return PurchaseOrderItem(
                                 productId: i.id ?? '',
                                 productName: i.productName,
@@ -6681,17 +7112,21 @@ class _BulkAddModalState extends State<_BulkAddModal> {
                       backgroundColor: _greenBtn,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                    child: const Text('Add Items',
-                        style: TextStyle(fontSize: 13)),
+                    child: const Text(
+                      'Add Items',
+                      style: TextStyle(fontSize: 13),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel',
-                        style:
-                            TextStyle(fontSize: 13, color: _textPrimary)),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(fontSize: 13, color: _textPrimary),
+                    ),
                   ),
                 ],
               ),
@@ -7555,24 +7990,42 @@ class _TrianglePainter extends CustomPainter {
 
 // ── Dashed Border Painter ─────────────────────────────────────────────────────
 class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter();
+  const _DashedBorderPainter({
+    this.color = const Color(0xFFCCCCCC),
+    this.isFocused = false,
+  });
+
+  final Color color;
+  final bool isFocused;
 
   @override
   void paint(Canvas canvas, Size size) {
-    const color = Color(0xFFCCCCCC);
     const dashWidth = 4.0;
     const dashSpace = 3.0;
 
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 1.0
+      ..strokeWidth = isFocused ? 1.5 : 1.0
       ..style = PaintingStyle.stroke;
 
+    if (isFocused) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0.75, 0.75, size.width - 1.5, size.height - 1.5),
+          const Radius.circular(3),
+        ),
+        paint,
+      );
+      return;
+    }
+
     final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, size.width, size.height),
-        const Radius.circular(3),
-      ));
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, size.width, size.height),
+          const Radius.circular(3),
+        ),
+      );
 
     for (final metric in path.computeMetrics()) {
       double distance = 0;
@@ -7587,7 +8040,9 @@ class _DashedBorderPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.isFocused != isFocused;
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -8285,251 +8740,245 @@ class _WarehouseStockDialogState extends ConsumerState<_WarehouseStockDialog> {
   @override
   Widget build(BuildContext context) {
     return Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-                // ── Header ──────────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Header ──────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                const Text(
+                  'Warehouse Locations',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: _textDark,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const Spacer(),
+                const Text(
+                  'View: ',
+                  style: TextStyle(fontSize: 12, color: _textGrey),
+                ),
+                // View dropdown
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: _blue),
+                    borderRadius: BorderRadius.circular(6),
+                    color: Colors.white,
+                  ),
+                  height: 32,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _stockView,
+                      isDense: true,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: _textDark,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 16,
+                        color: _blue,
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'stockOnHand',
+                          child: Text('Stock on Hand'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'availableForSale',
+                          child: Text('Available for Sale'),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _stockView = v);
+                        widget.onViewChanged(v);
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Toggle buttons
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: _blue),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                   child: Row(
                     children: [
-                      const Text(
-                        'Warehouse Locations',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: _textDark,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                      const Spacer(),
-                      const Text(
-                        'View: ',
-                        style: TextStyle(fontSize: 12, color: _textGrey),
-                      ),
-                      // View dropdown
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: _blue),
-                          borderRadius: BorderRadius.circular(6),
-                          color: Colors.white,
-                        ),
-                        height: 32,
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _stockView,
-                            isDense: true,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: _textDark,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            icon: const Icon(
-                              Icons.keyboard_arrow_down,
-                              size: 16,
-                              color: _blue,
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'stockOnHand',
-                                child: Text('Stock on Hand'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'availableForSale',
-                                child: Text('Available for Sale'),
-                              ),
-                            ],
-                            onChanged: (v) {
-                              if (v == null) return;
-                              setState(() => _stockView = v);
-                              widget.onViewChanged(v);
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Toggle buttons
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: _blue),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          children: [
-                            _buildToggle('Accounting Stock', 'accounting'),
-                            _buildToggle(
-                              'Physical Stock',
-                              'physical',
-                              isRight: true,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      GestureDetector(
-                        onTap: widget.onClose,
-                        child: const Icon(
-                          Icons.close,
-                          size: 22,
-                          color: Color(0xFFEF4444),
-                        ),
-                      ),
+                      _buildToggle('Accounting Stock', 'accounting'),
+                      _buildToggle('Physical Stock', 'physical', isRight: true),
                     ],
                   ),
                 ),
-                const Divider(height: 1, color: _border),
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: widget.onClose,
+                  child: const Icon(
+                    Icons.close,
+                    size: 22,
+                    color: Color(0xFFEF4444),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: _border),
 
-                // ── Table ───────────────────────────────────────────────────────
+          // ── Table ───────────────────────────────────────────────────────
+          Container(
+            constraints: const BoxConstraints(maxHeight: 400),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Table header
                 Container(
-                  constraints: const BoxConstraints(maxHeight: 400),
+                  decoration: const BoxDecoration(
+                    color: _headerBg,
+                    border: Border(bottom: BorderSide(color: _border)),
+                  ),
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Table header
-                      Container(
-                        decoration: const BoxDecoration(
-                          color: _headerBg,
-                          border: Border(bottom: BorderSide(color: _border)),
-                        ),
-                        child: Column(
-                          children: [
-                            // Spanning sub-header
-                            Row(
-                              children: [
-                                const SizedBox(width: 260),
-                                Expanded(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    alignment: Alignment.center,
-                                    decoration: const BoxDecoration(
-                                      border: Border(
-                                        left: BorderSide(color: _border),
-                                        bottom: BorderSide(color: _border),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      _viewMode == 'physical'
-                                          ? 'Physical Stock'
-                                          : 'Accounting Stock',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: _textGrey,
-                                      ),
-                                    ),
-                                  ),
+                      // Spanning sub-header
+                      Row(
+                        children: [
+                          const SizedBox(width: 260),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              alignment: Alignment.center,
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  left: BorderSide(color: _border),
+                                  bottom: BorderSide(color: _border),
                                 ),
-                              ],
-                            ),
-                            // Column labels
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 10,
                               ),
+                              child: Text(
+                                _viewMode == 'physical'
+                                    ? 'Physical Stock'
+                                    : 'Accounting Stock',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: _textGrey,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Column labels
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 244,
                               child: Row(
                                 children: [
-                                  SizedBox(
-                                    width: 244,
-                                    child: Row(
-                                      children: [
-                                        const Text(
-                                          'Warehouse Name',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: _textGrey,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        const Icon(
-                                          Icons.search,
-                                          size: 14,
-                                          color: _textGrey,
-                                        ),
-                                      ],
+                                  const Text(
+                                    'Warehouse Name',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: _textGrey,
                                     ),
                                   ),
-                                  _headerCell('Stock on Hand'),
-                                  _headerCell('Committed Stock'),
-                                  _headerCell(
-                                    'Available for Sale',
-                                    icon: Icons.visibility_outlined,
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.search,
+                                    size: 14,
+                                    color: _textGrey,
                                   ),
                                 ],
                               ),
                             ),
+                            _headerCell('Stock on Hand'),
+                            _headerCell('Committed Stock'),
+                            _headerCell(
+                              'Available for Sale',
+                              icon: Icons.visibility_outlined,
+                            ),
                           ],
                         ),
                       ),
-                      // Warehouse rows
-                      Flexible(
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: widget.warehouses.length,
-                          separatorBuilder: (_, __) =>
-                              const Divider(height: 1, color: _border),
-                          itemBuilder: (_, idx) {
-                            final wh = widget.warehouses[idx];
-                            return _WarehouseStockRow(
-                              warehouse: wh,
-                              productId: widget.item.productId,
-                              isSelected: _selectedWarehouseId == wh.id,
-                              onSelect: () {
-                                setState(() => _selectedWarehouseId = wh.id);
-                                widget.onWarehouseSelected(wh.id);
-                              },
-                            );
-                          },
-                        ),
-                      ),
                     ],
                   ),
                 ),
-
-                // ── Footer legend ────────────────────────────────────────────────
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: _border)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _legendRow(
-                        'Stock on Hand',
-                        ': This is calculated based on Receives and Shipments.',
-                      ),
-                      const SizedBox(height: 4),
-                      _legendRow(
-                        'Committed Stock',
-                        ': Stock that is committed to sales order(s) but not yet shipped',
-                      ),
-                      const SizedBox(height: 4),
-                      _legendRow(
-                        'Available for Sale',
-                        ': Stock on Hand – Committed Stock',
-                      ),
-                    ],
+                // Warehouse rows
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: widget.warehouses.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, color: _border),
+                    itemBuilder: (_, idx) {
+                      final wh = widget.warehouses[idx];
+                      return _WarehouseStockRow(
+                        warehouse: wh,
+                        productId: widget.item.productId,
+                        isSelected: _selectedWarehouseId == wh.id,
+                        onSelect: () {
+                          setState(() => _selectedWarehouseId = wh.id);
+                          widget.onWarehouseSelected(wh.id);
+                        },
+                      );
+                    },
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
+
+          // ── Footer legend ────────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: _border)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _legendRow(
+                  'Stock on Hand',
+                  ': This is calculated based on Receives and Shipments.',
+                ),
+                const SizedBox(height: 4),
+                _legendRow(
+                  'Committed Stock',
+                  ': Stock that is committed to sales order(s) but not yet shipped',
+                ),
+                const SizedBox(height: 4),
+                _legendRow(
+                  'Available for Sale',
+                  ': Stock on Hand – Committed Stock',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -8799,7 +9248,8 @@ class _AccountSelectionPopover extends StatefulWidget {
   });
 
   @override
-  State<_AccountSelectionPopover> createState() => _AccountSelectionPopoverState();
+  State<_AccountSelectionPopover> createState() =>
+      _AccountSelectionPopoverState();
 }
 
 class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
@@ -8809,7 +9259,8 @@ class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
   Map<String, List<AccountNode>> get _grouped {
     final Map<String, List<AccountNode>> grouped = {};
     for (var acc in widget.accounts) {
-      if (_search.isNotEmpty && !acc.name.toLowerCase().contains(_search.toLowerCase())) {
+      if (_search.isNotEmpty &&
+          !acc.name.toLowerCase().contains(_search.toLowerCase())) {
         continue;
       }
       final type = acc.accountType;
@@ -8851,7 +9302,11 @@ class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: 'Select an account',
-                      prefixIcon: const Icon(Icons.search, size: 16, color: _hintColor),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        size: 16,
+                        color: _hintColor,
+                      ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 8),
                     ),
@@ -8876,7 +9331,10 @@ class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
                   return [
                     // Group Header
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       child: Text(
                         entry.key,
                         style: const TextStyle(
@@ -8972,8 +9430,12 @@ class _PopoverListItemState extends State<_PopoverListItem> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.isSelected || _hover ? const Color(0xFF0088FF) : Colors.transparent;
-    final text = widget.isSelected || _hover ? Colors.white : const Color(0xFF333333);
+    final bg = widget.isSelected || _hover
+        ? const Color(0xFF0088FF)
+        : Colors.transparent;
+    final text = widget.isSelected || _hover
+        ? Colors.white
+        : const Color(0xFF333333);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -8996,8 +9458,7 @@ class _PopoverListItemState extends State<_PopoverListItem> {
                   style: TextStyle(fontSize: 13, color: text),
                 ),
               ),
-              if (widget.isSelected)
-                Icon(Icons.check, size: 14, color: text),
+              if (widget.isSelected) Icon(Icons.check, size: 14, color: text),
             ],
           ),
         ),
@@ -9044,7 +9505,8 @@ class _HoverableToggleMenuItem extends StatefulWidget {
   const _HoverableToggleMenuItem(this.label, this.value);
 
   @override
-  State<_HoverableToggleMenuItem> createState() => _HoverableToggleMenuItemState();
+  State<_HoverableToggleMenuItem> createState() =>
+      _HoverableToggleMenuItemState();
 }
 
 class _HoverableToggleMenuItemState extends State<_HoverableToggleMenuItem> {
@@ -9064,7 +9526,11 @@ class _HoverableToggleMenuItemState extends State<_HoverableToggleMenuItem> {
             Icon(
               widget.value ? Icons.check_box : Icons.check_box_outline_blank,
               size: 18,
-              color: _hover ? Colors.white : (widget.value ? const Color(0xFF2563EB) : const Color(0xFF8E8E93)),
+              color: _hover
+                  ? Colors.white
+                  : (widget.value
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFF8E8E93)),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -9236,5 +9702,3 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
     );
   }
 }
-
-

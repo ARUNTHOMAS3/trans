@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
-import 'package:zerpai_erp/modules/sales/services/hsn_sac_lookup_service.dart';
+import 'package:zerpai_erp/modules/sales/shared/models/hsn_sac_model.dart';
+import 'package:zerpai_erp/modules/sales/shared/services/hsn_sac_lookup_service.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
