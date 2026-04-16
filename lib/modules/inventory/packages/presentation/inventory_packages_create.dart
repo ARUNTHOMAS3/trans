@@ -1552,7 +1552,7 @@ class _InventoryPackagesCreateScreenState
                     child: _buildQuantityCell(
                       index,
                       _buildQtyInput(index),
-                      _rowSelectedWarehouses[index] ?? "ZABNIX PVT/LTD",
+                      _rowSelectedWarehouses[index] ?? "Select Warehouse",
                     ),
                   ),
                 ),

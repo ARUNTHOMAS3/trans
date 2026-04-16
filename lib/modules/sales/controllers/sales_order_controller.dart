@@ -79,7 +79,7 @@ final allSalesOrderItemsProvider = FutureProvider<List<WarehouseStockData>>((ref
         if (order.items != null) {
           for (var item in order.items!) {
             items.add(WarehouseStockData(
-              warehouseId: '', // Sales items don't have a specific warehouse until picked
+              warehouseId: item.warehouseId ?? '',
               productId: item.itemId,
               productCode: item.item?.itemCode ?? '',
               productName: item.item?.productName ?? '',

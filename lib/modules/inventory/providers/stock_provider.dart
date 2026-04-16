@@ -158,6 +158,5 @@ final stockByWarehouseProvider =
   }
 });
 
-/// Stub — returns an empty list until SO items are wired to a real provider.
-final allSalesOrderItemsProvider =
-    FutureProvider<List<WarehouseStockData>>((ref) async => const []);
+/// Note: allSalesOrderItemsProvider is now defined in sales_order_controller.dart 
+/// to avoid duplication and utilize the real sales order data.

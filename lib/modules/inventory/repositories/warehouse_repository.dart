@@ -6,7 +6,11 @@ import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
 
 abstract class WarehouseRepository {
-  Future<List<Warehouse>> getWarehouses({bool forceRefresh = false});
+  Future<List<Warehouse>> getWarehouses({
+    bool forceRefresh = false,
+    String? orgId,
+    String? outletId,
+  });
 }
 
 class WarehouseRepositoryImpl implements WarehouseRepository {
@@ -16,10 +20,19 @@ class WarehouseRepositoryImpl implements WarehouseRepository {
       : _apiClient = apiClient ?? ApiClient();
 
   @override
-  Future<List<Warehouse>> getWarehouses({bool forceRefresh = false}) async {
+  Future<List<Warehouse>> getWarehouses({
+    bool forceRefresh = false,
+    String? orgId,
+    String? outletId,
+  }) async {
     try {
+      final queryParams = <String, dynamic>{};
+      if (orgId != null) queryParams['orgId'] = orgId;
+      if (outletId != null) queryParams['outletId'] = outletId;
+
       final response = await _apiClient.get(
         '/products/lookups/warehouses',
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
         useCache: !forceRefresh,
       );
 

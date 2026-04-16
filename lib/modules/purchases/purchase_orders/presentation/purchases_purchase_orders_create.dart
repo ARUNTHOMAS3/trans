@@ -2961,13 +2961,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         ),
                         onSelected: (val) {
                           setState(() {
-                            if (val == 'stock')
+                            if (val == 'stock') {
                               _showStockInfo = !_showStockInfo;
-                            if (val == 'recent')
+                            }
+                            if (val == 'recent') {
                               _showRecentTransactions =
                                   !_showRecentTransactions;
-                            if (val == 'pricelist')
+                            }
+                            if (val == 'pricelist') {
                               _showPriceList = !_showPriceList;
+                            }
                           });
                         },
                         itemBuilder: (_) => [
@@ -2976,9 +2979,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             padding: EdgeInsets.zero,
                             height: 40,
                             child: _HoverableToggleMenuItem(
-                              _showStockInfo
-                                  ? 'Hide Available stock for sale'
-                                  : 'Show Available stock for sale',
+                              'Show Available Stock',
                               _showStockInfo,
                             ),
                           ),
@@ -2987,9 +2988,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             padding: EdgeInsets.zero,
                             height: 40,
                             child: _HoverableToggleMenuItem(
-                              _showRecentTransactions
-                                  ? 'Hide Recent Transaction'
-                                  : 'Show Recent Transaction',
+                              'Show Recent Transactions',
                               _showRecentTransactions,
                             ),
                           ),
@@ -2998,9 +2997,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             padding: EdgeInsets.zero,
                             height: 40,
                             child: _HoverableToggleMenuItem(
-                              _showPriceList
-                                  ? 'Hide PriceList'
-                                  : 'Show PriceList',
+                              'Show Price List',
                               _showPriceList,
                             ),
                           ),
@@ -3080,226 +3077,192 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 ),
               // ── Column headers ──
               Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border.symmetric(
-                    horizontal: BorderSide(color: _borderCol),
-                  ),
-                ),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 height: 40,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Consolidated Prefix Area (56px) to match row
-                    SizedBox(
-                      width: 56,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (_bulkMode)
-                            SizedBox(
-                              width: 24,
-                              child: Checkbox(
-                                value: _selectedRows.length ==
-                                    ref
-                                        .watch(purchaseOrderFormNotifierProvider)
-                                        .items
-                                        .length,
-                                onChanged: (v) => setState(() {
-                                  if (v == true) {
-                                    _selectedRows.addAll(
-                                      List.generate(
-                                        ref
-                                            .read(purchaseOrderFormNotifierProvider)
-                                            .items
-                                            .length,
-                                        (i) => i,
-                                      ),
-                                    );
-                                  } else {
-                                    _selectedRows.clear();
-                                  }
-                                }),
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.drag_indicator,
-                            size: 16,
-                            color: Colors.transparent,
-                          ),
-                        ],
-                      ),
-                    ),
+                    // Consolidated Prefix Area (56px) - Transparent
+                    const SizedBox(width: 56),
                     Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: ZTooltip(
-                          message: 'Product/Service details',
-                          child: const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'ITEM DETAILS',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: _textPrimary,
-                              ),
-                            ),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          border: Border.symmetric(
+                            horizontal: BorderSide(color: _borderCol),
                           ),
                         ),
-                      ),
-                    ),
-                    _headerDivider(),
-                    Expanded(
-                      flex: 1,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: ZTooltip(
-                            message: 'Quantity to purchase',
-                            child: const Text(
-                              'QUANTITY',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: _textPrimary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    _headerDivider(),
-                    Expanded(
-                      flex: 1,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 8),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.max,
                           children: [
-                            ZTooltip(
-                              message: 'Rate per unit',
-                              child: const Text(
-                                'RATE',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: _textPrimary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            ZTooltip(
-                              message:
-                                  'You can perform basic calculations directly in this field using parentheses ( ) and arithmetic operators: + - / *',
-                              child: SvgPicture.string(
-                                '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>',
-                                width: 16,
-                                height: 16,
-                                colorFilter: const ColorFilter.mode(
-                                  Color(0xFF0088FF),
-                                  BlendMode.srcIn,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    if (poState.discountLevel == 'item') ...[
-                      _headerDivider(),
-                      Expanded(
-                        flex: 1,
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              ZTooltip(
-                                message: 'Item level discount',
-                                child: const Text(
-                                  'DISCOUNT',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: _textPrimary,
+                            Expanded(
+                              flex: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 14),
+                                child: ZTooltip(
+                                  message: 'Product/Service details',
+                                  child: const Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'ITEM DETAILS',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: _textPrimary,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 4),
-                              ZTooltip(
-                                message: 'Percentage or Fixed amount discount',
-                                child: Icon(
-                                  Icons.info_outline,
-                                  size: 12,
-                                  color: _hintColor.withValues(alpha: 0.7),
+                            ),
+                            _headerDivider(),
+                            Expanded(
+                              flex: 1,
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: ZTooltip(
+                                    message: 'Quantity to purchase',
+                                    child: const Text(
+                                      'QUANTITY',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: _textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            _headerDivider(),
+                            Expanded(
+                              flex: 1,
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.max,
+                                  children: [
+                                    ZTooltip(
+                                      message: 'Rate per unit',
+                                      child: const Text(
+                                        'RATE',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: _textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    ZTooltip(
+                                      message:
+                                          'You can perform basic calculations directly in this field using parentheses ( ) and arithmetic operators: + - / *',
+                                      child: SvgPicture.string(
+                                        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>',
+                                        width: 16,
+                                        height: 16,
+                                        colorFilter: const ColorFilter.mode(
+                                          Color(0xFF0088FF),
+                                          BlendMode.srcIn,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            if (poState.discountLevel == 'item') ...[
+                              _headerDivider(),
+                              Expanded(
+                                flex: 1,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    mainAxisSize: MainAxisSize.max,
+                                    children: [
+                                      ZTooltip(
+                                        message: 'Item level discount',
+                                        child: const Text(
+                                          'DISCOUNT',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: _textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      ZTooltip(
+                                        message: 'Percentage or Fixed amount discount',
+                                        child: Icon(
+                                          Icons.info_outline,
+                                          size: 12,
+                                          color: _hintColor.withValues(alpha: 0.7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                      ),
-                    ],
-                    _headerDivider(),
-                    Expanded(
-                      flex: 1,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            ZTooltip(
-                              message: 'GST or other taxes',
-                              child: const Text(
-                                'TAX',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: _textPrimary,
+                            _headerDivider(),
+                            Expanded(
+                              flex: 1,
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.max,
+                                  children: [
+                                    ZTooltip(
+                                      message: 'GST or other taxes',
+                                      child: const Text(
+                                        'TAX',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: _textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 12,
+                                      color: _hintColor.withValues(alpha: 0.7),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.info_outline,
-                              size: 12,
-                              color: _hintColor.withValues(alpha: 0.7),
+                            _headerDivider(),
+                            const SizedBox(
+                              width: 100,
+                              child: Padding(
+                                padding: EdgeInsets.only(right: 8),
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    'AMOUNT',
+                                    textAlign: TextAlign.right,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: _textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
+                            const SizedBox(width: 60), // actions space
                           ],
                         ),
                       ),
                     ),
-                    _headerDivider(),
-                    const SizedBox(
-                      width: 100,
-                      child: Padding(
-                        padding: EdgeInsets.only(right: 8),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Text(
-                            'AMOUNT',
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: _textPrimary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 60), // actions space
                   ],
                 ),
               ),
@@ -3496,17 +3459,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               minHeight: item.productId.isEmpty ? 54 : 120,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white, // Light GreyBlue row background
-              border: Border(
-                bottom: BorderSide(color: _borderCol),
-              ),
-            ),
             child: IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Prefix Area (56px) - Synchronized with Header
+                  // Prefix Area (56px) - now transparent and outside the colored border
                   SizedBox(
                     width: 56,
                     child: Row(
@@ -3539,87 +3496,84 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     ),
                   ),
                   Expanded(
-                    flex: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 14,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          bottom: BorderSide(color: _borderCol),
+                        ),
                       ),
-                      child: item.productId.isEmpty
-                          // ── Empty state: search dropdown ──
-                          ? Row(
-                              children: [
-                                Container(
-                                  width: 28,
-                                  height: 28,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF3F4F6),
-                                    border: Border.all(color: _borderCol),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Icon(
-                                    Icons.inventory_2_outlined,
-                                    size: 16,
-                                    color: _hintColor,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: _plainDropdown<Item>(
-                                    value: null,
-                                    items: allItems,
-                                    hint: 'Type or click to select an item.',
-                                    onChanged: (i) {
-                                      if (i == null) return;
-                                      ctrl.nameCtrl.text = i.productName;
-                                      ctrl.qtyCtrl.text = '1.00';
-                                      ctrl.rateCtrl.text = (i.costPrice ?? 0.0)
-                                          .toStringAsFixed(2);
-                                      ctrl.discountCtrl.text = '0.00';
-                                      ctrl.descCtrl.text =
-                                          i.purchaseDescription ?? '';
-                                      notifier.selectProductForItem(
-                                        index,
-                                        i,
-                                        poState.warehouseId ?? '',
-                                      );
-                                    },
-                                    displayStringMapper: (i) => i.productName,
-                                  ),
-                                ),
-                              ],
-                            )
-                          // ── Selected state: rich card ──
-                          : Builder(
-                              builder: (context) {
-                                final selectedItem = allItems.firstWhere(
-                                  (i) => i.id == item.productId,
-                                  orElse: () => Item(
-                                    productName: item.productName ?? '',
-                                    itemCode: item.itemCode ?? '',
-                                    type: item.productType ?? 'goods',
-                                    unitId: '',
-                                  ),
-                                );
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Drag handle (inside card)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        top: 10,
-                                        right: 6,
-                                      ),
-                                      child: Icon(
-                                        Icons.drag_indicator,
-                                        size: 16,
-                                        color: _hintColor.withValues(
-                                          alpha: 0.5,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                                horizontal: 14,
+                              ),
+                              child: item.productId.isEmpty
+                                  // ── Empty state: search dropdown ──
+                                  ? Row(
+                                      children: [
+                                        Container(
+                                          width: 28,
+                                          height: 28,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF3F4F6),
+                                            border: Border.all(color: _borderCol),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: const Icon(
+                                            Icons.inventory_2_outlined,
+                                            size: 16,
+                                            color: _hintColor,
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                    // Image placeholder
-                                    Container(
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: _plainDropdown<Item>(
+                                            value: null,
+                                            items: allItems,
+                                            hint: 'Type or click to select an item.',
+                                            onChanged: (i) {
+                                              if (i == null) return;
+                                              ctrl.nameCtrl.text = i.productName;
+                                              ctrl.qtyCtrl.text = '1.00';
+                                              ctrl.rateCtrl.text = (i.costPrice ?? 0.0)
+                                                  .toStringAsFixed(2);
+                                              ctrl.discountCtrl.text = '0.00';
+                                              ctrl.descCtrl.text =
+                                                  i.purchaseDescription ?? '';
+                                              notifier.selectProductForItem(
+                                                index,
+                                                i,
+                                                poState.warehouseId ?? '',
+                                              );
+                                            },
+                                            displayStringMapper: (i) => i.productName,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  // ── Selected state: rich card ──
+                                  : Builder(
+                                      builder: (context) {
+                                        final selectedItem = allItems.firstWhere(
+                                          (i) => i.id == item.productId,
+                                          orElse: () => Item(
+                                            productName: item.productName ?? '',
+                                            itemCode: item.itemCode ?? '',
+                                            type: item.productType ?? 'goods',
+                                            unitId: '',
+                                          ),
+                                        );
+                                        return Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            // Image placeholder
+                                            Container(
                                       width: 40,
                                       height: 40,
                                       decoration: BoxDecoration(
@@ -3843,8 +3797,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                         ],
                                       ),
                                     ),
-                                  ],
-                                );
+                                    ],
+                                  ),
                               },
                             ),
                     ),

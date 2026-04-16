@@ -11,6 +11,7 @@ class SalesOrderItem {
   final String? taxId;
   final double taxAmount;
   final double itemTotal;
+  final String? warehouseId;
   final Item? item;
 
   SalesOrderItem({
@@ -24,6 +25,7 @@ class SalesOrderItem {
     this.taxId,
     this.taxAmount = 0.0,
     this.itemTotal = 0.0,
+    this.warehouseId,
     this.item,
   });
 
@@ -44,6 +46,7 @@ class SalesOrderItem {
       taxId: json['tax_id'] ?? json['taxId'],
       taxAmount: (json['tax_amount'] ?? json['taxAmount'] ?? 0.0).toDouble(),
       itemTotal: (json['item_total'] ?? json['itemTotal'] ?? json['amount'] ?? 0.0).toDouble(),
+      warehouseId: json['warehouse_id'] ?? json['warehouseId'],
       item: (json['item'] ?? json['product']) != null
           ? Item.fromJson(json['item'] ?? json['product'])
           : null,
@@ -60,6 +63,7 @@ class SalesOrderItem {
       'discount': discount,
       'discountType': discountType,
       'taxId': taxId,
+      if (warehouseId != null) 'warehouseId': warehouseId,
     };
   }
 }
