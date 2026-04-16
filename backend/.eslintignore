@@ -1,6 +1,0 @@
-node_modules
-dist
-test
-*.js
-src/**/* (1).ts
-src/**/* (1).controller.ts

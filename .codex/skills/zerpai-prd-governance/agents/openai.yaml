@@ -1,4 +1,0 @@
-interface:
-  display_name: "Zerpai PRD Governance"
-  short_description: "Locked PRD guardrails for Zerpai ERP"
-  default_prompt: "Use $zerpai-prd-governance to apply the locked Zerpai PRD decisions before changing code or behavior."

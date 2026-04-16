@@ -1,4 +1,0 @@
-interface:
-  display_name: "Zerpai Flutter Structure"
-  short_description: "Folder, naming, and routing rules"
-  default_prompt: "Use $zerpai-flutter-structure to place Flutter files correctly and keep Zerpai naming and routing compliant."

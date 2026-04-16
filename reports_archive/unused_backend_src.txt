@@ -1,5 +1,0 @@
-backend/src/db/db.ts
-backend/src/db/schema.ts
-backend/src/modules/purchases/purchase-orders/entities/purchase-order.entity.ts
-backend/src/modules/purchases/vendors/entities/vendor.entity.ts
-backend/src/modules/sales/entities/customer.entity.ts
