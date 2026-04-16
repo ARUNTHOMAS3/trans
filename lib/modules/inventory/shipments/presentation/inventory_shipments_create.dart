@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,9 +11,9 @@ import '../../../../shared/widgets/inputs/z_tooltip.dart';
 import '../../../../shared/widgets/inputs/custom_text_field.dart';
 import '../../../../shared/widgets/skeleton.dart';
 import '../../../../core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/notifiers/sales_order_controller.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/models/sales_order_model.dart';
-import 'package:zerpai_erp/modules/sales/customers/models/sales_customer_model.dart';
+import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
 
 // ignore: constant_identifier_names
 const Color _textPrimary = Color(0xFF1F2937);
@@ -538,50 +539,61 @@ class _InventoryShipmentsCreateScreenState
                                       width: 380,
                                       child: _buildFormRow(
                                         label: 'Shipping Charges',
-                                        child: Container(
-                                          height: 32,
-                                          clipBehavior: Clip.antiAlias,
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: _borderCol), 
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                                height: 32,
-                                                alignment: Alignment.center,
-                                                decoration: const BoxDecoration(
-                                                  color: AppTheme.bgDisabled,
-                                                  border: Border(right: BorderSide(color: _borderCol)),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                                              height: 32,
+                                              alignment: Alignment.center,
+                                              decoration: const BoxDecoration(
+                                                color: AppTheme.bgDisabled,
+                                                border: Border(
+                                                  top: BorderSide(color: _borderCol),
+                                                  bottom: BorderSide(color: _borderCol),
+                                                  left: BorderSide(color: _borderCol),
+                                                  right: BorderSide(color: _borderCol),
                                                 ),
-                                                child: const Text('INR', style: TextStyle(fontSize: 13, color: _textSecondary)),
+                                                borderRadius: BorderRadius.only(
+                                                  topLeft: Radius.circular(4),
+                                                  bottomLeft: Radius.circular(4),
+                                                ),
                                               ),
-                                              Expanded(
+                                              child: const Text('INR', style: TextStyle(fontSize: 13, color: _textSecondary)),
+                                            ),
+                                            Expanded(
+                                              child: Container(
+                                                height: 32,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  border: Border.all(
+                                                    color: _hoveredFields.contains('shippingCharges') ? _focusBorder : _borderCol,
+                                                    width: _hoveredFields.contains('shippingCharges') ? 1.4 : 1.0,
+                                                  ),
+                                                  borderRadius: const BorderRadius.only(
+                                                    topRight: Radius.circular(4),
+                                                    bottomRight: Radius.circular(4),
+                                                  ),
+                                                ),
                                                 child: TextField(
                                                   controller: _shippingChargesCtrl,
                                                   textAlign: TextAlign.right,
-                                                  keyboardType: TextInputType.number,
+                                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
                                                   style: const TextStyle(fontSize: 14, fontFamily: 'Inter'),
-                                                  decoration: _standardInputDecoration(
-                                                    isHovered: _hoveredFields.contains('shippingCharges'),
-                                                    hint: '0.00',
-                                                  ).copyWith(
-                                                    fillColor: Colors.transparent,
-                                                    contentPadding: EdgeInsets.zero,
-                                                    enabledBorder: OutlineInputBorder(
-                                                      borderRadius: BorderRadius.circular(4),
-                                                      borderSide: BorderSide(
-                                                        color: _hoveredFields.contains('shippingCharges') ? _focusBorder : Colors.transparent,
-                                                        width: 1.4,
-                                                      ),
-                                                    ),
+                                                  decoration: const InputDecoration(
+                                                    isDense: true,
+                                                    hintText: '0.00',
+                                                    hintStyle: TextStyle(color: _textSecondary, fontSize: 13),
+                                                    filled: false,
+                                                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                                    border: InputBorder.none,
+                                                    enabledBorder: InputBorder.none,
+                                                    focusedBorder: InputBorder.none,
                                                   ),
                                                 ),
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),

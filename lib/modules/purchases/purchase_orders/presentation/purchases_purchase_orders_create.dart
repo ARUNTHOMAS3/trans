@@ -13,8 +13,8 @@ import 'package:zerpai_erp/modules/items/items/controllers/items_state.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/items/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/items/pricelist/providers/pricelist_provider.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/notifiers/sales_order_controller.dart';
-import 'package:zerpai_erp/modules/sales/customers/models/sales_customer_model.dart';
+import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/accountant/models/accountant_chart_of_accounts_account_model.dart';
 import 'package:zerpai_erp/modules/accountant/providers/accountant_chart_of_accounts_provider.dart';
@@ -1069,11 +1069,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 const SizedBox(height: 16),
                 // ── ITEM TABLE ──
                 _itemTableSection(allItems, availableAccounts, poState),
-                const SizedBox(height: 16),
+                const SizedBox(height: 1), // Reduced gap to move footer higher
 
                 // ── NOTES & TOTALS (Side-by-side, just above the banner) ──
                 _notesAndTotals(allItems, poState),
-                const SizedBox(height: 8),
+                const SizedBox(height: 1),
               ],
             ),
           ),
@@ -4902,9 +4902,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // Moved Blue Box higher (above calculating fields)
           _buildGstDetails(poState),
-          const SizedBox(height: 16),
+          const SizedBox(height: 4),
           // Discount Row (Attached Style)
           _discountRow(poState),
           const SizedBox(height: 12),
@@ -5012,10 +5011,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             textAlign: TextAlign.right,
             style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 6,
-              ),
+              isDense: true,
+              contentPadding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(3),
                 borderSide: const BorderSide(color: _fieldBorder),
@@ -5043,32 +5040,38 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         ),
         const Spacer(),
         SizedBox(
-          width: 60,
-          child: _zField(
-            _discountCtrl,
-            onChanged: (v) =>
-                notifier.updateField(discount: double.tryParse(v) ?? 0),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Container(
-          height: 32,
-          decoration: BoxDecoration(
-            border: Border.all(color: _fieldBorder),
-            borderRadius: BorderRadius.circular(2),
-          ),
+          width: 160,
           child: Row(
             children: [
-              _toggleBtn(
-                '%',
-                s.discountType == 'percentage',
-                () => notifier.updateField(discountType: 'percentage'),
+              Expanded(
+                child: _gridField(
+                  _discountCtrl,
+                  onChanged: (v) =>
+                      notifier.updateField(discount: double.tryParse(v) ?? 0),
+                  borderRadius: const BorderRadius.horizontal(left: Radius.circular(4)),
+                ),
               ),
-              Container(width: 1, color: _fieldBorder),
-              _toggleBtn(
-                '₹',
-                s.discountType == 'fixed',
-                () => notifier.updateField(discountType: 'fixed'),
+              Container(
+                height: 32,
+                decoration: BoxDecoration(
+                  border: Border.all(color: _fieldBorder),
+                  borderRadius: const BorderRadius.horizontal(right: Radius.circular(4)),
+                ),
+                child: Row(
+                  children: [
+                    _toggleBtn(
+                      '%',
+                      s.discountType == 'percentage',
+                      () => notifier.updateField(discountType: 'percentage'),
+                    ),
+                    Container(width: 1, color: _fieldBorder),
+                    _toggleBtn(
+                      '₹',
+                      s.discountType == 'fixed',
+                      () => notifier.updateField(discountType: 'fixed'),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -5170,10 +5173,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 isDense: true,
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 10,
-                ),
+                contentPadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               ),
             ),
           ),
@@ -5208,66 +5208,20 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   }
 
   Widget _buildGstDetails(PurchaseOrderState poState) {
-    // Basic GST calculation (9% CGST + 9% SGST = 18% Total)
     final taxableAmount = poState.subTotal;
     final cgst = taxableAmount * 0.09;
     final sgst = taxableAmount * 0.09;
-    final totalQty = poState.items
-        .where((i) => !i.isHeader && i.productId.isNotEmpty)
-        .fold(0.0, (sum, i) => sum + i.quantity);
 
-    return Container(
-      width: 280,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEBF5FF), // Light Blue Box
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFFD0E3FF)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'SUMMARY',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2563EB),
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _summaryLine('Total Quantity', totalQty.toStringAsFixed(0)),
-          const SizedBox(height: 8),
-          _summaryLine('Taxable Amount', taxableAmount.toStringAsFixed(2)),
-          const Divider(height: 24, color: Color(0xFFD0E3FF)),
-          _summaryLine('CGST (9%)', cgst.toStringAsFixed(2)),
-          const SizedBox(height: 6),
-          _summaryLine('SGST (9%)', sgst.toStringAsFixed(2)),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Total Tax',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
-                ),
-              ),
-              Text(
-                (cgst + sgst).toStringAsFixed(2),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _summaryLine('Taxable Amount', taxableAmount.toStringAsFixed(2)),
+        const SizedBox(height: 8),
+        _summaryLine('CGST (9%)', cgst.toStringAsFixed(2)),
+        const SizedBox(height: 6),
+        _summaryLine('SGST (9%)', sgst.toStringAsFixed(2)),
+        const Divider(height: 24, color: Color(0xFFEEEEEE)),
+      ],
     );
   }
 
@@ -6212,6 +6166,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     TextInputType keyboardType = TextInputType.text,
     Widget? suffixIcon,
     TextAlign textAlign = TextAlign.start,
+    BorderRadius? borderRadius,
   }) {
     return _HoverableField(
       builder: (isHovered) => SizedBox(
@@ -6233,11 +6188,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               borderSide: BorderSide(
                 color: isHovered ? _linkBlue : _fieldBorder,
               ),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: borderRadius ?? BorderRadius.circular(4),
             ),
             focusedBorder: OutlineInputBorder(
               borderSide: const BorderSide(color: _linkBlue, width: 1.5),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: borderRadius ?? BorderRadius.circular(4),
             ),
             suffixIcon: suffixIcon,
             filled: true,

@@ -27,7 +27,7 @@ import 'package:zerpai_erp/modules/items/items/presentation/sections/default_tax
 import 'package:zerpai_erp/shared/widgets/inputs/category_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_categories_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
-import 'package:zerpai_erp/modules/sales/shared/models/hsn_sac_model.dart';
+import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
 import 'package:zerpai_erp/shared/widgets/hsn_sac_search_modal.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';

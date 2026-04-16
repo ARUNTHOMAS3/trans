@@ -13,7 +13,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/notifiers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
@@ -196,7 +196,7 @@ class _InventoryPicklistsCreateScreenState
       builder: (_) => _PicklistSelectBatchesDialog(
         itemName: item.productName,
         productId: item.productId,
-        warehouseName: _selectedWarehouse?.name ?? 'ZABNIX PRIVATE LIMITED',
+        warehouseName: _selectedWarehouse?.name ?? '',
         totalQuantity: _getPickedQtyOutOnly(item),
         savedBatchData: _savedBatchData[_buildRowKey(item)],
       ),
@@ -4478,8 +4478,8 @@ class _PicklistSelectBatchesDialogState
                   _headerCell('PTR', 15),
                   _headerCell('EXPIRY DATE*', 15),
                   if (_showMfgDetails) ...[
-                    _headerCell('MANUFACTURING DATE', 15),
-                    _headerCell('MANUFACTURING BATCH', 15),
+                    _headerCell('MANUFACTURED DATE', 15),
+                    _headerCell('MANUFACTURER BATCH', 15),
                   ],
                   _headerCell('QUANTITY OUT*', 15),
                   if (_showFocColumn) _headerCell('FOC', 15),

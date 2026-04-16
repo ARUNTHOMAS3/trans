@@ -9,14 +9,16 @@ import '../../../../shared/widgets/inputs/zerpai_date_picker.dart';
 import '../../../../shared/widgets/zerpai_layout.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/inputs/z_tooltip.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/notifiers/sales_order_controller.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/models/sales_order_model.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/models/sales_order_item_model.dart';
+import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_order_item_model.dart';
 import '../../../../shared/widgets/inputs/warehouse_popover.dart';
 import '../../../../shared/widgets/inputs/custom_text_field.dart';
 import '../../../../shared/widgets/skeleton.dart';
 import '../../../../shared/providers/lookup_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
+import 'package:zerpai_erp/modules/items/items/models/unit_model.dart';
 
 const Color _textPrimary = Color(0xFF1F2937);
 const Color _textSecondary = Color(0xFF6B7280);
@@ -85,7 +87,10 @@ class _InventoryPackagesCreateScreenState
   DateTime? _selectedDate;
   String _dimensionUnit = 'cm';
   String _weightUnit = 'kg';
+  List<String> _lengthUnits = ['cm'];
+  List<String> _weightUnits = ['kg'];
 
+  final LookupsApiService _lookupsService = LookupsApiService();
   final FocusNode _weightFocusNode = FocusNode();
   final FocusNode _dimLengthFocus = FocusNode();
   final FocusNode _dimWidthFocus = FocusNode();
@@ -122,6 +127,46 @@ class _InventoryPackagesCreateScreenState
     _dimLengthFocus.addListener(dimListener);
     _dimWidthFocus.addListener(dimListener);
     _dimHeightFocus.addListener(dimListener);
+
+    _fetchUnits();
+  }
+
+  Future<void> _fetchUnits() async {
+    try {
+      final fetchedUnits = await _lookupsService.getUnits();
+      if (!mounted) return;
+
+      final lengths = fetchedUnits
+          .where((u) => u.unitType?.toLowerCase() == 'length')
+          .map((u) => u.unitSymbol ?? u.unitName)
+          .where((s) => s != null && s.isNotEmpty)
+          .cast<String>()
+          .toList();
+
+      final weights = fetchedUnits
+          .where((u) => u.unitType?.toLowerCase() == 'weight')
+          .map((u) => u.unitSymbol ?? u.unitName)
+          .where((s) => s != null && s.isNotEmpty)
+          .cast<String>()
+          .toList();
+
+      setState(() {
+        if (lengths.isNotEmpty) {
+          _lengthUnits = lengths;
+          if (!_lengthUnits.contains(_dimensionUnit)) {
+            _dimensionUnit = _lengthUnits.first;
+          }
+        }
+        if (weights.isNotEmpty) {
+          _weightUnits = weights;
+          if (!_weightUnits.contains(_weightUnit)) {
+            _weightUnit = _weightUnits.first;
+          }
+        }
+      });
+    } catch (e) {
+      debugPrint('❌ Error fetching units for packages: $e');
+    }
   }
 
   void _switchToManualMode() {
@@ -565,55 +610,42 @@ class _InventoryPackagesCreateScreenState
                                           clipBehavior: Clip.antiAlias,
                                           decoration: BoxDecoration(
                                             color: Colors.white,
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                            border: Border.all(
-                                              color: _dimFocused
-                                                  ? _focusBorder
-                                                  : _borderCol,
-                                            ),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: _borderCol),
                                           ),
                                           child: Row(
                                             children: [
                                               Expanded(
-                                                child: SizedBox(
-                                                  height: 30,
+                                                child: Container(
+                                                  height: 32,
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(
+                                                      color: _dimFocused ? _focusBorder : Colors.transparent,
+                                                      width: _dimFocused ? 1.4 : 0,
+                                                    ),
+                                                  ),
                                                   child: Row(
                                                     children: [
                                                       Expanded(
                                                         child: TextField(
-                                                          controller:
-                                                              _dimensionLengthCtrl,
-                                                          focusNode:
-                                                              _dimLengthFocus,
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          style:
-                                                              const TextStyle(
-                                                                fontSize: 13,
-                                                                fontFamily:
-                                                                    'Inter',
-                                                                height: 1.0,
-                                                              ),
-                                                          decoration:
-                                                              const InputDecoration(
-                                                                contentPadding:
-                                                                    EdgeInsets
-                                                                        .zero,
-                                                                border:
-                                                                    InputBorder
-                                                                        .none,
-                                                                enabledBorder:
-                                                                    InputBorder
-                                                                        .none,
-                                                                focusedBorder:
-                                                                    InputBorder
-                                                                        .none,
-                                                                hoverColor: Colors
-                                                                    .transparent,
-                                                                isDense: true,
-                                                              ),
+                                                          controller: _dimensionLengthCtrl,
+                                                          focusNode: _dimLengthFocus,
+                                                          textAlign: TextAlign.center,
+                                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                                                          style: const TextStyle(
+                                                            fontSize: 13,
+                                                            fontFamily: 'Inter',
+
+                                                          ),
+                                                          decoration: const InputDecoration(
+                                                            contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                                            border: InputBorder.none,
+                                                            enabledBorder: InputBorder.none,
+                                                            focusedBorder: InputBorder.none,
+                                                            hoverColor: Colors.transparent,
+                                                            isDense: true,
+                                                          ),
                                                         ),
                                                       ),
                                                       const Text(
@@ -625,37 +657,24 @@ class _InventoryPackagesCreateScreenState
                                                       ),
                                                       Expanded(
                                                         child: TextField(
-                                                          controller:
-                                                              _dimensionWidthCtrl,
-                                                          focusNode:
-                                                              _dimWidthFocus,
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          style:
-                                                              const TextStyle(
-                                                                fontSize: 13,
-                                                                fontFamily:
-                                                                    'Inter',
-                                                                height: 1.0,
-                                                              ),
-                                                          decoration:
-                                                              const InputDecoration(
-                                                                contentPadding:
-                                                                    EdgeInsets
-                                                                        .zero,
-                                                                border:
-                                                                    InputBorder
-                                                                        .none,
-                                                                enabledBorder:
-                                                                    InputBorder
-                                                                        .none,
-                                                                focusedBorder:
-                                                                    InputBorder
-                                                                        .none,
-                                                                hoverColor: Colors
-                                                                    .transparent,
-                                                                isDense: true,
-                                                              ),
+                                                          controller: _dimensionWidthCtrl,
+                                                          focusNode: _dimWidthFocus,
+                                                          textAlign: TextAlign.center,
+                                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                                                          style: const TextStyle(
+                                                            fontSize: 13,
+                                                            fontFamily: 'Inter',
+
+                                                          ),
+                                                          decoration: const InputDecoration(
+                                                            contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                                            border: InputBorder.none,
+                                                            enabledBorder: InputBorder.none,
+                                                            focusedBorder: InputBorder.none,
+                                                            hoverColor: Colors.transparent,
+                                                            isDense: true,
+                                                          ),
                                                         ),
                                                       ),
                                                       const Text(
@@ -667,37 +686,24 @@ class _InventoryPackagesCreateScreenState
                                                       ),
                                                       Expanded(
                                                         child: TextField(
-                                                          controller:
-                                                              _dimensionHeightCtrl,
-                                                          focusNode:
-                                                              _dimHeightFocus,
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          style:
-                                                              const TextStyle(
-                                                                fontSize: 13,
-                                                                fontFamily:
-                                                                    'Inter',
-                                                                height: 1.0,
-                                                              ),
-                                                          decoration:
-                                                              const InputDecoration(
-                                                                contentPadding:
-                                                                    EdgeInsets
-                                                                        .zero,
-                                                                border:
-                                                                    InputBorder
-                                                                        .none,
-                                                                enabledBorder:
-                                                                    InputBorder
-                                                                        .none,
-                                                                focusedBorder:
-                                                                    InputBorder
-                                                                        .none,
-                                                                hoverColor: Colors
-                                                                    .transparent,
-                                                                isDense: true,
-                                                              ),
+                                                          controller: _dimensionHeightCtrl,
+                                                          focusNode: _dimHeightFocus,
+                                                          textAlign: TextAlign.center,
+                                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                                                          style: const TextStyle(
+                                                            fontSize: 13,
+                                                            fontFamily: 'Inter',
+
+                                                          ),
+                                                          decoration: const InputDecoration(
+                                                            contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                                            border: InputBorder.none,
+                                                            enabledBorder: InputBorder.none,
+                                                            focusedBorder: InputBorder.none,
+                                                            hoverColor: Colors.transparent,
+                                                            isDense: true,
+                                                          ),
                                                         ),
                                                       ),
                                                     ],
@@ -729,7 +735,14 @@ class _InventoryPackagesCreateScreenState
                                                   hideBorderDefault: true,
                                                   showSearch: false,
                                                   value: _dimensionUnit,
-                                                  items: const ['cm', 'in'],
+                                                  items: _lengthUnits,
+                                                  maxVisibleItems: 3,
+                                                  itemBuilder: (item, isSelected, isHovered) => _commonItemBuilder(
+                                                    item,
+                                                    isSelected,
+                                                    isHovered,
+                                                    (s) => s,
+                                                  ),
                                                   displayStringForValue: (s) =>
                                                       s,
                                                   searchStringForValue: (s) =>
@@ -758,45 +771,41 @@ class _InventoryPackagesCreateScreenState
                                           clipBehavior: Clip.antiAlias,
                                           decoration: BoxDecoration(
                                             color: Colors.white,
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                            border: Border.all(
-                                              color: _weightFocusNode.hasFocus
-                                                  ? _focusBorder
-                                                  : _borderCol,
-                                            ),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: _borderCol),
                                           ),
                                           child: Row(
                                             children: [
                                               Expanded(
-                                                child: Center(
-                                                  child: TextField(
-                                                    controller: _weightCtrl,
-                                                    focusNode: _weightFocusNode,
-                                                    textAlign: TextAlign.center,
-                                                    textAlignVertical:
-                                                        TextAlignVertical
-                                                            .center,
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      fontFamily: 'Inter',
-                                                      height: 1.0,
+                                                child: Container(
+                                                  height: 32,
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(
+                                                      color: _weightFocusNode.hasFocus ? _focusBorder : Colors.transparent,
+                                                      width: _weightFocusNode.hasFocus ? 1.4 : 0,
                                                     ),
-                                                    decoration:
-                                                        const InputDecoration(
-                                                          contentPadding:
-                                                              EdgeInsets.zero,
-                                                          border:
-                                                              InputBorder.none,
-                                                          enabledBorder:
-                                                              InputBorder.none,
-                                                          focusedBorder:
-                                                              InputBorder.none,
-                                                          hoverColor: Colors
-                                                              .transparent,
-                                                          isDense: true,
-                                                        ),
+                                                  ),
+                                                  child: Center(
+                                                    child: TextField(
+                                                      controller: _weightCtrl,
+                                                      focusNode: _weightFocusNode,
+                                                      textAlign: TextAlign.center,
+                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                                                      textAlignVertical: TextAlignVertical.center,
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        fontFamily: 'Inter',
+                                                      ),
+                                                      decoration: const InputDecoration(
+                                                        contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                                        border: InputBorder.none,
+                                                        enabledBorder: InputBorder.none,
+                                                        focusedBorder: InputBorder.none,
+                                                        hoverColor: Colors.transparent,
+                                                        isDense: true,
+                                                      ),
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -825,12 +834,14 @@ class _InventoryPackagesCreateScreenState
                                                   hideBorderDefault: true,
                                                   showSearch: false,
                                                   value: _weightUnit,
-                                                  items: const [
-                                                    'kg',
-                                                    'g',
-                                                    'lb',
-                                                    'oz',
-                                                  ],
+                                                  items: _weightUnits,
+                                                  maxVisibleItems: 3,
+                                                  itemBuilder: (item, isSelected, isHovered) => _commonItemBuilder(
+                                                    item,
+                                                    isSelected,
+                                                    isHovered,
+                                                    (s) => s,
+                                                  ),
                                                   displayStringForValue: (s) =>
                                                       s,
                                                   searchStringForValue: (s) =>
@@ -1494,8 +1505,8 @@ class _InventoryPackagesCreateScreenState
                       ),
                     ),
                   ),
-                ],
-              ),
+              ],
+            ),
           ),
           Expanded(
             flex: 1,
@@ -2710,6 +2721,35 @@ class _PackageBatchSelectionDialogState
                                           if (v['unit_pack'] != null) {
                                             r.unitPackCtrl.text = v['unit_pack']
                                                 .toString();
+                                          }
+                                          final prices = v['prices'] as List?;
+                                          if (prices != null &&
+                                              prices.isNotEmpty) {
+                                            r.mrpCtrl.text =
+                                                prices[0]['mrp']?.toString() ??
+                                                '';
+                                            r.ptrCtrl.text =
+                                                prices[0]['ptr']?.toString() ??
+                                                '';
+                                          }
+                                          if (v['manufacture_batch_number'] !=
+                                              null) {
+                                            r.mfgBatchCtrl.text =
+                                                v['manufacture_batch_number']
+                                                    .toString();
+                                          }
+                                          if (v['manufacture_exp'] != null) {
+                                            try {
+                                              r.mfgDateCtrl.text =
+                                                  DateFormat(
+                                                    'dd-MM-yyyy',
+                                                  ).format(
+                                                    DateTime.parse(
+                                                      v['manufacture_exp']
+                                                          .toString(),
+                                                    ),
+                                                  );
+                                            } catch (_) {}
                                           }
                                         });
                                       }

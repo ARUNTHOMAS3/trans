@@ -34,10 +34,38 @@ final batchLookupProvider =
   final supabase = Supabase.instance.client;
   final response = await supabase
       .from('batch_master')
-      .select('id, batch_no, expiry_date, unit_pack')
+      .select('*')
       .eq('product_id', productId)
       .eq('is_active', true)
       .order('expiry_date', ascending: false);
 
-  return List<Map<String, dynamic>>.from(response as List);
+  if (response == null) return [];
+
+  // Also fetch pricing from batches table
+  final pricingResponse = await supabase
+      .from('batches')
+      .select('batch, mrp, ptr')
+      .eq('product_id', productId)
+      .eq('is_active', true);
+
+  final priceMap = <String, Map<String, dynamic>>{};
+  if (pricingResponse != null) {
+    for (final p in pricingResponse as List) {
+      final b = p['batch']?.toString().trim();
+      if (b != null) {
+        priceMap[b] = p;
+      }
+    }
+  }
+
+  final result = (response as List).map((batch) {
+    final bno = batch['batch_no']?.toString().trim();
+    final price = priceMap[bno];
+    return {
+      ...batch as Map<String, dynamic>,
+      'prices': price != null ? [price] : [],
+    };
+  }).toList();
+
+  return List<Map<String, dynamic>>.from(result);
 });

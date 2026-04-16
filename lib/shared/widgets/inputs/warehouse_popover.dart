@@ -320,17 +320,10 @@ class _WarehousePopoverContentState extends ConsumerState<_WarehousePopoverConte
                       final name = w.name;
                       final isSelected = widget.warehouseName == name;
                       
-                      // Mock values for now (keeping existing logic style)
-                      String wHand, wComm, wAvail;
-                      if (selectedStockType == 'Accounting') {
-                        wHand = isSelected ? (name.contains('ZABNIX') ? '5.00' : '0.00') : '0.00';
-                        wComm = isSelected ? (name.contains('ZABNIX') ? '5.00' : '0.00') : '0.00';
-                        wAvail = '0.00';
-                      } else {
-                        wHand = isSelected ? (name.contains('ZABNIX') ? '10.00' : '0.00') : '0.00';
-                        wComm = isSelected ? (name.contains('ZABNIX') ? '10.00' : '0.00') : '0.00';
-                        wAvail = '0.00';
-                      }
+                      // Stock values reset to 0.00 (awaiting real stock integration per warehouse)
+                      String wHand = '0.00';
+                      String wComm = '0.00';
+                      String wAvail = '0.00';
 
                       return InkWell(
                         onTap: () => widget.onWarehouseChanged(name),

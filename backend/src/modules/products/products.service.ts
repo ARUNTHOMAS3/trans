@@ -882,32 +882,61 @@ export class ProductsService {
 
   async getBatches(productId: string) {
     const supabase = this.supabaseService.getClient();
-    const { data, error } = await supabase
+
+    // 1. Fetch batch_master records
+    const { data: masterData, error: masterError } = await supabase
       .from("batch_master")
-      .select("id, product_id, batch_no, expiry_date, unit_pack, is_manufacture_details, manufacture_batch_number, manufacture_exp, is_active")
+      .select("*")
       .eq("product_id", productId)
       .eq("is_active", true)
       .order("expiry_date", { ascending: true });
 
-    if (error) {
-      console.error("Error fetching batches:", error);
-      throw new Error(`Failed to fetch batches: ${error.message}`);
+    if (masterError) {
+      console.error("Error fetching batch_master:", masterError);
+      throw new Error(`Failed to fetch batches (master): ${masterError.message}`);
     }
 
-    // Map database fields to API response format
-    return (data || []).map((batch: any) => ({
-      batch: batch.batch_no,
-      batch_no: batch.batch_no,
-      exp: batch.expiry_date,
-      expiry_date: batch.expiry_date,
-      unit_pack: batch.unit_pack,
-      mrp: null, // batch_master doesn't have mrp/ptr pricing fields
-      ptr: null,
-      is_manufacture_details: batch.is_manufacture_details,
-      manufacture_batch_number: batch.manufacture_batch_number,
-      manufacture_exp: batch.manufacture_exp,
-      is_active: batch.is_active,
-    }));
+    // 2. Fetch batches records for pricing
+    const { data: pricingData, error: pricingError } = await supabase
+      .from("batches")
+      .select("batch, mrp, ptr")
+      .eq("product_id", productId)
+      .eq("is_active", true);
+
+    if (pricingError) {
+      console.error("Error fetching batches (pricing):", pricingError);
+      // We don't throw here, just proceed without pricing if it fails
+    }
+
+    // 3. Create a lookup map for pricing
+    const priceMap = new Map();
+    if (pricingData) {
+      for (const p of pricingData) {
+        priceMap.set(p.batch?.toString().trim(), {
+          mrp: p.mrp,
+          ptr: p.ptr,
+        });
+      }
+    }
+
+    // 4. Merge and map
+    return (masterData || []).map((batch: any) => {
+      const price = priceMap.get(batch.batch_no?.toString().trim());
+      
+      return {
+        batch: batch.batch_no,
+        batch_no: batch.batch_no,
+        exp: batch.expiry_date,
+        expiry_date: batch.expiry_date,
+        unit_pack: batch.unit_pack,
+        mrp: price ? price.mrp : null,
+        ptr: price ? price.ptr : null,
+        is_manufacture_details: batch.is_manufacture_details,
+        manufacture_batch_number: batch.manufacture_batch_number,
+        manufacture_exp: batch.manufacture_exp,
+        is_active: batch.is_active,
+      };
+    });
   }
 
   async createBatch(productId: string, body: any) {
@@ -1801,13 +1830,24 @@ export class ProductsService {
     return data;
   }
 
-  async getWarehouses() {
+  async getWarehouses(scope?: {
+    orgId?: string | null;
+    outletId?: string | null;
+  }) {
     const supabase = this.supabaseService.getClient();
-    const { data, error } = await supabase
+    const resolvedScope = this.resolveScope(scope?.orgId, scope?.outletId);
+
+    let query = supabase
       .from("warehouses")
       .select("id, org_id, outlet_id, name, is_active")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
+      .eq("org_id", resolvedScope.orgId)
+      .eq("is_active", true);
+
+    if (resolvedScope.outletId != null) {
+      query = query.eq("outlet_id", resolvedScope.outletId);
+    }
+
+    const { data, error } = await query.order("name", { ascending: true });
 
     if (error) throw new Error(error.message);
     return data;
@@ -2226,7 +2266,7 @@ export class ProductsService {
       this.getBrands(),
       this.getVendors(),
       this.getStorageLocations(),
-      this.getWarehouses(),
+      this.getWarehouses(scope),
       this.getRacks(),
       this.getReorderTerms(scope),
       this.getAccounts(),

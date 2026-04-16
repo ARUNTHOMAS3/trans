@@ -35,28 +35,6 @@ class WarehouseRepositoryImpl implements WarehouseRepository {
         module: 'inventory',
       );
 
-      // In debug mode, provide mock data if the backend is down
-      if (kDebugMode) {
-        return [
-          Warehouse(
-            id: 'war-001',
-            name: 'ZABNINX PRIMARY WAREHOUSE',
-            code: 'WH-001',
-            address: 'Main St, Digital City',
-          ),
-          Warehouse(
-            id: 'war-002',
-            name: 'SECONDARY STORAGE',
-            code: 'WH-002',
-            address: 'Industrial Area',
-          ),
-          Warehouse(
-            id: 'war-003',
-            name: 'LOCAL OUTLET WAREHOUSE',
-            code: 'WH-003',
-          ),
-        ];
-      }
       return [];
     }
   }

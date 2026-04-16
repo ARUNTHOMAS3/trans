@@ -246,8 +246,14 @@ export class ProductsController {
   }
 
   @Get("lookups/warehouses")
-  getWarehouses() {
-    return this.productsService.getWarehouses();
+  getWarehouses(
+    @Req() req: any,
+    @Query("orgId") orgId?: string,
+    @Query("outletId") outletId?: string,
+  ) {
+    return this.productsService.getWarehouses(
+      this.getScopeFromRequest(req, { orgId, outletId }),
+    );
   }
 
   @Post("lookups/storage-locations/sync")

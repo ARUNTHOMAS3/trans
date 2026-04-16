@@ -3,10 +3,10 @@
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
-import 'package:zerpai_erp/modules/sales/customers/models/sales_customer_model.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/models/sales_order_model.dart';
-import 'package:zerpai_erp/modules/sales/payments/models/sales_payment_model.dart';
-import 'package:zerpai_erp/modules/sales/eway_bills/models/sales_eway_bill_model.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_payment_model.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_eway_bill_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/purchases/bills/models/purchases_bills_bill_model.dart';

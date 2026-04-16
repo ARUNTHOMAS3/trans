@@ -621,6 +621,8 @@ class ItemsRepositoryImpl implements ItemRepository {
           expiryDate: formatDate(batch['expiry_date'] ?? batch['exp']),
           quantityIn: 0,
           quantityAvailable: 0,
+          mrp: double.tryParse((batch['mrp'] ?? '0').toString()) ?? 0.0,
+          ptr: double.tryParse((batch['ptr'] ?? '0').toString()) ?? 0.0,
         );
       }).toList();
 

@@ -100,6 +100,8 @@ class BatchData {
   final String expiryDate;
   final int quantityIn;
   final int quantityAvailable;
+  final double mrp;
+  final double ptr;
 
   BatchData({
     required this.batchReference,
@@ -109,6 +111,8 @@ class BatchData {
     required this.expiryDate,
     required this.quantityIn,
     required this.quantityAvailable,
+    this.mrp = 0,
+    this.ptr = 0,
   });
 
   bool get isExpired {
@@ -134,6 +138,8 @@ class BatchData {
     expiryDate: json['expiryDate'] ?? '',
     quantityIn: json['quantityIn'] ?? 0,
     quantityAvailable: json['quantityAvailable'] ?? 0,
+    mrp: (json['mrp'] as num?)?.toDouble() ?? 0.0,
+    ptr: (json['ptr'] as num?)?.toDouble() ?? 0.0,
   );
 
   Map<String, dynamic> toJson() => {
@@ -144,6 +150,8 @@ class BatchData {
     'expiryDate': expiryDate,
     'quantityIn': quantityIn,
     'quantityAvailable': quantityAvailable,
+    'mrp': mrp,
+    'ptr': ptr,
   };
 }
 

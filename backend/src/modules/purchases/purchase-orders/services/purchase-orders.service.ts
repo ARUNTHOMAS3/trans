@@ -128,4 +128,35 @@ export class PurchaseOrdersService {
 
     return { message: "Purchase Order deleted successfully" };
   }
+
+  async getSettings() {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("transactional_sequences")
+      .select("*")
+      .eq("module", "purchase_order")
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      throw new Error(`Failed to fetch PO settings: ${error.message}`);
+    }
+
+    return (
+      data || {
+        prefix: "PO-",
+        nextNumber: 1,
+        padding: 6,
+      }
+    );
+  }
+
+  async getNextNumber() {
+    const settings = await this.getSettings();
+    const nextNum = settings.next_number || settings.nextNumber || 1;
+    const prefix = settings.prefix || "PO-";
+    const padding = settings.padding || 6;
+
+    const formattedNumber = `${prefix}${nextNum.toString().padStart(padding, "0")}`;
+    return { nextNumber: formattedNumber, raw: nextNum };
+  }
 }

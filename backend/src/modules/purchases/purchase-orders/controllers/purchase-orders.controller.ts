@@ -33,6 +33,16 @@ export class PurchaseOrdersController {
     );
   }
 
+  @Get("settings")
+  async getSettings() {
+    return this.purchaseOrdersService.getSettings();
+  }
+
+  @Get("next-number")
+  async getNextNumber() {
+    return this.purchaseOrdersService.getNextNumber();
+  }
+
   @Get(":id")
   async findOne(@Param("id") id: string) {
     return this.purchaseOrdersService.findOne(id);

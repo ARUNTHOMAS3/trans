@@ -23,6 +23,7 @@ import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_pu
 import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
+import 'package:zerpai_erp/modules/items/items/models/items_stock_models.dart';
 
 const _bgWhite = Color(0xFFFFFFFF);
 const _borderCol = Color(0xFFE8E8E8);
@@ -65,6 +66,8 @@ class _BatchItemRowController {
   DateTime? mfgDate;
   DateTime? expDate;
   bool isDamaged = false;
+  bool isAutoLoaded = false;
+  String? selectedBatchNo;
 
   _BatchItemRowController({BatchInfo? initial}) {
     if (initial != null) {
@@ -155,6 +158,8 @@ class _PRCreateState
   final Set<String> _focusedQtyFields = <String>{};
   final Set<String> _hoveredBinFields = <String>{};
   final Set<String> _focusedBinFields = <String>{};
+  final Set<String> _focusedManualItemFields = <String>{};
+  final Set<int> _hiddenManualIndices = <int>{};
   String _binMode = 'item'; // 'transaction' or 'item'
   bool _showFilePopup = false;
   int? _hoveredAttachmentIndex;
@@ -333,22 +338,42 @@ class _PRCreateState
     );
   }
 
-  void _removeItem(int index) {
+  void _removeItem(int index, {bool isFromManual = false}) {
+    if (index >= _items.length) return;
+
+    if (isFromManual) {
+      final visibleCount = _items.asMap().entries
+          .where((e) => !_hiddenManualIndices.contains(e.key))
+          .length;
+      
+      // Enforce: at least one row should be there in both tables
+      if (visibleCount <= 1) return;
+
+      final item = _items[index];
+      // If it's a PO item (not purely manual), just hide it from the manual view
+      if ((item.itemId ?? '').isNotEmpty && index < (_selectedPO?.items.length ?? 0)) {
+        setState(() {
+          _hiddenManualIndices.add(index);
+        });
+        return;
+      }
+    }
+
     if (_items.length <= 1) return;
-    if (index < _items.length) {
-      setState(() {
-        _items.removeAt(index);
+    setState(() {
+      _items.removeAt(index);
+      if (index < _rowControllers.length) {
         _rowControllers[index].dispose();
         _rowControllers.removeAt(index);
-        if (index < _preferredBins.length) {
-          _preferredBins.removeAt(index);
-        }
-        if (index < _damageControllers.length) {
-          _damageControllers[index].dispose();
-          _damageControllers.removeAt(index);
-        }
-      });
-    }
+      }
+      if (index < _preferredBins.length) {
+        _preferredBins.removeAt(index);
+      }
+      if (index < _damageControllers.length) {
+        _damageControllers[index].dispose();
+        _damageControllers.removeAt(index);
+      }
+    });
   }
 
   void _clearAllRows() {
@@ -441,51 +466,27 @@ class _PRCreateState
   }
 
   void _switchToManualMode() {
-    final nextIsManual = !_isManualMode;
-
-    final hasPersistedRows = _items.any(
-      (item) =>
-          (item.itemId?.isNotEmpty ?? false) ||
-          item.itemName.isNotEmpty ||
-          item.batches.isNotEmpty ||
-          item.ordered > 0 ||
-          item.quantityToReceive > 0,
-    );
-
     setState(() {
-      _isManualMode = nextIsManual;
-
+      _isManualMode = !_isManualMode;
+      
       if (_isManualMode) {
-        // Filter: Only keep rows from Auto Mode that have actual values.
-        final List<PurchaseReceiveItem> filteredItems = [];
-        final List<_ReceiveItemRowController> filteredCtrls = [];
-        final List<String?> filteredBins = [];
-        final List<TextEditingController> filteredDamageCtrls = [];
-
+        _hiddenManualIndices.clear();
+        // Find PO items that haven't been touched yet (no batches, no qty)
+        // and hide them from the manual view to avoid "autoloading" the entire PO
         for (int i = 0; i < _items.length; i++) {
           final item = _items[i];
-          final bool hasValue = item.quantityToReceive > 0 ||
-              _sumBatchFoc(item.batches) > 0 ||
-              item.batches.isNotEmpty;
-
-          if (hasValue) {
-            filteredItems.add(item);
-            filteredCtrls.add(_rowControllers[i]);
-            filteredBins.add(_preferredBins[i]);
-            filteredDamageCtrls.add(_damageControllers[i]);
+          final hasWorkDone = item.batches.isNotEmpty || item.quantityToReceive > 0;
+          final isPOItem = i < (_selectedPO?.items.length ?? 0);
+          
+          if (isPOItem && !hasWorkDone) {
+            _hiddenManualIndices.add(i);
           }
         }
 
-        _items.clear();
-        _items.addAll(filteredItems);
-        _rowControllers.clear();
-        _rowControllers.addAll(filteredCtrls);
-        _preferredBins.clear();
-        _preferredBins.addAll(filteredBins);
-        _damageControllers.clear();
-        _damageControllers.addAll(filteredDamageCtrls);
-
-        if (_items.isEmpty) {
+        // Ensure there's at least one empty row to work with
+        // but only if the visible list is empty
+        final bool anyVisible = _items.asMap().entries.any((e) => !_hiddenManualIndices.contains(e.key));
+        if (!anyVisible) {
           _items.add(PurchaseReceiveItem());
           _rowControllers.add(_ReceiveItemRowController());
           _preferredBins.add(null);
@@ -494,9 +495,13 @@ class _PRCreateState
       }
     });
 
-    // Switching back to PO mode should keep existing rows/batches.
-    // Only repopulate from PO when there is nothing meaningful to show.
-    if (!nextIsManual && !hasPersistedRows && _selectedPO != null) {
+    // If switching back to normal mode and it's empty, repopulate from PO
+    final bool hasMeaningfulData = _items.any((item) =>
+        (item.itemId ?? '').isNotEmpty ||
+        item.itemName.isNotEmpty ||
+        item.batches.isNotEmpty);
+
+    if (!_isManualMode && !hasMeaningfulData && _selectedPO != null) {
       _onPOSelected(_selectedPO!);
     }
   }
@@ -511,137 +516,153 @@ class _PRCreateState
     if (_filePopupOverlayEntry != null) return;
 
     _filePopupOverlayEntry = OverlayEntry(
-      builder: (context) => CompositedTransformFollower(
-        link: _filePopupLayerLink,
-        showWhenUnlinked: false,
-        targetAnchor: Alignment.bottomLeft,
-        followerAnchor: Alignment.topLeft,
-        offset: const Offset(0, 8),
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: Material(
-            color: Colors.transparent,
-            elevation: 8,
-            child: IntrinsicWidth(
-              child: Container(
+      builder: (context) => Stack(
+        children: [
+          // Background listener to close when clicking outside
+          GestureDetector(
+            onTap: _hideFilePopupOverlay,
+            behavior: HitTestBehavior.translucent,
+            child: Container(
+              color: Colors.transparent,
+              width: double.infinity,
+              height: double.infinity,
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _filePopupLayerLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomLeft,
+            followerAnchor: Alignment.topLeft,
+            offset: const Offset(0, 8),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                color: Colors.transparent,
+                elevation: 8,
+                child: IntrinsicWidth(
+                  child: Container(
                 constraints: const BoxConstraints(minWidth: 200, maxWidth: 450),
                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: (_uploadedFiles.isEmpty
-                        ? 56
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: (_uploadedFiles.isEmpty
+                            ? 56
                         : (_uploadedFiles.length > 3
                                   ? 3
-                                  : _uploadedFiles.length) *
-                              56),
-                  ),
-                  child: Scrollbar(
-                    controller: _attachmentListScrollController,
+                                      : _uploadedFiles.length) *
+                                  56),
+                      ),
+                      child: Scrollbar(
+                        controller: _attachmentListScrollController,
                     thumbVisibility: _uploadedFiles.length > 3,
-                    child: SingleChildScrollView(
-                      controller: _attachmentListScrollController,
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        child: SingleChildScrollView(
+                          controller: _attachmentListScrollController,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: List.generate(_uploadedFiles.length, (index) {
-                          final file = _uploadedFiles[index];
-                          final fileSizeKb = file.size / 1024;
-                          final isHovered = _hoveredAttachmentIndex == index;
+                              final file = _uploadedFiles[index];
+                              final fileSizeKb = file.size / 1024;
+                              final isHovered =
+                                  _hoveredAttachmentIndex == index;
 
-                          return MouseRegion(
-                            onEnter: (_) =>
-                                setState(() => _hoveredAttachmentIndex = index),
-                            onExit: (_) => setState(() {
-                              if (_hoveredAttachmentIndex == index) {
-                                _hoveredAttachmentIndex = null;
-                              }
-                            }),
-                            child: Container(
-                              height: 56,
-                              margin: const EdgeInsets.symmetric(horizontal: 4),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isHovered
-                                    ? const Color(0xFF3B82F6)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    LucideIcons.image,
-                                    size: 16,
-                                    color: isHovered
-                                        ? Colors.white
-                                        : const Color(0xFF3B82F6),
+                              return MouseRegion(
+                                onEnter: (_) => setState(
+                                  () => _hoveredAttachmentIndex = index,
+                                ),
+                                onExit: (_) => setState(() {
+                                  if (_hoveredAttachmentIndex == index) {
+                                    _hoveredAttachmentIndex = null;
+                                  }
+                                }),
+                                child: Container(
+                                  height: 56,
+                                  margin:
+                                      const EdgeInsets.symmetric(horizontal: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
                                   ),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          file.name,
-                                          overflow: TextOverflow.ellipsis,
+                                  decoration: BoxDecoration(
+                                    color: isHovered
+                                        ? const Color(0xFFEFF6FF)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        LucideIcons.image,
+                                        size: 16,
+                                        color: const Color(0xFF3B82F6),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Flexible(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              file.name,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: isHovered
+                                                    ? const Color(0xFF3B82F6)
+                                                    : const Color(0xFF111827),
+                                                fontFamily: 'Inter',
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'File Size: ${fileSizeKb.toStringAsFixed(2)} KB',
                                           style: TextStyle(
-                                            fontSize: 13,
-                                            color: isHovered
-                                                ? Colors.white
-                                                : const Color(0xFF111827),
-                                            fontFamily: 'Inter',
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'File Size: ${fileSizeKb.toStringAsFixed(2)} KB',
-                                          style: TextStyle(
-                                            fontSize: 12,
+                                                fontSize: 12,
                                             color: isHovered
                                                 ? const Color(0xFFEAF2FF)
                                                 : const Color(0xFF6B7280),
-                                            fontFamily: 'Inter',
-                                          ),
+                                                fontFamily: 'Inter',
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  InkWell(
-                                    onTap: () => _removeUploadedFile(index),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      InkWell(
+                                        onTap: () => _removeUploadedFile(index),
                                     child: Icon(
-                                      LucideIcons.trash2,
-                                      size: 15,
+                                          LucideIcons.trash2,
+                                          size: 15,
                                       color: isHovered
                                           ? Colors.white
                                           : const Color(0xFF3B82F6),
-                                    ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -649,7 +670,7 @@ class _PRCreateState
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
 
@@ -700,11 +721,8 @@ class _PRCreateState
                   // ── Items Table ──
                   _buildItemsTable(),
                   const SizedBox(height: 32),
-                  // ── Notes Section ──
-                  _buildNotesSection(),
-                  const SizedBox(height: 32),
-                  // ── Attach Files Section ──
-                  _buildAttachFilesSection(),
+                  // ── Notes & Upload ──
+                  _buildNotesAndUploadSection(),
                   const SizedBox(height: 80),
                 ],
               ),
@@ -1585,10 +1603,19 @@ class _PRCreateState
                       else if (_items.isEmpty)
                         _buildEmptyRow()
                       else
-                        ...List.generate(
-                          _items.length,
-                          (index) => _buildItemRow(index, _items[index]),
-                        ),
+                        ..._items.asMap().entries.where((e) {
+                          final i = e.key;
+                          final item = e.value;
+                          final poItemIds = _selectedPO?.items.map((pi) => pi.productId).toSet() ?? {};
+                          final isPOItem = i < (_selectedPO?.items.length ?? 0);
+                          if (isPOItem) return true;
+                          
+                          // Show manual items only if they have an item selected AND it's not already in the PO
+                          final hasId = (item.itemId ?? '').isNotEmpty;
+                          if (!hasId) return false;
+                          
+                          return !poItemIds.contains(item.itemId);
+                        }).map((entry) => _buildItemRow(entry.key, entry.value)),
                     ],
                   ),
                 ),
@@ -1710,7 +1737,7 @@ class _PRCreateState
                           ),
                         )
                       else
-                        ..._items.asMap().entries.map((entry) {
+                        ..._items.asMap().entries.where((e) => !_hiddenManualIndices.contains(e.key)).map((entry) {
                           final index = entry.key;
                           final item = entry.value;
                           final ctrlKey = _rowControllers.length > index
@@ -1993,17 +2020,24 @@ class _PRCreateState
   }
 
   Widget _buildQtyAndFocBreakdown(PurchaseReceiveItem item) {
-    final qty = _sumBatchQuantity(item.batches);
-    final foc = _sumBatchFoc(item.batches);
-    if (item.batches.isEmpty || foc <= 0) {
-      return const SizedBox.shrink();
+    // We use the item's current quantityToReceive (sum of batches) and total FOC
+    final qty = item.batches.fold<double>(0, (sum, b) => sum + b.quantity);
+    final foc = item.batches.fold<double>(0, (sum, b) => sum + b.foc);
+    
+    // If no quantity and no FOC entered, show nothing
+    if (qty <= 0 && foc <= 0) return const SizedBox.shrink();
+    
+    String label = "${_fmtPcs(qty)} pcs";
+    if (foc > 0) {
+      label += " + ${_fmtPcs(foc)} foc";
     }
+
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: 4, left: 1),
       child: Text(
-        '${_fmtPcs(qty)}pcs + ${_fmtPcs(foc)}foc',
+        label,
         style: const TextStyle(
-          fontSize: 10,
+          fontSize: 11,
           color: _hintColor,
           fontFamily: 'Inter',
         ),
@@ -2271,7 +2305,14 @@ class _PRCreateState
     final poItems = (_selectedPO?.items ?? <PurchaseOrderItem>[])
         .map((e) => e)
         .toList();
-    final selectedIds = _items.map((e) => e.itemId).whereType<String>().toSet();
+    final selectedIds = _items.asMap().entries
+        .where((e) => !_hiddenManualIndices.contains(e.key))
+        .map((e) => e.value.itemId)
+        .whereType<String>()
+        .toSet();
+    final visibleManualRowsCount = _items.asMap().entries
+        .where((e) => !_hiddenManualIndices.contains(e.key))
+        .length;
     final availablePoItems = poItems.where((poItem) {
       return !selectedIds.contains(poItem.productId) ||
           poItem.productId == item.itemId;
@@ -2283,6 +2324,7 @@ class _PRCreateState
         ? _preferredBins[index]
         : null;
     final hasBatches = !isEphemeral && item.batches.isNotEmpty;
+    final bool hasItem = (item.itemId ?? '').isNotEmpty;
 
     if (ctrl.qtyCtrl.text.isEmpty) {
       ctrl.qtyCtrl.text = '0';
@@ -2323,64 +2365,101 @@ class _PRCreateState
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: FormDropdown<PurchaseOrderItem>(
-                        value: selectedItem,
-                        items: availablePoItems,
-                        hint: 'Type or click to select an item',
-                        showSearch: true,
-                        displayStringForValue: (poItem) =>
-                            poItem.productName ?? poItem.itemCode ?? 'Unnamed item',
-                        searchStringForValue: (poItem) =>
-                            '${poItem.productName ?? ''} ${poItem.itemCode ?? ''}',
-                        itemBuilder: (poItem, isSelected, isHovered) {
-                          final bool isAlreadySelected =
-                              selectedIds.contains(poItem.productId) &&
-                              poItem.productId != item.itemId;
-                          return _buildDropdownOverlayItem(
-                            poItem.productName ?? 'Unnamed item',
-                            isSelected,
-                            isHovered,
-                            isDisabled: isAlreadySelected,
-                          );
+                      child: Focus(
+                        onFocusChange: (hasFocus) {
+                          setState(() {
+                            if (hasFocus) {
+                              _focusedManualItemFields.add("manual-item-$index");
+                            } else {
+                              _focusedManualItemFields.remove("manual-item-$index");
+                            }
+                          });
                         },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: _focusedManualItemFields.contains("manual-item-$index")
+                                  ? _focusBorder
+                                  : Colors.transparent,
+                            ),
+                          ),
+                          child: FormDropdown<PurchaseOrderItem>(
+                            value: selectedItem,
+                            items: availablePoItems,
+                            hint: 'Type or click to select an item',
+                            showSearch: true,
+                            border: Border.all(color: Colors.transparent),
+                          displayStringForValue: (poItem) =>
+                            poItem.productName ?? poItem.itemCode ?? 'Unnamed item',
+                          searchStringForValue: (poItem) =>
+                              '${poItem.productName ?? ''} ${poItem.itemCode ?? ''}',
+                          itemBuilder: (poItem, isSelected, isHovered) {
+                            final bool isAlreadySelected =
+                                selectedIds.contains(poItem.productId) &&
+                                    poItem.productId != item.itemId;
+                            return _buildDropdownOverlayItem(
+                              poItem.productName ?? 'Unnamed item',
+                              isSelected,
+                              isHovered,
+                              isDisabled: isAlreadySelected,
+                            );
+                          },
                         onChanged: (poItem) {
                           if (poItem == null) return;
                           setState(() {
-                            if (isEphemeral) {
-                              _items.add(
-                                poItem.productId.isNotEmpty
-                                    ? PurchaseReceiveItem(
-                                        itemId: poItem.productId,
-                                        itemName: poItem.productName ?? '',
-                                        description: poItem.description,
-                                        ordered: poItem.quantity,
-                                        received: 0,
-                                        inTransit: 0,
-                                      )
-                                    : PurchaseReceiveItem(),
-                              );
-                              _rowControllers.add(_ReceiveItemRowController());
-                              _preferredBins.add(null);
-                              _damageControllers.add(TextEditingController());
-                              _items.add(PurchaseReceiveItem());
-                              _rowControllers.add(_ReceiveItemRowController());
-                              _preferredBins.add(null);
-                              _damageControllers.add(TextEditingController());
+                            // Check if this PO item already exists but is hidden
+                            final existingHiddenIndex = _items.asMap().entries.toList().indexWhere(
+                              (e) => _hiddenManualIndices.contains(e.key) && e.value.itemId == poItem.productId
+                            );
+
+                            if (existingHiddenIndex != -1) {
+                              // It was hidden, so unhide it!
+                              _hiddenManualIndices.remove(existingHiddenIndex);
+                              
+                              // If we were selecting this in an empty "isEphemeral" row, 
+                              // we should probably remove the empty row if it's purely redundant
+                              if (isEphemeral) {
+                                _removeItem(index, isFromManual: true);
+                              }
                             } else {
-                              if (index < _items.length) {
-                                _items[index] = _items[index].copyWith(
-                                  itemId: poItem.productId,
-                                  itemName: poItem.productName ?? '',
-                                  description: poItem.description,
-                                  ordered: poItem.quantity,
-                                  received: 0,
-                                  inTransit: 0,
+                              // Normal addition/update logic
+                              if (isEphemeral) {
+                                _items.add(
+                                  poItem.productId.isNotEmpty
+                                      ? PurchaseReceiveItem(
+                                          itemId: poItem.productId,
+                                          itemName: poItem.productName ?? '',
+                                          description: poItem.description,
+                                          ordered: poItem.quantity,
+                                          received: 0,
+                                          inTransit: 0,
+                                        )
+                                      : PurchaseReceiveItem(),
                                 );
-                                if (index == _items.length - 1) {
-                                  _items.add(PurchaseReceiveItem());
-                                  _rowControllers.add(_ReceiveItemRowController());
-                                  _preferredBins.add(null);
-                                  _damageControllers.add(TextEditingController());
+                                _rowControllers.add(_ReceiveItemRowController());
+                                _preferredBins.add(null);
+                                _damageControllers.add(TextEditingController());
+                                _items.add(PurchaseReceiveItem());
+                                _rowControllers.add(_ReceiveItemRowController());
+                                _preferredBins.add(null);
+                                _damageControllers.add(TextEditingController());
+                              } else {
+                                if (index < _items.length) {
+                                  _items[index] = _items[index].copyWith(
+                                    itemId: poItem.productId,
+                                    itemName: poItem.productName ?? '',
+                                    description: poItem.description,
+                                    ordered: poItem.quantity,
+                                    received: 0,
+                                    inTransit: 0,
+                                  );
+                                  if (index == _items.length - 1) {
+                                    _items.add(PurchaseReceiveItem());
+                                    _rowControllers.add(_ReceiveItemRowController());
+                                    _preferredBins.add(null);
+                                    _damageControllers.add(TextEditingController());
+                                  }
                                 }
                               }
                             }
@@ -2388,10 +2467,12 @@ class _PRCreateState
                         },
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
+          ),
+        ),
             _tableBodyCell(
               fixedWidth: 100,
               child: Padding(
@@ -2431,81 +2512,85 @@ class _PRCreateState
             if (_binMode == "item")
               _tableBodyCell(
                 fixedWidth: 160,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: MouseRegion(
-                    onEnter: (_) => setState(
-                      () => _hoveredBinFields.add("manual-bin-$index"),
-                    ),
-                    onExit: (_) => setState(
-                      () => _hoveredBinFields.remove("manual-bin-$index"),
-                    ),
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTap: () => setState(() {
-                        _focusedBinFields
-                          ..clear()
-                          ..add("manual-bin-$index");
-                      }),
-                      child: SizedBox(
-                        height: 44,
-                        child: FormDropdown<String>(
-                          value: selectedBin,
-                          items: _manualBinList,
-                          hint: "Select Bin",
-                          showSearch: true,
-                          border: Border.all(
+                child: !hasItem 
+                  ? const SizedBox()
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: MouseRegion(
+                          onEnter: (_) => setState(
+                            () => _hoveredBinFields.add("manual-bin-$index"),
+                          ),
+                          onExit: (_) => setState(
+                            () => _hoveredBinFields.remove("manual-bin-$index"),
+                          ),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onTap: () => setState(() {
+                              _focusedBinFields
+                                ..clear()
+                                ..add("manual-bin-$index");
+                            }),
+                            child: SizedBox(
+                              height: 44,
+                              child: FormDropdown<String>(
+                                value: selectedBin,
+                                items: _manualBinList,
+                                hint: "Select Bin",
+                                showSearch: true,
+                                border: Border.all(
                             color:
                                 (_hoveredBinFields.contains(
-                                      "manual-bin-$index",
-                                    ) ||
-                                    _focusedBinFields.contains(
-                                      "manual-bin-$index",
-                                    ))
-                                ? _focusBorder
-                                : Colors.transparent,
+                                            "manual-bin-$index",
+                                          ) ||
+                                          _focusedBinFields.contains(
+                                            "manual-bin-$index",
+                                          ))
+                                      ? _focusBorder
+                                      : Colors.transparent,
                             width:
                                 (_hoveredBinFields.contains(
-                                      "manual-bin-$index",
-                                    ) ||
-                                    _focusedBinFields.contains(
-                                      "manual-bin-$index",
-                                    ))
-                                ? 1.2
-                                : 1,
-                          ),
-                          itemBuilder: (item, isSelected, isHovered) =>
-                              _buildDropdownOverlayItem(
-                                item,
-                                isSelected,
-                                isHovered,
+                                            "manual-bin-$index",
+                                          ) ||
+                                          _focusedBinFields.contains(
+                                            "manual-bin-$index",
+                                          ))
+                                      ? 1.2
+                                      : 1,
+                                ),
+                                itemBuilder: (item, isSelected, isHovered) =>
+                                    _buildDropdownOverlayItem(
+                                  item,
+                                  isSelected,
+                                  isHovered,
+                                ),
+                                onChanged: (bin) {
+                                  if (index >= _preferredBins.length) return;
+                                  setState(() {
+                                    _preferredBins[index] = bin;
+                                    _focusedBinFields.remove("manual-bin-$index");
+                                  });
+                                },
                               ),
-                          onChanged: (bin) {
-                            if (index >= _preferredBins.length) return;
-                            setState(() {
-                              _preferredBins[index] = bin;
-                              _focusedBinFields.remove("manual-bin-$index");
-                            });
-                          },
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
               ),
             _tableBodyCell(
               fixedWidth: _dynamicQtyToReceiveColumnWidth(),
               hideRightBorder: true,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 8, right: 4, top: 4, bottom: 4),
-                child: Row(
+              child: !hasItem
+                  ? const SizedBox()
+                  : Padding(
+                      padding: const EdgeInsets.only(left: 8, right: 4, top: 4, bottom: 4),
+                      child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     SizedBox(
                       width: 94,
-                      child: Column(
+                        child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                          children: [
                           _buildQtyControl(
                             fieldKey: 'manual-$index',
                             controller: ctrl.qtyCtrl,
@@ -2545,18 +2630,18 @@ class _PRCreateState
                                   width: 94,
                                   margin: const EdgeInsets.only(right: 2),
                                   padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
+                              decoration: BoxDecoration(
                                     color: const Color(0xFFF3F9F5),
                                     border: Border.all(
                                       color: const Color(0xFFCFE9D8),
-                                    ),
+                              ),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Column(
-                                    mainAxisSize: MainAxisSize.min,
+                                mainAxisSize: MainAxisSize.min,
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
-                                    children: [
+                                children: [
                                       _batchText('Batch: ${batch.batchNo}'),
                                       _batchText(
                                         'Qty: ${_fmtPcs(batch.quantity)} pcs',
@@ -2570,27 +2655,27 @@ class _PRCreateState
                                       _batchText('P Rate: ${batch.ptr}'),
                                       _batchText(
                                         'Exp: ${batch.expiryDate != null ? DateFormat('dd-MM-yyyy').format(batch.expiryDate!) : ''}',
-                                      ),
-                                    ],
                                   ),
-                                ),
+                                ],
+                              ),
+                            ),
                               );
                             }).toList(),
                           ),
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
             _tableBodyCell(
               fixedWidth: 14,
               isLastColumn: true,
-              child: isEphemeral
+              child: (isEphemeral || visibleManualRowsCount <= 1)
                   ? const SizedBox()
                   : Center(
                       child: InkWell(
-                        onTap: () => _removeItem(index),
+                        onTap: () => _removeItem(index, isFromManual: true),
                         borderRadius: BorderRadius.circular(4),
                         child: const Icon(
                           LucideIcons.x,
@@ -2876,13 +2961,15 @@ class _PRCreateState
             _tableBodyCell(
               fixedWidth: 12,
               isLastColumn: true,
-              child: Center(
-                child: InkWell(
-                  onTap: () => _removeItem(index),
-                  borderRadius: BorderRadius.circular(4),
-                  child: const Icon(LucideIcons.x, size: 12, color: _dangerRed),
-                ),
-              ),
+              child: (_items.length <= 1)
+                  ? const SizedBox()
+                  : Center(
+                      child: InkWell(
+                        onTap: () => _removeItem(index),
+                        borderRadius: BorderRadius.circular(4),
+                        child: const Icon(LucideIcons.x, size: 12, color: _dangerRed),
+                      ),
+                    ),
             ),
           ],
         ),
@@ -2891,11 +2978,15 @@ class _PRCreateState
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // NOTES SECTION
+  // NOTES AND UPLOAD SECTION
   // ═══════════════════════════════════════════════════════════════════════════
-  Widget _buildNotesSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+  Widget _buildNotesAndUploadSection() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF9FAFB),
+        border: Border(top: BorderSide(color: _borderCol)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2912,86 +3003,50 @@ class _PRCreateState
           SizedBox(
             width: 800,
             child: TextField(
-              controller: _notesCtrl,
-              maxLines: 4,
-              style: const TextStyle(
-                fontSize: 13,
-                color: _textPrimary,
-                fontFamily: 'Inter',
-              ),
-              decoration: InputDecoration(
-                filled: true,
+            controller: _notesCtrl,
+            maxLines: 4,
+            style: const TextStyle(
+              fontSize: 13,
+              color: _textPrimary,
+              fontFamily: 'Inter',
+            ),
+            decoration: InputDecoration(
+              filled: true,
                 fillColor: _bgWhite,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 10,
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: _fieldBorder),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: _focusBorder, width: 1.5),
-                  borderRadius: BorderRadius.circular(4),
-                ),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: _fieldBorder),
+                borderRadius: BorderRadius.circular(4),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ATTACH FILES SECTION
-  // ═══════════════════════════════════════════════════════════════════════════
-  Widget _buildAttachFilesSection() {
-    final uploadLimitReached = _uploadedFiles.length >= _maxUploadFiles;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Divider
-          Container(height: 1, color: _borderCol),
-          const SizedBox(height: 20),
-          const Text(
-            'Attach File(s) to Purchase Receive',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: _labelColor,
-              fontFamily: 'Inter',
-            ),
-          ),
-          const SizedBox(height: 10),
+               focusedBorder: OutlineInputBorder(
+                 borderSide: const BorderSide(color: _focusBorder, width: 1.5),
+                 borderRadius: BorderRadius.circular(4),
+               ),
+             ),
+           ),
+         ),
+         const SizedBox(height: 24),
           Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Opacity(
-                opacity: uploadLimitReached ? 0.5 : 1,
-                child: CompositedTransformTarget(
-                  link: _filePopupLayerLink,
+              // Upload Button (Strictly for picking files)
+              CompositedTransformTarget(
+                link: _filePopupLayerLink,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
                   child: GestureDetector(
-                    onTap: uploadLimitReached
-                        ? null
-                        : () {
-                            if (_uploadedFiles.isNotEmpty) {
-                              _displayFilePopupOverlay();
-                            } else {
-                              _pickFiles();
-                            }
-                          },
+                    onTap: _pickFiles, // Strictly upload
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: _fieldBorder),
-                        color: _bgWhite,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -3023,7 +3078,8 @@ class _PRCreateState
                 ),
               ),
               if (_uploadedFiles.isNotEmpty) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
+                // Link Icon (Strictly for showing the list)
                 GestureDetector(
                   onTap: () {
                     if (_showFilePopup) {
@@ -3351,6 +3407,7 @@ class _PRCreateState
       if (!mounted) return;
       setState(() {
         _clearAllRows();
+        _hiddenManualIndices.clear();
         for (var poItem in fullPO!.items) {
           _items.add(
             PurchaseReceiveItem(
@@ -3378,19 +3435,23 @@ class _PRCreateState
     final batchOptions = <String>{
       ...item.batches.map((b) => b.batchNo.trim()).where((v) => v.isNotEmpty),
     };
+    List<BatchData> batchDataOptions = [];
 
     final itemId = item.itemId?.trim();
     if (itemId != null && itemId.isNotEmpty) {
       try {
         await ref.read(warehousesProvider.future);
         final dbBatches = await ref.refresh(
-          batchLookupProvider(itemId).future,
+          itemBatchesProvider(itemId).future,
         );
         final dbBatchNumbers = dbBatches
-            .map((b) => b['batch_no']?.toString().trim() ?? '')
+            .map((b) => b.batchReference.trim())
             .where((v) => v.isNotEmpty)
             .toList();
         batchOptions.addAll(dbBatchNumbers);
+        
+        // Also provide full batch data if we need it for auto-fill logic in the dialog
+        batchDataOptions = dbBatches;
       } catch (_) {
         // keep existing local options if remote lookup fails
       }
@@ -3402,6 +3463,7 @@ class _PRCreateState
       builder: (context) => _SelectBatchDialog(
         itemName: item.itemName,
         batchOptions: batchOptions.toList()..sort(),
+        batchDataOptions: batchDataOptions,
         initialBatches: item.batches,
         // Total in batch dialog must follow Ordered quantity in line item.
         ordered: item.ordered,
@@ -3426,6 +3488,7 @@ class _PRCreateState
               quantityToReceive: combinedQty,
             );
             _rowControllers[itemIndex].qtyCtrl.text = _fmtPcs(combinedQty);
+            _hiddenManualIndices.remove(itemIndex);
           });
         },
       ),
@@ -3439,6 +3502,7 @@ class _SelectBatchDialog extends StatefulWidget {
   final String warehouseName;
   final double ordered;
   final List<String> batchOptions;
+  final List<BatchData> batchDataOptions;
   final List<BatchInfo> initialBatches;
   final bool initialDamageEnabled;
   final ValueChanged<bool>? onDamageChanged;
@@ -3450,6 +3514,7 @@ class _SelectBatchDialog extends StatefulWidget {
     required this.warehouseName,
     required this.ordered,
     required this.batchOptions,
+    required this.batchDataOptions,
     required this.initialBatches,
     this.initialDamageEnabled = false,
     this.onDamageChanged,
@@ -3846,6 +3911,14 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
       'Total quantity across all batches cannot exceed the ordered quantity.';
   static const String _qtyOrFocMessage =
       'Either Quantity or FOC must be entered';
+  static const String _batchNoMissingMessage =
+      'Please make sure that you have entered batch reference numbers for all the batches.';
+  static const String _unitPackMissingMessage =
+      'Unit Pack cannot be empty. Enter a unit pack to proceed.';
+  static const String _mrpMissingMessage =
+      'MRP cannot be empty. Enter an MRP to proceed.';
+  static const String _expDateMissingMessage =
+      'Expiry Date cannot be empty. Select an expiry date to proceed.';
   final TextInputFormatter _numericInputFormatter =
       TextInputFormatter.withFunction((oldValue, newValue) {
         final text = newValue.text;
@@ -3951,55 +4024,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
         : value.toStringAsFixed(2);
   }
 
-  String? _validateRequiredFields(_BatchItemRowController row, int rowIndex) {
-    final rowLabel = 'Row ${rowIndex + 1}';
-    final batchNo = row.batchNoCtrl.text.trim();
-    final unitPack = row.unitPackCtrl.text.trim();
-    final mrp = row.mrpCtrl.text.trim();
-    final ptr = row.ptrCtrl.text.trim();
-    final expiryDate = row.expDateCtrl.text.trim();
-    final quantity = row.qtyCtrl.text.trim();
-    final foc = row.focCtrl.text.trim();
-    final damage = row.damageCtrl.text.trim();
 
-    if (batchNo.isEmpty) {
-      return '$rowLabel: Batch No is required';
-    }
-    if (unitPack.isEmpty) {
-      return '$rowLabel: Unit Pack is required';
-    }
-    if (double.tryParse(unitPack) == null) {
-      return '$rowLabel: Unit Pack must be a valid number';
-    }
-    if (mrp.isEmpty) {
-      return '$rowLabel: MRP is required';
-    }
-    if (double.tryParse(mrp) == null) {
-      return '$rowLabel: MRP must be a valid number';
-    }
-    if (ptr.isNotEmpty && double.tryParse(ptr) == null) {
-      return '$rowLabel: PTR must be a valid number';
-    }
-    if (expiryDate.isEmpty || row.expDate == null) {
-      return '$rowLabel: Expiry Date is required';
-    }
-    final parsedQty = double.tryParse(quantity) ?? 0;
-    final parsedFoc = double.tryParse(foc) ?? 0;
-    if (parsedQty <= 0 && parsedFoc <= 0) {
-      return _qtyOrFocMessage;
-    }
-    if (_showDamage && damage.isNotEmpty) {
-      final parsedDamage = double.tryParse(damage);
-      if (parsedDamage == null) {
-        return '$rowLabel: Damage must be a valid number';
-      }
-      if (parsedDamage > parsedQty) {
-        return '$rowLabel: Damage cannot exceed quantity';
-      }
-    }
-
-    return null;
-  }
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -4032,7 +4057,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
             ),
             decoration: InputDecoration(
               filled: true,
-              fillColor: Colors.white,
+              fillColor: readOnly ? const Color(0xFFF3F4F6) : Colors.white,
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 10,
@@ -4057,12 +4082,6 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
 
   Widget _buildBatchNoDropdown(_BatchItemRowController row) {
     final current = row.batchNoCtrl.text.trim();
-    final batchItems = <String>{...widget.batchOptions};
-    if (current.isNotEmpty) {
-      batchItems.add(current);
-    }
-    final sortedBatchItems = batchItems.toList()..sort();
-
     final inputController = _ensureBatchInputController(row);
     final inputFocusNode = _ensureBatchInputFocusNode(row);
 
@@ -4086,6 +4105,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
             displayStringForOption: (option) => option,
             optionsBuilder: (textEditingValue) {
               final query = textEditingValue.text.trim().toLowerCase();
+              final sortedBatchItems = widget.batchOptions.toList()..sort();
               if (query.isEmpty) {
                 return sortedBatchItems;
               }
@@ -4096,6 +4116,49 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
             },
             onSelected: (selection) {
               row.batchNoCtrl.text = selection;
+              row.selectedBatchNo = selection;
+              
+              // Find matching batch data for auto-fill
+              final match = widget.batchDataOptions.firstWhere(
+                (b) => b.batchReference.trim() == selection.trim(),
+                orElse: () => BatchData(
+                  batchReference: selection,
+                  manufacturerBatch: '',
+                  unitPack: 0,
+                  manufacturedDate: '',
+                  expiryDate: '',
+                  quantityIn: 0,
+                  quantityAvailable: 0,
+                ),
+              );
+
+              if (match.batchReference == selection) {
+                row.unitPackCtrl.text = match.unitPack.toString();
+                row.mrpCtrl.text = match.mrp.toString();
+                row.ptrCtrl.text = match.ptr.toString();
+                row.expDateCtrl.text = match.expiryDate;
+                row.mfgBatchCtrl.text = match.manufacturerBatch;
+                row.mfgDateCtrl.text = match.manufacturedDate;
+                
+                // Try to parse dates for the controllers
+                try {
+                  if (match.expiryDate.isNotEmpty) {
+                    final parts = match.expiryDate.split('-');
+                    if (parts.length == 3) {
+                      row.expDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+                    }
+                  }
+                  if (match.manufacturedDate.isNotEmpty) {
+                    final parts = match.manufacturedDate.split('-');
+                    if (parts.length == 3) {
+                      row.mfgDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+                    }
+                  }
+                } catch (_) {}
+
+                row.isAutoLoaded = true;
+                setState(() {});
+              }
             },
             fieldViewBuilder:
                 (context, textEditingController, focusNode, onFieldSubmitted) {
@@ -4135,6 +4198,20 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                     ),
                     onChanged: (value) {
                       row.batchNoCtrl.text = value;
+                      if (row.isAutoLoaded && value != row.selectedBatchNo) {
+                        row.isAutoLoaded = false;
+                        row.selectedBatchNo = null;
+                        // Clear auto-filled fields
+                        row.unitPackCtrl.clear();
+                        row.mrpCtrl.clear();
+                        row.ptrCtrl.clear();
+                        row.expDateCtrl.clear();
+                        row.mfgBatchCtrl.clear();
+                        row.mfgDateCtrl.clear();
+                        row.expDate = null;
+                        row.mfgDate = null;
+                      }
+                      setState(() {});
                     },
                     onSubmitted: (value) {
                       row.batchNoCtrl.text = value.trim();
@@ -4245,6 +4322,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
     required GlobalKey targetKey,
     int? flex,
     double? width,
+    bool readOnly = false,
     required VoidCallback onTap,
   }) {
     final dateField = Padding(
@@ -4254,8 +4332,8 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
         child: TextField(
           key: targetKey,
           controller: controller,
-          readOnly: true,
-          onTap: onTap,
+          readOnly: readOnly || true, // Keep original behavior but combine with parameter
+          onTap: readOnly ? null : onTap,
           textAlignVertical: TextAlignVertical.center,
           style: const TextStyle(
             fontSize: 13,
@@ -4264,7 +4342,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
           ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: _bgWhite,
+            fillColor: readOnly ? const Color(0xFFF3F4F6) : _bgWhite,
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 10,
@@ -4307,7 +4385,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 0),
       child: Container(
-        width: _showMfgDetails ? 1150 : 820,
+        width: _showMfgDetails ? 1350 : 850,
         padding: const EdgeInsets.all(0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -4377,7 +4455,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                                 text: '•  ',
                                 style: TextStyle(fontSize: 16, height: 1.05),
                               ),
-                              TextSpan(text: _quantityMismatchMessage),
+                              TextSpan(text: _dialogErrorMessage!),
                             ],
                           ),
                         ),
@@ -4562,8 +4640,8 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                   _headerCell('P RATE', 2),
                   _headerCell('EXPIRY DATE*', 3),
                   if (_showMfgDetails) ...[
-                    _headerCell('MFG DATE', 3),
-                    _headerCell('MFG BATCH', 2),
+                    _headerCell('MANUFACTURED DATE', 3),
+                    _headerCell('MANUFACTURER BATCH', 3),
                   ],
                   _headerCell('QUANTITY*', 2),
                   if (_showFoc) _headerCell('FOC', 2),
@@ -4597,23 +4675,27 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                               hint: 'Pack',
                               flex: 2,
                               isNumeric: true,
+                              readOnly: row.isAutoLoaded,
                             ),
                             _buildTextField(
                               controller: row.mrpCtrl,
                               hint: '0',
                               flex: 2,
                               isNumeric: true,
+                              readOnly: row.isAutoLoaded,
                             ),
                             _buildTextField(
                               controller: row.ptrCtrl,
                               hint: '0',
                               flex: 2,
                               isNumeric: true,
+                              readOnly: row.isAutoLoaded,
                             ),
                             _buildDatePicker(
                               controller: row.expDateCtrl,
                               targetKey: row.expKey,
                               flex: 3,
+                              readOnly: row.isAutoLoaded,
                               onTap: () async {
                                 final picked = await ZerpaiDatePicker.show(
                                   context,
@@ -4635,6 +4717,7 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                                 controller: row.mfgDateCtrl,
                                 targetKey: row.mfgKey,
                                 flex: 3,
+                                readOnly: row.isAutoLoaded,
                                 onTap: () async {
                                   final picked = await ZerpaiDatePicker.show(
                                     context,
@@ -4653,8 +4736,9 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                               ),
                               _buildTextField(
                                 controller: row.mfgBatchCtrl,
-                                hint: 'Mfg Batch',
-                                flex: 2,
+                                hint: 'Manufacturer  Batch',
+                                flex: 3,
+                                readOnly: row.isAutoLoaded,
                               ),
                             ],
                             _buildTextField(
@@ -4759,41 +4843,90 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      if (_totalEnteredQtyOnly > widget.ordered) {
-                        setState(() {
-                          _dialogErrorMessage = _qtyExceedsMessage;
-                        });
-                        widget.onTopError?.call(_qtyExceedsMessage);
-                        return;
-                      }
+                      // 1. CLEAR ALL PREVIOUS ERRORS
+                      setState(() {
+                        _dialogErrorMessage = null;
+                      });
 
-                      for (var i = 0; i < _rows.length; i++) {
-                        final validationMessage = _validateRequiredFields(
-                          _rows[i],
-                          i,
-                        );
-                        if (validationMessage != null) {
+                      // 2. PASS 1: MANDATORY BATCH NO (ALL ROWS)
+                      for (final row in _rows) {
+                        if (row.batchNoCtrl.text.trim().isEmpty) {
                           setState(() {
-                            _dialogErrorMessage = validationMessage;
+                            _dialogErrorMessage = _batchNoMissingMessage;
                           });
-                          if (validationMessage == _qtyOrFocMessage) {
-                            widget.onTopError?.call(_qtyOrFocMessage);
-                          }
                           return;
                         }
                       }
 
-                      final results = _rows
-                          .map((r) => r.toBatchInfo())
-                          .toList();
+                      // 3. PASS 2: MANDATORY UNIT PACK (ALL ROWS)
+                      for (final row in _rows) {
+                        if (row.unitPackCtrl.text.trim().isEmpty) {
+                          setState(() {
+                            _dialogErrorMessage = _unitPackMissingMessage;
+                          });
+                          return;
+                        }
+                      }
 
+                      // 4. PASS 3: MANDATORY MRP (ALL ROWS)
+                      for (final row in _rows) {
+                        if (row.mrpCtrl.text.trim().isEmpty) {
+                          setState(() {
+                            _dialogErrorMessage = _mrpMissingMessage;
+                          });
+                          return;
+                        }
+                      }
+
+                      // 5. PASS 4: MANDATORY EXPIRY DATE (ALL ROWS)
+                      for (final row in _rows) {
+                        // Double-checked for both text content and the Date object
+                        if (row.expDateCtrl.text.trim().isEmpty ||
+                            row.expDate == null) {
+                          setState(() {
+                            _dialogErrorMessage = _expDateMissingMessage;
+                          });
+                          return;
+                        }
+                      }
+
+                      // 6. PASS 5: AT LEAST ONE QUANTITY OR FOC (ALL ROWS)
+                      for (final row in _rows) {
+                        final quantity = row.qtyCtrl.text.trim();
+                        final foc = row.focCtrl.text.trim();
+                        final parsedQty = double.tryParse(quantity) ?? 0;
+                        final parsedFoc = double.tryParse(foc) ?? 0;
+
+                        if (parsedQty <= 0 && parsedFoc <= 0) {
+                          setState(() {
+                            _dialogErrorMessage = _qtyOrFocMessage;
+                          });
+                          return;
+                        }
+                      }
+
+                      // 7. PASS 6: TOTAL QUANTITY LIMITS
+                      if (_totalEnteredQtyOnly > widget.ordered) {
+                        setState(() {
+                          _dialogErrorMessage = _qtyExceedsMessage;
+                        });
+                        return;
+                      }
+
+                      // 8. PASS 7: FINAL QUANTITY MATCH CHECK (IF NOT OVERWRITING)
                       if (!_overwriteLineItem &&
-                          _totalEnteredQtyOnly != widget.ordered) {
+                          (_totalEnteredQtyOnly - widget.ordered).abs() >
+                              0.0001) {
                         setState(() {
                           _dialogErrorMessage = _quantityMismatchMessage;
                         });
                         return;
                       }
+
+                      // SUCCESS: Save and Close
+                      final results = _rows
+                          .map((r) => r.toBatchInfo())
+                          .toList();
 
                       setState(() {
                         _dialogErrorMessage = null;

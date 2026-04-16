@@ -16,8 +16,8 @@ import 'package:zerpai_erp/modules/accountant/models/accountant_chart_of_account
 import 'package:zerpai_erp/modules/accountant/providers/accountant_chart_of_accounts_provider.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart' as shared;
 import 'package:zerpai_erp/shared/widgets/inputs/account_tree_dropdown.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/notifiers/sales_order_controller.dart';
-import 'package:zerpai_erp/modules/sales/customers/models/sales_customer_model.dart';
+import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
