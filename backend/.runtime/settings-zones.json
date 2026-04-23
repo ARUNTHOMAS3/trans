@@ -1,0 +1,402 @@
+{
+  "zones": [
+    {
+      "id": "947ebe3c-0c7e-4117-b51a-9244b1ac0507",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "57cda31e-8bc9-4a15-a66a-9334a7099957",
+      "outlet_name": "Central Logistics Hub",
+      "zone_name": "Default Zone",
+      "status": "Active",
+      "levels": [
+        {
+          "level": 1,
+          "location": "Default Area",
+          "delimiter": "",
+          "alias_name": "Default Area",
+          "total": 1
+        }
+      ],
+      "created_at": "2026-04-06T12:53:35.750Z",
+      "updated_at": "2026-04-06T12:53:35.750Z"
+    },
+    {
+      "id": "d17d82b2-22f8-496d-a8c6-41ea4581f27b",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "57cda31e-8bc9-4a15-a66a-9334a7099957",
+      "outlet_name": "Central Logistics Hub",
+      "zone_name": "Receiving Zone",
+      "status": "Active",
+      "levels": [
+        {
+          "level": 1,
+          "location": "Receiving Area",
+          "delimiter": "",
+          "alias_name": "Receiving Area",
+          "total": 1
+        }
+      ],
+      "created_at": "2026-04-06T12:53:35.750Z",
+      "updated_at": "2026-04-06T12:53:35.750Z"
+    },
+    {
+      "id": "fc2295d3-9f36-4281-beca-c246ae8b4e89",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "57cda31e-8bc9-4a15-a66a-9334a7099957",
+      "outlet_name": "Central Logistics Hub",
+      "zone_name": "Package Zone",
+      "status": "Active",
+      "levels": [
+        {
+          "level": 1,
+          "location": "Package Area",
+          "delimiter": "",
+          "alias_name": "Package Area",
+          "total": 1
+        }
+      ],
+      "created_at": "2026-04-06T12:53:35.750Z",
+      "updated_at": "2026-04-06T12:53:35.750Z"
+    },
+    {
+      "id": "ce4ca068-c3bf-4dc8-9945-41d3ddbd1fd2",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "b0f8fbef-c03e-4bb8-86c4-9673f1937f09",
+      "outlet_name": "ZABNIX PVT/LTD",
+      "zone_name": "Default Zone",
+      "status": "Active",
+      "levels": [
+        {
+          "level": 1,
+          "location": "Default Area",
+          "delimiter": "",
+          "alias_name": "Default Area",
+          "total": 1
+        }
+      ],
+      "created_at": "2026-04-07T08:26:41.878Z",
+      "updated_at": "2026-04-07T08:26:41.878Z"
+    },
+    {
+      "id": "d543576e-1791-4df8-8691-df8f1441f3cb",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "b0f8fbef-c03e-4bb8-86c4-9673f1937f09",
+      "outlet_name": "ZABNIX PVT/LTD",
+      "zone_name": "Receiving Zone",
+      "status": "Active",
+      "levels": [
+        {
+          "level": 1,
+          "location": "Receiving Area",
+          "delimiter": "",
+          "alias_name": "Receiving Area",
+          "total": 1
+        }
+      ],
+      "created_at": "2026-04-07T08:26:41.878Z",
+      "updated_at": "2026-04-07T08:26:41.878Z"
+    },
+    {
+      "id": "74fc2c46-695a-4204-9104-5d3d9a094119",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "b0f8fbef-c03e-4bb8-86c4-9673f1937f09",
+      "outlet_name": "ZABNIX PVT/LTD",
+      "zone_name": "Package Zone",
+      "status": "Active",
+      "levels": [
+        {
+          "level": 1,
+          "location": "Package Area",
+          "delimiter": "",
+          "alias_name": "Package Area",
+          "total": 1
+        }
+      ],
+      "created_at": "2026-04-07T08:26:41.878Z",
+      "updated_at": "2026-04-07T08:26:41.878Z"
+    },
+    {
+      "id": "983fd30b-2521-45c1-a2fb-4dde5f7a26b6",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "5739892b-c3d0-4dc9-b2e6-9c60d8cbc0e2",
+      "outlet_name": "Test branch",
+      "zone_name": "Default Zone",
+      "status": "Active",
+      "levels": [
+        {
+          "level": 1,
+          "location": "Default Area",
+          "delimiter": "",
+          "alias_name": "Default Area",
+          "total": 1
+        }
+      ],
+      "created_at": "2026-04-12T11:41:22.961Z",
+      "updated_at": "2026-04-12T11:41:22.961Z"
+    },
+    {
+      "id": "a7ac105b-882b-48e0-9f8b-3083def26ebe",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "5739892b-c3d0-4dc9-b2e6-9c60d8cbc0e2",
+      "outlet_name": "Test branch",
+      "zone_name": "Receiving Zone",
+      "status": "Active",
+      "levels": [
+        {
+          "level": 1,
+          "location": "Receiving Area",
+          "delimiter": "",
+          "alias_name": "Receiving Area",
+          "total": 1
+        }
+      ],
+      "created_at": "2026-04-12T11:41:22.961Z",
+      "updated_at": "2026-04-12T11:41:22.961Z"
+    },
+    {
+      "id": "c26ac350-793c-4588-9bc8-aa9e812e12ed",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "5739892b-c3d0-4dc9-b2e6-9c60d8cbc0e2",
+      "outlet_name": "Test branch",
+      "zone_name": "Package Zone",
+      "status": "Active",
+      "levels": [
+        {
+          "level": 1,
+          "location": "Package Area",
+          "delimiter": "",
+          "alias_name": "Package Area",
+          "total": 1
+        }
+      ],
+      "created_at": "2026-04-12T11:41:22.961Z",
+      "updated_at": "2026-04-12T11:41:22.961Z"
+    },
+    {
+      "id": "50946acb-ce6d-47d2-89c8-b832d08e8ddd",
+      "branch_id": "6809c599-2649-44fb-b353-0c2691dbce09",
+      "branch_name": "Melattur Store",
+      "zone_name": "Default Zone",
+      "status": "Active",
+      "levels": [
+        {
+          "level": 1,
+          "location": "Default Area",
+          "delimiter": "",
+          "alias_name": "Default Area",
+          "total": 1
+        }
+      ],
+      "created_at": "2026-04-22T10:07:04.920Z",
+      "updated_at": "2026-04-22T10:07:04.920Z",
+      "entity_id": "66d79887-be98-40ab-ac40-9e0a008f9d8a"
+    },
+    {
+      "id": "47b556f5-e062-4587-a4a5-c16bdb977352",
+      "branch_id": "6809c599-2649-44fb-b353-0c2691dbce09",
+      "branch_name": "Melattur Store",
+      "zone_name": "Receiving Zone",
+      "status": "Active",
+      "levels": [
+        {
+          "level": 1,
+          "location": "Receiving Area",
+          "delimiter": "",
+          "alias_name": "Receiving Area",
+          "total": 1
+        }
+      ],
+      "created_at": "2026-04-22T10:07:04.920Z",
+      "updated_at": "2026-04-22T10:07:04.920Z",
+      "entity_id": "66d79887-be98-40ab-ac40-9e0a008f9d8a"
+    },
+    {
+      "id": "91238e3e-574f-4095-a31c-f1261b75f70f",
+      "branch_id": "6809c599-2649-44fb-b353-0c2691dbce09",
+      "branch_name": "Melattur Store",
+      "zone_name": "Package Zone",
+      "status": "Active",
+      "levels": [
+        {
+          "level": 1,
+          "location": "Package Area",
+          "delimiter": "",
+          "alias_name": "Package Area",
+          "total": 1
+        }
+      ],
+      "created_at": "2026-04-22T10:07:04.920Z",
+      "updated_at": "2026-04-22T10:07:04.920Z",
+      "entity_id": "66d79887-be98-40ab-ac40-9e0a008f9d8a"
+    }
+  ],
+  "bins": [
+    {
+      "id": "1e03cb3b-e88f-4201-8b25-08b06acb0dd1",
+      "zone_id": "947ebe3c-0c7e-4117-b51a-9244b1ac0507",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "57cda31e-8bc9-4a15-a66a-9334a7099957",
+      "outlet_name": "Central Logistics Hub",
+      "zone_name": "Default Zone",
+      "name": "Default Area",
+      "description": "",
+      "status": "Active",
+      "stock_on_hand": 0,
+      "created_at": "2026-04-06T12:53:35.750Z",
+      "updated_at": "2026-04-06T12:53:35.750Z"
+    },
+    {
+      "id": "0ad8c368-39c9-41cc-9cdb-0ca429fdf243",
+      "zone_id": "d17d82b2-22f8-496d-a8c6-41ea4581f27b",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "57cda31e-8bc9-4a15-a66a-9334a7099957",
+      "outlet_name": "Central Logistics Hub",
+      "zone_name": "Receiving Zone",
+      "name": "Receiving Area",
+      "description": "",
+      "status": "Active",
+      "stock_on_hand": 0,
+      "created_at": "2026-04-06T12:53:35.750Z",
+      "updated_at": "2026-04-06T12:53:35.750Z"
+    },
+    {
+      "id": "af1154d6-2906-4829-a1f5-6ebb6f22f349",
+      "zone_id": "fc2295d3-9f36-4281-beca-c246ae8b4e89",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "57cda31e-8bc9-4a15-a66a-9334a7099957",
+      "outlet_name": "Central Logistics Hub",
+      "zone_name": "Package Zone",
+      "name": "Package Area",
+      "description": "",
+      "status": "Active",
+      "stock_on_hand": 0,
+      "created_at": "2026-04-06T12:53:35.750Z",
+      "updated_at": "2026-04-06T12:53:35.750Z"
+    },
+    {
+      "id": "30162066-a452-4f68-a492-3df4fe6cbb1b",
+      "zone_id": "ce4ca068-c3bf-4dc8-9945-41d3ddbd1fd2",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "b0f8fbef-c03e-4bb8-86c4-9673f1937f09",
+      "outlet_name": "ZABNIX PVT/LTD",
+      "zone_name": "Default Zone",
+      "name": "Default Area",
+      "description": "",
+      "status": "Active",
+      "stock_on_hand": 0,
+      "created_at": "2026-04-07T08:26:41.878Z",
+      "updated_at": "2026-04-07T08:26:41.878Z"
+    },
+    {
+      "id": "fff3595a-dd3b-473d-9b2e-09b994b628a2",
+      "zone_id": "d543576e-1791-4df8-8691-df8f1441f3cb",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "b0f8fbef-c03e-4bb8-86c4-9673f1937f09",
+      "outlet_name": "ZABNIX PVT/LTD",
+      "zone_name": "Receiving Zone",
+      "name": "Receiving Area",
+      "description": "",
+      "status": "Active",
+      "stock_on_hand": 0,
+      "created_at": "2026-04-07T08:26:41.878Z",
+      "updated_at": "2026-04-07T08:26:41.878Z"
+    },
+    {
+      "id": "0a36b238-5c64-4001-aa7f-2df1c782fa64",
+      "zone_id": "74fc2c46-695a-4204-9104-5d3d9a094119",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "b0f8fbef-c03e-4bb8-86c4-9673f1937f09",
+      "outlet_name": "ZABNIX PVT/LTD",
+      "zone_name": "Package Zone",
+      "name": "Package Area",
+      "description": "",
+      "status": "Active",
+      "stock_on_hand": 0,
+      "created_at": "2026-04-07T08:26:41.878Z",
+      "updated_at": "2026-04-07T08:26:41.878Z"
+    },
+    {
+      "id": "bac958fe-48b2-44f3-84f1-665730be1283",
+      "zone_id": "983fd30b-2521-45c1-a2fb-4dde5f7a26b6",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "5739892b-c3d0-4dc9-b2e6-9c60d8cbc0e2",
+      "outlet_name": "Test branch",
+      "zone_name": "Default Zone",
+      "name": "Default Area",
+      "description": "",
+      "status": "Active",
+      "stock_on_hand": 0,
+      "created_at": "2026-04-12T11:41:22.961Z",
+      "updated_at": "2026-04-12T11:41:22.961Z"
+    },
+    {
+      "id": "1eeab139-9e17-4440-82a7-60a4abeb6eb0",
+      "zone_id": "a7ac105b-882b-48e0-9f8b-3083def26ebe",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "5739892b-c3d0-4dc9-b2e6-9c60d8cbc0e2",
+      "outlet_name": "Test branch",
+      "zone_name": "Receiving Zone",
+      "name": "Receiving Area",
+      "description": "",
+      "status": "Active",
+      "stock_on_hand": 0,
+      "created_at": "2026-04-12T11:41:22.961Z",
+      "updated_at": "2026-04-12T11:41:22.961Z"
+    },
+    {
+      "id": "eb284a1f-d949-4145-8ae1-e3e525dfe058",
+      "zone_id": "c26ac350-793c-4588-9bc8-aa9e812e12ed",
+      "org_id": "00000000-0000-0000-0000-000000000002",
+      "outlet_id": "5739892b-c3d0-4dc9-b2e6-9c60d8cbc0e2",
+      "outlet_name": "Test branch",
+      "zone_name": "Package Zone",
+      "name": "Package Area",
+      "description": "",
+      "status": "Active",
+      "stock_on_hand": 0,
+      "created_at": "2026-04-12T11:41:22.961Z",
+      "updated_at": "2026-04-12T11:41:22.961Z"
+    },
+    {
+      "id": "34e6ac6a-0a0a-486c-9929-a8187268e7d6",
+      "zone_id": "50946acb-ce6d-47d2-89c8-b832d08e8ddd",
+      "entity_id": "66d79887-be98-40ab-ac40-9e0a008f9d8a",
+      "branch_id": "6809c599-2649-44fb-b353-0c2691dbce09",
+      "branch_name": "Melattur Store",
+      "zone_name": "Default Zone",
+      "name": "Default Area",
+      "description": "",
+      "status": "Active",
+      "stock_on_hand": 0,
+      "created_at": "2026-04-22T10:07:04.920Z",
+      "updated_at": "2026-04-22T10:07:04.920Z"
+    },
+    {
+      "id": "860843fd-a03f-4253-bdd6-5793fc9da358",
+      "zone_id": "47b556f5-e062-4587-a4a5-c16bdb977352",
+      "entity_id": "66d79887-be98-40ab-ac40-9e0a008f9d8a",
+      "branch_id": "6809c599-2649-44fb-b353-0c2691dbce09",
+      "branch_name": "Melattur Store",
+      "zone_name": "Receiving Zone",
+      "name": "Receiving Area",
+      "description": "",
+      "status": "Active",
+      "stock_on_hand": 0,
+      "created_at": "2026-04-22T10:07:04.920Z",
+      "updated_at": "2026-04-22T10:07:04.920Z"
+    },
+    {
+      "id": "4efbc535-bfc1-4fcd-97ee-fca556dea0aa",
+      "zone_id": "91238e3e-574f-4095-a31c-f1261b75f70f",
+      "entity_id": "66d79887-be98-40ab-ac40-9e0a008f9d8a",
+      "branch_id": "6809c599-2649-44fb-b353-0c2691dbce09",
+      "branch_name": "Melattur Store",
+      "zone_name": "Package Zone",
+      "name": "Package Area",
+      "description": "",
+      "status": "Active",
+      "stock_on_hand": 0,
+      "created_at": "2026-04-22T10:07:04.920Z",
+      "updated_at": "2026-04-22T10:07:04.920Z"
+    }
+  ]
+}

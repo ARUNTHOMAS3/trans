@@ -1,0 +1,146 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1770401154684,
+      "tag": "0000_hesitant_gravity",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770747126316,
+      "tag": "0001_accounts_manual_journals",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775235316298,
+      "tag": "0002_closed_tomorrow_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775397640944,
+      "tag": "0003_awesome_ozymandias",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775412321502,
+      "tag": "0004_curious_stranger",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1775412733433,
+      "tag": "0005_tricky_freak",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775416418527,
+      "tag": "0006_parched_slapstick",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1775417827948,
+      "tag": "0007_absent_silver_surfer",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776076449322,
+      "tag": "0008_neat_prowler",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776080382475,
+      "tag": "0009_windy_paper_doll",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1776161924572,
+      "tag": "0010_spotty_giant_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1776231135331,
+      "tag": "0011_fantastic_swordsman",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1776242184725,
+      "tag": "0012_glamorous_vision",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1776314772466,
+      "tag": "0013_next_enchantress",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1776315837169,
+      "tag": "0014_light_longshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1776330313921,
+      "tag": "0015_dapper_kat_farrell",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1776347757198,
+      "tag": "0016_living_prism",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1776404031911,
+      "tag": "0017_military_havok",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1776405299216,
+      "tag": "0018_perpetual_sleepwalker",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1776852291089,
+      "tag": "0019_old_boomer",
+      "breakpoints": true
+    }
+  ]
+}

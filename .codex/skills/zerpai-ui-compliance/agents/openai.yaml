@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zerpai UI Compliance"
+  short_description: "UI and interaction rules for Zerpai"
+  default_prompt: "Use $zerpai-ui-compliance to implement Zerpai screens with the required UI rules, controls, and text casing."

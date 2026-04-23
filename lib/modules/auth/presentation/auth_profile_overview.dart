@@ -1,0 +1,457 @@
+// PATH: lib/modules/auth/presentation/profile_page.dart
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:skeletonizer/skeletonizer.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import '../repositories/user_management_repository.dart';
+import '../models/user_profile_model.dart';
+
+class ProfilePage extends ConsumerStatefulWidget {
+  const ProfilePage({super.key});
+
+  @override
+  ConsumerState<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends ConsumerState<ProfilePage> {
+  UserProfile? _profile;
+  bool _isLoading = true;
+  late final UserManagementRepository _repository;
+
+  @override
+  void initState() {
+    super.initState();
+    _repository = UserManagementRepository(apiClient: ApiClient());
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final profile = await _repository.getCurrentUserProfile();
+
+      setState(() {
+        _profile = profile;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      ZerpaiToast.error(context, 'Failed to load profile: $e');
+    }
+  }
+
+  void _showEditProfileDialog() {
+    // Implementation for editing profile
+    ZerpaiToast.info(context, 'Edit profile functionality coming soon');
+  }
+
+  void _showChangePasswordDialog() {
+    // Implementation for changing password
+    ZerpaiToast.info(context, 'Change password functionality coming soon');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('My Profile'),
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        actions: [
+          IconButton(icon: Icon(Icons.edit), onPressed: _showEditProfileDialog),
+        ],
+      ),
+      body: _isLoading
+          ? Skeletonizer(
+              enabled: true,
+              ignoreContainers: true,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            const CircleAvatar(radius: 50, child: Text('U')),
+                            const SizedBox(height: 16),
+                            const Text('Full Name Placeholder'),
+                            const SizedBox(height: 8),
+                            const Text('email@example.com'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: List.generate(4, (_) => const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Label placeholder'),
+                                Text('Value placeholder'),
+                              ],
+                            ),
+                          )),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : _profile == null
+          ? Center(child: Text('No profile data available'))
+          : SingleChildScrollView(
+              padding: EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  // Profile Header
+                  Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: Column(
+                        children: [
+                          // Avatar
+                          Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 50,
+                                backgroundColor: theme.colorScheme.primary
+                                    .withValues(alpha: 0.1),
+                                child: Text(
+                                  _profile!.fullName
+                                      .substring(0, 1)
+                                      .toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 40,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: _profile!.isVerified
+                                        ? Colors.green
+                                        : Colors.grey,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    _profile!.isVerified
+                                        ? Icons.verified
+                                        : Icons.report,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 16),
+
+                          // Name and Role
+                          Text(
+                            _profile!.fullName,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getRoleColor(_profile!).withValues(
+                                alpha: 0.1,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              _formatRole(_profile!),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: _getRoleColor(_profile!),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            _profile!.email,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: 24),
+
+                  // Personal Information
+                  Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Personal Information',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Divider(),
+                          _buildInfoRow(
+                            context,
+                            Icons.phone,
+                            'Phone Number',
+                            _profile!.phoneNumber ?? 'Not provided',
+                          ),
+                          _buildInfoRow(
+                            context,
+                            Icons.business,
+                            'Department',
+                            _profile!.department ?? 'Not specified',
+                          ),
+                          _buildInfoRow(
+                            context,
+                            Icons.work,
+                            'Position',
+                            _profile!.position ?? 'Not specified',
+                          ),
+                          _buildInfoRow(
+                            context,
+                            Icons.location_city,
+                            'Organization',
+                            _profile!.orgName,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: 24),
+
+                  // Account Information
+                  Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Account Information',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Divider(),
+                          _buildInfoRow(
+                            context,
+                            Icons.vpn_key,
+                            'User ID',
+                            _profile!.id,
+                          ),
+                          _buildInfoRow(
+                            context,
+                            Icons.login,
+                            'Last Login',
+                            _profile!.lastLoginAt != null
+                                ? '${_profile!.lastLoginAt!.day}/${_profile!.lastLoginAt!.month}/${_profile!.lastLoginAt!.year}'
+                                : 'Never',
+                          ),
+                          _buildInfoRow(
+                            context,
+                            Icons.calendar_today,
+                            'Member Since',
+                            '${_profile!.createdAt.day}/${_profile!.createdAt.month}/${_profile!.createdAt.year}',
+                          ),
+                          _buildStatusRow(
+                            context,
+                            'Account Status',
+                            _profile!.isActive ? 'Active' : 'Inactive',
+                            _profile!.isActive,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: 24),
+
+                  // Action Buttons
+                  Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _showChangePasswordDialog,
+                              icon: Icon(Icons.lock),
+                              label: Text('Change Password'),
+                              style: ElevatedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _loadProfile,
+                              icon: Icon(Icons.refresh),
+                              label: Text('Refresh Profile'),
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildInfoRow(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+  ) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: theme.colorScheme.primary),
+          SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusRow(
+    BuildContext context,
+    String label,
+    String value,
+    bool isActive,
+  ) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(Icons.info, size: 20, color: theme.colorScheme.primary),
+          SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? Colors.green.withValues(alpha: 0.1)
+                    : AppTheme.errorRed.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: isActive ? Colors.green : AppTheme.errorRed,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getRoleColor(UserProfile profile) {
+    switch (profile.role) {
+      case 'admin':
+        return Colors.purple;
+      case 'ho_admin':
+        return Colors.blue;
+      case 'branch_admin':
+        return Colors.orange;
+      default:
+        return profile.roleIsDefault ? Colors.blueGrey : Colors.teal;
+    }
+  }
+
+  String _formatRole(UserProfile profile) {
+    if (profile.roleLabel?.trim().isNotEmpty == true) {
+      return profile.roleLabel!.trim();
+    }
+
+    switch (profile.role) {
+      case 'admin':
+        return 'Admin';
+      case 'ho_admin':
+        return 'HO Admin';
+      case 'branch_admin':
+        return 'Branch Admin';
+      default:
+        return profile.role;
+    }
+  }
+}

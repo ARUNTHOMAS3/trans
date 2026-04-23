@@ -1,0 +1,1875 @@
+// ignore_for_file: unused_element, unused_field
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'
+    show FilteringTextInputFormatter, LengthLimitingTextInputFormatter;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:skeletonizer/skeletonizer.dart';
+import 'package:zerpai_erp/core/providers/app_branding_provider.dart';
+import 'package:zerpai_erp/core/routing/app_routes.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/form_row.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/shared/widgets/settings_fixed_header_layout.dart';
+import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
+import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
+import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/phone_input_field.dart';
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
+
+
+// ─── Sidebar nav ──────────────────────────────────────────────────────────────
+
+class _NavSection {
+  final String title;
+  final List<_NavBlock> blocks;
+  const _NavSection({required this.title, required this.blocks});
+}
+
+class _NavBlock {
+  final String title;
+  final List<_NavEntry> items;
+  const _NavBlock({required this.title, required this.items});
+}
+
+class _NavEntry {
+  final String label;
+  final String? route;
+  const _NavEntry({required this.label, this.route});
+}
+
+const List<_NavSection> _navSections = <_NavSection>[
+  _NavSection(
+    title: 'Organization Settings',
+    blocks: <_NavBlock>[
+      _NavBlock(
+        title: 'Organization',
+        items: <_NavEntry>[
+          _NavEntry(label: 'Profile', route: AppRoutes.settingsOrgProfile),
+          _NavEntry(label: 'Branding', route: AppRoutes.settingsOrgBranding),
+          _NavEntry(label: 'Branches', route: AppRoutes.settingsBranches),
+          _NavEntry(label: 'Warehouses', route: AppRoutes.settingsWarehouses),
+          _NavEntry(label: 'Approvals'),
+          _NavEntry(label: 'Manage Subscription'),
+        ],
+      ),
+      _NavBlock(
+        title: 'Users & Roles',
+        items: <_NavEntry>[
+          _NavEntry(label: 'Users', route: AppRoutes.settingsUsers),
+          _NavEntry(label: 'Roles', route: AppRoutes.settingsRoles),
+          _NavEntry(label: 'User Preferences'),
+        ],
+      ),
+      _NavBlock(
+        title: 'Taxes & Compliance',
+        items: <_NavEntry>[
+          _NavEntry(label: 'Taxes'),
+          _NavEntry(label: 'Direct Taxes'),
+          _NavEntry(label: 'e-Way Bills'),
+          _NavEntry(label: 'e-Invoicing'),
+          _NavEntry(label: 'MSME Settings'),
+        ],
+      ),
+      _NavBlock(
+        title: 'Setup & Configurations',
+        items: <_NavEntry>[
+          _NavEntry(label: 'General'),
+          _NavEntry(label: 'Currencies'),
+          _NavEntry(label: 'Reminders'),
+          _NavEntry(label: 'Customer Portal'),
+        ],
+      ),
+      _NavBlock(
+        title: 'Customization',
+        items: <_NavEntry>[
+          _NavEntry(label: 'Transaction Number Series'),
+          _NavEntry(label: 'PDF Templates'),
+          _NavEntry(label: 'Email Notifications'),
+          _NavEntry(label: 'SMS Notifications'),
+          _NavEntry(label: 'Reporting Tags'),
+          _NavEntry(label: 'Web Tabs'),
+        ],
+      ),
+      _NavBlock(
+        title: 'Automation',
+        items: <_NavEntry>[
+          _NavEntry(label: 'Workflow Rules'),
+          _NavEntry(label: 'Workflow Actions'),
+          _NavEntry(label: 'Workflow Logs', route: AppRoutes.auditLogs),
+        ],
+      ),
+    ],
+  ),
+  _NavSection(
+    title: 'Module Settings',
+    blocks: <_NavBlock>[
+      _NavBlock(
+        title: 'General',
+        items: <_NavEntry>[
+          _NavEntry(
+            label: 'Customers and Vendors',
+            route: AppRoutes.salesCustomers,
+          ),
+          _NavEntry(label: 'Items', route: AppRoutes.itemsReport),
+        ],
+      ),
+    ],
+  ),
+];
+
+// ─── Branch option ────────────────────────────────────────────────────────────
+
+class _BranchOption {
+  final String id;
+  final String name;
+  const _BranchOption({required this.id, required this.name});
+}
+
+class _StateOption {
+  final String id;
+  final String name;
+  final String? code;
+  const _StateOption({required this.id, required this.name, this.code});
+}
+
+class _DistrictOption {
+  final String id;
+  final String name;
+  const _DistrictOption({required this.id, required this.name});
+}
+
+class _LocalBodyOption {
+  final String id;
+  final String name;
+  final String bodyType;
+  const _LocalBodyOption({
+    required this.id,
+    required this.name,
+    required this.bodyType,
+  });
+}
+
+class _AssemblyOption {
+  final String id;
+  final String name;
+  const _AssemblyOption({required this.id, required this.name});
+}
+
+class _WardOption {
+  final String id;
+  final int? wardNo;
+  final String name;
+  final String displayName;
+  const _WardOption({
+    required this.id,
+    this.wardNo,
+    required this.name,
+    required this.displayName,
+  });
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+class SettingsWarehouseCreatePage extends ConsumerStatefulWidget {
+  final String? warehouseId;
+  const SettingsWarehouseCreatePage({super.key, this.warehouseId});
+
+  @override
+  ConsumerState<SettingsWarehouseCreatePage> createState() =>
+      _SettingsWarehouseCreatePageState();
+}
+
+class _SettingsWarehouseCreatePageState
+    extends ConsumerState<SettingsWarehouseCreatePage> {
+  final ApiClient _apiClient = ApiClient();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+
+  final TextEditingController _nameCtrl = TextEditingController();
+  final TextEditingController _warehouseCodeCtrl = TextEditingController();
+  bool _warehouseCodeManualOverride = false;
+  String _warehouseCodePrefix = 'WH-';
+  int _warehouseCodeNextNumber = 1;
+  final TextEditingController _attentionCtrl = TextEditingController();
+  final TextEditingController _streetCtrl = TextEditingController();
+  final TextEditingController _street2Ctrl = TextEditingController();
+  final TextEditingController _cityCtrl = TextEditingController();
+  final TextEditingController _pincodeCtrl = TextEditingController();
+  final TextEditingController _phoneCtrl = TextEditingController();
+  String _phonePrefix = '+91';
+
+  String? _selectedState;
+  String? _selectedDistrictId;
+  String? _selectedLocalBodyType;
+  String? _selectedLocalBodyId;
+  String? _selectedAssemblyId;
+  String? _selectedWardId;
+  String? _parentBranchId;
+  String? _parentBranchError;
+  bool _isSaving = false;
+  bool _isLoading = false;
+  bool _showValidationErrors = false;
+  String _organizationName = '';
+  String _orgCountry = 'India';
+  List<_StateOption> _stateLookupRows = <_StateOption>[];
+  List<String> _stateOptions = <String>[];
+  List<_DistrictOption> _districtOptions = <_DistrictOption>[];
+  List<_LocalBodyOption> _allLocalBodyOptions = <_LocalBodyOption>[];
+  List<_LocalBodyOption> _localBodyOptions = <_LocalBodyOption>[];
+  List<_AssemblyOption> _assemblyOptions = <_AssemblyOption>[];
+  List<_WardOption> _wardOptions = <_WardOption>[];
+  List<_BranchOption> _branches = <_BranchOption>[];
+  final Set<String> _expandedBlocks = <String>{'Organization'};
+
+  bool _isDefaultWarehouse = false;
+
+  bool get _isEditing => widget.warehouseId != null;
+  bool get _showMainAddressLsgdFields =>
+      (_selectedState ?? '').trim().toLowerCase() == 'kerala';
+
+  List<String> get _availableLocalBodyTypeOptions {
+    final seen = <String>{};
+    return _allLocalBodyOptions
+        .map((localBody) => localBody.bodyType.trim())
+        .where((bodyType) => bodyType.isNotEmpty && seen.add(bodyType))
+        .toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _syncWarehouseCodeFromPreferences();
+    _loadOrgAndBranches();
+    if (_isEditing) _loadExisting();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _nameCtrl.dispose();
+    _warehouseCodeCtrl.dispose();
+    _attentionCtrl.dispose();
+    _streetCtrl.dispose();
+    _street2Ctrl.dispose();
+    _cityCtrl.dispose();
+    _pincodeCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  String _formatGeneratedWarehouseCode() {
+    final prefix = _warehouseCodePrefix.trim();
+    final nextNumber =
+        _warehouseCodeNextNumber < 1 ? 1 : _warehouseCodeNextNumber;
+    return '$prefix${nextNumber.toString().padLeft(5, '0')}';
+  }
+
+  void _syncWarehouseCodeFromPreferences() {
+    if (_isEditing || _warehouseCodeManualOverride) return;
+    _warehouseCodeCtrl.text = _formatGeneratedWarehouseCode();
+  }
+
+  void _hydrateWarehouseCodePreferences(String rawCode) {
+    final code = rawCode.trim();
+    if (code.isEmpty) return;
+
+    final match = RegExp(r'^(.*?)(\d+)$').firstMatch(code);
+    if (match == null) return;
+
+    final parsedPrefix = match.group(1)?.trim();
+    final parsedNext = int.tryParse(match.group(2) ?? '');
+    if (parsedPrefix != null && parsedPrefix.isNotEmpty) {
+      _warehouseCodePrefix = parsedPrefix;
+    }
+    if (parsedNext != null && parsedNext > 0) {
+      _warehouseCodeNextNumber = parsedNext;
+    }
+  }
+
+  Future<void> _showWarehouseCodePreferencesDialog() async {
+    await showDialog<void>(
+      context: context,
+      useSafeArea: false,
+      builder: (ctx) {
+        bool isAutoGenerate = !_warehouseCodeManualOverride;
+        final prefixCtrl = TextEditingController(text: _warehouseCodePrefix);
+        final numberCtrl = TextEditingController(
+          text: _warehouseCodeNextNumber.toString().padLeft(5, '0'),
+        );
+        const dialogTextPrimary = AppTheme.textPrimary;
+        const dialogTextSecondary = AppTheme.textSecondary;
+        const dialogBorderColor = AppTheme.borderLight;
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              alignment: Alignment.topCenter,
+              insetPadding: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SizedBox(
+                width: 500,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Configure Warehouse Code Preferences',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: dialogTextPrimary,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: const Icon(
+                              LucideIcons.x,
+                              size: 20,
+                              color: AppTheme.errorRed,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: dialogBorderColor),
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Your warehouse codes are set on auto-generate mode to save your time.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: dialogTextPrimary,
+                            ),
+                          ),
+                          const Text(
+                            'Are you sure about changing this setting?',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: dialogTextPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          InkWell(
+                            onTap: () =>
+                                setDialogState(() => isAutoGenerate = true),
+                            child: Row(
+                              children: [
+                                RadioGroup<bool>(
+                                  groupValue: isAutoGenerate,
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setDialogState(() => isAutoGenerate = value);
+                                    }
+                                  },
+                                  child: const Radio<bool>(
+                                    value: true,
+                                    activeColor: AppTheme.primaryBlue,
+                                  ),
+                                ),
+                                const Text(
+                                  'Continue auto-generating warehouse codes',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const ZTooltip(
+                                  message:
+                                      'Set the warehouse code prefix and the next running number.',
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isAutoGenerate) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(left: 48, top: 12),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Prefix',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: dialogTextSecondary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        TextField(
+                                          controller: prefixCtrl,
+                                          style: const TextStyle(fontSize: 13),
+                                          decoration: InputDecoration(
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 10,
+                                                ),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              borderSide: const BorderSide(
+                                                color: dialogBorderColor,
+                                              ),
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              borderSide: const BorderSide(
+                                                color: dialogBorderColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Next Number',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: dialogTextSecondary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        TextField(
+                                          controller: numberCtrl,
+                                          keyboardType: TextInputType.number,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
+                                          style: const TextStyle(fontSize: 13),
+                                          decoration: InputDecoration(
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 10,
+                                                ),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              borderSide: const BorderSide(
+                                                color: dialogBorderColor,
+                                              ),
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              borderSide: const BorderSide(
+                                                color: dialogBorderColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          InkWell(
+                            onTap: () =>
+                                setDialogState(() => isAutoGenerate = false),
+                            child: Row(
+                              children: [
+                                RadioGroup<bool>(
+                                  groupValue: isAutoGenerate,
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setDialogState(() => isAutoGenerate = value);
+                                    }
+                                  },
+                                  child: const Radio<bool>(
+                                    value: false,
+                                    activeColor: AppTheme.primaryBlue,
+                                  ),
+                                ),
+                                const Text(
+                                  'Enter warehouse codes manually',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: dialogTextPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: dialogBorderColor),
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        children: [
+                          ElevatedButton(
+                            onPressed: () {
+                              final parsedNext =
+                                  int.tryParse(numberCtrl.text.trim()) ?? 1;
+                              if (!mounted) return;
+                              setState(() {
+                                _warehouseCodeManualOverride = !isAutoGenerate;
+                                if (isAutoGenerate) {
+                                  final nextPrefix = prefixCtrl.text.trim();
+                                  _warehouseCodePrefix = nextPrefix.isEmpty
+                                      ? 'WH-'
+                                      : nextPrefix;
+                                  _warehouseCodeNextNumber =
+                                      parsedNext < 1 ? 1 : parsedNext;
+                                  _syncWarehouseCodeFromPreferences();
+                                }
+                              });
+                              Navigator.pop(ctx);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.successGreen,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            child: const Text(
+                              'Save',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: dialogTextPrimary,
+                              backgroundColor: AppTheme.bgLight,
+                              side: BorderSide.none,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String? _normalizeIndiaPhoneToTenDigits(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final cleaned = raw.replaceAll(RegExp(r'\D'), '');
+    if (cleaned.length == 10) return cleaned;
+    if (cleaned.length == 11 && cleaned.startsWith('0')) {
+      return cleaned.substring(1);
+    }
+    if (cleaned.length == 12 && cleaned.startsWith('91')) {
+      return cleaned.substring(2);
+    }
+    return cleaned.length > 10 ? cleaned.substring(cleaned.length - 10) : cleaned;
+  }
+
+  Future<void> _loadOrgAndBranches() async {
+    try {
+      final user = ref.read(authUserProvider);
+      final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : '';
+      final orgRes = await _apiClient.get('lookups/org/$orgId');
+      if (!mounted) return;
+
+      String orgCountry = 'India';
+      List<_StateOption> stateRows = <_StateOption>[];
+
+      if (orgRes.success && orgRes.data is Map<String, dynamic>) {
+        final orgData = orgRes.data as Map<String, dynamic>;
+        final countryName = (orgData['country'] ?? '').toString().trim();
+        orgCountry = countryName.isNotEmpty ? countryName : 'India';
+        _organizationName = ((orgData['name'] ?? user?.orgName ?? ''))
+            .toString()
+            .trim();
+        stateRows = await _fetchStatesForCountryName(orgCountry);
+      } else {
+        _organizationName = user?.orgName ?? '';
+        stateRows = await _fetchStatesForCountryName(orgCountry);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _orgCountry = orgCountry;
+        _stateLookupRows = stateRows;
+        _stateOptions = stateRows.map((state) => state.name).toList();
+        if (_selectedState != null && !_stateOptions.contains(_selectedState)) {
+          _selectedState = null;
+        }
+      });
+
+      final res = await _apiClient.get(
+        'branches',
+        queryParameters: <String, dynamic>{'org_id': orgId},
+      );
+      if (!mounted) return;
+      if (res.success && res.data is List) {
+        setState(() {
+          _branches = (res.data as List)
+              .whereType<Map<String, dynamic>>()
+              .map(
+                (o) => _BranchOption(
+                  id: o['id'].toString(),
+                  name: o['name'].toString(),
+                ),
+              )
+              .toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<List<_StateOption>> _fetchStatesForCountryName(String countryName) async {
+    final String normalizedCountryName = countryName.trim().toLowerCase();
+    if (normalizedCountryName.isEmpty) {
+      return <_StateOption>[];
+    }
+
+    final countriesRes = await _apiClient.get('lookups/countries');
+    if (!countriesRes.success || countriesRes.data is! List) {
+      return <_StateOption>[];
+    }
+
+    final Map<String, dynamic> match = (countriesRes.data as List)
+        .whereType<Map<String, dynamic>>()
+        .firstWhere(
+          (c) =>
+              (c['name'] ?? '').toString().trim().toLowerCase() ==
+              normalizedCountryName,
+          orElse: () => <String, dynamic>{},
+        );
+
+    final String countryId = (match['id'] ?? '').toString();
+    if (countryId.isEmpty) {
+      return <_StateOption>[];
+    }
+
+    final statesRes = await _apiClient.get(
+      'lookups/states',
+      queryParameters: {'countryId': countryId},
+    );
+    if (!statesRes.success || statesRes.data is! List) {
+      return <_StateOption>[];
+    }
+
+    return (statesRes.data as List)
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (state) => _StateOption(
+            id: (state['id'] ?? '').toString(),
+            name: (state['name'] ?? '').toString().trim(),
+            code: state['code']?.toString(),
+          ),
+        )
+        .where((state) => state.name.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> _loadDistrictsForSelectedState() async {
+    final selectedState = _selectedState;
+    if (selectedState == null || selectedState.isEmpty) return;
+
+    final stateRow = _stateLookupRows.firstWhere(
+      (state) => state.name == selectedState,
+      orElse: () => const _StateOption(id: '', name: ''),
+    );
+    if (stateRow.id.isEmpty) return;
+
+    try {
+      final res = await _apiClient.get(
+        'lookups/districts',
+        queryParameters: {'stateId': stateRow.id},
+      );
+      if (!mounted) return;
+      if (res.success && res.data is List) {
+        setState(() {
+          _districtOptions = (res.data as List)
+              .whereType<Map<String, dynamic>>()
+              .map(
+                (district) => _DistrictOption(
+                  id: (district['id'] ?? '').toString(),
+                  name: (district['name'] ?? '').toString(),
+                ),
+              )
+              .where((district) => district.id.isNotEmpty)
+              .toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadLocalBodiesForSelectedDistrict(String districtId) async {
+    try {
+      final res = await _apiClient.get(
+        'lookups/local-bodies',
+        queryParameters: {'districtId': districtId},
+      );
+      if (!mounted) return;
+      if (res.success && res.data is List) {
+        final allLocalBodies = (res.data as List)
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (localBody) => _LocalBodyOption(
+                id: (localBody['id'] ?? '').toString(),
+                name: (localBody['name'] ?? '').toString(),
+                bodyType: (localBody['body_type'] ?? '').toString(),
+              ),
+            )
+            .where((localBody) => localBody.id.isNotEmpty)
+            .toList();
+        setState(() {
+          _allLocalBodyOptions = allLocalBodies;
+          _localBodyOptions =
+              _selectedLocalBodyType == null || _selectedLocalBodyType!.isEmpty
+              ? allLocalBodies
+              : allLocalBodies
+                    .where(
+                      (localBody) =>
+                          localBody.bodyType.toLowerCase() ==
+                          _selectedLocalBodyType!.toLowerCase(),
+                    )
+                    .toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadWardsForSelectedLocalBody() async {
+    final localBodyId = _selectedLocalBodyId;
+    if (localBodyId == null || localBodyId.isEmpty) return;
+
+    try {
+      final res = await _apiClient.get(
+        'lookups/wards',
+        queryParameters: {'localBodyId': localBodyId},
+      );
+      if (!mounted) return;
+      if (res.success && res.data is List) {
+        setState(() {
+          _wardOptions = (res.data as List)
+              .whereType<Map<String, dynamic>>()
+              .map(
+                (ward) => _WardOption(
+                  id: (ward['id'] ?? '').toString(),
+                  wardNo: int.tryParse(ward['ward_no']?.toString() ?? ''),
+                  name: (ward['name'] ?? '').toString(),
+                  displayName: (ward['display_name'] ?? '').toString(),
+                ),
+              )
+              .where((ward) => ward.id.isNotEmpty)
+              .toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadAssembliesForSelectedDistrict() async {
+    final districtId = _selectedDistrictId;
+    if (districtId == null || districtId.isEmpty) return;
+
+    try {
+      final res = await _apiClient.get(
+        'lookups/assemblies',
+        queryParameters: {'districtId': districtId},
+      );
+      if (!mounted) return;
+      if (res.success && res.data is List) {
+        setState(() {
+          _assemblyOptions = (res.data as List)
+              .whereType<Map<String, dynamic>>()
+              .map(
+                (assembly) => _AssemblyOption(
+                  id: (assembly['id'] ?? '').toString(),
+                  name: (assembly['name'] ?? '').toString(),
+                ),
+              )
+              .where((assembly) => assembly.id.isNotEmpty)
+              .toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadExisting() async {
+    setState(() => _isLoading = true);
+    try {
+      final user = ref.read(authUserProvider);
+      final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : '';
+      final res = await _apiClient.get(
+        'warehouses-settings/${widget.warehouseId}',
+        queryParameters: {'org_id': orgId},
+      );
+      if (!mounted) return;
+      if (res.success && res.data is Map<String, dynamic>) {
+        final d = res.data as Map<String, dynamic>;
+        final isDefault = d['is_default_for_branch'] as bool? ?? false;
+        setState(() => _isDefaultWarehouse = isDefault);
+        _nameCtrl.text = (d['name'] ?? '').toString();
+        _warehouseCodeCtrl.text = (d['warehouse_code'] ?? '').toString();
+        _hydrateWarehouseCodePreferences(_warehouseCodeCtrl.text);
+        _attentionCtrl.text = (d['attention'] ?? '').toString();
+        _streetCtrl.text = (d['street'] ?? d['address_street_1'] ?? '').toString();
+        _street2Ctrl.text = (d['place'] ?? d['address_street_2'] ?? '').toString();
+        _cityCtrl.text = (d['city'] ?? '').toString();
+        _pincodeCtrl.text = (d['pincode'] ?? '').toString();
+        _phoneCtrl.text = (d['phone'] ?? '').toString().replaceAll(RegExp(r'^\+91\s*'), '');
+        final stateVal = (d['state'] ?? '').toString();
+        final parentId = d['branch_id']?.toString();
+        final districtId = d['district_id']?.toString();
+        final localBodyId = d['local_body_id']?.toString();
+        final assemblyId = d['assembly_id']?.toString();
+        final wardId = d['ward_id']?.toString();
+        setState(() {
+          _selectedState = stateVal.isNotEmpty ? stateVal : null;
+          _selectedDistrictId = districtId?.isNotEmpty == true ? districtId : null;
+          _selectedLocalBodyId = localBodyId?.isNotEmpty == true ? localBodyId : null;
+          _selectedAssemblyId = assemblyId?.isNotEmpty == true ? assemblyId : null;
+          _selectedWardId = wardId?.isNotEmpty == true ? wardId : null;
+          if (parentId != null && parentId.isNotEmpty)
+            _parentBranchId = parentId;
+        });
+        if (_showMainAddressLsgdFields) {
+          await _loadDistrictsForSelectedState();
+          if (_selectedDistrictId != null && _selectedDistrictId!.isNotEmpty) {
+            await _loadLocalBodiesForSelectedDistrict(_selectedDistrictId!);
+            await _loadAssembliesForSelectedDistrict();
+            if (_selectedLocalBodyId != null &&
+                _selectedLocalBodyId!.isNotEmpty) {
+            _LocalBodyOption? matchedLocalBody;
+            for (final localBody in _allLocalBodyOptions) {
+              if (localBody.id == _selectedLocalBodyId) {
+                matchedLocalBody = localBody;
+                break;
+              }
+            }
+            if (matchedLocalBody != null) {
+              setState(() {
+                _selectedLocalBodyType = matchedLocalBody!.bodyType;
+                _localBodyOptions = _allLocalBodyOptions
+                    .where(
+                      (localBody) =>
+                          localBody.bodyType.toLowerCase() ==
+                          matchedLocalBody!.bodyType.toLowerCase(),
+                    )
+                    .toList();
+              });
+            }
+              await _loadWardsForSelectedLocalBody();
+            }
+          }
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _parentBranchError = null);
+    if (!_formKey.currentState!.validate()) {
+      if (mounted) {
+        setState(() => _showValidationErrors = true);
+      }
+      if (_nameCtrl.text.trim().isEmpty) {
+        ZerpaiToast.error(context, 'Please enter a warehouse name.');
+      } else {
+        ZerpaiToast.error(context, 'Please correct the highlighted fields.');
+      }
+      return;
+    }
+    setState(() => _isSaving = true);
+    try {
+      final user = ref.read(authUserProvider);
+      final orgId = (user?.orgId.isNotEmpty == true) ? user!.orgId : '';
+      final mainAddressLsgdMissing =
+          _showMainAddressLsgdFields &&
+          (_selectedDistrictId == null ||
+              _selectedDistrictId!.trim().isEmpty ||
+              _selectedLocalBodyId == null ||
+              _selectedLocalBodyId!.trim().isEmpty ||
+              _selectedAssemblyId == null ||
+              _selectedAssemblyId!.trim().isEmpty ||
+              _selectedWardId == null ||
+              _selectedWardId!.trim().isEmpty);
+      if (mainAddressLsgdMissing) {
+        setState(() => _isSaving = false);
+        if (mounted) {
+          setState(() => _showValidationErrors = true);
+          ZerpaiToast.error(
+            context,
+            'Please complete the Kerala district, local body, assembly, and ward details.',
+          );
+        }
+        return;
+      }
+      final nameCheck = await ref
+          .read(apiClientProvider)
+          .get('warehouses-settings', queryParameters: {'org_id': orgId});
+      if (nameCheck.success && nameCheck.data is List) {
+        final trimmed = _nameCtrl.text.trim().toLowerCase();
+        final duplicate = (nameCheck.data as List).any((o) {
+          final isSelf =
+              widget.warehouseId != null &&
+              o['id']?.toString() == widget.warehouseId;
+          return !isSelf &&
+              (o['name'] ?? '').toString().toLowerCase() == trimmed;
+        });
+        if (duplicate) {
+          setState(() => _isSaving = false);
+          if (mounted)
+            ZerpaiToast.error(
+              context,
+              'A warehouse with this name already exists.',
+            );
+          return;
+        }
+      }
+      final body = <String, dynamic>{
+        'org_id': orgId,
+        'name': _nameCtrl.text.trim(),
+        'warehouse_code': _warehouseCodeCtrl.text.trim().isNotEmpty
+            ? _warehouseCodeCtrl.text.trim().toUpperCase()
+            : _nameCtrl.text.trim().toUpperCase().replaceAll(' ', '-'),
+        'attention': _attentionCtrl.text.trim(),
+        'street': _streetCtrl.text.trim(),
+        'place': _street2Ctrl.text.trim(),
+        'city': _cityCtrl.text.trim(),
+        'state': _selectedState ?? '',
+        'district_id': _showMainAddressLsgdFields ? _selectedDistrictId : null,
+        'local_body_id': _showMainAddressLsgdFields
+            ? _selectedLocalBodyId
+            : null,
+        'assembly_id': _showMainAddressLsgdFields ? _selectedAssemblyId : null,
+        'ward_id': _showMainAddressLsgdFields ? _selectedWardId : null,
+        'pincode': _pincodeCtrl.text.trim(),
+        'country': _orgCountry,
+        'phone': '$_phonePrefix ${_phoneCtrl.text.trim()}',
+      };
+      if (_parentBranchId != null && _parentBranchId!.isNotEmpty) {
+        body['branch_id'] = _parentBranchId;
+      }
+      final apiClient = ref.read(apiClientProvider);
+      final res = _isEditing
+          ? await apiClient.put(
+              'warehouses-settings/${widget.warehouseId}',
+              data: body,
+            )
+          : await apiClient.post('warehouses-settings', data: body);
+      if (!mounted) return;
+      if (res.success) {
+        ZerpaiToast.success(
+          context,
+          _isEditing
+              ? 'Warehouse updated successfully.'
+              : 'Warehouse created successfully.',
+        );
+        context.go(AppRoutes.settingsWarehouses);
+      } else {
+        ZerpaiToast.error(
+          context,
+          (res.message?.isNotEmpty == true)
+              ? res.message!
+              : 'Failed to save warehouse.',
+        );
+      }
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'An unexpected error occurred.');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  // ─── Build ─────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return ZerpaiLayout(
+      pageTitle: '',
+      useHorizontalPadding: false,
+      useTopPadding: false,
+      enableBodyScroll: false,
+      searchFocusNode: _searchFocusNode,
+      child: Container(
+        color: Colors.white,
+        child: Column(
+          children: [
+            _buildTopBar(context),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildSidebar(),
+                  Expanded(child: _buildBody()),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Top bar ───────────────────────────────────────────────────────────────
+
+  Widget _buildTopBar(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.space32,
+        AppTheme.space20,
+        AppTheme.space32,
+        AppTheme.space16,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1560),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 320,
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: () => context.go(AppRoutes.settings),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.borderLight),
+                        ),
+                        child: const Icon(
+                          LucideIcons.chevronLeft,
+                          size: 20,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space12),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF3EE),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFFFED7C3),
+                              ),
+                            ),
+                            child: const Icon(
+                              LucideIcons.settings2,
+                              color: Color(0xFFF97316),
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: AppTheme.space16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('All Settings', style: AppTheme.pageTitle),
+                                const SizedBox(height: AppTheme.space4),
+                                Text(
+                                  _organizationName.isNotEmpty
+                                      ? _organizationName
+                                      : 'Your Organization',
+                                  style: AppTheme.bodyText,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppTheme.space24),
+              Expanded(
+                child: Center(
+                  child: SizedBox(
+                    width: 360,
+                    height: 42,
+                    child: SettingsSearchField(
+                      items: const <SettingsSearchItem>[],
+                      focusNode: _searchFocusNode,
+                      controller: _searchController,
+                      onQueryChanged: (_) {},
+                      onNoMatch: (q) =>
+                          ZerpaiToast.info(context, 'No settings matched "$q"'),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppTheme.space24),
+              TextButton.icon(
+                onPressed: () => context.go(AppRoutes.settings),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.textPrimary,
+                  backgroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.space16,
+                    vertical: AppTheme.space12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(
+                  LucideIcons.x,
+                  size: 16,
+                  color: AppTheme.errorRed,
+                ),
+                label: const Text('Close Settings'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Sidebar ───────────────────────────────────────────────────────────────
+
+  Widget _buildSidebar() {
+    return SettingsNavigationSidebar(
+      currentPath: GoRouterState.of(context).uri.path,
+    );
+  }
+
+  Widget _buildSidebarBlock(_NavBlock block, String currentPath) {
+    final bool hasActiveChild = block.items.any(
+      (item) => item.route == currentPath,
+    );
+    final bool isExpanded =
+        _expandedBlocks.contains(block.title) || hasActiveChild;
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppTheme.space4),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() {
+              if (isExpanded)
+                _expandedBlocks.remove(block.title);
+              else
+                _expandedBlocks.add(block.title);
+            }),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.space8,
+                vertical: AppTheme.space10,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isExpanded
+                        ? LucideIcons.chevronDown
+                        : LucideIcons.chevronRight,
+                    size: 16,
+                    color: AppTheme.textSecondary,
+                  ),
+                  const SizedBox(width: AppTheme.space8),
+                  Expanded(
+                    child: Text(
+                      block.title,
+                      style: AppTheme.bodyText.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isExpanded)
+            Padding(
+              padding: const EdgeInsets.only(
+                left: AppTheme.space28,
+                right: AppTheme.space8,
+                bottom: AppTheme.space6,
+              ),
+              child: Column(
+                children: block.items
+                    .map((e) => _buildSidebarEntry(e, currentPath))
+                    .toList(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebarEntry(_NavEntry entry, String currentPath) {
+    final bool isActive =
+        entry.route != null &&
+        (entry.route == currentPath ||
+            (entry.route == AppRoutes.settingsWarehouses &&
+                (currentPath.startsWith('/settings/warehouses/create') ||
+                    (currentPath.contains('/settings/warehouses/') &&
+                        currentPath.contains('/edit')))));
+    final Color accentColor = ref.watch(appBrandingProvider).accentColor;
+    return InkWell(
+      onTap: () {
+        if (entry.route == null) {
+          ZerpaiToast.info(context, '${entry.label} is not available yet');
+          return;
+        }
+        context.go(entry.route!);
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: AppTheme.space4),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.space12,
+          vertical: AppTheme.space10,
+        ),
+        decoration: BoxDecoration(
+          color: isActive ? accentColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          entry.label,
+          style: AppTheme.bodyText.copyWith(
+            fontSize: 13,
+            color: isActive ? Colors.white : AppTheme.textPrimary,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Body ──────────────────────────────────────────────────────────────────
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return Skeletonizer(
+        ignoreContainers: true,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppTheme.space32),
+          child: ZFormSkeleton(rows: 20),
+        ),
+      );
+    }
+    return Form(
+      key: _formKey,
+      autovalidateMode: _showValidationErrors
+          ? AutovalidateMode.onUserInteraction
+          : AutovalidateMode.disabled,
+      child: SettingsFixedHeaderLayout(
+        maxWidth: 620,
+        header: Text(
+          _isEditing ? 'Edit Warehouse' : 'Add Warehouse',
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_isDefaultWarehouse)
+              Container(
+                margin: const EdgeInsets.only(bottom: AppTheme.space16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.space16,
+                  vertical: AppTheme.space12,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFED7AA)),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(LucideIcons.lock, size: 15, color: Color(0xFFEA580C)),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This is a system-managed default warehouse created automatically for its branch. It cannot be edited or deleted.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFFEA580C),
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            IgnorePointer(
+              ignoring: _isDefaultWarehouse,
+              child: Opacity(
+                opacity: _isDefaultWarehouse ? 0.55 : 1.0,
+                child: Container(
+              color: Colors.white,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ZerpaiFormRow(
+                    label: 'Warehouse name',
+                    required: true,
+                    child: TextFormField(
+                      controller: _nameCtrl,
+                      decoration: _dec('e.g. Central Warehouse'),
+                      onChanged: (_) {
+                        if (_showValidationErrors && mounted) {
+                          setState(() {});
+                        }
+                      },
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Warehouse name is required'
+                          : null,
+                    ),
+                  ),
+                  ZerpaiFormRow(
+                    label: 'Warehouse code',
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _warehouseCodeCtrl,
+                            readOnly: !_warehouseCodeManualOverride,
+                            decoration: _dec('e.g. WH-00001').copyWith(
+                              suffixIcon: _warehouseCodeManualOverride
+                                  ? null
+                                  : const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 6,
+                                      ),
+                                      child: Text(
+                                        'Auto',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.primaryBlueDark,
+                                        ),
+                                      ),
+                                    ),
+                              filled: true,
+                              fillColor: _warehouseCodeManualOverride
+                                  ? Colors.white
+                                  : AppTheme.bgLight,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ZTooltip(
+                          message:
+                              'Configure the warehouse code prefix and next number, or switch to manual entry.',
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: _showWarehouseCodePreferencesDialog,
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: AppTheme.borderLight,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                LucideIcons.settings,
+                                size: 16,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ZerpaiFormRow(
+                    label: 'Associated branch',
+                    child: FormDropdown<String>(
+                      items: _branches.map((b) => b.id).toList(),
+                      value: _parentBranchId,
+                      hint: 'Select associated branch',
+                      displayStringForValue: (id) => _branches
+                          .firstWhere(
+                            (b) => b.id == id,
+                            orElse: () => _BranchOption(id: id, name: id),
+                          )
+                          .name,
+                      errorText: _parentBranchError,
+                      onChanged: (v) => setState(() {
+                        _parentBranchId = v;
+                        _parentBranchError = null;
+                      }),
+                    ),
+                  ),
+                  ZerpaiFormRow(
+                    label: 'Address',
+                    required: true,
+                    highlightRequiredLabel: true,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: _attentionCtrl,
+                          decoration: _dec('Attention'),
+                        ),
+                        const SizedBox(height: AppTheme.space8),
+                        TextFormField(
+                          controller: _streetCtrl,
+                          decoration: _dec('Street'),
+                          validator: (value) =>
+                              (value == null || value.trim().isEmpty)
+                              ? 'Street is required'
+                              : null,
+                        ),
+                        const SizedBox(height: AppTheme.space8),
+                        TextFormField(
+                          controller: _street2Ctrl,
+                          decoration: _dec('Place'),
+                        ),
+                        const SizedBox(height: AppTheme.space8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _cityCtrl,
+                                decoration: _dec('City'),
+                                validator: (value) =>
+                                    (value == null || value.trim().isEmpty)
+                                    ? 'City is required'
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.space8),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _pincodeCtrl,
+                                decoration: _dec('Pin code'),
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(6),
+                                ],
+                                validator: (value) =>
+                                    (value == null || value.trim().isEmpty)
+                                    ? 'Pin code is required'
+                                    : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppTheme.space8),
+                        _buildStaticField(_orgCountry),
+                        const SizedBox(height: AppTheme.space8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FormDropdown<String>(
+                                items: _stateOptions,
+                                value: _selectedState,
+                                hint: 'State / Union territory',
+                                displayStringForValue: (v) => v,
+                                errorText: _showValidationErrors &&
+                                        (_selectedState == null ||
+                                            _selectedState!.trim().isEmpty)
+                                    ? 'State is required'
+                                    : null,
+                                onChanged: (v) async {
+                                  setState(() {
+                                    _selectedState = v;
+                                    _selectedDistrictId = null;
+                                    _selectedLocalBodyType = null;
+                                    _selectedLocalBodyId = null;
+                                    _selectedAssemblyId = null;
+                                    _selectedWardId = null;
+                                    _districtOptions = [];
+                                    _allLocalBodyOptions = [];
+                                    _localBodyOptions = [];
+                                    _assemblyOptions = [];
+                                    _wardOptions = [];
+                                  });
+                                  if ((v ?? '').trim().toLowerCase() ==
+                                      'kerala') {
+                                    await _loadDistrictsForSelectedState();
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.space8),
+                            Expanded(
+                              child: PhoneInputField(
+                                controller: _phoneCtrl,
+                                selectedPrefix: _phonePrefix,
+                                onPrefixChanged: (v) =>
+                                    setState(() => _phonePrefix = v ?? '+91'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_showMainAddressLsgdFields) ...[
+                          const SizedBox(height: AppTheme.space8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FormDropdown<String>(
+                                  items: _districtOptions
+                                      .map((district) => district.id)
+                                      .toList(),
+                                  value: _selectedDistrictId,
+                                  hint: 'Select district',
+                                  displayStringForValue: (value) =>
+                                      _districtOptions
+                                          .firstWhere(
+                                            (district) => district.id == value,
+                                            orElse: () => _DistrictOption(
+                                              id: value,
+                                              name: value,
+                                            ),
+                                          )
+                                          .name,
+                                  errorText: _showValidationErrors &&
+                                          (_selectedDistrictId == null ||
+                                              _selectedDistrictId!
+                                                  .trim()
+                                                  .isEmpty)
+                                      ? 'District is required'
+                                      : null,
+                                  onChanged: (value) async {
+                                    setState(() {
+                                      _selectedDistrictId = value;
+                                      _selectedLocalBodyType = null;
+                                      _selectedLocalBodyId = null;
+                                      _selectedAssemblyId = null;
+                                      _selectedWardId = null;
+                                      _allLocalBodyOptions = [];
+                                      _localBodyOptions = [];
+                                      _assemblyOptions = [];
+                                      _wardOptions = [];
+                                    });
+                                    if (value != null && value.isNotEmpty) {
+                                      await _loadLocalBodiesForSelectedDistrict(
+                                        value,
+                                      );
+                                      await _loadAssembliesForSelectedDistrict();
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: AppTheme.space8),
+                              Expanded(
+                                child: FormDropdown<String>(
+                                  items: _availableLocalBodyTypeOptions,
+                                  value: _selectedLocalBodyType,
+                                  hint: 'Select local body type',
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedLocalBodyType = value;
+                                      _selectedLocalBodyId = null;
+                                      _selectedWardId = null;
+                                      _localBodyOptions =
+                                          value == null || value.isEmpty
+                                          ? _allLocalBodyOptions
+                                          : _allLocalBodyOptions
+                                                .where(
+                                                  (localBody) =>
+                                                      localBody.bodyType
+                                                          .toLowerCase() ==
+                                                      value.toLowerCase(),
+                                                )
+                                                .toList();
+                                      _wardOptions = [];
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppTheme.space8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FormDropdown<String>(
+                                  items: _localBodyOptions
+                                      .map((localBody) => localBody.id)
+                                      .toList(),
+                                  value: _selectedLocalBodyId,
+                                  hint: 'Select local body name',
+                                  displayStringForValue: (value) =>
+                                      _localBodyOptions
+                                          .firstWhere(
+                                            (localBody) =>
+                                                localBody.id == value,
+                                            orElse: () => _LocalBodyOption(
+                                              id: value,
+                                              name: value,
+                                              bodyType: '',
+                                            ),
+                                          )
+                                          .name,
+                                  errorText: _showValidationErrors &&
+                                          (_selectedLocalBodyId == null ||
+                                              _selectedLocalBodyId!
+                                                  .trim()
+                                                  .isEmpty)
+                                      ? 'Local body is required'
+                                      : null,
+                                  onChanged: (value) async {
+                                    setState(() {
+                                      _selectedLocalBodyId = value;
+                                      _selectedWardId = null;
+                                      _wardOptions = [];
+                                    });
+                                    if (value != null && value.isNotEmpty) {
+                                      await _loadWardsForSelectedLocalBody();
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: AppTheme.space8),
+                              Expanded(
+                                child: FormDropdown<String>(
+                                  items: _wardOptions
+                                      .map((ward) => ward.id)
+                                      .toList(),
+                                  value: _selectedWardId,
+                                  hint: 'Select ward',
+                                  displayStringForValue: (value) => _wardOptions
+                                      .firstWhere(
+                                        (ward) => ward.id == value,
+                                        orElse: () => _WardOption(
+                                          id: value,
+                                          name: value,
+                                          displayName: value,
+                                        ),
+                                      )
+                                      .displayName,
+                                  errorText: _showValidationErrors &&
+                                          (_selectedWardId == null ||
+                                              _selectedWardId!.trim().isEmpty)
+                                      ? 'Ward is required'
+                                      : null,
+                                  onChanged: (value) =>
+                                      setState(() => _selectedWardId = value),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppTheme.space8),
+                          FormDropdown<String>(
+                            items: _assemblyOptions
+                                .map((assembly) => assembly.id)
+                                .toList(),
+                            value: _selectedAssemblyId,
+                            hint: 'Select assembly',
+                            displayStringForValue: (value) => _assemblyOptions
+                                .firstWhere(
+                                  (assembly) => assembly.id == value,
+                                  orElse: () =>
+                                      _AssemblyOption(id: value, name: value),
+                                )
+                                .name,
+                            errorText: _showValidationErrors &&
+                                    (_selectedAssemblyId == null ||
+                                        _selectedAssemblyId!.trim().isEmpty)
+                                ? 'Assembly is required'
+                                : null,
+                            onChanged: (value) =>
+                                setState(() => _selectedAssemblyId = value),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+              ),
+            ),
+          ],
+        ),
+        footer: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: AppTheme.borderLight)),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.space32,
+            vertical: AppTheme.space16,
+          ),
+          child: Row(
+            children: [
+              ElevatedButton(
+                onPressed: (_isSaving || _isDefaultWarehouse) ? null : _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ref.watch(appBrandingProvider).accentColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.space24,
+                    vertical: AppTheme.space14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  elevation: 0,
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Save',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+              ),
+              const SizedBox(width: AppTheme.space12),
+              OutlinedButton(
+                onPressed: () => context.go(AppRoutes.settingsWarehouses),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.textPrimary,
+                  side: const BorderSide(color: AppTheme.borderColor),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.space24,
+                    vertical: AppTheme.space14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _dec(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: AppTheme.bodyText.copyWith(color: AppTheme.textHint),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.space12,
+        vertical: AppTheme.space10,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: AppTheme.borderLight),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: AppTheme.borderLight),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: AppTheme.primaryBlue, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: AppTheme.errorRed, width: 1),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: AppTheme.errorRed, width: 1.5),
+      ),
+      errorStyle: const TextStyle(fontSize: 11, height: 1),
+    );
+  }
+
+  Widget _buildStaticField(String value) {
+    return InputDecorator(
+      isEmpty: value.trim().isEmpty,
+      decoration: _dec('').copyWith(
+        hintText: null,
+        fillColor: AppTheme.bgLight,
+      ),
+      child: Text(
+        value,
+        style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary),
+      ),
+    );
+  }
+}

@@ -1,0 +1,2 @@
+ALTER TABLE "hsn_sac_codes" ALTER COLUMN "type" SET DATA TYPE "public"."hsn_sac_type" USING "type"::"public"."hsn_sac_type";--> statement-breakpoint
+ALTER TABLE "hsn_sac_codes" ALTER COLUMN "code" SET DATA TYPE varchar(15);

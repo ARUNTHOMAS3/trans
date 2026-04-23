@@ -1,0 +1,368 @@
+# Dependencies
+node_modules/
+dist/
+
+# Environment
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+!log.md
+!log archived.md
+npm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Build
+*.tsbuildinfo
+# ---------------------------------
+# 1. NODE.JS & NEXT.JS (Backend) - CRITICAL
+# ---------------------------------
+node_modules/
+.next/
+out/
+build/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.vercel
+
+# ---------------------------------
+# 2. AI AGENTS & IDEs (Vibe Coding Protection)
+# ---------------------------------
+# Ignore AI agent memory/cache to prevent bloat
+
+
+# Ignore large context dumps often created by agents
+analysis_output_*.txt
+*.gemini_cache
+repo_context.txt
+
+# IntelliJ / Android Studio
+*.iml
+.idea/
+*.iws
+
+# VS Code
+# For a team of 3 using AI, it is safer to IGNORE workspace settings
+# to prevent your agent's settings from overriding your friend's.
+.vscode/
+
+# ---------------------------------
+# 3. FLUTTER & DART (Frontend)
+# ---------------------------------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+
+# Generated files
+**/doc/api/
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+
+# Ephemeral (OS specific build files)
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+
+# Symbolication & Obfuscation
+app.*.symbols
+app.*.map.json
+
+# ---------------------------------
+# 4. ENVIRONMENT VARIABLES (Security)
+# ---------------------------------
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+assets/.env.local
+
+# ---------------------------------
+# 5. MISC & OS
+# ---------------------------------
+*.class
+
+*.pyc
+*.swp
+.DS_Store
+Thumbs.db
+.vs/
+.claude/
+.opencode/
+.env*.local
+
+archive/reports_archive/ACCOUNTS_MODULE_CYCLE_NOTES.md
+archive/reports_archive/ALL_FIXES_APPLIED_FROM_BACKUP.md
+archive/reports_archive/ALL_FIXES_COMPLETE.md
+archive/reports_archive/BUG_FIX_MISSING_FIELDS.md
+archive/reports_archive/CATEGORY_DROPDOWN_FIX.md
+archive/reports_archive/CATEGORY_DROPDOWN_VERIFIED.md
+archive/reports_archive/CODEV_FIXES_COMPLETE.md
+archive/reports_archive/CODEV_INTEGRATION_REPORT.md
+archive/reports_archive/colors_all_unique.txt
+archive/reports_archive/colors_full.md
+archive/reports_archive/colors_hex_0x.txt
+archive/reports_archive/colors_hex_hash.txt
+archive/reports_archive/colors_named_flutter.txt
+archive/reports_archive/COMPLETE_PROJECT_ANALYSIS.md
+archive/reports_archive/COMPLETE_SYSTEM_ANALYSIS_REPORT.md
+archive/reports_archive/CRITICAL_MODEL_CONFLICT.md
+archive/reports_archive/CRITICAL_ROLLBACK_PLAN.md
+archive/reports_archive/CUSTOMIZABLE_COLUMNS_IMPLEMENTATION.md
+archive/reports_archive/DASHBOARD_OVERFLOW_FIX.md
+archive/reports_archive/DATABASE_PERSISTENCE_ANALYSIS_REPORT.md
+archive/reports_archive/db table rename history.md
+archive/reports_archive/DEPLOYMENT_SUMMARY_PRICELIST.md
+archive/reports_archive/ENTITY_ID_PLAN.md
+archive/reports_archive/FINAL_INTEGRATION_SUMMARY.md
+archive/reports_archive/HIVE_DISABLED_REPORT.md
+archive/reports_archive/IMMEDIATE_ACTION_PLAN.md
+archive/reports_archive/IMPLEMENTATION_STATUS.md
+archive/reports_archive/INTEGRATION_COMPLETE.md
+archive/reports_archive/LAYOUT_FIX_FROM_BACKUP.md
+archive/reports_archive/lib_unused_all.txt
+archive/reports_archive/lib_unused_but_tested.txt
+archive/reports_archive/lib_unused_no_tests.txt
+archive/reports_archive/lib_unused_summary.txt
+archive/reports_archive/MARKDOWN_CLEANUP_REPORT.md
+archive/reports_archive/MERGE_ERRORS_ANALYSIS.md
+archive/reports_archive/P0_ALL_ITEMS_COMPLETED.md
+archive/reports_archive/P0_ISSUE_1_RESOLVED.md
+archive/reports_archive/P0_ITEMS_3_4_5_STATUS.md
+archive/reports_archive/PHASE1_STATUS.md
+archive/reports_archive/PHASE2_PROGRESS.md
+archive/reports_archive/PHASE3_PROGRESS.md
+archive/reports_archive/PHASE4_PROGRESS.md
+archive/reports_archive/PLAN.md
+archive/reports_archive/PRD_COMPLIANCE_ROADMAP.md
+archive/reports_archive/PRD_IMPLEMENTATION_PROGRESS.md
+archive/reports_archive/QUICK_SUMMARY.md
+archive/reports_archive/README_TESTING.md
+archive/reports_archive/RECOVERY_COMPLETE.md
+archive/reports_archive/REVERT_DASHBOARD_CHANGES.md
+archive/reports_archive/rg_patterns.txt
+archive/reports_archive/RUN_MIGRATION_INSTRUCTIONS.md
+archive/reports_archive/schema-table-standardization-matrix .md
+archive/reports_archive/schema-table-standardization-matrix.md
+archive/reports_archive/SESSION_COMPLETE.md
+archive/reports_archive/SESSION_SUMMARY.md
+archive/reports_archive/settings-prefix-removal-plan.md
+archive/reports_archive/settings-prefix-rename-matrix.md
+archive/reports_archive/SETUP_COMPLETE.md
+archive/reports_archive/sql_migrations_2026_04_03.md
+archive/reports_archive/table-standardization-phase1-safe-renames.sql
+archive/reports_archive/table-standardization-phase2-branches-master.sql
+archive/reports_archive/TESTING_RESULTS_2026-03-17.md
+archive/reports_archive/TRACK_SERIAL_NUMBER_IMPLEMENTATION.md
+archive/reports_archive/unused_backend_src.txt
+archive/reports_archive/unused_candidates_backend.txt
+archive/reports_archive/unused_candidates_root.txt
+archive/reports_archive/unused_lib.txt
+archive/reports_archive/unused_whole_project_full.md
+archive/reports_archive/unused_whole_project_summary.txt
+archive/reports_archive/unused_whole_project.txt
+archive/reports_archive/prd_history/ANALYSIS_FIXES_REPORT.md
+archive/reports_archive/prd_history/COMPLETE_IMPLEMENTATION_REPORT.md
+archive/reports_archive/prd_history/CURRENT_COMPLIANCE_STATUS.md
+archive/reports_archive/prd_history/FINAL_IMPLEMENTATION_REPORT.md
+archive/reports_archive/prd_history/FINAL_STATUS_REPORT.md
+archive/reports_archive/prd_history/FOLDER_STRUCTURE_CHANGES.md
+archive/reports_archive/prd_history/FOLDER_STRUCTURE_REPORT.md
+archive/reports_archive/prd_history/full_prd_compliance_scan_20260130_0402.md
+archive/reports_archive/prd_history/IMPLEMENTATION_SUMMARY.md
+archive/reports_archive/prd_history/OPTION_B_PRODUCTION_READY.md
+archive/reports_archive/prd_history/P0_COMPILATION_FIXES_PROGRESS.md
+archive/reports_archive/prd_history/P0_COMPLETION_REPORT.md
+archive/reports_archive/prd_history/P0_OFFLINE_SUPPORT_COMPLETE.md
+archive/reports_archive/prd_history/P1_COMPLETION_REPORT.md
+archive/reports_archive/prd_history/P2_COMPLETION_REPORT.md
+archive/reports_archive/prd_history/PRD_COMPLIANCE_AUDIT.md
+archive/reports_archive/prd_history/PRICE_LIST_FINAL_COMPLIANCE_REPORT.md
+archive/reports_archive/prd_history/recent_prd_changes_20260130_0133.md
+archive/reports_archive/prd_history/recent_prd_changes_20260130_0141.md
+backend/scratch/.gitignore (1)
+backend/scratch/add_col.js
+backend/scratch/apply-indexes.js
+backend/scratch/apply-org-id.js
+backend/scratch/batch_skeletonizer.py
+backend/scratch/check_db.js
+backend/scratch/check_db.ts
+backend/scratch/check_strengths.js
+backend/scratch/check-column-types.js
+backend/scratch/check-composite-schema.js
+backend/scratch/check-db.js
+backend/scratch/check-db.ts
+backend/scratch/check-types.js
+backend/scratch/drizzle.rar
+backend/scratch/fix_dart_syntax.py
+backend/scratch/fix_db.js
+backend/scratch/get-valid-ids.js
+backend/scratch/gitignore.txt
+backend/scratch/grant-permissions.js
+backend/scratch/inspect_db.js
+backend/scratch/list_tables.js
+backend/scratch/manual_migration.ts
+backend/scratch/schema before renames.md
+backend/scratch/test_compat.js
+backend/scratch/test_query.js
+backend/scratch/test_search.js
+backend/scratch/test-api.js
+backend/scratch/test-composite-endpoint.js
+backend/scratch/test-query.ts
+backend/scratch/test-supabase-client.js
+backend/scratch/tmp_check_fk.ts
+backend/scratch/tmp_check_products.ts
+backend/scratch/tmp_check_uqc.ts
+backend/scratch/tmp_fix_products_data.ts
+backend/scratch/tmp_fix_products_fk.ts
+backend/scratch/tmp_grant_2.ts
+backend/scratch/tmp_grant_fy.js
+backend/scratch/tmp_grant.ts
+backend/scratch/tmp_list_cols.ts
+archive/entity_master_cutover_plan.md
+archive/auth/COMPREHENSIVE_RBAC_AUDIT.md
+archive/auth/DYNAMIC_RBAC_LOCATION_UX_PLAN.md
+archive/auth/FOUR_ROLE_RUNTIME_MATRIX_EVIDENCE.md
+archive/auth/MODULE_PERMISSION_MATRIX_PLAN.md
+archive/auth/phase1_role_scopes_permissions_matrix.md
+archive/auth/phase1_supabase_auth_mvp_plan.md
+archive/auth/RBAC_LEFTOVER_EXECUTION_PLAN.md
+archive/auth/RBAC_VULNERABILITY_GAP_REPORT.md
+archive/legacy_migrations/0001_accounts_manual_journals.sql
+archive/legacy_migrations/001_franchise_model.sql
+archive/legacy_migrations/001_initial_schema_and_seed.sql
+archive/legacy_migrations/001_schema_only.sql
+archive/legacy_migrations/001_schema_redesigned.sql
+archive/legacy_migrations/0002_accounts_fiscal_years.sql
+archive/legacy_migrations/002_products_complete.sql
+archive/legacy_migrations/002_seed_data.sql
+archive/legacy_migrations/0003_accounts_fiscal_years_permissions.sql
+archive/legacy_migrations/003_add_missing_lookup_tables.sql
+archive/legacy_migrations/0004_accounts_journal_number_settings_permissions.sql
+archive/legacy_migrations/004_add_track_serial_number.sql
+archive/legacy_migrations/0005_accounts_journal_number_settings_user_scope.sql
+archive/legacy_migrations/0006_accounts_manual_journals_permissions.sql
+archive/legacy_migrations/995_products_lookup_performance_indexes.sql
+archive/legacy_migrations/996_cross_module_demo_seed.sql
+archive/legacy_migrations/997_ui_matching_seed_data.sql
+archive/legacy_migrations/998_dummy_data.sql
+archive/legacy_migrations/999_disable_rls_for_testing.sql
+archive/legacy_migrations/1000_item_operational_master_metadata.sql
+archive/legacy_migrations/1001_storage_location_display_and_type.sql
+archive/legacy_migrations/1002_product_warehouse_stocks.sql
+archive/legacy_migrations/1003_product_warehouse_stock_adjustments.sql
+archive/legacy_migrations/1004_product_warehouse_stock_permissions.sql
+archive/legacy_migrations/1005_products_inventory_valuation_method_fefo.sql
+archive/legacy_migrations/1006_product_outlet_reorder_settings.sql
+archive/legacy_migrations/1007_composite_item_outlet_reorder_settings.sql
+archive/legacy_migrations/1008_reorder_settings_permissions.sql
+archive/legacy_migrations/1009_profile page.sql
+archive/legacy_migrations/1010_add_organization_system_id.sql
+archive/legacy_migrations/1011_settings_branding.sql
+archive/legacy_migrations/1012_settings_locations.sql
+archive/legacy_migrations/1013_settings_branch_types.sql
+archive/legacy_migrations/1014_timezones_lookup_audit.sql
+archive/legacy_migrations/1015_organization_language_fields.sql
+archive/legacy_migrations/1016_warehouses_contact_associations.sql
+archive/legacy_migrations/1017_settings_user_location_access.sql
+archive/legacy_migrations/1018_create_public_users_table.sql
+archive/legacy_migrations/1019_settings_roles.sql
+archive/legacy_migrations/add_company_id_labels_gstin_cin_pan.sql
+archive/legacy_migrations/add_org_profile_columns.sql
+archive/legacy_migrations/apply_entity_id_remaining.sql
+archive/legacy_migrations/create_recurring_journals.sql
+archive/legacy_migrations/create_tax_groups.sql
+archive/legacy_migrations/create-missing-tables.sql
+archive/legacy_migrations/currencies_rows.sql
+archive/legacy_migrations/final_database_cleanup.sql
+archive/legacy_migrations/fix_permissions_recurring.sql
+archive/legacy_migrations/fix_rls.sql
+archive/legacy_migrations/fix_schema_recurring.sql
+archive/legacy_migrations/fix_tax_groups_permissions.sql
+archive/legacy_migrations/insert-dummy-lookups.sql
+archive/legacy_migrations/link_manual_to_recurring.sql
+archive/legacy_migrations/polymorphic_entity_migration.sql
+archive/legacy_migrations/README.md
+archive/legacy_migrations/rename_tax_rates_to_associated_taxes.sql
+archive/legacy_migrations/seed_stock_accounts.sql
+archive/legacy_migrations/sync_and_enforce_entity_id.sql
+archive/legacy_migrations/update_products_tax_fk.sql
+archive/refactor/BRANCH_NOMENCLATURE_REFACTOR_PLAN.md
+archive/refactor/FILE_UPDATE_MANIFEST.md
+archive/scratch/.gitignore (1)
+archive/scratch/add_col.js
+archive/scratch/apply_tds_schema.ts
+archive/scratch/apply-indexes.js
+archive/scratch/apply-org-id.js
+archive/scratch/batch_skeletonizer.py
+archive/scratch/check_db.js
+archive/scratch/check_db.ts
+archive/scratch/check_strengths.js
+archive/scratch/check-column-types.js
+archive/scratch/check-composite-schema.js
+archive/scratch/check-db.js
+archive/scratch/check-db.ts
+archive/scratch/check-types.js
+archive/scratch/create_uqc_table.ts
+archive/scratch/create_zerpai_structure.dart
+archive/scratch/drizzle.rar
+archive/scratch/fix_dart_syntax.py
+archive/scratch/fix_db.js
+archive/scratch/get-valid-ids.js
+archive/scratch/gitignore.txt
+archive/scratch/grant-permissions.js
+archive/scratch/inspect_db.js
+archive/scratch/list_tables.js
+archive/scratch/manual_migration.ts
+archive/scratch/migrate_units_uqc.ts
+archive/scratch/schema before renames.md
+archive/scratch/seed_uqc.ts
+archive/scratch/test_compat.js
+archive/scratch/test_query.js
+archive/scratch/test_search.js
+archive/scratch/test-api.js
+archive/scratch/test-composite-endpoint.js
+archive/scratch/test-query.ts
+archive/scratch/test-supabase-client.js
+archive/scratch/tmp_check_fk.ts
+archive/scratch/tmp_check_products.ts
+archive/scratch/tmp_check_uqc.ts
+archive/scratch/tmp_fix_products_data.ts
+archive/scratch/tmp_fix_products_fk.ts
+archive/scratch/tmp_grant_2.ts
+archive/scratch/tmp_grant_fy.js
+archive/scratch/tmp_grant.ts
+archive/scratch/tmp_list_cols.ts
+archive/scratch/verify_uqc.ts
+archive/scripts/check_fk.js
+archive/scripts/check_prod_db.js
+archive/scripts/check_type.js
+archive/scripts/seed_phase1_auth_users.js
+archive/scripts/test_drizzle_query.ts
+archive/scripts/test_prod_query_params.js
+archive/scripts/test_prod_query.js
+archive/scripts/trace_backend_watch_restart.ps1
+
+backend/.env
+backend/.env.vercel
