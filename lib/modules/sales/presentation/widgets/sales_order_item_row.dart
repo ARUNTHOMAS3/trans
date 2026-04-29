@@ -18,6 +18,7 @@ class SalesOrderItemRow {
   final LayerLink discountLink = LayerLink();
   final LayerLink warehouseLink = LayerLink();
   final LayerLink moreActionsLink = LayerLink();
+  final LayerLink reportingTagsLink = LayerLink();
   double profit = 0;
   bool isHeader;
 

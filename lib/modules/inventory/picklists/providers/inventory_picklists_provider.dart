@@ -18,14 +18,46 @@ class PicklistsNotifier extends AsyncNotifier<List<Picklist>> {
     return repository.getPicklists();
   }
 
-  Future<void> createPicklist(Picklist picklist) async {
-    state = const AsyncLoading();
+  Future<Picklist?> createPicklist(Map<String, dynamic> data) async {
     try {
       final repository = ref.read(inventoryPicklistRepositoryProvider);
-      await repository.createPicklist(picklist);
+      final result = await repository.createPicklist(data);
       ref.invalidateSelf();
-    } catch (e, st) {
-      state = AsyncError(e, st);
+      return result;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Picklist?> updatePicklist(String id, Map<String, dynamic> data) async {
+    try {
+      final repository = ref.read(inventoryPicklistRepositoryProvider);
+      final result = await repository.updatePicklist(id, data);
+      ref.invalidateSelf();
+      return result;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> updatePicklistStatus(String id, String status) async {
+    try {
+      final repository = ref.read(inventoryPicklistRepositoryProvider);
+      await repository.updatePicklist(id, {'status': status});
+      ref.invalidateSelf();
+      ref.invalidate(picklistByIdProvider(id));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deletePicklist(String id) async {
+    try {
+      final repository = ref.read(inventoryPicklistRepositoryProvider);
+      await repository.deletePicklist(id);
+      ref.invalidateSelf();
+    } catch (e) {
+      rethrow;
     }
   }
 
@@ -44,4 +76,10 @@ final picklistsProvider =
 final picklistByIdProvider = FutureProvider.family<Picklist?, String>((ref, id) {
   final repository = ref.watch(inventoryPicklistRepositoryProvider);
   return repository.getPicklist(id);
+});
+
+/// Provider for next picklist number from DB.
+final nextPicklistNumberProvider = FutureProvider<Map<String, dynamic>>((ref) {
+  final repository = ref.watch(inventoryPicklistRepositoryProvider);
+  return repository.getNextNumber();
 });

@@ -824,17 +824,17 @@ export class UsersService {
       public_user_id: publicRow?.id?.toString() ?? null,
       email: (user?.email ?? publicRow?.email ?? "").toString(),
       name: (
+        publicRow?.full_name ??
         user?.user_metadata?.full_name ??
         user?.user_metadata?.name ??
-        publicRow?.full_name ??
         publicRow?.email ??
         user?.email ??
         ""
       ).toString(),
       full_name: (
+        publicRow?.full_name ??
         user?.user_metadata?.full_name ??
         user?.user_metadata?.name ??
-        publicRow?.full_name ??
         ""
       ).toString(),
       role: roleId,
@@ -948,16 +948,16 @@ export class UsersService {
       public_user_id: publicRow?.id?.toString() ?? null,
       email: (u?.email ?? publicRow?.email ?? "").toString(),
       name: (
+        publicRow?.full_name ??
         meta.full_name ??
         meta.name ??
-        publicRow?.full_name ??
         u?.email ??
         ""
       ).toString(),
       full_name: (
+        publicRow?.full_name ??
         meta.full_name ??
         meta.name ??
-        publicRow?.full_name ??
         ""
       ).toString(),
       role: roleId,

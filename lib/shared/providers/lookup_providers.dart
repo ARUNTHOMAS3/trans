@@ -39,68 +39,65 @@ final batchLookupProvider =
       .eq('is_active', true)
       .order('expiry_date', ascending: false);
 
-  final priceMapByBatchNo = <String, Map<String, dynamic>>{};
   final priceMapByBatchId = <String, Map<String, dynamic>>{};
 
-  // Preferred source: legacy batches table (if present in current DB)
   try {
     final pricingResponse = await supabase
-        .from('batches')
-        .select('batch, mrp, ptr')
+        .from('batch_stock_layers')
+        .select('id, batch_id, mrp, purchase_rate, updated_at')
         .eq('product_id', productId)
-        .eq('is_active', true);
+        .order('updated_at', ascending: false);
 
     if (pricingResponse.isNotEmpty) {
       for (final p in pricingResponse as List) {
-        final batchNo = p['batch']?.toString().trim();
-        if (batchNo != null && batchNo.isNotEmpty) {
-          priceMapByBatchNo[batchNo] = Map<String, dynamic>.from(p);
+        final batchId = p['batch_id']?.toString().trim();
+        if (batchId != null && batchId.isNotEmpty &&
+            !priceMapByBatchId.containsKey(batchId)) {
+          priceMapByBatchId[batchId] = {
+            'layer_id': p['id'],
+            'mrp': p['mrp'],
+            'ptr': p['purchase_rate'],
+          };
         }
       }
     }
   } catch (_) {
-    // Fallback source: batch_stock_layers in newer schema
-    try {
-      final pricingResponse = await supabase
-          .from('batch_stock_layers')
-          .select('batch_id, mrp, purchase_rate')
-          .eq('product_id', productId);
-
-      if (pricingResponse.isNotEmpty) {
-        for (final p in pricingResponse as List) {
-          final batchId = p['batch_id']?.toString();
-          if (batchId != null && batchId.isNotEmpty) {
-            priceMapByBatchId[batchId] = {
-              'mrp': p['mrp'],
-              'ptr': p['purchase_rate'],
-            };
-          }
-        }
-      }
-    } catch (_) {
-      // Leave price maps empty; batch selection can still proceed.
-    }
+    // Leave price map empty; batch selection can still proceed.
   }
 
   final result = (response as List).map((batch) {
     final batchMap = Map<String, dynamic>.from(batch as Map);
-    final bno = batchMap['batch_no']?.toString().trim();
     final batchId = batchMap['id']?.toString();
-
-    final price = (bno != null && bno.isNotEmpty)
-        ? priceMapByBatchNo[bno]
-        : null;
+    final batchNo = (batchMap['batch_no'] ?? batchMap['batchNo'] ?? batchMap['batch'])
+        ?.toString()
+        .trim();
     final fallbackPrice = (batchId != null && batchId.isNotEmpty)
         ? priceMapByBatchId[batchId]
         : null;
 
     return {
       ...batchMap,
-      'prices': price != null
-          ? [price]
-          : (fallbackPrice != null ? [fallbackPrice] : []),
+      'batch_no': batchNo,
+      'batchNo': batchNo,
+      'layer_id': fallbackPrice?['layer_id'],
+      'mrp': fallbackPrice?['mrp'],
+      'ptr': fallbackPrice?['ptr'],
+      'prices': fallbackPrice != null ? [fallbackPrice] : [],
     };
   }).toList();
 
   return List<Map<String, dynamic>>.from(result);
+});
+
+final binsLookupProvider = FutureProvider<List<Map<String, String>>>((ref) async {
+  final supabase = Supabase.instance.client;
+  final response = await supabase
+      .from('bin_master')
+      .select('id, bin_code')
+      .order('bin_code');
+  
+  return (response as List).map((b) => {
+    'id': b['id'].toString(),
+    'bin_code': b['bin_code'].toString(),
+  }).toList();
 });

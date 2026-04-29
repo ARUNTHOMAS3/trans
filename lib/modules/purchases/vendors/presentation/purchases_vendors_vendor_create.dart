@@ -39,7 +39,16 @@ part 'sections/purchases_vendors_helpers.dart';
 part 'sections/purchases_vendors_dialogs.dart';
 
 class PurchasesVendorsVendorCreateScreen extends ConsumerStatefulWidget {
-  const PurchasesVendorsVendorCreateScreen({super.key});
+  final bool showLayout;
+  final bool showPrefillBanner;
+  final void Function(Vendor)? onSaveSuccess;
+
+  const PurchasesVendorsVendorCreateScreen({
+    super.key,
+    this.showLayout = true,
+    this.showPrefillBanner = true,
+    this.onSaveSuccess,
+  });
 
   @override
   ConsumerState<PurchasesVendorsVendorCreateScreen> createState() =>
@@ -48,7 +57,9 @@ class PurchasesVendorsVendorCreateScreen extends ConsumerStatefulWidget {
 
 class _PurchasesVendorsVendorCreateScreenState
     extends ConsumerState<PurchasesVendorsVendorCreateScreen>
-    with TickerProviderStateMixin, LicenceValidationMixin<PurchasesVendorsVendorCreateScreen> {
+    with
+        TickerProviderStateMixin,
+        LicenceValidationMixin<PurchasesVendorsVendorCreateScreen> {
 
   // LicenceValidationMixin: map local names to mixin contract
   @override
@@ -56,6 +67,7 @@ class _PurchasesVendorsVendorCreateScreenState
   @override
   bool get isMsmeRegistered => _isMsmeRegistered;
   late TabController _tabController;
+  late final ScrollController _tabScrollController = ScrollController();
   bool isLoading = false;
   final _formKey = GlobalKey<FormState>();
   // ignore: unused_field
@@ -64,9 +76,9 @@ class _PurchasesVendorsVendorCreateScreenState
   Map<String, String> _phoneCodeToLabel = {};
 
   // Layout Constants
-  final double _labelWidth = 180.0;
+  final double _labelWidth = 220.0;
   final double _fieldWidth = 480.0;
-  final double _inputHeight = 36.0;
+  final double _inputHeight = 32.0;
   final double _fieldSpacing = 24.0;
 
   static const String _whatsappSvg =
@@ -129,6 +141,7 @@ class _PurchasesVendorsVendorCreateScreenState
   final List<PlatformFile> _attachedFiles = [];
   final LayerLink _attachedFilesLink = LayerLink();
   OverlayEntry? _attachedFilesOverlayEntry;
+  bool _isUploadHovered = false;
 
   // License Details
   bool isDrugRegistered = false;
@@ -353,6 +366,7 @@ class _PurchasesVendorsVendorCreateScreenState
   @override
   void dispose() {
     _tabController.dispose();
+    _tabScrollController.dispose();
     _removeAttachedFilesOverlay();
     _displayNameCtrl.dispose();
     _vendorNumberCtrl.dispose();
@@ -521,10 +535,15 @@ class _PurchasesVendorsVendorCreateScreenState
         final updatedVendor = vendor.copyWith(vendorNumber: finalVendorNumber);
 
         // 2. Create the vendor
-        await ref.read(vendorProvider.notifier).createVendor(updatedVendor);
+        final createdVendor = await ref.read(vendorProvider.notifier).createVendor(updatedVendor);
 
         if (mounted) {
           ZerpaiToast.success(context, 'Vendor created successfully');
+
+          if (widget.onSaveSuccess != null) {
+            widget.onSaveSuccess!(createdVendor);
+            return;
+          }
 
           // 3. Inform backend to increment sequence
           try {
@@ -626,25 +645,64 @@ class _PurchasesVendorsVendorCreateScreenState
 
   @override
   Widget build(BuildContext context) {
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.showPrefillBanner) _buildPrefillBanner(),
+            if (widget.showPrefillBanner) const SizedBox(height: 32),
+            _buildPrimaryInfo(),
+            const SizedBox(height: 32),
+            _buildTabSection(),
+          ],
+        ),
+      ),
+    );
+
+    if (!widget.showLayout) {
+      return Material(
+        color: Colors.white,
+        child: Column(
+          children: [
+            _buildDialogHeader(),
+            const Divider(height: 1),
+            Expanded(child: SingleChildScrollView(child: content)),
+            _buildFooter(),
+          ],
+        ),
+      );
+    }
+
     return ZerpaiLayout(
       pageTitle: 'New Vendor',
       enableBodyScroll: true,
       footer: _buildFooter(),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildPrefillBanner(),
-              const SizedBox(height: 32),
-              _buildPrimaryInfo(),
-              const SizedBox(height: 32),
-              _buildTabSection(),
-            ],
+      child: content,
+    );
+  }
+
+  Widget _buildDialogHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'New Vendor',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF111827),
+            ),
           ),
-        ),
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(LucideIcons.x, size: 20),
+          ),
+        ],
       ),
     );
   }
@@ -660,29 +718,40 @@ class _PurchasesVendorsVendorCreateScreenState
           decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
           ),
-          child: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            labelColor: const Color(0xFF2563EB),
-            unselectedLabelColor: const Color(0xFF6B7280),
-            indicatorColor: const Color(0xFF2563EB),
-            indicatorWeight: 2,
-            indicatorSize: TabBarIndicatorSize.label,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 16),
-            labelStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+          child: Scrollbar(
+            controller: _tabScrollController,
+            thumbVisibility: true,
+            interactive: true,
+            thickness: 6,
+            radius: const Radius.circular(3),
+            child: SingleChildScrollView(
+              controller: _tabScrollController,
+              scrollDirection: Axis.horizontal,
+              child: TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                labelColor: const Color(0xFF2563EB),
+                unselectedLabelColor: const Color(0xFF6B7280),
+                indicatorColor: const Color(0xFF2563EB),
+                indicatorWeight: 2,
+                indicatorSize: TabBarIndicatorSize.label,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+                labelStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+                tabs: const [
+                  Tab(text: 'Other Details'),
+                  Tab(text: 'License Details'),
+                  Tab(text: 'Address'),
+                  Tab(text: 'Contact Persons'),
+                  Tab(text: 'Bank Details'),
+                  Tab(text: 'Custom Fields'),
+                  Tab(text: 'Reporting Tags'),
+                  Tab(text: 'Remarks'),
+                ],
+              ),
             ),
-            tabs: const [
-              Tab(text: 'Other Details'),
-              Tab(text: 'License Details'),
-              Tab(text: 'Address'),
-              Tab(text: 'Contact Persons'),
-              Tab(text: 'Bank Details'),
-              Tab(text: 'Custom Fields'),
-              Tab(text: 'Reporting Tags'),
-              Tab(text: 'Remarks'),
-            ],
           ),
         ),
         _buildTabContent(_tabController.index),

@@ -3,7 +3,7 @@ part of '../purchases_vendors_vendor_create.dart';
 extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
   Widget _buildContactPersons() {
     return Padding(
-      padding: const EdgeInsets.all(32.0),
+      padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -85,7 +85,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
             ),
           ),
           Expanded(
-            flex: 3,
+            flex: 4,
             child: Text(
               'WORK PHONE',
               style: headerStyle,
@@ -94,7 +94,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
             ),
           ),
           Expanded(
-            flex: 3,
+            flex: 4,
             child: Text(
               'MOBILE',
               style: headerStyle,
@@ -164,7 +164,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    flex: 3,
+                    flex: 4,
                     child: PhoneInputField(
                       controller: row.workPhoneCtrl,
                       selectedPrefix: row.workCode,
@@ -174,7 +174,7 @@ extension _ContactPersonsSection on _PurchasesVendorsVendorCreateScreenState {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    flex: 3,
+                    flex: 4,
                     child: PhoneInputField(
                       controller: row.mobilePhoneCtrl,
                       selectedPrefix: row.mobileCode,

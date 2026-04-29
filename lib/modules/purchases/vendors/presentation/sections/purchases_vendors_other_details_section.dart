@@ -241,69 +241,75 @@ extension _OtherDetailsSection on _PurchasesVendorsVendorCreateScreenState {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    DottedBorder(
-                      color: const Color(0xFF3B82F6),
-                      strokeWidth: 1,
-                      dashPattern: const [4, 2],
-                      borderType: BorderType.RRect,
-                      radius: const Radius.circular(4),
-                      child: Container(
-                        height: _inputHeight,
-                        constraints: const BoxConstraints(minWidth: 140),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            InkWell(
-                              onTap: _pickFiles,
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      LucideIcons.upload,
-                                      size: 16,
-                                      color: Color(0xFF6B7280),
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Upload File',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Color(0xFF374151),
+                    MouseRegion(
+                      onEnter: (_) => _state(() => _isUploadHovered = true),
+                      onExit: (_) => _state(() => _isUploadHovered = false),
+                      child: DottedBorder(
+                        color: _isUploadHovered
+                            ? const Color(0xFF3B82F6)
+                            : const Color(0xFFE5E7EB),
+                        strokeWidth: 1,
+                        dashPattern: const [4, 2],
+                        borderType: BorderType.RRect,
+                        radius: const Radius.circular(4),
+                        child: Container(
+                          height: _inputHeight,
+                          constraints: const BoxConstraints(minWidth: 140),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              InkWell(
+                                onTap: _pickFiles,
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        LucideIcons.upload,
+                                        size: 16,
+                                        color: Color(0xFF6B7280),
                                       ),
-                                    ),
-                                  ],
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Upload File',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF374151),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                            Container(
-                              width: 1,
-                              height: 20,
-                              color: const Color(0xFFE5E7EB),
-                            ),
-                            InkWell(
-                              onTap: () {},
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                child: Icon(
-                                  Icons.keyboard_arrow_down,
-                                  size: 18,
-                                  color: Color(0xFF6B7280),
+                              Container(
+                                width: 1,
+                                height: 20,
+                                color: const Color(0xFFE5E7EB),
+                              ),
+                              InkWell(
+                                onTap: () {},
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  child: Icon(
+                                    Icons.keyboard_arrow_down,
+                                    size: 18,
+                                    color: Color(0xFF6B7280),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),

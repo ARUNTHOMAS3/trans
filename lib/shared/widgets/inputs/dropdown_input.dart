@@ -140,7 +140,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
   int? _hoveredIndex;
   bool _isHoveredField = false;
 
-  static const double _fieldHeight = 40.0;
+  static const double _fieldHeight = 32.0;
   double get _rowHeight =>
       widget.itemEstimatedHeight ??
       widget.itemHeight ??

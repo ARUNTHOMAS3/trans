@@ -5,9 +5,10 @@ extension _PrimaryInfoSection on _SalesCustomerCreateScreenState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildPrefillBanner(),
-        const SizedBox(height: 32),
-
+        if (widget.showLayout) ...[
+          _buildPrefillBanner(),
+          const SizedBox(height: 32),
+        ],
           // 1. Customer Type
           _buildFormRow(
             label: 'Customer Type',
@@ -230,6 +231,7 @@ extension _PrimaryInfoSection on _SalesCustomerCreateScreenState {
                     hintText: customerType == 'Individual'
                         ? 'WhatsApp Number'
                         : 'Work Phone',
+                    height: _inputHeight,
                   ),
                 ),
                 const SizedBox(width: 48),
@@ -243,6 +245,7 @@ extension _PrimaryInfoSection on _SalesCustomerCreateScreenState {
                       () => _validatePhoneField('mobilePhone', value),
                     ),
                     hintText: 'Mobile',
+                    height: _inputHeight,
                   ),
                 ),
               ],

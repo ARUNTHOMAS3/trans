@@ -45,6 +45,13 @@ class _InventoryPicklistsUpdateScreenState
   final _picklistNumberCtrl = TextEditingController();
   final _dateCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+  final _itemNameSearchCtrl = TextEditingController();
+  final _salesOrderSearchCtrl = TextEditingController();
+  String _itemNameSearchQuery = '';
+  String _salesOrderSearchQuery = '';
+  bool _salesOrderSortAscending = true;
+  bool _isItemSearchVisible = false;
+  bool _isSOSearchVisible = false;
 
   String? _selectedGroup;
   String? _selectedAssignee;
@@ -64,10 +71,33 @@ class _InventoryPicklistsUpdateScreenState
   final Map<String, List<Map<String, String>>> _savedBatchData =
       <String, List<Map<String, String>>>{};
 
+  List<WarehouseStockData> get _filteredSelectedItems {
+    final filtered = _selectedItems.where((item) {
+      final name = item.productName.toLowerCase();
+      final productCode = item.productCode.toLowerCase();
+      final so = (item.salesOrderNumber ?? '').toLowerCase();
+
+      final matchesItem = _itemNameSearchQuery.isEmpty ||
+          name.contains(_itemNameSearchQuery.toLowerCase()) ||
+          productCode.contains(_itemNameSearchQuery.toLowerCase());
+      final matchesSO = _salesOrderSearchQuery.isEmpty ||
+          so.contains(_salesOrderSearchQuery.toLowerCase());
+
+      return matchesItem && matchesSO;
+    }).toList();
+
+    filtered.sort((a, b) {
+      final aOrder = (a.salesOrderNumber ?? '').trim();
+      final bOrder = (b.salesOrderNumber ?? '').trim();
+      final cmp = aOrder.compareTo(bOrder);
+      return _salesOrderSortAscending ? cmp : -cmp;
+    });
+    return filtered;
+  }
 
   bool get _allBatchesAdded =>
-      _selectedItems.isNotEmpty &&
-      _selectedItems.every(
+      _filteredSelectedItems.isNotEmpty &&
+      _filteredSelectedItems.every(
         (item) {
           final qtyPicked = _currentPickedQty(item);
           if (qtyPicked <= 0) return true;
@@ -473,6 +503,8 @@ class _InventoryPicklistsUpdateScreenState
     _picklistNumberCtrl.dispose();
     _dateCtrl.dispose();
     _notesCtrl.dispose();
+    _itemNameSearchCtrl.dispose();
+    _salesOrderSearchCtrl.dispose();
     super.dispose();
   }
 
@@ -789,194 +821,113 @@ class _InventoryPicklistsUpdateScreenState
     );
   }
 
-  Widget _buildSelectedItemsTable() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _borderCol),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
+  Widget _buildHeaderSearchField({
+    required String label,
+    required TextEditingController controller,
+    required String hintText,
+    required ValueChanged<String> onChanged,
+    required bool isSearchVisible,
+    required VoidCallback onToggle,
+    TextAlign textAlign = TextAlign.start,
+    bool showSortControls = false,
+    required bool sortAscending,
+    VoidCallback? onSortAscendingTap,
+    VoidCallback? onSortDescendingTap,
+  }) {
+    if (!isSearchVisible) {
+      return Row(
+        mainAxisAlignment: textAlign == TextAlign.center
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
-          IntrinsicHeight(
-            child: Container(
-              padding: const EdgeInsets.only(
-                left: 16,
-                right: 0,
-                top: 10,
-                bottom: 10,
-              ),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF9FAFB),
-                border: Border(bottom: BorderSide(color: _borderCol)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 4,
-                    child: Padding(
-                      padding: EdgeInsets.only(right: 12),
-                      child: Text(
-                        'ITEM DETAILS',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  VerticalDivider(width: 1, color: _borderCol),
-                  Expanded(
-                    flex: 2,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Center(
-                        child: Text(
-                          'SALES ORDER#',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: _textSecondary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  VerticalDivider(width: 1, color: _borderCol),
-                  Expanded(
-                    flex: 1,
-                    child: Text(
-                      'QUANTITY ORDERED',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _textSecondary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  VerticalDivider(width: 1, color: _borderCol),
-                  Expanded(
-                    flex: 1,
-                    child: Text(
-                      'QUANTITY PACKED',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _textSecondary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  VerticalDivider(width: 1, color: _borderCol),
-                  Expanded(
-                    flex: 2,
-                    child: Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'QUANTITY TO PICK',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: _textSecondary,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          ZTooltip(
-                            message:
-                                "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
-                            child: Icon(
-                              LucideIcons.info,
-                              size: 12,
-                              color: _textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  VerticalDivider(width: 1, color: _borderCol),
-                  Expanded(
-                    flex: 2,
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'QUANTITY PICKED',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: _textSecondary,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              ZTooltip(
-                                message:
-                                    "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
-                                child: Icon(
-                                  LucideIcons.info,
-                                  size: 12,
-                                  color: _textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          InkWell(
-                            onTap: () {
-                              setState(() {
-                                for (int i = 0; i < _selectedItems.length; i++) {
-                                  final item = _selectedItems[i];
-                                  _selectedItems[i] = item.copyWith(
-                                    quantityPicked: item.quantityToPick ?? 0,
-                                  );
-                                }
-                              });
-                            },
-                            child: const Text(
-                              'PICK ALL ITEMS',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF2563EB),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'STATUS',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _textSecondary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
-              ),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: _textSecondary,
+              fontFamily: 'Inter',
             ),
           ),
-          // Rows
-          ..._selectedItems.map((item) {
-            final rowKey = _buildRowKey(item);
-            return IntrinsicHeight(
-              child: Container(
-                padding: const EdgeInsets.only(left: 16, right: 0),
-                decoration: const BoxDecoration(
+          if (showSortControls) ...[
+            const SizedBox(width: 4),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onSortAscendingTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1),
+                    child: Icon(
+                      LucideIcons.chevronUp,
+                      size: 10,
+                      color: sortAscending
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onSortDescendingTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1),
+                    child: Icon(
+                      LucideIcons.chevronDown,
+                      size: 10,
+                      color: !sortAscending
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: onToggle,
+            child: const Icon(
+              LucideIcons.search,
+              size: 12,
+              color: _textSecondary,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      height: 28,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: _borderCol),
+      ),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        style: const TextStyle(fontSize: 11),
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: const TextStyle(fontSize: 11, color: _textSecondary),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          border: InputBorder.none,
+          isDense: true,
+          suffixIcon: InkWell(
+            onTap: () {
+              controller.clear();
+              onChanged('');
+              onToggle();
+            },
+            child: const Icon(Icons.close, size: 14, color: _textSecondary),
+          ),
+        ),
+      ),
+    );
+  }
                   border: Border(bottom: BorderSide(color: _borderCol)),
                 ),
                 child: Row(

@@ -198,6 +198,7 @@ extension _AddressSection on _SalesCustomerCreateScreenState {
               }
             }),
             hintText: 'Phone',
+            height: _inputHeight,
           ),
         ),
         _labeledInlineField(

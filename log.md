@@ -87,3 +87,74 @@ Timestamp of Log Update: April 22, 2026 - 04:51 PM (IST)
 ---
 
 Timestamp of Log Update: April 24, 2026 - 02:16 PM (IST)
+
+## 3. Day Work Summary - April 29, 2026 (Inventory Picklist Standardization & UI Parity)
+
+- **Problem**:
+  - Inventory Picklist UI was inconsistent across Create, Edit, and Update modules.
+  - Batch/Bin selection dialog logic diverged, leading to data loading failures in Edit/Update modes.
+  - Bin location hover boxes were cluttered with redundant labels.
+  - Lack of sorting functionality in the picklist item table made large orders difficult to manage.
+
+- **Solution**:
+  - Achieved total parity by synchronizing the `_PicklistSelectBatchesDialog` and `_PicklistBatchRowController` across all three modules.
+  - Standardized all tables to a high-density "Excel-style" grid layout.
+  - Simplified the `BinHoverBox` UI for cleaner raw location display.
+  - Implemented Sales Order Number sorting in the picklist item table.
+
+- **Standardization Rules Applied**:
+  - **Pure White Surface Rule**: Enforced `#FFFFFF` backgrounds for all dialogs and overlays.
+  - **Excel-Style Grid Rule**: Standardized column flex ratios `[4, 2, 1, 1, 2, 2]` and removed redundant dividers.
+  - **Shared Date Picker Rule**: Integrated `ZerpaiDatePicker` across all batch management workflows.
+  - **Zero Placeholder Rule**: Used real data context for bin and batch lookups.
+
+- **Frontend Files**:
+  - `lib/modules/inventory/picklists/presentation/inventory_picklists_create.dart`
+  - `lib/modules/inventory/picklists/presentation/inventory_picklists_edit.dart`
+  - `lib/modules/inventory/picklists/presentation/inventory_picklists_update.dart`
+
+- **Logic**:
+  - Ported the robust Create-module dialog implementation to Edit and Update modules to fix data persistence issues.
+  - Refactored `_BinHoverBox` to strip away "Item Name" and "Bin Location:" labels, showing only the raw location string.
+  - Added `_salesOrderSortAscending` state and implemented `.sort()` logic within the `_filteredSelectedItems` getter.
+  - Enhanced `_headerCell` to support interactive sort chevrons (`LucideIcons.chevronUp/Down`) for the Sales Order column.
+  - Synchronized status-colored dots and borderless input styles for consistent visual language.
+
+- **Verification**:
+  - Verified UI alignment and vertical divider continuity across all screens.
+  - Confirmed batch data loads correctly when reopening picklists in Edit/Update modes.
+  - `flutter analyze` passed on all modified presentation files.
+
+Timestamp of Log Update: April 29, 2026 - 06:15 PM (IST)
+
+---
+
+## Standardization Rules & Governance (Permanent Reference)
+
+To maintain a "Gold Standard" equivalent to Zoho Inventory, the following rules must be strictly followed across all ERP modules:
+
+1.  **Pure White Surface Rule**:
+    - All dialogs, popup menus, dropdown overlays, date pickers, and modal surfaces must use `#FFFFFF`.
+    - Do not rely on inherited Material surface tinting.
+
+2.  **Shared Date Picker Rule**:
+    - Use `ZerpaiDatePicker` from `lib/shared/widgets/inputs/zerpai_date_picker.dart`.
+    - Avoid raw `showDatePicker` calls for standard form inputs.
+
+3.  **Excel-Style Grid Rule**:
+    - Tables must use high-density layouts with uniform flex ratios.
+    - Vertical dividers must align perfectly across headers and rows.
+    - Row heights should be ~32px-40px.
+
+4.  **Dropdown & Search Rule**:
+    - Use `FormDropdown<T>` for all form inputs.
+    - Implement borderless dropdowns in table cells for a spreadsheet-like feel.
+    - Headers should support inline search and sorting (Chevrons up/down).
+
+5.  **Bin Hover Logic**:
+    - Hover boxes for bin locations must show ONLY the location string in a clean white tooltip.
+    - Remove redundant labels like "Item Name" or "Bin Location:".
+
+6.  **Deep-Linking & State Persistence**:
+    - Every significant state (search, sort, dialog) must be addressable or preserved across refreshes.
+    - Ensure batch data persistence when switching between Edit/Update modes.

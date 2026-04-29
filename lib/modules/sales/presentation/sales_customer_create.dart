@@ -105,6 +105,7 @@ class _SalesCustomerCreateScreenState
   @override
   TextEditingController get msmeCtrl => msmeNumberCtrl;
   late TabController _tabController;
+  late final ScrollController _tabScrollController = ScrollController();
   bool isLoading = true;
 
   void _state(VoidCallback fn) {
@@ -116,7 +117,7 @@ class _SalesCustomerCreateScreenState
     super.initState();
     final initialIndex = _resolveInitialTabIndex(widget.initialTab);
     _tabController = TabController(
-      length: 7,
+      length: customerType == 'Individual' ? _individualTabKeys.length : _businessTabKeys.length,
       vsync: this,
       initialIndex: initialIndex,
     );
@@ -180,15 +181,6 @@ class _SalesCustomerCreateScreenState
     }
   }
 
-  @override
-  void dispose() {
-    _tabController.removeListener(_handleTabChanged);
-    _tabController.dispose();
-
-    disposeLicenceNodes(); // LicenceValidationMixin
-    super.dispose();
-  }
-
   int _resolveInitialTabIndex(String? initialTab) {
     if (initialTab == null || initialTab.trim().isEmpty) {
       return 0;
@@ -230,6 +222,26 @@ class _SalesCustomerCreateScreenState
     );
   }
 
+  @override
+  void dispose() {
+    _tabController.removeListener(_handleTabChanged);
+    _tabController.dispose();
+    _tabScrollController.dispose();
+    firstNameCtrl.dispose();
+    lastNameCtrl.dispose();
+    companyNameCtrl.dispose();
+    displayNameCtrl.dispose();
+    emailCtrl.dispose();
+    workPhoneCtrl.dispose();
+    mobilePhoneCtrl.dispose();
+    panCtrl.dispose();
+    gstinPrefillCtrl.dispose();
+    businessLegalNameCtrl.dispose();
+    businessTradeNameCtrl.dispose();
+    disposeLicenceNodes(); // From LicenceValidationMixin
+    super.dispose();
+  }
+
   Future<void> _loadEditingCustomer(String customerId) async {
     try {
       final customer = await ref.read(
@@ -253,9 +265,9 @@ class _SalesCustomerCreateScreenState
 
   // Layout Constants (Instance members for extension access)
 
-  final double _labelWidth = 180.0;
+  final double _labelWidth = 220.0;
   final double _fieldWidth = 480.0;
-  final double _inputHeight = 44.0;
+  final double _inputHeight = 32.0;
   final double _fieldSpacing = 24.0;
 
   // General Info
@@ -452,11 +464,13 @@ class _SalesCustomerCreateScreenState
     });
 
     final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       child: isLoading
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [_buildPrimaryInfo(), const FormSkeleton()],
+          ? SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [_buildPrimaryInfo(), const FormSkeleton()],
+              ),
             )
           : SingleChildScrollView(
               child: Column(
@@ -471,10 +485,15 @@ class _SalesCustomerCreateScreenState
     );
 
     if (!widget.showLayout) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: content,
-        bottomNavigationBar: _buildFooter(),
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildDialogHeader(),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
+          Expanded(child: content),
+          _buildFooter(),
+        ],
       );
     }
 
@@ -522,29 +541,37 @@ class _SalesCustomerCreateScreenState
             color: Colors.white,
             border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
           ),
-          child: TabBar(
-            padding: EdgeInsets.zero,
-            controller: _tabController,
-            isScrollable: true,
-            labelColor: Colors.black,
-            unselectedLabelColor: AppTheme.textSecondary,
-            indicatorColor: AppTheme.primaryBlueDark,
-            indicatorWeight: 2,
-            indicatorSize: TabBarIndicatorSize.label,
-            labelPadding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 2,
+          child: Scrollbar(
+            controller: _tabScrollController,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _tabScrollController,
+              scrollDirection: Axis.horizontal,
+              child: TabBar(
+                padding: EdgeInsets.zero,
+                controller: _tabController,
+                isScrollable: true,
+                labelColor: Colors.black,
+                unselectedLabelColor: AppTheme.textSecondary,
+                indicatorColor: AppTheme.primaryBlueDark,
+                indicatorWeight: 2,
+                indicatorSize: TabBarIndicatorSize.label,
+                labelPadding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 2,
+                ),
+                labelStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                tabs: tabs,
+              ),
             ),
-            labelStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-            tabs: tabs,
           ),
         ),
         // Use direct indexing to allow the whole page to scroll as one

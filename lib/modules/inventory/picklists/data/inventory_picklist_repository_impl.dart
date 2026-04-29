@@ -36,8 +36,6 @@ class InventoryPicklistRepositoryImpl implements InventoryPicklistRepository {
       return list.map((json) => Picklist.fromJson(json)).toList();
     } catch (e) {
       AppLogger.error('getPicklists error', error: e, module: 'inventory');
-      // For now, return empty list instead of throwing to avoid breaking UI 
-      // when table doesn't exist yet.
       return [];
     }
   }
@@ -46,7 +44,10 @@ class InventoryPicklistRepositoryImpl implements InventoryPicklistRepository {
   Future<Picklist?> getPicklist(String id) async {
     try {
       final response = await _apiClient.get('${ApiEndpoints.picklists}/$id');
-      return Picklist.fromJson(response.data);
+      final data = response.data is Map && response.data.containsKey('data')
+          ? response.data['data']
+          : response.data;
+      return Picklist.fromJson(data);
     } catch (e) {
       AppLogger.error('getPicklist error', error: e, module: 'inventory');
       return null;
@@ -54,13 +55,16 @@ class InventoryPicklistRepositoryImpl implements InventoryPicklistRepository {
   }
 
   @override
-  Future<Picklist> createPicklist(Picklist picklist) async {
+  Future<Picklist> createPicklist(Map<String, dynamic> data) async {
     try {
       final response = await _apiClient.post(
         ApiEndpoints.picklists,
-        data: picklist.toJson(),
+        data: data,
       );
-      return Picklist.fromJson(response.data);
+      final resData = response.data is Map && response.data.containsKey('data')
+          ? response.data['data']
+          : response.data;
+      return Picklist.fromJson(resData);
     } catch (e) {
       AppLogger.error('createPicklist error', error: e, module: 'inventory');
       throw Exception('Failed to create picklist: $e');
@@ -68,13 +72,16 @@ class InventoryPicklistRepositoryImpl implements InventoryPicklistRepository {
   }
 
   @override
-  Future<Picklist?> updatePicklist(String id, Picklist picklist) async {
+  Future<Picklist?> updatePicklist(String id, Map<String, dynamic> data) async {
     try {
       final response = await _apiClient.put(
         '${ApiEndpoints.picklists}/$id',
-        data: picklist.toJson(),
+        data: data,
       );
-      return Picklist.fromJson(response.data);
+      final resData = response.data is Map && response.data.containsKey('data')
+          ? response.data['data']
+          : response.data;
+      return Picklist.fromJson(resData);
     } catch (e) {
       AppLogger.error('updatePicklist error', error: e, module: 'inventory');
       return null;
@@ -103,6 +110,22 @@ class InventoryPicklistRepositoryImpl implements InventoryPicklistRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> getNextNumber() async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiEndpoints.picklists}/next-number',
+      );
+      final data = response.data is Map && response.data.containsKey('data')
+          ? response.data['data']
+          : response.data;
+      return Map<String, dynamic>.from(data);
+    } catch (e) {
+      AppLogger.error('getNextNumber error', error: e, module: 'inventory');
+      return {'next_number': 1, 'prefix': 'PL-', 'formatted': 'PL-00001'};
+    }
+  }
+
+  @override
   Future<Map<String, dynamic>> getWarehouseItems({
     required String warehouseId,
     int page = 1,
@@ -111,6 +134,8 @@ class InventoryPicklistRepositoryImpl implements InventoryPicklistRepository {
     String? customerId,
     String? productId,
     String? salesOrderId,
+    String? sortBy,
+    bool? sortAscending,
   }) async {
     try {
       final queryParameters = {
@@ -123,46 +148,51 @@ class InventoryPicklistRepositoryImpl implements InventoryPicklistRepository {
           'productId': productId,
         if (salesOrderId != null && salesOrderId.isNotEmpty)
           'salesOrderId': salesOrderId,
+        if (sortBy != null) 'sortBy': sortBy,
+        if (sortAscending != null) 'sortOrder': sortAscending ? 'asc' : 'desc',
       };
 
+      // useCache:false — paginated/filtered data must always be fresh so the
+      // total count in response.extra['meta'] is never lost to a stale cache hit.
       final response = await _apiClient.get(
         '${ApiEndpoints.picklists}/warehouse/$warehouseId/items',
         queryParameters: queryParameters,
+        useCache: false,
       );
 
       final responseData = response.data;
-      final responseMeta = response.extra['meta'];
       List<dynamic> list;
+      
       if (responseData is List) {
         list = responseData;
-      } else if (responseData is Map) {
+      } else if (responseData is Map && responseData.containsKey('data')) {
         final d = responseData['data'];
         list = d is List ? d : [];
       } else {
-        list = [];
+        list = responseData is Map ? [] : []; // Fallback
       }
 
-      // total may come from unwrapped response.extra.meta, top-level response,
-      // or nested response meta depending on interceptor path.
+      // Try to find the total count in various locations (interceptor meta, top level, nested meta)
       int total = list.length;
-      final metaTotalFromExtra =
-          responseMeta is Map ? responseMeta['total'] : null;
-      if (responseData is Map) {
-        final topTotal = responseData['total'];
-        final meta = responseData['meta'];
-        final metaTotal = meta is Map ? meta['total'] : null;
-        final raw =
-            metaTotalFromExtra ?? topTotal ?? metaTotal ?? list.length;
-        total = raw is int
-            ? raw
-            : (raw is num
-                  ? raw.toInt()
-                  : (int.tryParse('$raw') ?? list.length));
-      } else {
-        final raw = metaTotalFromExtra ?? list.length;
-        total = raw is int
-            ? raw
-            : (raw is num ? raw.toInt() : (int.tryParse('$raw') ?? list.length));
+      
+      // 1. Check response.extra['meta'] (moved there by ApiClient)
+      final extraMeta = response.extra['meta'];
+      if (extraMeta is Map) {
+        final raw = extraMeta['total'] ?? extraMeta['count'];
+        if (raw != null) {
+          total = raw is int ? raw : int.tryParse(raw.toString()) ?? total;
+        }
+      }
+
+      // 2. Check the raw response body if it's a Map (sometimes ApiClient doesn't unwrap)
+      final rawBody = response.data;
+      if (rawBody is Map) {
+        final raw = rawBody['total'] ?? 
+                    rawBody['count'] ?? 
+                    (rawBody['meta'] is Map ? (rawBody['meta']['total'] ?? rawBody['meta']['count']) : null);
+        if (raw != null) {
+          total = raw is int ? raw : int.tryParse(raw.toString()) ?? total;
+        }
       }
 
       return {
@@ -175,6 +205,46 @@ class InventoryPicklistRepositoryImpl implements InventoryPicklistRepository {
     } catch (e) {
       AppLogger.error('getWarehouseItems error', error: e, module: 'inventory');
       return {'items': <WarehouseStockData>[], 'total': 0};
+    }
+  }
+
+  @override
+  Future<List<Map<String, String>>> getWarehouseBins({
+    required String warehouseId,
+    String? search,
+  }) async {
+    try {
+      final queryParameters = <String, dynamic>{
+        if (search != null && search.isNotEmpty) 'search': search,
+      };
+
+      final response = await _apiClient.get(
+        '${ApiEndpoints.picklists}/warehouse/$warehouseId/bins',
+        queryParameters: queryParameters,
+      );
+
+      final responseData = response.data;
+      List<dynamic> list;
+      if (responseData is List) {
+        list = responseData;
+      } else if (responseData is Map) {
+        final d = responseData['data'];
+        list = d is List ? d : [];
+      } else {
+        list = [];
+      }
+
+      return list
+          .whereType<Map>()
+          .map((bin) => {
+                'id': (bin['id'] ?? '').toString(),
+                'binCode': (bin['binCode'] ?? bin['bin_code'] ?? '').toString(),
+              })
+          .where((b) => b['binCode']!.isNotEmpty)
+          .toList();
+    } catch (e) {
+      AppLogger.error('getWarehouseBins error', error: e, module: 'inventory');
+      return [];
     }
   }
 }

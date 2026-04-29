@@ -104,6 +104,8 @@ import 'package:zerpai_erp/core/pages/unauthorized_page.dart';
 // Inventory Module
 import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_list.dart';
 import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_create.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_edit.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_update.dart';
 import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_list.dart';
 import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_create.dart';
 import 'package:zerpai_erp/modules/inventory/shipments/presentation/inventory_shipments_list.dart';
@@ -1354,6 +1356,18 @@ final GoRouter appRouter = GoRouter(
               name: AppRoutes.picklistsCreate,
               builder: (context, state) =>
                   const InventoryPicklistsCreateScreen(),
+            ),
+            GoRoute(
+              path: 'inventory/picklists/edit/:id',
+              name: AppRoutes.picklistsEdit,
+              builder: (context, state) {
+                final id = state.pathParameters['id']!;
+                final mode = state.uri.queryParameters['mode'] ?? 'edit';
+                if (mode == 'update') {
+                  return InventoryPicklistsUpdateScreen(id: id);
+                }
+                return InventoryPicklistsEditScreen(id: id);
+              },
             ),
             GoRoute(
               path: 'inventory/picklists/:id',

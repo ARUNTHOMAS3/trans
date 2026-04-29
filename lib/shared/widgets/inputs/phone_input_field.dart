@@ -47,7 +47,10 @@ class PhoneInputField extends StatelessWidget {
   /// Optional external [FocusNode] for the digit text field.
   final FocusNode? focusNode;
 
-  const PhoneInputField({
+  /// Optional height for the fields.
+  final double? height;
+
+  PhoneInputField({
     super.key,
     this.selectedPrefix,
     required this.controller,
@@ -58,6 +61,7 @@ class PhoneInputField extends StatelessWidget {
     this.enabled = true,
     this.validator,
     this.focusNode,
+    this.height = 32,
   });
 
   @override
@@ -66,21 +70,19 @@ class PhoneInputField extends StatelessWidget {
     final int maxDigits = phonePrefixMaxDigits[effectivePrefix] ?? 15;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         // ── Country code dropdown ──────────────────────────────────────────
         SizedBox(
           width: 72,
           child: FormDropdown<String>(
+            height: height,
             value: effectivePrefix,
             items: phonePrefixOptions,
             enabled: enabled,
             hint: '+91',
-            // Show the raw code (e.g. '+91') in the closed button.
             displayStringForValue: (v) => v,
-            // Show the full labelled string (flag + name) in the list items.
-            searchStringForValue: (v) =>
-                phonePrefixLabels[v] ?? v,
+            searchStringForValue: (v) => phonePrefixLabels[v] ?? v,
             itemBuilder: (item, isSelected, isHovered) {
               return _PrefixListRow(
                 code: item,
@@ -90,8 +92,8 @@ class PhoneInputField extends StatelessWidget {
               );
             },
             onChanged: (v) => onPrefixChanged?.call(v),
-            // Remove outer borders on right side so the row looks unified.
-            showRightBorder: false,
+            // Show right border as divider
+            showRightBorder: true,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(4),
               bottomLeft: Radius.circular(4),
@@ -99,10 +101,10 @@ class PhoneInputField extends StatelessWidget {
             menuWidth: 260,
           ),
         ),
-
         // ── Digit text field ───────────────────────────────────────────────
         Expanded(
           child: CustomTextField(
+            height: height,
             controller: controller,
             hintText: hintText ?? 'Phone number',
             errorText: errorText,
@@ -121,15 +123,12 @@ class PhoneInputField extends StatelessWidget {
                     return null;
                   }
                 : null),
-            // Digits-only + length cap from the country map.
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
               LengthLimitingTextInputFormatter(maxDigits),
             ],
-            // Suppress the auto-uppercase that CustomTextField applies by
-            // default for non-number fields.
             contentCase: ContentCase.none,
-            // Remove left border so the two widgets visually merge.
+            // Merge borders
             showLeftBorder: false,
             borderRadius: const BorderRadius.only(
               topRight: Radius.circular(4),

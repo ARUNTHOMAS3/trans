@@ -3,7 +3,7 @@ part of '../sales_customer_create.dart';
 extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
   Widget _buildContactPersons() {
     return Padding(
-      padding: const EdgeInsets.all(32.0),
+      padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -96,7 +96,7 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
             ),
           ),
           Expanded(
-            flex: 3,
+            flex: 4,
             child: Text(
               'WORK PHONE',
               style: headerStyle,
@@ -105,7 +105,7 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
             ),
           ),
           Expanded(
-            flex: 3,
+            flex: 4,
             child: Text(
               'MOBILE',
               style: headerStyle,
@@ -175,22 +175,24 @@ extension _ContactPersonsSection on _SalesCustomerCreateScreenState {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    flex: 3,
+                    flex: 4,
                     child: PhoneInputField(
                       controller: row.workPhoneCtrl,
                       selectedPrefix: row.workCode,
                       onPrefixChanged: (v) => _state(() => row.workCode = v ?? '+91'),
                       hintText: '',
+                      height: _inputHeight,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    flex: 3,
+                    flex: 4,
                     child: PhoneInputField(
                       controller: row.mobilePhoneCtrl,
                       selectedPrefix: row.mobileCode,
                       onPrefixChanged: (v) => _state(() => row.mobileCode = v ?? '+91'),
                       hintText: '',
+                      height: _inputHeight,
                     ),
                   ),
                   const SizedBox(width: 8),

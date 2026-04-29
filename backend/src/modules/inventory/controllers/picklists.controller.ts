@@ -33,7 +33,12 @@ export class PicklistsController {
     );
   }
 
-  // Must be ABOVE :id so NestJS matches "warehouse/xxx/items" first
+  // Must be ABOVE :id so NestJS matches literal segments first
+  @Get("next-number")
+  getNextNumber(@Tenant() tenant: TenantContext) {
+    return this.picklistsService.getNextNumber(tenant);
+  }
+
   @Get("warehouse/:warehouseId/items")
   getWarehouseItems(
     @Tenant() tenant: TenantContext,
@@ -44,6 +49,8 @@ export class PicklistsController {
     @Query("customerId") customerId?: string,
     @Query("productId") productId?: string,
     @Query("salesOrderId") salesOrderId?: string,
+    @Query("sortBy") sortBy?: string,
+    @Query("sortOrder") sortOrder?: string,
   ) {
     return this.picklistsService.getWarehouseItems(
       warehouseId,
@@ -54,7 +61,18 @@ export class PicklistsController {
       customerId,
       productId,
       salesOrderId,
+      sortBy,
+      sortOrder,
     );
+  }
+
+  @Get("warehouse/:warehouseId/bins")
+  getWarehouseBins(
+    @Tenant() tenant: TenantContext,
+    @Param("warehouseId") warehouseId: string,
+    @Query("search") search?: string,
+  ) {
+    return this.picklistsService.getWarehouseBins(warehouseId, tenant, search);
   }
 
   @Get(":id")

@@ -192,7 +192,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: AppTheme.bgLight,
-            border: Border.all(color: const Color(0xFFD1D5DB)),
+            border: Border.all(color: AppTheme.borderColor),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
@@ -247,6 +247,34 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
     );
   }
 
+  Widget _buildDialogHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 12, 16),
+      child: Row(
+        children: [
+          Text(
+            _isEditMode ? 'Edit Customer' : 'New Customer',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF111827),
+            ),
+          ),
+          const Spacer(),
+          IconButton(
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            },
+            icon: const Icon(Icons.close, size: 20, color: Color(0xFF6B7280)),
+            splashRadius: 24,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSquareIconButton(
     IconData icon, {
     VoidCallback? onPressed,
@@ -261,7 +289,7 @@ extension _SalesCustomerBuilders on _SalesCustomerCreateScreenState {
           height: _inputHeight,
           width: _inputHeight,
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DB)),
+            border: Border.all(color: AppTheme.borderColor),
             borderRadius: BorderRadius.circular(4),
             color: Colors.white,
           ),

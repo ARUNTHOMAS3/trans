@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
+import 'sales_item_quick_edit_dialog.dart';
 
 class BulkItemsDialog extends ConsumerStatefulWidget {
   final List<Item> products;
@@ -28,6 +29,10 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
   bool _isMenuOpen = false;
   List<Item> _selectedItems = [];
   Map<String, int> _itemQuantities = {};
+  String? _hoveredItemId;
+  String? _hoveredSelectedItemId;
+  String? _hoveredQuantityBoxItemId;
+  bool _isCategoryHovered = false;
 
   List<Item> get _filteredProducts {
     List<Item> results = widget.products;
@@ -44,7 +49,6 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
           (p.sku?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
     }).toList();
   }
-
 
   void _toggleCategoryFilterMenu() {
     if (_isMenuOpen) {
@@ -112,7 +116,7 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
     return Dialog(
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.only(
-        top: 40,
+        top: 0,
         left: 24,
         right: 24,
         bottom: 24,
@@ -128,6 +132,7 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: const BoxDecoration(
+                color: Color(0xFFF9FAFB),
                 border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
               ),
               child: Row(
@@ -179,54 +184,104 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                     const SizedBox(width: 12),
                                     CompositedTransformTarget(
                                       link: _layerLink,
-                                      child: GestureDetector(
-                                        onTap: _toggleCategoryFilterMenu,
-                                        child: CustomPaint(
-                                          painter: DashedBorderPainter(
-                                            color: const Color(0xFF3B82F6),
-                                            borderRadius: 4,
-                                          ),
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
+                                      child: MouseRegion(
+                                        onEnter: (_) => setState(
+                                          () => _isCategoryHovered = true,
+                                        ),
+                                        onExit: (_) => setState(
+                                          () => _isCategoryHovered = false,
+                                        ),
+                                        child: GestureDetector(
+                                          onTap: _toggleCategoryFilterMenu,
+                                          child: CustomPaint(
+                                            painter: DashedBorderPainter(
+                                              color: _isCategoryHovered
+                                                  ? const Color(0xFF3B82F6)
+                                                  : const Color(0xFFD1D5DB),
+                                              borderRadius: 4,
+                                              strokeWidth: 2,
                                             ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Text(
-                                                  'Category',
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    color: Color(0xFF6B7280),
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 6,
                                                   ),
-                                                ),
-                                                if (_selectedCategoryIds.isNotEmpty)
-                                                  Text(
-                                                    ' (${_selectedCategoryIds.length})',
-                                                    style: const TextStyle(
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text(
+                                                    'Category',
+                                                    style: TextStyle(
                                                       fontSize: 13,
-                                                      color: Color(0xFF3B82F6),
-                                                      fontWeight: FontWeight.w600,
+                                                      color: Color(0xFF6B7280),
                                                     ),
                                                   ),
-                                                const SizedBox(width: 4),
-                                                Icon(
-                                                  _isMenuOpen
-                                                      ? Icons.keyboard_arrow_up
-                                                      : Icons.keyboard_arrow_down,
-                                                  size: 16,
-                                                  color: const Color(0xFF3B82F6),
-                                                ),
-                                              ],
+                                                  if (_selectedCategoryIds
+                                                      .isNotEmpty)
+                                                    Text(
+                                                      ' (${_selectedCategoryIds.length})',
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        color: Color(
+                                                          0xFF3B82F6,
+                                                        ),
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  const SizedBox(width: 4),
+                                                  Icon(
+                                                    _isMenuOpen
+                                                        ? Icons
+                                                              .keyboard_arrow_up
+                                                        : Icons
+                                                              .keyboard_arrow_down,
+                                                    size: 16,
+                                                    color: _isCategoryHovered
+                                                        ? const Color(
+                                                            0xFF3B82F6,
+                                                          )
+                                                        : const Color(
+                                                            0xFF6B7280,
+                                                          ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: Checkbox(
+                                            value: false, // Placeholder
+                                            onChanged: (v) {},
+                                            side: const BorderSide(
+                                              color: Color(0xFFD1D5DB),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Include sub-categories',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF4B5563),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -234,9 +289,9 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                 Container(
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                      color: const Color(0xFF3B82F6).withAlpha(
-                                        128,
-                                      ),
+                                      color: const Color(
+                                        0xFF3B82F6,
+                                      ).withAlpha(128),
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(6),
@@ -264,16 +319,23 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                             ),
                           ),
                           Expanded(
-                            child: ListView.separated(
+                            child: ListView.builder(
                               itemCount: _filteredProducts.length,
-                              separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
                               itemBuilder: (context, index) {
                                 final item = _filteredProducts[index];
                                 final isSelected = _selectedItems.any(
                                   (i) => i.id == item.id,
                                 );
+                                final isHovered = _hoveredItemId == item.id;
+
                                 return InkWell(
+                                  onHover: (hovering) {
+                                    setState(() {
+                                      _hoveredItemId = hovering
+                                          ? item.id
+                                          : null;
+                                    });
+                                  },
                                   onTap: () {
                                     setState(() {
                                       if (isSelected) {
@@ -290,6 +352,8 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                   child: Container(
                                     color: isSelected
                                         ? const Color(0xFFEFF6FF)
+                                        : isHovered
+                                        ? const Color(0xFFF3F4F6)
                                         : Colors.transparent,
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 16,
@@ -305,10 +369,11 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                               Text(
                                                 item.productName,
                                                 style: TextStyle(
-                                                  fontSize: 13,
+                                                  fontSize: 15,
                                                   fontWeight: FontWeight.w500,
-                                                  color: isSelected
-                                                      ? const Color(0xFF2563EB)
+                                                  color:
+                                                      (isSelected || isHovered)
+                                                      ? const Color(0xFF3B82F6)
                                                       : const Color(0xFF111827),
                                                 ),
                                               ),
@@ -323,12 +388,26 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                             ],
                                           ),
                                         ),
-                                        if (isSelected)
+                                        if (isSelected) ...[
+                                          const SizedBox(width: 8),
                                           const Icon(
                                             Icons.check_circle,
-                                            color: Color(0xFF10B981),
-                                            size: 20,
+                                            color: Color.fromARGB(
+                                              255,
+                                              41,
+                                              214,
+                                              104,
+                                            ),
+                                            size: 22,
                                           ),
+                                        ] else if (isHovered) ...[
+                                          const SizedBox(width: 8),
+                                          const Icon(
+                                            Icons.check_circle,
+                                            color: Color(0xFFD1D5DB),
+                                            size: 22,
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -411,128 +490,220 @@ class _BulkItemsDialogState extends ConsumerState<BulkItemsDialog> {
                                       const Divider(height: 1),
                                   itemBuilder: (context, index) {
                                     final item = _selectedItems[index];
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 12,
+                                    final isHovered =
+                                        _hoveredSelectedItemId == item.id;
+                                    return MouseRegion(
+                                      onEnter: (_) => setState(
+                                        () => _hoveredSelectedItemId = item.id,
                                       ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              item.productName,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                                color: Color(0xFF111827),
-                                              ),
-                                            ),
-                                          ),
-                                          Container(
-                                            height: 32,
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              border: Border.all(
-                                                color: const Color(0xFFD1D5DB),
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                InkWell(
-                                                  onTap: () {
-                                                    setState(() {
-                                                      int current =
-                                                          _itemQuantities[item
-                                                              .id!] ??
-                                                          1;
-                                                      if (current > 1) {
-                                                        _itemQuantities[item
-                                                                .id!] =
-                                                            current - 1;
-                                                      } else {
-                                                        _selectedItems
-                                                            .removeWhere(
-                                                              (i) =>
-                                                                  i.id ==
-                                                                  item.id,
-                                                            );
-                                                        _itemQuantities.remove(
-                                                          item.id!,
-                                                        );
-                                                      }
-                                                    });
-                                                  },
-                                                  child: const Padding(
-                                                    padding:
-                                                        EdgeInsets.symmetric(
-                                                          horizontal: 8,
-                                                        ),
-                                                    child: Icon(
-                                                      LucideIcons.minus,
-                                                      size: 14,
-                                                      color: Color(0xFF6B7280),
-                                                    ),
-                                                  ),
+                                      onExit: (_) => setState(
+                                        () => _hoveredSelectedItemId = null,
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                item.productName,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Color(0xFF111827),
                                                 ),
-                                                Container(
-                                                  width: 32,
-                                                  alignment: Alignment.center,
-                                                  decoration:
-                                                      const BoxDecoration(
-                                                        border: Border(
-                                                          left: BorderSide(
-                                                            color: Color(
-                                                              0xFFD1D5DB,
-                                                            ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            MouseRegion(
+                                              onEnter: (_) => setState(
+                                                () =>
+                                                    _hoveredQuantityBoxItemId =
+                                                        item.id,
+                                              ),
+                                              onExit: (_) => setState(
+                                                () =>
+                                                    _hoveredQuantityBoxItemId =
+                                                        null,
+                                              ),
+                                              child: Container(
+                                                height: 32,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  border: Border.all(
+                                                    color:
+                                                        _hoveredQuantityBoxItemId ==
+                                                            item.id
+                                                        ? const Color(
+                                                            0xFF3B82F6,
+                                                          )
+                                                        : const Color(
+                                                            0xFFD1D5DB,
                                                           ),
-                                                          right: BorderSide(
-                                                            color: Color(
-                                                              0xFFD1D5DB,
-                                                            ),
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    InkWell(
+                                                      onTap: () {
+                                                        setState(() {
+                                                          int current =
+                                                              _itemQuantities[item
+                                                                  .id!] ??
+                                                              1;
+                                                          if (current > 1) {
+                                                            _itemQuantities[item
+                                                                    .id!] =
+                                                                current - 1;
+                                                          } else {
+                                                            _selectedItems
+                                                                .removeWhere(
+                                                                  (i) =>
+                                                                      i.id ==
+                                                                      item.id,
+                                                                );
+                                                            _itemQuantities
+                                                                .remove(
+                                                                  item.id!,
+                                                                );
+                                                          }
+                                                        });
+                                                      },
+                                                      child: Container(
+                                                        width: 15,
+                                                        height: 15,
+                                                        decoration: BoxDecoration(
+                                                          shape:
+                                                              BoxShape.circle,
+                                                          color:
+                                                              _hoveredQuantityBoxItemId ==
+                                                                  item.id
+                                                              ? const Color(
+                                                                  0xFF3B82F6,
+                                                                )
+                                                              : const Color(
+                                                                  0xFFE5E7EB,
+                                                                ),
+                                                        ),
+                                                        child: Center(
+                                                          child: Container(
+                                                            width: 7,
+                                                            height: 2,
+                                                            decoration:
+                                                                BoxDecoration(
+                                                                  color: Colors
+                                                                      .white,
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        1,
+                                                                      ),
+                                                                ),
                                                           ),
                                                         ),
                                                       ),
-                                                  child: Text(
-                                                    '${_itemQuantities[item.id!] ?? 1}',
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                      color: Color(0xFF374151),
                                                     ),
-                                                  ),
-                                                ),
-                                                InkWell(
-                                                  onTap: () {
-                                                    setState(() {
-                                                      _itemQuantities[item
-                                                              .id!] =
-                                                          (_itemQuantities[item
-                                                                  .id!] ??
-                                                              1) +
-                                                          1;
-                                                    });
-                                                  },
-                                                  child: const Padding(
-                                                    padding:
-                                                        EdgeInsets.symmetric(
-                                                          horizontal: 8,
+                                                    Container(
+                                                      width: 36,
+                                                      alignment:
+                                                          Alignment.center,
+                                                      child: Text(
+                                                        '${_itemQuantities[item.id!] ?? 1}',
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: Color(
+                                                            0xFF374151,
+                                                          ),
                                                         ),
-                                                    child: Icon(
-                                                      LucideIcons.plus,
-                                                      size: 14,
-                                                      color: Color(0xFF6B7280),
+                                                      ),
+                                                    ),
+                                                    InkWell(
+                                                      onTap: () {
+                                                        setState(() {
+                                                          _itemQuantities[item
+                                                                  .id!] =
+                                                              (_itemQuantities[item
+                                                                      .id!] ??
+                                                                  1) +
+                                                              1;
+                                                        });
+                                                      },
+                                                      child: Container(
+                                                        width: 15,
+                                                        height: 15,
+                                                        decoration: BoxDecoration(
+                                                          shape:
+                                                              BoxShape.circle,
+                                                          color:
+                                                              _hoveredQuantityBoxItemId ==
+                                                                  item.id
+                                                              ? const Color(
+                                                                  0xFF3B82F6,
+                                                                )
+                                                              : const Color(
+                                                                  0xFFE5E7EB,
+                                                                ),
+                                                        ),
+                                                        child: const Icon(
+                                                          Icons.add,
+                                                          size: 12,
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            if (isHovered) ...[
+                                              const SizedBox(width: 12),
+                                              InkWell(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _selectedItems.removeWhere(
+                                                      (i) => i.id == item.id,
+                                                    );
+                                                    _itemQuantities.remove(
+                                                      item.id!,
+                                                    );
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(
+                                                    0,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color: Colors
+                                                          .orange
+                                                          .shade400,
                                                     ),
                                                   ),
+                                                  child: Icon(
+                                                    LucideIcons.x,
+                                                    size: 15,
+                                                    color:
+                                                        Colors.orange.shade400,
+                                                  ),
                                                 ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
+                                              ),
+                                            ],
+                                          ],
+                                        ),
                                       ),
                                     );
                                   },
@@ -669,7 +840,11 @@ class _CategoryFilterMenuState extends State<_CategoryFilterMenu> {
             style: const TextStyle(fontSize: 13),
             decoration: const InputDecoration(
               hintText: 'Search',
-              prefixIcon: Icon(Icons.search, size: 16, color: Color(0xFF9CA3AF)),
+              prefixIcon: Icon(
+                Icons.search,
+                size: 16,
+                color: Color(0xFF9CA3AF),
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.only(bottom: 12),
             ),
@@ -746,7 +921,9 @@ class _CategoryFilterMenuState extends State<_CategoryFilterMenu> {
             foregroundColor: Colors.white,
             elevation: 0,
             padding: const EdgeInsets.symmetric(vertical: 10),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
           ),
           child: const Text(
             'Apply',
@@ -804,4 +981,51 @@ class DashedBorderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _MenuHoverItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
+
+  const _MenuHoverItem({required this.icon, required this.label});
+
+  @override
+  State<_MenuHoverItem> createState() => _MenuHoverItemState();
+}
+
+class _MenuHoverItemState extends State<_MenuHoverItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        width: 180,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: _isHovered ? const Color(0xFF3B82F6) : Colors.transparent,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              widget.icon,
+              size: 16,
+              color: _isHovered ? Colors.white : const Color(0xFF6B7280),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              widget.label,
+              style: TextStyle(
+                fontSize: 14,
+                color: _isHovered ? Colors.white : const Color(0xFF1F2937),
+                fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

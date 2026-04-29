@@ -117,7 +117,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   Widget build(BuildContext context) {
-    final double fieldHeight = widget.height ?? 38.0;
+    final double fieldHeight = widget.height ?? 32.0;
     final bool isMultiline =
         (widget.maxLines == null || widget.maxLines! > 1) || fieldHeight > 60;
     final bool hasError = widget.errorText != null;
@@ -132,6 +132,8 @@ class _CustomTextFieldState extends State<CustomTextField> {
       borderColor = AppTheme.borderColor;
     } else if (_effectiveFocusNode.hasFocus) {
       borderColor = AppTheme.primaryBlueDark;
+    } else if (_isHovered || widget.isHovered) {
+      borderColor = AppTheme.infoBlue;
     } else {
       borderColor = AppTheme.borderColor;
     }

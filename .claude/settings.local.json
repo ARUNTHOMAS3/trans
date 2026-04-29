@@ -31,7 +31,11 @@
       "Bash(grep -r \"getOrganization\\\\|fetchOrganization\\\\|orgId\" \"E:\\\\zerpai-new\\\\lib\\\\modules\\\\auth\" --include=\"*.dart\" 2>/dev/null | head -20)",
       "Bash(grep -r \"Organization\\\\|orgRepository\" \"E:\\\\zerpai-new\\\\lib\\\\modules\\\\auth\" --include=\"*.dart\" -l 2>/dev/null | head -5)",
       "Bash(gh pr:*)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "mcp__lean-ctx__ctx_search",
+      "mcp__lean-ctx__ctx_read",
+      "PowerShell(cd \"c:\\\\Users\\\\admin\\\\Desktop\\\\arun work\\\\zerpai\"; git diff HEAD -- \"backend/src/modules/inventory/controllers/picklists.controller.ts\" \"backend/src/modules/inventory/services/picklists.service.ts\" \"lib/modules/inventory/picklists/data/inventory_picklist_repository.dart\" \"lib/modules/inventory/picklists/data/inventory_picklist_repository_impl.dart\" | Select-Object -First 500)",
+      "PowerShell(cd \"c:\\\\Users\\\\admin\\\\Desktop\\\\arun work\\\\zerpai\"; git diff HEAD -- \"lib/modules/inventory/picklists/data/inventory_picklist_repository.dart\" \"lib/modules/inventory/picklists/data/inventory_picklist_repository_impl.dart\" \"lib/modules/inventory/picklists/presentation/inventory_picklists_create.dart\" | Select-Object -First 300)"
     ]
   }
 }

@@ -12,7 +12,6 @@ import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/z_date_picker_field.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 
@@ -26,6 +25,7 @@ import '../../items/pricelist/providers/pricelist_provider.dart';
 import '../../items/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/sales/presentation/widgets/sales_order_item_row.dart';
+import 'widgets/sales_item_quick_edit_dialog.dart';
 import 'package:zerpai_erp/modules/sales/presentation/widgets/bulk_items_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
@@ -564,11 +564,17 @@ class _SalesOrderCreateScreenState
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 200, vertical: 0),
+        alignment: Alignment.topCenter,
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: 200,
+        ).copyWith(top: 0),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900),
+          constraints: BoxConstraints(
+            maxWidth: 900,
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
           child: SalesCustomerCreateScreen(
             showLayout: false,
             onSaveSuccess: (newCustomer) {
@@ -829,8 +835,9 @@ class _SalesOrderCreateScreenState
     final itemsState = ref.watch(itemsControllerProvider);
     final priceListsAsync = ref.watch(filteredPriceListsProvider);
     final currenciesAsync = ref.watch(currenciesProvider(null));
-    final bodyHorizontalPadding =
-        MediaQuery.sizeOf(context).width < 1000 ? 16.0 : 40.0;
+    final bodyHorizontalPadding = MediaQuery.sizeOf(context).width < 1000
+        ? 16.0
+        : 40.0;
 
     if (_isHydratingInitialOrder) {
       return const Scaffold(
@@ -922,11 +929,7 @@ class _SalesOrderCreateScreenState
             constraints: const BoxConstraints(),
           ),
           const SizedBox(width: 8),
-          Container(
-            width: 1,
-            height: 24,
-            color: _kBorder,
-          ),
+          Container(width: 1, height: 24, color: _kBorder),
           const SizedBox(width: 16),
           IconButton(
             icon: const Icon(LucideIcons.x, color: Color(0xFF6B7280), size: 20),
@@ -956,207 +959,210 @@ class _SalesOrderCreateScreenState
       children: [
         // Top Section: Customer Name & Details
         Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 24),
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           decoration: const BoxDecoration(color: Color(0xFFF3F4F6)),
+          padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SizedBox(height: 16),
               customersAsync.when(
                 data: (customers) {
                   final SalesCustomer? selectedCustomerFromList =
                       _selectedCustomerId == null
                       ? _selectedCustomer
                       : customers
-                            .where((c) => c.id == _selectedCustomerId)
-                            .firstOrNull ??
-                        _selectedCustomer;
+                                .where((c) => c.id == _selectedCustomerId)
+                                .firstOrNull ??
+                            _selectedCustomer;
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                    SharedFieldLayout(
-                      label: 'Customer Name',
-                      required: true,
-                      labelWidth: 180,
-                      maxWidth: null,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Search dropdown
-                          SizedBox(
-                            width: 320,
-                            child: FormDropdown<SalesCustomer>(
-                              value: selectedCustomerFromList,
-                              height: _kDropdownHeight,
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(4),
-                                bottomLeft: Radius.circular(4),
-                              ),
-                              showRightBorder: false,
-                              items: customers,
-                              hint: 'Select or add a customer',
-                              displayStringForValue: (c) => c.displayName,
-                              itemHeight: 56,
-                              showSettings: true,
-                              settingsLabel: 'New Customer',
-                              settingsIcon: LucideIcons.plus,
-                              onSettingsTap: _showNewCustomerDialog,
-                              itemBuilder: (customer, isSelected, isHovered) =>
-                                  _buildCustomerDropdownItem(
-                                    customer,
-                                    isSelected,
-                                    isHovered,
-                                  ),
-                              onChanged: (val) {
-                                if (val == null) return;
-                                setState(() {
-                                  _customerDetailsSidebarOverlay?.remove();
-                                  _customerDetailsSidebarOverlay = null;
-                                  _selectedCustomer = val;
-                                  _selectedCustomerId = val.id;
-                                  final priceLists =
-                                      priceListsAsync.asData?.value ?? [];
+                      SharedFieldLayout(
+                        label: 'Customer Name',
+                        required: true,
+                        labelWidth: 180,
+                        maxWidth: null,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // Search dropdown
+                            SizedBox(
+                              width: 320,
+                              child: FormDropdown<SalesCustomer>(
+                                value: selectedCustomerFromList,
+                                height: _kDropdownHeight,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(4),
+                                  bottomLeft: Radius.circular(4),
+                                ),
+                                showRightBorder: false,
+                                items: customers,
+                                hint: 'Select or add a customer',
+                                displayStringForValue: (c) => c.displayName,
+                                itemHeight: 56,
+                                showSettings: true,
+                                settingsLabel: 'New Customer',
+                                settingsIcon: LucideIcons.plus,
+                                onSettingsTap: _showNewCustomerDialog,
+                                itemBuilder:
+                                    (customer, isSelected, isHovered) =>
+                                        _buildCustomerDropdownItem(
+                                          customer,
+                                          isSelected,
+                                          isHovered,
+                                        ),
+                                onChanged: (val) {
+                                  if (val == null) return;
+                                  setState(() {
+                                    _customerDetailsSidebarOverlay?.remove();
+                                    _customerDetailsSidebarOverlay = null;
+                                    _selectedCustomer = val;
+                                    _selectedCustomerId = val.id;
+                                    final priceLists =
+                                        priceListsAsync.asData?.value ?? [];
 
-                                  for (var row in rows) {
-                                    if (row.itemId.isNotEmpty &&
-                                        row.item != null) {
-                                      _updateRowRate(row, val, priceLists);
+                                    for (var row in rows) {
+                                      if (row.itemId.isNotEmpty &&
+                                          row.item != null) {
+                                        _updateRowRate(row, val, priceLists);
+                                      }
                                     }
-                                  }
-                                });
-                              },
-                            ),
-                          ),
-                          Container(
-                            height: 32,
-                            width: 32,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF10B981), // Emerald-500
-                              borderRadius: BorderRadius.only(
-                                topRight: Radius.circular(4),
-                                bottomRight: Radius.circular(4),
+                                  });
+                                },
                               ),
                             ),
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              icon: const Icon(
-                                LucideIcons.search,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              onPressed: () => customersAsync.whenData(
-                                (customers) =>
-                                    _showAdvancedCustomerSearch(customers),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Currency Pill
-                          if (_selectedCustomer != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF3F4F6),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: const Color(0xFFE5E7EB),
+                              height: 32,
+                              width: 32,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF10B981), // Emerald-500
+                                borderRadius: BorderRadius.only(
+                                  topRight: Radius.circular(4),
+                                  bottomRight: Radius.circular(4),
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    LucideIcons.circleDollarSign,
-                                    size: 14,
-                                    color: Color(0xFF374151),
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                icon: const Icon(
+                                  LucideIcons.search,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                onPressed: () => customersAsync.whenData(
+                                  (customers) =>
+                                      _showAdvancedCustomerSearch(customers),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Currency Pill
+                            if (_selectedCustomer != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF3F4F6),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: const Color(0xFFE5E7EB),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    currenciesAsync.when(
-                                      data: (currencies) =>
-                                          _resolveCurrencyLabel(
-                                            _selectedCustomer?.currencyId,
-                                            currencies,
-                                          ),
-                                      loading: () => 'Loading currency...',
-                                      error: (_, __) => 'Currency unavailable',
-                                    ),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.circleDollarSign,
+                                      size: 14,
                                       color: Color(0xFF374151),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      currenciesAsync.when(
+                                        data: (currencies) =>
+                                            _resolveCurrencyLabel(
+                                              _selectedCustomer?.currencyId,
+                                              currencies,
+                                            ),
+                                        loading: () => 'Loading currency...',
+                                        error: (_, __) =>
+                                            'Currency unavailable',
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF374151),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          const Spacer(),
-                          // Customer Details Button
-                          if (_selectedCustomer != null)
-                            Material(
-                              color: const Color(0xFF475569), // Slate-600
-                              borderRadius: BorderRadius.circular(6),
-                              child: InkWell(
-                                onTap: _isLoadingCustomerDetails
-                                    ? null
-                                    : _openSelectedCustomerDetailsSidebar,
+                            const Spacer(),
+                            // Customer Details Button
+                            if (_selectedCustomer != null)
+                              Material(
+                                color: const Color(0xFF475569), // Slate-600
                                 borderRadius: BorderRadius.circular(6),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (_isLoadingCustomerDetails) ...[
-                                        const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  Colors.white,
-                                                ),
+                                child: InkWell(
+                                  onTap: _isLoadingCustomerDetails
+                                      ? null
+                                      : _openSelectedCustomerDetailsSidebar,
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (_isLoadingCustomerDetails) ...[
+                                          const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                    Colors.white,
+                                                  ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                        ],
+                                        Text(
+                                          "${_selectedCustomer?.displayName}'s Details",
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                        const SizedBox(width: 10),
-                                      ],
-                                      Text(
-                                        "${_selectedCustomer?.displayName}'s Details",
-                                        style: const TextStyle(
+                                        const SizedBox(width: 12),
+                                        const Icon(
+                                          LucideIcons.chevronRight,
+                                          size: 16,
                                           color: Colors.white,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      const Icon(
-                                        LucideIcons.chevronRight,
-                                        size: 16,
-                                        color: Colors.white,
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                        ],
-                      ),
+                          ],
                         ),
-                    if (_selectedCustomer != null)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 204, bottom: 20),
-                        child: _buildCustomerAddressSection(_selectedCustomer!),
                       ),
-                  ],
-                );
+                      if (_selectedCustomer != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 204, bottom: 20),
+                          child: _buildCustomerAddressSection(
+                            _selectedCustomer!,
+                          ),
+                        ),
+                    ],
+                  );
                 },
                 loading: () => const SharedFieldLayout(
                   label: 'Customer Name',
@@ -1187,14 +1193,11 @@ class _SalesOrderCreateScreenState
                       '[KA] - Karnataka',
                     ], // Simplified options
                     itemBuilder: (item, isSelected, isHovered) =>
-                        _dropdownItemBuilder(
-                          item,
-                          isSelected,
-                          isHovered,
-                        ),
+                        _dropdownItemBuilder(item, isSelected, isHovered),
                     onChanged: (v) => setState(() => placeOfSupply = v),
                   ),
                 ),
+                const SizedBox(height: 16),
               ],
             ],
           ),
@@ -1219,11 +1222,7 @@ class _SalesOrderCreateScreenState
                         height: _kDropdownHeight,
                         items: const ['Default Transaction Series'],
                         itemBuilder: (item, isSelected, isHovered) =>
-                            _dropdownItemBuilder(
-                              item,
-                              isSelected,
-                              isHovered,
-                            ),
+                            _dropdownItemBuilder(item, isSelected, isHovered),
                         onChanged: (v) {},
                       ),
                     ),
@@ -1235,7 +1234,8 @@ class _SalesOrderCreateScreenState
                         height: 32,
                         hintText: 'SO-00000',
                         suffixWidget: ZTooltip(
-                          message: 'Click here to enable or disable auto-generation of Sales Order numbers.',
+                          message:
+                              'Click here to enable or disable auto-generation of Sales Order numbers.',
                           child: InkWell(
                             onTap: _showSalesOrderPreferencesDialog,
                             child: const Padding(
@@ -1259,10 +1259,7 @@ class _SalesOrderCreateScreenState
                 label: 'Reference#',
                 labelWidth: 180,
                 maxWidth: 600,
-                child: CustomTextField(
-                  controller: referenceCtrl,
-                  height: 32,
-                ),
+                child: CustomTextField(controller: referenceCtrl, height: 32),
               ),
 
               // Sales Order Date
@@ -1306,7 +1303,9 @@ class _SalesOrderCreateScreenState
                   controller: TextEditingController(
                     text: expectedShipmentDate == null
                         ? ''
-                        : intl.DateFormat('dd-MM-yyyy').format(expectedShipmentDate!),
+                        : intl.DateFormat(
+                            'dd-MM-yyyy',
+                          ).format(expectedShipmentDate!),
                   ),
                   height: 32,
                   readOnly: true,
@@ -1379,11 +1378,7 @@ class _SalesOrderCreateScreenState
                   hint: 'Select a delivery method or type to add',
                   items: const ['None', 'FedEx', 'UPS', 'DHL', 'Post'],
                   itemBuilder: (item, isSelected, isHovered) =>
-                      _dropdownItemBuilder(
-                        item,
-                        isSelected,
-                        isHovered,
-                      ),
+                      _dropdownItemBuilder(item, isSelected, isHovered),
                   onChanged: (v) => setState(() => deliveryMethod = v),
                 ),
               ),
@@ -1454,8 +1449,7 @@ class _SalesOrderCreateScreenState
                         showSearch: warehouseList.length > 5,
                         itemBuilder: (w, isSelected, isHovered) =>
                             _dropdownItemBuilder(w.name, isSelected, isHovered),
-                        onChanged: (w) =>
-                            setState(() => warehouse = w?.name),
+                        onChanged: (w) => setState(() => warehouse = w?.name),
                       ),
                     ),
                     const SizedBox(width: 48),
@@ -1482,9 +1476,7 @@ class _SalesOrderCreateScreenState
                           hint: 'Select Price List',
                           itemBuilder: (id, isSelected, isHovered) =>
                               _dropdownItemBuilder(
-                                priceLists
-                                    .firstWhere((p) => p.id == id)
-                                    .name,
+                                priceLists.firstWhere((p) => p.id == id).name,
                                 isSelected,
                                 isHovered,
                               ),
@@ -1506,7 +1498,8 @@ class _SalesOrderCreateScreenState
                           },
                         ),
                         loading: () => const Skeleton(height: 32, width: 320),
-                        error: (_, __) => const Text('Error loading price lists'),
+                        error: (_, __) =>
+                            const Text('Error loading price lists'),
                       ),
                     ),
                   ],
@@ -1514,13 +1507,13 @@ class _SalesOrderCreateScreenState
               ),
 
               const SizedBox(height: 24),
-            const Divider(),
-          ],
+              const Divider(),
+            ],
+          ),
         ),
-      ),
-    ],
-  );
-}
+      ],
+    );
+  }
 
   Widget _buildItemsTable(
     List<Item>? products,
@@ -1835,22 +1828,33 @@ class _SalesOrderCreateScreenState
         ),
 
         // Rows
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: rows.length,
-          separatorBuilder: (_, __) => Row(
-            children: [
-              const Expanded(child: Divider(height: 1, color: _kBorder)),
-              const SizedBox(width: 60),
-            ],
+        Theme(
+          data: Theme.of(context).copyWith(
+            canvasColor: Colors.transparent,
+            shadowColor: Colors.transparent,
           ),
-          itemBuilder: (ctx, idx) => _buildItemRow(
-            idx,
-            products,
-            customersAsync,
-            priceListsAsync,
-            taxRates,
+          child: ReorderableListView.builder(
+            buildDefaultDragHandles: false,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: rows.length,
+            onReorder: (oldIndex, newIndex) {
+              setState(() {
+                if (newIndex > oldIndex) {
+                  newIndex -= 1;
+                }
+                final item = rows.removeAt(oldIndex);
+                rows.insert(newIndex, item);
+              });
+            },
+            itemBuilder: (ctx, idx) => _buildItemRow(
+              idx,
+              products,
+              customersAsync,
+              priceListsAsync,
+              taxRates,
+              key: ValueKey(rows[idx]),
+            ),
           ),
         ),
 
@@ -1895,8 +1899,9 @@ class _SalesOrderCreateScreenState
     List<Item> products,
     AsyncValue<List<SalesCustomer>> customersAsync,
     AsyncValue<List<PriceList>> priceListsAsync,
-    List<TaxRate> taxRates,
-  ) {
+    List<TaxRate> taxRates, {
+    Key? key,
+  }) {
     final row = rows[idx];
     final q = double.tryParse(row.quantityCtrl.text) ?? 0;
     final r = double.tryParse(row.rateCtrl.text) ?? 0;
@@ -1910,10 +1915,14 @@ class _SalesOrderCreateScreenState
       rowDiscounted = rowBase - d;
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      key: key,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Expanded(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
           child: Container(
             decoration: const BoxDecoration(
               color: _kWhite,
@@ -1954,16 +1963,22 @@ class _SalesOrderCreateScreenState
                       ),
                     )
                   else
-                    const SizedBox(
+                    SizedBox(
                       width: 40,
                       child: Padding(
-                        padding: EdgeInsets.only(top: 14),
+                        padding: const EdgeInsets.only(top: 14),
                         child: Align(
                           alignment: Alignment.topCenter,
-                          child: Icon(
-                            LucideIcons.gripVertical,
-                            size: 16,
-                            color: Color(0xFFD1D5DB),
+                          child: ReorderableDragStartListener(
+                            index: idx,
+                            child: const MouseRegion(
+                              cursor: SystemMouseCursors.grab,
+                              child: Icon(
+                                LucideIcons.gripVertical,
+                                size: 16,
+                                color: Color(0xFFD1D5DB),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -2041,22 +2056,28 @@ class _SalesOrderCreateScreenState
                                               products
                                                   .firstWhere((p) => p.id == id)
                                                   .productName,
-                                          itemBuilder: (id, isSelected, isHovered) =>
-                                              _dropdownItemBuilder(
-                                                products
-                                                    .firstWhere(
-                                                      (p) => p.id == id,
-                                                    )
-                                                    .productName,
-                                                isSelected,
-                                                isHovered,
-                                              ),
+                                          itemBuilder:
+                                              (id, isSelected, isHovered) =>
+                                                  _dropdownItemBuilder(
+                                                    products
+                                                        .firstWhere(
+                                                          (p) => p.id == id,
+                                                        )
+                                                        .productName,
+                                                    isSelected,
+                                                    isHovered,
+                                                  ),
                                           onChanged: (v) {
                                             if (v == null) return;
                                             final p = products.firstWhere(
                                               (e) => e.id == v,
                                             );
                                             setState(() {
+                                              // Remove empty row above if it exists
+                                              if (idx > 0 && rows[idx - 1].itemId.isEmpty) {
+                                                rows.removeAt(idx - 1);
+                                              }
+                                              
                                               row.itemId = v;
                                               row.item = p;
                                               if (row.rateCtrl.text == '0' ||
@@ -2226,12 +2247,13 @@ class _SalesOrderCreateScreenState
                                     height: 32,
                                     hint: 'Apply Price List',
                                     items: const [],
-                                    itemBuilder: (item, isSelected, isHovered) =>
-                                        _dropdownItemBuilder(
-                                          item,
-                                          isSelected,
-                                          isHovered,
-                                        ),
+                                    itemBuilder:
+                                        (item, isSelected, isHovered) =>
+                                            _dropdownItemBuilder(
+                                              item,
+                                              isSelected,
+                                              isHovered,
+                                            ),
                                     onChanged: (v) {},
                                   ),
                                 ),
@@ -2371,28 +2393,37 @@ class _SalesOrderCreateScreenState
                   onTap: () => _toggleRowActionsOverlay(row),
                   child: const Icon(
                     LucideIcons.moreVertical,
-                    size: 16,
+                    size: 18,
                     color: Color(0xFF9CA3AF),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              if (idx > 0)
+              if (rows.length > 1)
                 InkWell(
                   onTap: () {
                     setState(() {
                       rows.removeAt(idx);
+                      _calculateTotals();
                     });
-                    _calculateTotals();
                   },
-                  child: const Icon(LucideIcons.x, size: 16, color: Colors.red),
+                  child: const Icon(LucideIcons.x, size: 18, color: Colors.red),
                 ),
             ],
           ),
         ),
       ],
-    );
-  }
+    ),
+    if (idx < rows.length - 1)
+      Row(
+        children: [
+          const Expanded(child: Divider(height: 1, color: _kBorder)),
+          const SizedBox(width: 60),
+        ],
+      ),
+  ],
+);
+}
 
   Widget _buildSelectedItemView(SalesOrderItemRow row, List<Item> products) {
     final item = row.item;
@@ -2436,17 +2467,68 @@ class _SalesOrderCreateScreenState
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _buildIconAction(
-                    LucideIcons.moreHorizontal,
-                    size: 14,
-                    onTap: () {
-                      context.push('/items/create', extra: item);
-                    },
+                  Theme(
+                    data: Theme.of(
+                      context,
+                    ).copyWith(hoverColor: Colors.transparent),
+                    child: PopupMenuButton<String>(
+                      tooltip: 'Show more actions',
+                      padding: EdgeInsets.zero,
+                      offset: const Offset(0, 30),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      onSelected: (v) {
+                        if (v == 'edit') {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => SalesItemQuickEditDialog(
+                              item: item,
+                              onUpdated: (newItem) {
+                                setState(() {
+                                  row.item = newItem;
+                                  row.rateCtrl.text =
+                                      newItem.sellingPrice?.toString() ?? '0';
+                                  row.mrpCtrl.text =
+                                      newItem.mrp?.toString() ?? '0';
+                                });
+                                _calculateTotals();
+                              },
+                            ),
+                          );
+                        }
+                      },
+                      itemBuilder: (ctx) => [
+                        PopupMenuItem<String>(
+                          value: 'edit',
+                          padding: EdgeInsets.zero,
+                          height: 40,
+                          child: _MenuHoverItem(
+                            icon: LucideIcons.pencil,
+                            label: 'Edit Item',
+                          ),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'details',
+                          padding: EdgeInsets.zero,
+                          height: 40,
+                          child: _MenuHoverItem(
+                            icon: LucideIcons.shoppingBag,
+                            label: 'View Item Details',
+                          ),
+                        ),
+                      ],
+                      child: _buildIconAction(
+                        LucideIcons.moreHorizontal,
+                        size: 10,
+                        onTap: null,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 4),
                   _buildIconAction(
                     LucideIcons.x,
-                    size: 14,
+                    size: 10,
                     onTap: () {
                       setState(() {
                         row.itemId = '';
@@ -2460,72 +2542,290 @@ class _SalesOrderCreateScreenState
                   ),
                 ],
               ),
-              if (_showAdditionalInfo) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
+              const SizedBox(height: 8),
+              _buildDescriptionField(row.descriptionCtrl),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: item.type == 'goods' ? _kBlue : _kGreen,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: Text(
+                      item.type == 'goods' ? 'GOODS' : 'SERVICE',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
                       ),
-                      decoration: BoxDecoration(
-                        color: item.type == 'goods' ? _kBlue : _kGreen,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Text(
-                        item.type == 'goods' ? 'GOODS' : 'SERVICE',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    item.type == 'goods' ? 'HSN ' : 'SAC ',
+                    style: const TextStyle(fontSize: 12, color: _kBodyText),
+                  ),
+                  CompositedTransformTarget(
+                    link: row.hsnLink,
+                    child: Row(
+                      children: [
+                        Text(
+                          (item.type == 'goods'
+                                  ? item.hsnCode
+                                  : item.hsnCode) ??
+                              '',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: _kBlue,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      item.type == 'goods' ? 'HSN ' : 'SAC ',
-                      style: const TextStyle(fontSize: 12, color: _kBodyText),
-                    ),
-                    CompositedTransformTarget(
-                      link: row.hsnLink,
-                      child: Row(
-                        children: [
-                          Text(
-                            (item.type == 'goods'
-                                    ? item.hsnCode
-                                    : item.hsnCode) ??
-                                '',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: _kBlue,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        const SizedBox(width: 4),
+                        InkWell(
+                          onTap: () => _toggleHsnOverlay(row),
+                          child: const Icon(
+                            LucideIcons.pencil,
+                            size: 12,
+                            color: _kBlue,
                           ),
-                          const SizedBox(width: 4),
-                          InkWell(
-                            onTap: () => _toggleHsnOverlay(row),
-                            child: const Icon(
-                              LucideIcons.pencil,
-                              size: 12,
-                              color: _kBlue,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ],
-              if (_showAdditionalInfo) ...[
-                const SizedBox(height: 8),
-                _buildDescriptionField(row.descriptionCtrl),
-              ],
+                  ),
+                ],
+              ),
             ],
           ),
         ),
       ],
     );
+  }
+
+  OverlayEntry? _reportingTagsOverlay;
+  final LayerLink _reportingTagsLink = LayerLink();
+
+  void _toggleReportingTagsOverlay(SalesOrderItemRow row) {
+    if (_reportingTagsOverlay != null) {
+      _reportingTagsOverlay?.remove();
+      _reportingTagsOverlay = null;
+      setState(() {});
+      return;
+    }
+
+    _reportingTagsOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                _reportingTagsOverlay?.remove();
+                _reportingTagsOverlay = null;
+                setState(() {});
+              },
+              behavior: HitTestBehavior.translucent,
+            ),
+          ),
+          Positioned(
+            width: 500,
+            child: CompositedTransformFollower(
+              link: row.reportingTagsLink,
+              showWhenUnlinked: false,
+              offset: const Offset(0, 30),
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.white,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: const Text(
+                          'Reporting Tags',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF374151),
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'ADGF',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF374151),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      FormDropdown<String>(
+                                        items: const ['None'],
+                                        value: 'None',
+                                        onChanged: (_) {},
+                                        hint: 'None',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 24),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'shedule',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF374151),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      FormDropdown<String>(
+                                        items: const ['None'],
+                                        value: 'None',
+                                        onChanged: (_) {},
+                                        hint: 'None',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'demo adavced reporting tag',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF374151),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      FormDropdown<String>(
+                                        items: const ['None'],
+                                        value: 'None',
+                                        onChanged: (_) {},
+                                        hint: 'None',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Spacer(),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
+                          children: [
+                            ElevatedButton(
+                              onPressed: () {
+                                _reportingTagsOverlay?.remove();
+                                _reportingTagsOverlay = null;
+                                setState(() {});
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF10B981),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                              ),
+                              child: const Text(
+                                'Save',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            OutlinedButton(
+                              onPressed: () {
+                                _reportingTagsOverlay?.remove();
+                                _reportingTagsOverlay = null;
+                                setState(() {});
+                              },
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(
+                                  color: Color(0xFFE5E7EB),
+                                ),
+                                foregroundColor: const Color(0xFF374151),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                backgroundColor: const Color(0xFFF9FAFB),
+                              ),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_reportingTagsOverlay!);
+    setState(() {});
   }
 
   Widget _buildReportingTags(SalesOrderItemRow row) {
@@ -2535,34 +2835,35 @@ class _SalesOrderCreateScreenState
         const SizedBox(height: 12),
         Row(
           children: [
-            InkWell(
-              onTap: () {
-                // TODO: Implement Reporting Tags Overlay
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    LucideIcons.tag,
-                    size: 14,
-                    color: Color(0xFF9CA3AF),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Reporting Tags',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF374151),
-                      fontWeight: FontWeight.w500,
+            CompositedTransformTarget(
+              link: row.reportingTagsLink,
+              child: InkWell(
+                onTap: () => _toggleReportingTagsOverlay(row),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      LucideIcons.tag,
+                      size: 14,
+                      color: Color(0xFF9CA3AF),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    LucideIcons.chevronDown,
-                    size: 14,
-                    color: Color(0xFF9CA3AF),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Reporting Tags',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF374151),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      LucideIcons.chevronDown,
+                      size: 14,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -2596,22 +2897,26 @@ class _SalesOrderCreateScreenState
   Widget _buildIconAction(
     IconData icon, {
     double size = 16,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
     Color? color,
   }) {
+    final content = Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: color?.withValues(alpha: 0.3) ?? const Color(0xFFD3D3D3),
+        ),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, size: size, color: color ?? const Color(0xFF808080)),
+    );
+
+    if (onTap == null) return content;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: color?.withValues(alpha: 0.3) ?? const Color(0xFFD3D3D3),
-          ),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, size: size, color: color ?? const Color(0xFF808080)),
-      ),
+      child: content,
     );
   }
 
@@ -2684,62 +2989,62 @@ class _SalesOrderCreateScreenState
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 392),
                   child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 20,
-                    horizontal: 24,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    border: Border.all(color: const Color(0xFFDBEAFE)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 20,
+                      horizontal: 24,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      border: Border.all(color: const Color(0xFFDBEAFE)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: Column(
-                  children: [
-                    _summaryRow('Sub Total', subTotal),
-                    const SizedBox(height: 16),
-                    _summaryInputRow(
-                      'Shipping Charges',
-                      shippingCtrl,
-                      tooltip: 'Amount spent on shipping the goods.',
+                      children: [
+                        _summaryRow('Sub Total', subTotal),
+                        const SizedBox(height: 16),
+                        _summaryInputRow(
+                          'Shipping Charges',
+                          shippingCtrl,
+                          tooltip: 'Amount spent on shipping the goods.',
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                        const SizedBox(height: 16),
+                        if (_tdsTcsType == 'TDS') ...[
+                          _summaryRadioRow(),
+                          const SizedBox(height: 16),
+                          _summaryInputRow(
+                            'Adjustment',
+                            adjustmentCtrl,
+                            labelCtrl: adjustmentLabelCtrl,
+                            isAdjustment: true,
+                            tooltip:
+                                'Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.',
+                          ),
+                        ] else ...[
+                          _summaryInputRow(
+                            'Adjustment',
+                            adjustmentCtrl,
+                            labelCtrl: adjustmentLabelCtrl,
+                            isAdjustment: true,
+                            tooltip:
+                                'Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.',
+                          ),
+                          const SizedBox(height: 16),
+                          _summaryRadioRow(),
+                        ],
+                        const SizedBox(height: 16),
+                        _summaryRow('Round Off', _roundOff),
+                        const SizedBox(height: 24),
+                        _summaryRow(
+                          'Total ( ₹ )',
+                          total,
+                          isBold: true,
+                          fontSize: 16,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                    const SizedBox(height: 16),
-                    if (_tdsTcsType == 'TDS') ...[
-                      _summaryRadioRow(),
-                      const SizedBox(height: 16),
-                      _summaryInputRow(
-                        'Adjustment',
-                        adjustmentCtrl,
-                        labelCtrl: adjustmentLabelCtrl,
-                        isAdjustment: true,
-                        tooltip:
-                            'Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.',
-                      ),
-                    ] else ...[
-                      _summaryInputRow(
-                        'Adjustment',
-                        adjustmentCtrl,
-                        labelCtrl: adjustmentLabelCtrl,
-                        isAdjustment: true,
-                        tooltip:
-                            'Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.',
-                      ),
-                      const SizedBox(height: 16),
-                      _summaryRadioRow(),
-                    ],
-                    const SizedBox(height: 16),
-                    _summaryRow('Round Off', _roundOff),
-                    const SizedBox(height: 24),
-                    _summaryRow(
-                      'Total ( ₹ )',
-                      total,
-                      isBold: true,
-                      fontSize: 16,
-                    ),
-                  ],
-                ),
-              ),
+                  ),
                 ),
               ),
             ),
@@ -2829,10 +3134,7 @@ class _SalesOrderCreateScreenState
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                flex: 3,
-                child: termsSection,
-              ),
+              Expanded(flex: 3, child: termsSection),
               const SizedBox(width: 24),
               Container(
                 width: 1,
@@ -2840,10 +3142,7 @@ class _SalesOrderCreateScreenState
                 margin: const EdgeInsets.symmetric(vertical: 8),
               ),
               const SizedBox(width: 24),
-              Expanded(
-                flex: 2,
-                child: uploadSection,
-              ),
+              Expanded(flex: 2, child: uploadSection),
             ],
           ),
         );
@@ -2857,9 +3156,9 @@ class _SalesOrderCreateScreenState
       child: Container(
         height: 38,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: const Color(0xFFF3F4F6),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFFD1D5DB)),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -2894,10 +3193,10 @@ class _SalesOrderCreateScreenState
             ),
             const VerticalDivider(
               width: 1,
-              color: Color(0xFFD1D5DB),
+              color: Color(0xFFE5E7EB),
               thickness: 1,
-              indent: 8,
-              endIndent: 8,
+              indent: 4,
+              endIndent: 4,
             ),
             InkWell(
               onTap: _toggleAddRowOverlay,
@@ -2952,7 +3251,7 @@ class _SalesOrderCreateScreenState
                 width: 140, // Enough width for the text
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: [
                     BoxShadow(
@@ -3044,9 +3343,9 @@ class _SalesOrderCreateScreenState
         height: 38,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: const Color(0xFFF3F4F6),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFFD1D5DB)),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
@@ -3360,7 +3659,8 @@ class _SalesOrderCreateScreenState
           onExit: (_) => setState(() => _isAdjustmentLabelHovered = false),
           child: CustomPaint(
             foregroundPainter: _DashedBorderPainter(
-              color: (_adjustmentLabelFocusNode.hasFocus ||
+              color:
+                  (_adjustmentLabelFocusNode.hasFocus ||
                       _isAdjustmentLabelHovered)
                   ? _kBlue
                   : const Color(0xFFCBD5E1),
@@ -3377,10 +3677,7 @@ class _SalesOrderCreateScreenState
               child: TextField(
                 controller: labelCtrl,
                 focusNode: _adjustmentLabelFocusNode,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _kBodyText,
-                ),
+                style: const TextStyle(fontSize: 13, color: _kBodyText),
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -5021,8 +5318,8 @@ Widget _dropdownItemBuilder(String label, bool isSelected, bool isHovered) {
               color: isHovered
                   ? Colors.white
                   : (isSelected
-                      ? const Color(0xFF1F2937)
-                      : const Color(0xFF1F2937)),
+                        ? const Color(0xFF1F2937)
+                        : const Color(0xFF1F2937)),
             ),
             overflow: TextOverflow.ellipsis,
           ),
@@ -5423,8 +5720,6 @@ class _ManageTaxInfoDialogState extends ConsumerState<_ManageTaxInfoDialog> {
   }
 }
 
-
-
 class _TrianglePainter extends CustomPainter {
   final Color color;
   _TrianglePainter({required this.color});
@@ -5495,10 +5790,7 @@ class _DashedBorderPainter extends CustomPainter {
     for (final metric in path.computeMetrics()) {
       double distance = 0;
       while (distance < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(distance, distance + dash),
-          paint,
-        );
+        canvas.drawPath(metric.extractPath(distance, distance + dash), paint);
         distance += dash + gap;
       }
     }
@@ -5683,8 +5975,8 @@ class _AddressDialogState extends ConsumerState<_AddressDialog> {
     final dialogTitle = widget.title.contains('BILLING')
         ? 'Billing Address'
         : widget.title.contains('SHIPPING')
-            ? 'Shipping Address'
-            : widget.title;
+        ? 'Shipping Address'
+        : widget.title;
 
     return Align(
       alignment: Alignment.topCenter,
@@ -5852,12 +6144,13 @@ class _AddressDialogState extends ConsumerState<_AddressDialog> {
                                         items: states,
                                         displayStringForValue: (s) =>
                                             s['name'] ?? '',
-                                        itemBuilder: (s, isSelected, isHovered) =>
-                                            _dropdownItemBuilder(
-                                              s['name'] ?? '',
-                                              isSelected,
-                                              isHovered,
-                                            ),
+                                        itemBuilder:
+                                            (s, isSelected, isHovered) =>
+                                                _dropdownItemBuilder(
+                                                  s['name'] ?? '',
+                                                  isSelected,
+                                                  isHovered,
+                                                ),
                                         onChanged: (v) =>
                                             setState(() => _selectedState = v),
                                       );
@@ -5986,7 +6279,8 @@ class _AddressDialogState extends ConsumerState<_AddressDialog> {
                                 ),
                               ),
                               TextSpan(
-                                text: 'Changes made here will be updated for this customer.',
+                                text:
+                                    'Changes made here will be updated for this customer.',
                                 style: const TextStyle(color: _kLabelGrey),
                               ),
                             ],
@@ -7487,9 +7781,49 @@ class TooltipShapeBorder extends ShapeBorder {
   ShapeBorder scale(double t) => this;
 }
 
+class _MenuHoverItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
 
+  const _MenuHoverItem({required this.icon, required this.label});
 
+  @override
+  State<_MenuHoverItem> createState() => _MenuHoverItemState();
+}
 
+class _MenuHoverItemState extends State<_MenuHoverItem> {
+  bool _isHovered = false;
 
-
-
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: _isHovered ? const Color(0xFF0088FF) : Colors.transparent,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              widget.icon,
+              size: 16,
+              color: _isHovered ? Colors.white : const Color(0xFF6B7280),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              widget.label,
+              style: TextStyle(
+                fontSize: 14,
+                color: _isHovered ? Colors.white : const Color(0xFF1F2937),
+                fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

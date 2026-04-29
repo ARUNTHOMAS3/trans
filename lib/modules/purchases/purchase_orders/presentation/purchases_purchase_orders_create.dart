@@ -9,6 +9,8 @@ import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_pu
 import 'package:zerpai_erp/modules/purchases/purchase_orders/providers/purchases_purchase_orders_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart';
+import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_state.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
@@ -140,6 +142,42 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   bool _showRecentTransactions = true;
   bool _showPriceList = true;
   bool _isUploadButtonHovered = false;
+
+  String _getCurrencyLabel(String code) {
+    final option = defaultCurrencyOptions.firstWhere(
+      (c) => c.code == code,
+      orElse: () => defaultCurrencyOptions.first,
+    );
+    return option.label;
+  }
+
+  void _showNewVendorDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.only(top: 0, bottom: 24, left: 100, right: 100),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: PurchasesVendorsVendorCreateScreen(
+              showLayout: false,
+              showPrefillBanner: false,
+              onSaveSuccess: (newVendor) {
+                Navigator.of(context).pop();
+                ref
+                    .read(purchaseOrderFormNotifierProvider.notifier)
+                    .updateField(vendorId: newVendor.id);
+                ref.refresh(vendorProvider);
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   // Lookup lists
   List<Map<String, dynamic>> _paymentTermsList = [];
@@ -1653,6 +1691,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     menuWidth: 480,
                     onChanged: (v) =>
                         notifier.updateField(vendorId: v?.id ?? ''),
+                    showSettings: true,
+                    settingsLabel: 'New Vendor',
+                    settingsIcon: LucideIcons.plus,
+                    onSettingsTap: _showNewVendorDialog,
                     displayStringForValue: (v) => v.displayName,
                     itemBuilder: (v, isSelected, isHovered) =>
                         _buildVendorDropdownItem(v, isSelected, isHovered),
@@ -1689,7 +1731,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   // INR badge
                   Container(
                     height: 28,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF3F4F6),
                       borderRadius: BorderRadius.circular(20),
@@ -1705,7 +1750,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          selectedVendor.currency ?? 'INR',
+                          _getCurrencyLabel(selectedVendor.currency ?? 'INR'),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -2030,38 +2075,56 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: _linkBlue,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF6B7280),
                   letterSpacing: 0.5,
                 ),
               ),
-              if (hasAddress) ...[
-                const SizedBox(width: 6),
-                GestureDetector(
-                  onTap: onEdit,
-                  child: Icon(Icons.edit_outlined, size: 14, color: _linkBlue),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: onEdit,
+                child: const Icon(
+                  LucideIcons.pencil,
+                  size: 11,
+                  color: Color(0xFF9CA3AF),
                 ),
-              ],
+              ),
             ],
           ),
           const SizedBox(height: 6),
           if (hasAddress)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: lines
-                  .map(
-                    (l) => Text(
-                      l,
+              children: [
+                if (address['attention'] != null &&
+                    (address['attention'] as String).isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      address['attention'] as String,
                       style: const TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _textPrimary,
-                        height: 1.6,
+                        color: Color(0xFF111827),
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  )
-                  .toList(),
+                  ),
+                ...lines
+                    .where(
+                      (l) => l != address['attention'],
+                    ) // Skip attention if already added
+                    .map(
+                      (l) => Text(
+                        l,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF4B5563),
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+              ],
             )
           else
             GestureDetector(
@@ -2070,7 +2133,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 'New Address',
                 style: TextStyle(
                   fontSize: 12,
-                  color: _linkBlue,
+                  color: Color(0xFF2563EB),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -2089,46 +2152,52 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           children: [
             const Text(
               'GST Treatment: ',
-              style: TextStyle(fontSize: 13, color: _labelColor),
+              style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
             ),
             Text(
               gstTreatment,
               style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: _textPrimary,
-                decoration: TextDecoration.underline,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF111827),
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             CompositedTransformTarget(
               link: _gstLink,
-              child: GestureDetector(
+              child: InkWell(
                 onTap: () => _showTaxPreferencesDialog(vendor),
-                child: Icon(Icons.edit_outlined, size: 14, color: _linkBlue),
+                child: const Icon(
+                  LucideIcons.pencil,
+                  size: 11,
+                  color: Color(0xFF2563EB),
+                ),
               ),
             ),
           ],
         ),
         if (vendor.gstin != null && vendor.gstin!.isNotEmpty) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Row(
             children: [
               const Text(
                 'GSTIN: ',
-                style: TextStyle(fontSize: 12, color: _labelColor),
+                style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
               ),
               Text(
                 vendor.gstin!,
                 style: const TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _linkBlue,
-                  decoration: TextDecoration.underline,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF111827),
                 ),
               ),
-              const SizedBox(width: 4),
-              Icon(Icons.edit_outlined, size: 12, color: _linkBlue),
+              const SizedBox(width: 6),
+              const Icon(
+                LucideIcons.pencil,
+                size: 11,
+                color: Color(0xFF2563EB),
+              ),
             ],
           ),
         ],
@@ -3305,8 +3374,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               child: Container(
                 height: 32,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0F7FF),
+                  color: const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -3329,14 +3399,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             Icon(
                               Icons.add_circle_outline,
                               size: 14,
-                              color: _linkBlue,
+                              color: const Color(0xFF2563EB),
                             ),
-                            SizedBox(width: 6),
-                            Text(
+                            const SizedBox(width: 6),
+                            const Text(
                               'Add New Row',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: _linkBlue,
+                                color: Color(0xFF374151),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -3348,7 +3418,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     Container(
                       width: 1,
                       height: 20,
-                      color: _linkBlue.withValues(alpha: 0.3),
+                      color: const Color(0xFFE5E7EB),
                     ),
                     // Chevron dropdown trigger
                     GestureDetector(
@@ -3358,7 +3428,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         child: Icon(
                           Icons.keyboard_arrow_down,
                           size: 16,
-                          color: _linkBlue,
+                          color: Color(0xFF6B7280),
                         ),
                       ),
                     ),
@@ -3529,15 +3599,26 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                     hint: 'Type or click to select an item.',
                                     onChanged: (i) {
                                       if (i == null) return;
-                                      ctrl.nameCtrl.text = i.productName;
-                                      ctrl.qtyCtrl.text = '1.00';
-                                      ctrl.rateCtrl.text = (i.costPrice ?? 0.0)
+                                      
+                                      int targetIndex = index;
+                                      if (index > 0 && poState.items[index - 1].productId.isEmpty) {
+                                        _rowControllers[index - 1].dispose();
+                                        _rowControllers.removeAt(index - 1);
+                                        notifier.removeItemRow(index - 1);
+                                        targetIndex = index - 1;
+                                      }
+
+                                      final targetCtrl = _rowControllers[targetIndex];
+                                      targetCtrl.nameCtrl.text = i.productName;
+                                      targetCtrl.qtyCtrl.text = '1.00';
+                                      targetCtrl.rateCtrl.text = (i.costPrice ?? 0.0)
                                           .toStringAsFixed(2);
-                                      ctrl.discountCtrl.text = '0.00';
-                                      ctrl.descCtrl.text =
+                                      targetCtrl.discountCtrl.text = '0.00';
+                                      targetCtrl.descCtrl.text =
                                           i.purchaseDescription ?? '';
+                                      
                                       notifier.selectProductForItem(
-                                        index,
+                                        targetIndex,
                                         i,
                                         poState.warehouseId ?? '',
                                       );
@@ -6394,20 +6475,21 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF0F7FF),
+          color: const Color(0xFFF3F4F6),
           borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(icon, size: 14, color: _linkBlue),
+            Icon(icon, size: 14, color: const Color(0xFF2563EB)),
             const SizedBox(width: 6),
             Text(
               label,
               style: const TextStyle(
                 fontSize: 12,
-                color: _linkBlue,
+                color: Color(0xFF374151),
                 fontWeight: FontWeight.w600,
               ),
             ),
