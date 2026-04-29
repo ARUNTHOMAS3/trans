@@ -928,6 +928,197 @@ class _InventoryPicklistsUpdateScreenState
       ),
     );
   }
+
+  Widget _buildSelectedItemsTable() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _borderCol),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        children: [
+          // Header
+          IntrinsicHeight(
+            child: Container(
+              padding: const EdgeInsets.only(left: 16, right: 0, top: 10, bottom: 10),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF9FAFB),
+                border: Border(bottom: BorderSide(color: _borderCol)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: _buildHeaderSearchField(
+                        label: 'ITEM DETAILS',
+                        controller: _itemNameSearchCtrl,
+                        hintText: 'Search items...',
+                        isSearchVisible: _isItemSearchVisible,
+                        onToggle: () => setState(() => _isItemSearchVisible = !_isItemSearchVisible),
+                        sortAscending: _salesOrderSortAscending,
+                        onChanged: (val) => setState(() => _itemNameSearchQuery = val),
+                      ),
+                    ),
+                  ),
+                  const VerticalDivider(width: 1, color: _borderCol),
+                  Expanded(
+                    flex: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: _buildHeaderSearchField(
+                        label: 'SALES ORDER#',
+                        controller: _salesOrderSearchCtrl,
+                        hintText: 'Search SO...',
+                        isSearchVisible: _isSOSearchVisible,
+                        onToggle: () => setState(() => _isSOSearchVisible = !_isSOSearchVisible),
+                        textAlign: TextAlign.center,
+                        showSortControls: true,
+                        sortAscending: _salesOrderSortAscending,
+                        onSortAscendingTap: () {
+                          if (_salesOrderSortAscending) return;
+                          setState(() => _salesOrderSortAscending = true);
+                        },
+                        onSortDescendingTap: () {
+                          if (!_salesOrderSortAscending) return;
+                          setState(() => _salesOrderSortAscending = false);
+                        },
+                        onChanged: (val) => setState(() => _salesOrderSearchQuery = val),
+                      ),
+                    ),
+                  ),
+                  const VerticalDivider(width: 1, color: _borderCol),
+                  const Expanded(
+                    flex: 1,
+                    child: Text(
+                      'QUANTITY ORDERED',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _textSecondary,
+                        fontFamily: 'Inter',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const VerticalDivider(width: 1, color: _borderCol),
+                  const Expanded(
+                    flex: 1,
+                    child: Text(
+                      'QUANTITY PACKED',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _textSecondary,
+                        fontFamily: 'Inter',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const VerticalDivider(width: 1, color: _borderCol),
+                  Expanded(
+                    flex: 2,
+                    child: Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'QUANTITY TO PICK',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _textSecondary,
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          ZTooltip(
+                            message: "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
+                            child: Icon(LucideIcons.info, size: 12, color: _textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const VerticalDivider(width: 1, color: _borderCol),
+                  Expanded(
+                    flex: 2,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'QUANTITY PICKED',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: _textSecondary,
+                                  fontFamily: 'Inter',
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              ZTooltip(
+                                message: "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
+                                child: Icon(LucideIcons.info, size: 12, color: _textSecondary),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                for (int i = 0; i < _selectedItems.length; i++) {
+                                  final item = _selectedItems[i];
+                                  _selectedItems[i] = item.copyWith(
+                                    quantityPicked: item.quantityToPick ?? 0,
+                                  );
+                                }
+                              });
+                            },
+                            child: const Text(
+                              'PICK ALL ITEMS',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF2563EB),
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const VerticalDivider(width: 1, color: _borderCol),
+                  const Expanded(
+                    flex: 2,
+                    child: Text(
+                      'STATUS',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _textSecondary,
+                        fontFamily: 'Inter',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Rows
+          ..._filteredSelectedItems.map((item) {
+            final rowKey = _buildRowKey(item);
+            return IntrinsicHeight(
+              child: Container(
+                padding: const EdgeInsets.only(left: 16, right: 0),
+                decoration: const BoxDecoration(
                   border: Border(bottom: BorderSide(color: _borderCol)),
                 ),
                 child: Row(
@@ -1052,6 +1243,7 @@ class _InventoryPicklistsUpdateScreenState
                         ],
                       ),
                     ),
+                    const VerticalDivider(width: 1, color: _borderCol),
                     Expanded(
                       flex: 2,
                       child: Center(
@@ -1077,105 +1269,6 @@ class _InventoryPicklistsUpdateScreenState
                                 value: item.status,
                                 items: const [
                                   'YET_TO_START',
-                                  'IN_PROGRESS',
-                                  'COMPLETED',
-                                  'ON_HOLD'
-                                ],
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() {
-                                      final idx = _selectedItems.indexOf(item);
-                                      if (idx != -1) {
-                                        _selectedItems[idx] =
-                                            item.copyWith(status: val);
-                                      }
-                                    });
-                                  }
-                                },
-                                displayStringForValue: (v) =>
-                                    v.replaceAll('_', ' '),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'IN_PROGRESS':
-        return const Color(0xFF2563EB); // Blue
-      case 'ON_HOLD':
-        return const Color(0xFFEF4444); // Red
-      case 'COMPLETED':
-        return const Color(0xFF10B981); // Green
-      case 'YET_TO_START':
-      default:
-        return const Color(0xFF9CA3AF); // Grey
-    }
-  }
-
-  Widget _buildNotesSection() {
-    return _buildFormRow(
-      label: 'Internal Notes',
-      isRequired: false,
-      child: SizedBox(
-        width: 350,
-        child: TextField(
-          controller: _notesCtrl,
-          maxLines: 4,
-          style: const TextStyle(
-            fontSize: 13,
-            color: _textPrimary,
-            fontFamily: 'Inter',
-          ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.all(12),
-            enabledBorder: OutlineInputBorder(
-              borderSide: const BorderSide(color: _borderCol),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderSide: const BorderSide(color: _focusBorder, width: 1.4),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStickyFooter() {
-    double totalOrdered = 0;
-    double totalPicked = 0;
-    for (var item in _selectedItems) {
-      totalOrdered += item.quantityOrdered ?? 0;
-      totalPicked += _currentPickedQty(item);
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: _borderCol)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x0a000000),
-            blurRadius: 4,
-            offset: Offset(0, -2),
-          ),
-        ],
       ),
       child: Row(
         children: [
