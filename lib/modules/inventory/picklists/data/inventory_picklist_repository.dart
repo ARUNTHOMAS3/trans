@@ -1,3 +1,4 @@
+import '../../providers/stock_provider.dart';
 import '../models/inventory_picklist_model.dart';
 
 abstract class InventoryPicklistRepository {
@@ -17,4 +18,14 @@ abstract class InventoryPicklistRepository {
   Future<bool> deletePicklist(String id);
 
   Future<int> getTotalCount();
+
+  Future<Map<String, dynamic>> getWarehouseItems({
+    required String warehouseId,
+    int page = 1,
+    int limit = 100,
+    String? search,
+    String? customerId,
+    String? productId,
+    String? salesOrderId,
+  });
 }

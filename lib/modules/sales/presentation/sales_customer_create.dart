@@ -50,16 +50,20 @@ part 'sections/sales_customer_builders.dart';
 part 'sections/sales_customer_helpers.dart';
 
 class SalesCustomerCreateScreen extends ConsumerStatefulWidget {
-  final SalesCustomer? initialCustomer;
-  final String? customerId;
-  final String? initialTab;
-
   const SalesCustomerCreateScreen({
     super.key,
     this.initialCustomer,
     this.customerId,
     this.initialTab,
+    this.onSaveSuccess,
+    this.showLayout = true,
   });
+
+  final SalesCustomer? initialCustomer;
+  final String? customerId;
+  final String? initialTab;
+  final void Function(SalesCustomer)? onSaveSuccess;
+  final bool showLayout;
 
   @override
   ConsumerState<SalesCustomerCreateScreen> createState() =>
@@ -447,18 +451,15 @@ class _SalesCustomerCreateScreenState
           .toList();
     });
 
-    return ZerpaiLayout(
-      pageTitle: _isEditMode ? 'Edit Customer' : 'New Customer',
-      enableBodyScroll: true,
-      footer: _buildFooter(),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
-        child: isLoading
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [_buildPrimaryInfo(), const FormSkeleton()],
-              )
-            : Column(
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+      child: isLoading
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [_buildPrimaryInfo(), const FormSkeleton()],
+            )
+          : SingleChildScrollView(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildPrimaryInfo(),
@@ -466,7 +467,22 @@ class _SalesCustomerCreateScreenState
                   _buildTabSection(),
                 ],
               ),
-      ),
+            ),
+    );
+
+    if (!widget.showLayout) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: content,
+        bottomNavigationBar: _buildFooter(),
+      );
+    }
+
+    return ZerpaiLayout(
+      pageTitle: _isEditMode ? 'Edit Customer' : 'New Customer',
+      enableBodyScroll: true,
+      footer: _buildFooter(),
+      child: content,
     );
   }
 
@@ -500,40 +516,36 @@ class _SalesCustomerCreateScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-              ),
-              child: TabBar(
-                padding: EdgeInsets.zero,
-                controller: _tabController,
-                isScrollable: true,
-                labelColor: Colors.black,
-                unselectedLabelColor: AppTheme.textSecondary,
-                indicatorColor: AppTheme.primaryBlueDark,
-                indicatorWeight: 2,
-                indicatorSize: TabBarIndicatorSize.label,
-                labelPadding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 2,
-                ),
-                labelStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-                tabs: tabs,
-              ),
+        Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+          ),
+          child: TabBar(
+            padding: EdgeInsets.zero,
+            controller: _tabController,
+            isScrollable: true,
+            labelColor: Colors.black,
+            unselectedLabelColor: AppTheme.textSecondary,
+            indicatorColor: AppTheme.primaryBlueDark,
+            indicatorWeight: 2,
+            indicatorSize: TabBarIndicatorSize.label,
+            labelPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 2,
             ),
-          ],
+            labelStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+            tabs: tabs,
+          ),
         ),
         // Use direct indexing to allow the whole page to scroll as one
         tabViews[_tabController.index],
@@ -909,6 +921,11 @@ class _SalesCustomerCreateScreenState
               : 'Customer ${result.displayName} created successfully!',
         );
         _draftCache.remove(_draftKey);
+        
+        if (widget.onSaveSuccess != null) {
+          widget.onSaveSuccess!(result);
+          return;
+        }
 
         // Navigate
         if (mounted) {

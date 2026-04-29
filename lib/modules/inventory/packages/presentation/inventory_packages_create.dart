@@ -40,6 +40,8 @@ class _InventoryPackagesCreateScreenState
   List<_PackageItem> _items = [];
   final List<_PackageItemRowController> _rowControllers = [];
   final Set<String> _hoveredQtyFields = {};
+  final Set<int> _hoveredNormalRows = <int>{};
+  final Set<int> _hoveredManualRows = <int>{};
   final Map<int, String> _rowSelectedViews = {};
   final Map<int, String> _rowSelectedWarehouses = {};
   final Set<String> _focusedQtyFields = {};
@@ -336,8 +338,19 @@ class _InventoryPackagesCreateScreenState
     if (index < _items.length) {
       setState(() {
         _items.removeAt(index);
-        _rowControllers[index].dispose();
-        _rowControllers.removeAt(index);
+        if (index < _rowControllers.length) {
+          _rowControllers[index].dispose();
+          _rowControllers.removeAt(index);
+        }
+        if (index < _salesOrderItems.length) {
+          _salesOrderItems.removeAt(index);
+        }
+        if (index < _normalRowControllers.length) {
+          _normalRowControllers[index].dispose();
+          _normalRowControllers.removeAt(index);
+        }
+        _hoveredNormalRows.remove(index);
+        _hoveredManualRows.remove(index);
       });
     }
   }
@@ -1455,15 +1468,20 @@ class _InventoryPackagesCreateScreenState
   }
 
   Widget _buildItemRowNormal(int index, SalesOrderItem soItem) {
+    final isHovered = _hoveredNormalRows.contains(index);
+
     return Container(
       padding: const EdgeInsets.only(left: 16, right: 0),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: _borderCol)),
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hoveredNormalRows.add(index)),
+        onExit: (_) => setState(() => _hoveredNormalRows.remove(index)),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             Expanded(
               flex: 2,
               child: Padding(
@@ -1554,8 +1572,31 @@ class _InventoryPackagesCreateScreenState
                 ],
               ),
             ),
-            const SizedBox(width: 40),
-          ],
+              SizedBox(
+                width: 40,
+                child: Align(
+                  alignment: Alignment.center,
+                  child: IgnorePointer(
+                    ignoring: !isHovered,
+                    child: AnimatedOpacity(
+                      opacity: isHovered ? 1 : 0,
+                      duration: const Duration(milliseconds: 120),
+                      child: IconButton(
+                        onPressed: () => _removeItem(index),
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: _dangerRed,
+                        ),
+                        splashRadius: 20,
+                        tooltip: 'Remove row',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1723,131 +1764,144 @@ class _InventoryPackagesCreateScreenState
     // ignore: unused_local_variable
     final ctrl = _rowControllers[index];
     final soItems = _salesOrderItems;
+    final isHovered = _hoveredManualRows.contains(index);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: _borderCol)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FormDropdown<SalesOrderItem>(
-                  fillColor: Colors.white,
-                  value: soItems
-                      .where((it) => it.itemId == item.itemId)
-                      .firstOrNull,
-                  hint: 'Select Item',
-                  items: soItems,
-                  maxVisibleItems: 4,
-                  itemBuilder: (item, isSelected, isHovered) =>
-                      _commonItemBuilder<SalesOrderItem>(
-                        item,
-                        isSelected,
-                        isHovered,
-                        (it) =>
-                            it.item?.productName ?? it.description ?? 'Unknown',
-                      ),
-                  displayStringForValue: (it) =>
-                      it.item?.productName ?? it.description ?? 'Unknown',
-                  searchStringForValue: (it) =>
-                      it.item?.productName ?? it.description ?? '',
-                  onChanged: (val) {
-                    if (val == null) return;
-                    setState(() {
-                      _items[index] = _items[index].copyWith(
-                        itemId: val.itemId,
-                        itemName:
-                            val.item?.productName ?? val.description ?? '',
-                        ordered: val.quantity,
-                        qtyToPack: val.quantity,
-                        batches: const [], // Reset batches when product changes
-                      );
-                      _rowControllers[index].qtyCtrl.text = val.quantity
-                          .toString();
-                    });
-                  },
-                ),
-                if (item.itemId != null && item.itemId!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, left: 4),
-                    child: Text(
-                      'Unit: ${soItems.firstWhere((it) => it.itemId == item.itemId, orElse: () => soItems.first).item?.unitName ?? "pcs"}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: _textSecondary,
-                        fontFamily: 'Inter',
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hoveredManualRows.add(index)),
+        onExit: (_) => setState(() => _hoveredManualRows.remove(index)),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FormDropdown<SalesOrderItem>(
+                    fillColor: Colors.white,
+                    value: soItems
+                        .where((it) => it.itemId == item.itemId)
+                        .firstOrNull,
+                    hint: 'Select Item',
+                    items: soItems,
+                    maxVisibleItems: 4,
+                    itemBuilder: (item, isSelected, isHovered) =>
+                        _commonItemBuilder<SalesOrderItem>(
+                          item,
+                          isSelected,
+                          isHovered,
+                          (it) =>
+                              it.item?.productName ?? it.description ?? 'Unknown',
+                        ),
+                    displayStringForValue: (it) =>
+                        it.item?.productName ?? it.description ?? 'Unknown',
+                    searchStringForValue: (it) =>
+                        it.item?.productName ?? it.description ?? '',
+                    onChanged: (val) {
+                      if (val == null) return;
+                      setState(() {
+                        _items[index] = _items[index].copyWith(
+                          itemId: val.itemId,
+                          itemName:
+                              val.item?.productName ?? val.description ?? '',
+                          ordered: val.quantity,
+                          qtyToPack: val.quantity,
+                          batches: const [], // Reset batches when product changes
+                        );
+                        _rowControllers[index].qtyCtrl.text = val.quantity
+                            .toString();
+                      });
+                    },
+                  ),
+                  if (item.itemId != null && item.itemId!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 4),
+                      child: Text(
+                        'Unit: ${soItems.firstWhere((it) => it.itemId == item.itemId, orElse: () => soItems.first).item?.unitName ?? "pcs"}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: _textSecondary,
+                          fontFamily: 'Inter',
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                item.ordered.toString(),
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
+            Expanded(
+              flex: 1,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  item.ordered.toString(),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _textPrimary,
+                    fontFamily: 'Inter',
+                  ),
                 ),
               ),
             ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                item.packed.toString(),
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _textPrimary,
-                  fontFamily: 'Inter',
+            Expanded(
+              flex: 1,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  item.packed.toString(),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _textPrimary,
+                    fontFamily: 'Inter',
+                  ),
                 ),
               ),
             ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IgnorePointer(
-                  ignoring: item.itemId == null || item.itemId!.isEmpty,
-                  child: Opacity(
-                    opacity: (item.itemId != null && item.itemId!.isNotEmpty)
-                        ? 1.0
-                        : 0.4,
-                    child: _buildQuantityCell(
-                      index,
-                      _buildQtyInput(index),
-                      _rowSelectedWarehouses[index] ?? "Select Warehouse",
+            Expanded(
+              flex: 1,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IgnorePointer(
+                    ignoring: item.itemId == null || item.itemId!.isEmpty,
+                    child: Opacity(
+                      opacity: (item.itemId != null && item.itemId!.isNotEmpty)
+                          ? 1.0
+                          : 0.4,
+                      child: _buildQuantityCell(
+                        index,
+                        _buildQtyInput(index),
+                        _rowSelectedWarehouses[index] ?? "Select Warehouse",
+                      ),
                     ),
                   ),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 32,
+              child: IgnorePointer(
+                ignoring: !isHovered,
+                child: AnimatedOpacity(
+                  opacity: isHovered ? 1 : 0,
+                  duration: const Duration(milliseconds: 120),
+                  child: IconButton(
+                    onPressed: () => _removeItem(index),
+                    icon: const Icon(LucideIcons.x, size: 16, color: _dangerRed),
+                    splashRadius: 20,
+                    tooltip: 'Remove row',
+                  ),
                 ),
-              ],
+              ),
             ),
-          ),
-          SizedBox(
-            width: 32,
-            child: IconButton(
-              onPressed: () => _removeItem(index),
-              icon: const Icon(LucideIcons.trash2, size: 16, color: _dangerRed),
-              splashRadius: 20,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

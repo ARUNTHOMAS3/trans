@@ -61,7 +61,7 @@ class _AdvancedCustomerSearchDialogState
     return Align(
       alignment: Alignment.topCenter,
       child: Padding(
-        padding: const EdgeInsets.only(top: 40),
+        padding: const EdgeInsets.only(top: 0),
         child: Material(
           color: Colors.transparent,
           child: Container(
@@ -125,7 +125,7 @@ class _AdvancedCustomerSearchDialogState
                         children: [
                           Container(
                             width: 580,
-                            height: 48,
+                            height: 32,
                             decoration: BoxDecoration(
                               border: Border.all(
                                 color: const Color(0xFFD1D5DB),
@@ -157,8 +157,8 @@ class _AdvancedCustomerSearchDialogState
                                           )
                                           .toList(),
                                   child: Container(
-                                    width: 170,
-                                    height: 48,
+                                    width: 190,
+                                    height: 32,
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
                                     ),
@@ -218,7 +218,7 @@ class _AdvancedCustomerSearchDialogState
                               backgroundColor: _kGreen,
                               foregroundColor: Colors.white,
                               elevation: 0,
-                              minimumSize: const Size(90, 48),
+                              minimumSize: const Size(90, 32),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(6),
                               ),

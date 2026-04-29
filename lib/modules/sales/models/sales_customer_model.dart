@@ -505,8 +505,7 @@ class SalesCustomer {
       if (pan != null && pan!.isNotEmpty) 'pan': pan,
       if (placeOfSupply != null && placeOfSupply!.isNotEmpty)
         'placeOfSupply': placeOfSupply,
-      if (_looksLikeUuid(currencyId))
-        'currencyId': currencyId,
+      if (_looksLikeUuid(currencyId)) 'currencyId': currencyId,
       if (priceList != null && priceList!.isNotEmpty) 'priceListId': priceList,
       if (openingBalance != null && openingBalance! > 0)
         'receivableBalance': openingBalance,

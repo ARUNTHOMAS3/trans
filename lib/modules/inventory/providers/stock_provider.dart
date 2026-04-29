@@ -98,7 +98,7 @@ class WarehouseStockData {
       salesOrderId: json['salesOrderId'] as String? ?? json['sales_order_id'] as String?,
       salesOrderNumber: json['salesOrderNumber'] as String? ?? json['sales_order_number'] as String? ?? json['orderNumber'] as String?,
       customerName: json['customerName'] as String? ?? json['customer_name'] as String?,
-      unitTitle: json['unitTitle'] as String? ?? json['unit_title'] as String? ?? json['unit'] as String?,
+      unitTitle: json['unitTitle'] as String? ?? json['unit_title'] as String? ?? json['unit']?.toString(),
       quantityOrdered: (json['quantityOrdered'] as num? ?? json['quantity_ordered'] as num?)?.toDouble(),
       quantityToPick: (json['quantityToPick'] as num? ?? json['quantity_to_pick'] as num?)?.toDouble(),
       quantityPicked: (json['quantityPicked'] as num? ?? json['quantity_picked'] as num?)?.toDouble(),

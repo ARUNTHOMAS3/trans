@@ -38,8 +38,23 @@ export class PicklistsController {
   getWarehouseItems(
     @Tenant() tenant: TenantContext,
     @Param("warehouseId") warehouseId: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+    @Query("search") search?: string,
+    @Query("customerId") customerId?: string,
+    @Query("productId") productId?: string,
+    @Query("salesOrderId") salesOrderId?: string,
   ) {
-    return this.picklistsService.getWarehouseItems(warehouseId, tenant);
+    return this.picklistsService.getWarehouseItems(
+      warehouseId,
+      tenant,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 100,
+      search,
+      customerId,
+      productId,
+      salesOrderId,
+    );
   }
 
   @Get(":id")
