@@ -1,3 +1,4 @@
+import 'dart:math' show max;
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 
@@ -11,13 +12,16 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
 import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
-import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
+import 'package:zerpai_erp/modules/items/items/repositories/items_repository_provider.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/providers/inventory_picklists_provider.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/models/inventory_picklist_model.dart';
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 
 const _textPrimary = Color(0xFF1F2937);
@@ -45,14 +49,12 @@ class _InventoryPicklistsCreateScreenState
   final _salesOrderSearchCtrl = TextEditingController();
   String _itemNameSearchQuery = '';
   String _salesOrderSearchQuery = '';
+  bool _salesOrderSortAscending = true;
   bool _isItemSearchVisible = false;
   bool _isSOSearchVisible = false;
 
   List<WarehouseStockData> get _filteredSelectedItems {
-    if (_itemNameSearchQuery.isEmpty && _salesOrderSearchQuery.isEmpty) {
-      return _selectedItems;
-    }
-    return _selectedItems.where((item) {
+    final filtered = _selectedItems.where((item) {
       final name = item.productName.toLowerCase();
       final productCode = item.productCode.toLowerCase();
       final so = (item.salesOrderNumber ?? '').toLowerCase();
@@ -67,6 +69,14 @@ class _InventoryPicklistsCreateScreenState
 
       return matchesItem && matchesSO;
     }).toList();
+
+    filtered.sort((a, b) {
+      final aOrder = (a.salesOrderNumber ?? '').trim();
+      final bOrder = (b.salesOrderNumber ?? '').trim();
+      final cmp = aOrder.compareTo(bOrder);
+      return _salesOrderSortAscending ? cmp : -cmp;
+    });
+    return filtered;
   }
 
   List<String> _validationErrors = [];
@@ -117,7 +127,7 @@ class _InventoryPicklistsCreateScreenState
   // Picklist Numbering Preferences
   bool _isAutoGenerate = true;
   String _picklistPrefix = 'PL-';
-  int _nextNumber = 17;
+  int _nextNumber = 1;
 
   // Batch data persistence
   final Map<String, List<Map<String, String>>> _savedBatchData =
@@ -126,8 +136,7 @@ class _InventoryPicklistsCreateScreenState
   bool get _isFormValid =>
       _picklistNumberCtrl.text.trim().isNotEmpty &&
       _selectedGroup != null &&
-      _selectedWarehouse != null &&
-      _selectedAssignee != null;
+      _selectedWarehouse != null;
 
   bool get _hasMandatoryFieldsForItemSelection =>
       _picklistNumberCtrl.text.trim().isNotEmpty &&
@@ -137,15 +146,46 @@ class _InventoryPicklistsCreateScreenState
   bool get _allBatchesAdded =>
       _selectedItems.isNotEmpty &&
       _selectedItems.every(
-        (item) => _savedBatchKeys.contains(_buildRowKey(item)),
+        (item) {
+          final qtyPicked = _currentPickedQty(item);
+          if (qtyPicked <= 0) return true;
+          return _savedBatchKeys.contains(_buildRowKey(item));
+        },
       );
+
 
   @override
   void initState() {
     super.initState();
     _selectedGroup = 'No Grouping';
     _picklistNumberCtrl.text = _generatePicklistNumber();
+    _loadNextPicklistNumber();
     _dateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
+  }
+
+
+
+  Future<void> _loadNextPicklistNumber() async {
+    if (!_isAutoGenerate) return;
+
+    try {
+      final nextNumberData = await ref.read(nextPicklistNumberProvider.future);
+      if (!mounted) return;
+
+      setState(() {
+        _picklistPrefix = nextNumberData['prefix']?.toString().trim().isNotEmpty == true
+            ? nextNumberData['prefix'].toString()
+            : 'PL-';
+        _nextNumber = nextNumberData['next_number'] as int? ?? 1;
+        if (_isAutoGenerate) {
+          _picklistNumberCtrl.text = nextNumberData['formatted']?.toString().trim().isNotEmpty == true
+              ? nextNumberData['formatted'].toString()
+              : _generatePicklistNumber();
+        }
+      });
+    } catch (_) {
+      // Keep the local default when the backend value cannot be loaded.
+    }
   }
 
   String _buildRowKey(WarehouseStockData item) {
@@ -225,6 +265,7 @@ class _InventoryPicklistsCreateScreenState
         itemName: item.productName,
         productId: item.productId,
         warehouseName: _selectedWarehouse?.name ?? '',
+        warehouseId: _selectedWarehouse?.id ?? '',
         branchId: _selectedWarehouse?.branchId,
         totalQuantity: _getPickedQtyOutOnly(item),
         savedBatchData: _savedBatchData[_buildRowKey(item)],
@@ -362,6 +403,152 @@ class _InventoryPicklistsCreateScreenState
     return '$_picklistPrefix${_nextNumber.toString().padLeft(5, '0')}';
   }
 
+  String _formatPicklistDateValue(String value) {
+    try {
+      return DateFormat('yyyy-MM-dd').format(DateFormat('dd-MM-yyyy').parse(value));
+    } catch (_) {
+      return value;
+    }
+  }
+
+  String _computePicklistStatus(List<Map<String, dynamic>> items) {
+    if (items.isEmpty) return 'YET_TO_START';
+    final allZero = items.every((i) => ((i['qty_picked'] as num?) ?? 0) <= 0);
+    if (allZero) return 'YET_TO_START';
+    final allComplete = items.every((i) {
+      final picked = ((i['qty_picked'] as num?) ?? 0).toDouble();
+      final ordered = ((i['qty_ordered'] as num?) ?? 0).toDouble();
+      return ordered > 0 && picked >= ordered;
+    });
+    return allComplete ? 'COMPLETED' : 'IN_PROGRESS';
+  }
+
+  Future<Map<String, dynamic>> _buildPicklistPayload() async {
+    final bins = await ref.read(binsLookupProvider.future);
+    final binsByCode = <String, Map<String, String>>{};
+    for (final bin in bins) {
+      final code = bin['bin_code']?.trim() ?? '';
+      if (code.isNotEmpty && !binsByCode.containsKey(code)) {
+        binsByCode[code] = bin;
+      }
+    }
+
+    final uniqueProductIds = _selectedItems.map((item) => item.productId).toSet();
+    final batchesByProductId = <String, Map<String, Map<String, dynamic>>>{};
+    for (final productId in uniqueProductIds) {
+      if (productId.isEmpty) continue;
+      final batches = await ref.read(batchLookupProvider(productId).future);
+      final batchMapByNo = <String, Map<String, dynamic>>{};
+      for (final batch in batches) {
+        final batchNo = batch['batch_no']?.toString().trim() ?? '';
+        if (batchNo.isNotEmpty && !batchMapByNo.containsKey(batchNo)) {
+          batchMapByNo[batchNo] = batch;
+        }
+      }
+      batchesByProductId[productId] = batchMapByNo;
+    }
+
+    final items = <Map<String, dynamic>>[];
+    for (final item in _selectedItems) {
+      final rowKey = _buildRowKey(item);
+      final batchRows = _savedBatchData[rowKey] ?? const <Map<String, String>>[];
+      final batchLookup = batchesByProductId[item.productId] ?? const <String, Map<String, dynamic>>{};
+
+      final batchAllocations = <Map<String, dynamic>>[];
+      for (final row in batchRows) {
+        final batchNo = row['batchNo']?.trim() ?? '';
+        final binCode = row['binLocation']?.trim() ?? '';
+        final batch = batchLookup[batchNo];
+        final bin = binsByCode[binCode];
+
+        if (batch == null) {
+          throw StateError('Batch $batchNo could not be resolved for ${item.productName}.');
+        }
+        if (bin == null) {
+          throw StateError('Bin $binCode could not be resolved for ${item.productName}.');
+        }
+
+        final prices = batch['prices'] as List<dynamic>? ?? const [];
+        final priceMap = prices.isNotEmpty
+            ? Map<String, dynamic>.from(prices.first as Map)
+            : <String, dynamic>{};
+
+        batchAllocations.add({
+          'batch_id': batch['id'],
+          'layer_id': batch['layer_id'] ?? priceMap['layer_id'],
+          'warehouse_id': _selectedWarehouse!.id,
+          'bin_id': bin['id'],
+          'qty': double.tryParse(row['qtyOut'] ?? '') ?? 0,
+          'foc_qty': double.tryParse(row['foc'] ?? '') ?? 0,
+        });
+      }
+
+      final qtyPicked = _currentPickedQty(item);
+      if (qtyPicked > 0 && batchAllocations.isEmpty) {
+        throw Exception('Please allocate batch and bin for ${item.productName} (Qty Picked: $qtyPicked)');
+      }
+
+      items.add({
+        'product_id': item.productId,
+        'sales_order_id': item.salesOrderId,
+        'sales_order_line_id': item.salesOrderLineId,
+        'qty_ordered': item.quantityOrdered ?? 0,
+        'qty_to_pick': item.quantityToPick ?? 0,
+        'qty_picked': qtyPicked,
+        'batch_allocations': batchAllocations,
+      });
+    }
+
+    return {
+      'picklist_no': _picklistNumberCtrl.text.trim(),
+      'warehouse_id': _selectedWarehouse!.id,
+      'assignee_id': _selectedAssignee,
+      'picklist_date': _formatPicklistDateValue(_dateCtrl.text.trim()),
+      'status': _computePicklistStatus(items),
+      'notes': _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+      'items': items,
+    };
+  }
+
+  Future<void> _savePicklist() async {
+    final repository = ref.read(inventoryPicklistRepositoryProvider);
+
+    try {
+      final payload = await _buildPicklistPayload();
+      
+      final dynamic result = await repository.createPicklist(payload);
+      ref.invalidate(nextPicklistNumberProvider);
+
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+
+      final displayNum = result is Picklist ? result.picklistNumber : (result['picklist_no'] ?? '');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            displayNum.toString().isNotEmpty
+                ? 'Picklist $displayNum generated successfully'
+                : 'Picklist generated successfully',
+          ),
+          backgroundColor: _greenBtn,
+        ),
+      );
+
+      context.pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      final errorMessage = e.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to generate picklist: $errorMessage'),
+          backgroundColor: _dangerRed,
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _picklistNumberCtrl.dispose();
@@ -383,7 +570,12 @@ class _InventoryPicklistsCreateScreenState
             _isAutoGenerate = isAuto;
             _picklistPrefix = prefix;
             _nextNumber = nextNum;
-            _picklistNumberCtrl.text = _generatePicklistNumber();
+            if (_isAutoGenerate) {
+              _picklistNumberCtrl.text = _generatePicklistNumber();
+              _loadNextPicklistNumber();
+            } else {
+              _picklistNumberCtrl.clear();
+            }
           });
         },
       ),
@@ -460,12 +652,12 @@ class _InventoryPicklistsCreateScreenState
                   label: 'Picklist#',
                   isRequired: true,
                   child: SizedBox(
-                    width: 500,
+                    width: 350,
                     child: CustomTextField(
                       controller: _picklistNumberCtrl,
                       height: 36,
-                      readOnly: true,
-                      suffixWidget: _PicklistZTooltip(
+                      readOnly: _isAutoGenerate,
+                      suffixWidget: ZTooltip(
                         message:
                             'Click here to enable or disable auto-generation of numbers.',
                         child: InkWell(
@@ -521,11 +713,12 @@ class _InventoryPicklistsCreateScreenState
                   child: SizedBox(
                     width: 350,
                     child: FormDropdown<String>(
+                      enabled: true,
                       height: 32,
                       value: _selectedGroup,
                       items: const [
                         'No Grouping',
-                        'By Item',
+                        'By Item',       
                         'By Sales Orders',
                       ],
                       hint: 'No Grouping',
@@ -618,7 +811,7 @@ class _InventoryPicklistsCreateScreenState
                 ],
 
                 _buildFormRow(
-                  label: 'Warehouse',
+                  label: 'Warehouse Name',
                   isRequired: true,
                   child: SizedBox(
                     width: 350,
@@ -628,6 +821,7 @@ class _InventoryPicklistsCreateScreenState
 
                         return warehousesAsync.when(
                           data: (warehouses) => FormDropdown<Warehouse>(
+                            enabled: true,
                             height: 32,
                             value: _selectedWarehouse,
                             items: warehouses,
@@ -724,9 +918,9 @@ class _InventoryPicklistsCreateScreenState
         children: [
           const Icon(LucideIcons.clipboardCheck, size: 24, color: _textPrimary),
           const SizedBox(width: 12),
-          const Text(
+          Text(
             'New Picklist',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,
               color: _textPrimary,
@@ -915,6 +1109,10 @@ class _InventoryPicklistsCreateScreenState
     required bool isSearchVisible,
     required VoidCallback onToggle,
     TextAlign textAlign = TextAlign.start,
+    bool showSortControls = false,
+    required bool sortAscending,
+    VoidCallback? onSortAscendingTap,
+    VoidCallback? onSortDescendingTap,
   }) {
     if (!isSearchVisible) {
       return Row(
@@ -932,6 +1130,42 @@ class _InventoryPicklistsCreateScreenState
               fontFamily: 'Inter',
             ),
           ),
+          if (showSortControls) ...[
+            const SizedBox(width: 4),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onSortAscendingTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1),
+                    child: Icon(
+                      LucideIcons.chevronUp,
+                      size: 10,
+                      color: sortAscending
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onSortDescendingTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1),
+                    child: Icon(
+                      LucideIcons.chevronDown,
+                      size: 10,
+                      color: !sortAscending
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(width: 4),
           InkWell(
             onTap: onToggle,
@@ -1027,6 +1261,7 @@ class _InventoryPicklistsCreateScreenState
                         onToggle: () => setState(
                           () => _isItemSearchVisible = !_isItemSearchVisible,
                         ),
+                        sortAscending: _salesOrderSortAscending,
                         onChanged: (val) =>
                             setState(() => _itemNameSearchQuery = val),
                       ),
@@ -1046,6 +1281,16 @@ class _InventoryPicklistsCreateScreenState
                           () => _isSOSearchVisible = !_isSOSearchVisible,
                         ),
                         textAlign: TextAlign.center,
+                        showSortControls: true,
+                        sortAscending: _salesOrderSortAscending,
+                        onSortAscendingTap: () {
+                          if (_salesOrderSortAscending) return;
+                          setState(() => _salesOrderSortAscending = true);
+                        },
+                        onSortDescendingTap: () {
+                          if (!_salesOrderSortAscending) return;
+                          setState(() => _salesOrderSortAscending = false);
+                        },
                         onChanged: (val) =>
                             setState(() => _salesOrderSearchQuery = val),
                       ),
@@ -1055,7 +1300,7 @@ class _InventoryPicklistsCreateScreenState
                   const Expanded(
                     flex: 1,
                     child: Text(
-                      'QTY ORDERED',
+                      'QUANTITY ORDERED',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -1068,7 +1313,7 @@ class _InventoryPicklistsCreateScreenState
                   const Expanded(
                     flex: 1,
                     child: Text(
-                      'PREFERRED BIN',
+                      'QUANTITY PACKED',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -1085,7 +1330,7 @@ class _InventoryPicklistsCreateScreenState
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Text(
-                            'QTY TO PICK',
+                            'QUANTITY TO PICK',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -1093,7 +1338,7 @@ class _InventoryPicklistsCreateScreenState
                             ),
                           ),
                           const SizedBox(width: 4),
-                          const _PicklistZTooltip(
+                          ZTooltip(
                             message:
                                 "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
                             child: Icon(
@@ -1112,10 +1357,9 @@ class _InventoryPicklistsCreateScreenState
                     child: Center(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Text(
-                            'QTY PICKED',
+                            'QUANTITY PICKED',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -1123,7 +1367,7 @@ class _InventoryPicklistsCreateScreenState
                             ),
                           ),
                           const SizedBox(width: 4),
-                          const _PicklistZTooltip(
+                          ZTooltip(
                             message:
                                 "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
                             child: Icon(
@@ -1222,7 +1466,7 @@ class _InventoryPicklistsCreateScreenState
                         flex: 1,
                         child: Center(
                           child: Text(
-                            item.preferredBin ?? 'N/A',
+                            '${item.quantityPacked.toInt()}',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 13,
@@ -1242,16 +1486,16 @@ class _InventoryPicklistsCreateScreenState
                               fieldKey: '${rowKey}_to_pick_main',
                               initialValue: item.quantityToPick ?? 1.0,
                               onChanged: (val) {
-                                final d = double.tryParse(val);
+                                final d = val.trim().isEmpty ? 0.0 : double.tryParse(val);
                                 if (d != null) {
                                   setState(() {
                                     final idx = _selectedItems.indexWhere(
                                       (e) => _buildRowKey(e) == rowKey,
                                     );
                                     if (idx != -1) {
-                                      final normalizedToPick = d < 0 ? 0.0 : d;
-                                      _selectedItems[idx] = item.copyWith(
-                                        quantityToPick: normalizedToPick,
+                                      _selectedItems[idx] =
+                                          _selectedItems[idx].copyWith(
+                                        quantityToPick: d < 0 ? 0.0 : d,
                                       );
                                     }
                                   });
@@ -1267,6 +1511,7 @@ class _InventoryPicklistsCreateScreenState
                                 color: available >= (item.quantityToPick ?? 1.0)
                                     ? _textSecondary
                                     : _dangerRed,
+                                height: 1.2,
                               ),
                             ),
                           ],
@@ -1296,16 +1541,16 @@ class _InventoryPicklistsCreateScreenState
                                       .abs() <
                                   0.0001,
                               onChanged: (val) {
-                                final d = double.tryParse(val);
+                                final d = val.trim().isEmpty ? 0.0 : double.tryParse(val);
                                 if (d != null) {
                                   setState(() {
-                                    final nonNegative = d < 0 ? 0.0 : d;
                                     final idx = _selectedItems.indexWhere(
                                       (e) => _buildRowKey(e) == rowKey,
                                     );
                                     if (idx != -1) {
-                                      _selectedItems[idx] = item.copyWith(
-                                        quantityPicked: nonNegative,
+                                      _selectedItems[idx] = _selectedItems[idx]
+                                          .copyWith(
+                                        quantityPicked: d < 0 ? 0.0 : d,
                                       );
                                     }
                                   });
@@ -1315,14 +1560,13 @@ class _InventoryPicklistsCreateScreenState
                             if (_currentPickedQty(item) > 0) ...[
                               if (_savedBatchKeys.contains(rowKey)) ...[
                                 const SizedBox(height: 6),
-                                _buildBatchBreakdownWidget(item),
                                 InkWell(
                                   onTap: () => _showSelectBatchesDialog(item),
                                   child: Text(
                                     _buildBatchSummaryText(item),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 10,
                                       color: Color(0xFF2563EB),
                                       fontFamily: 'Inter',
                                       decoration: TextDecoration.underline,
@@ -1332,7 +1576,6 @@ class _InventoryPicklistsCreateScreenState
                               ] else if (_currentPickedQty(item) <=
                                   (item.quantityOrdered ?? 0)) ...[
                                 const SizedBox(height: 6),
-                                _buildBatchBreakdownWidget(item),
                                 InkWell(
                                   onTap: () => _showSelectBatchesDialog(item),
                                   child: Row(
@@ -1340,18 +1583,18 @@ class _InventoryPicklistsCreateScreenState
                                     children: [
                                       const Icon(
                                         LucideIcons.alertTriangle,
-                                        size: 12,
+                                        size: 10,
                                         color: Color(0xFFEF4444),
                                       ),
                                       const SizedBox(width: 4),
-                                      Text(
+                                      const Text(
                                         'Select Batch and Bin',
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
-                                          fontSize: 11,
+                                          fontSize: 10,
                                           color: Color(0xFF2563EB),
-                                          fontWeight: FontWeight.w500,
                                           fontFamily: 'Inter',
+                                          decoration: TextDecoration.underline,
                                         ),
                                       ),
                                     ],
@@ -1371,7 +1614,7 @@ class _InventoryPicklistsCreateScreenState
                           child: const Padding(
                             padding: EdgeInsets.all(8),
                             child: Icon(
-                              LucideIcons.x,
+                              Icons.close,
                               size: 16,
                               color: _dangerRed,
                             ),
@@ -1387,1295 +1630,1169 @@ class _InventoryPicklistsCreateScreenState
         ],
       ),
     );
+}
+
+Widget _buildTableByItem() {
+final Map<String, List<WarehouseStockData>> grouped = {};
+for (var item in _filteredSelectedItems) {
+  if (!grouped.containsKey(item.productId)) {
+    grouped[item.productId] = [];
   }
+  grouped[item.productId]!.add(item);
+}
 
-  Widget _buildTableByItem() {
-    final Map<String, List<WarehouseStockData>> grouped = {};
-    for (var item in _filteredSelectedItems) {
-      if (!grouped.containsKey(item.productId)) {
-        grouped[item.productId] = [];
-      }
-      grouped[item.productId]!.add(item);
-    }
+return Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        'Total Items: ${grouped.length}',
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+    ),
+    Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _borderCol),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        children: [
+          IntrinsicHeight(
+            child: Container(
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 0,
+                top: 10,
+                bottom: 10,
+              ),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF9FAFB),
+                border: Border(bottom: BorderSide(color: _borderCol)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 6,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 4,
+                          child: _buildHeaderSearchField(
+                            label: 'ITEMS',
+                            controller: _itemNameSearchCtrl,
+                            hintText: 'Search items...',
+                            isSearchVisible: _isItemSearchVisible,
+                            onToggle: () => setState(
+                              () => _isItemSearchVisible =
+                                  !_isItemSearchVisible,
+                            ),
+                            sortAscending: _salesOrderSortAscending,
+                            onChanged: (val) =>
+                                setState(() => _itemNameSearchQuery = val),
+                          ),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: Text(
+                              'ASSIGNEE',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    flex: 9,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: _buildHeaderSearchField(
+                              label: 'SALES ORDER#',
+                              controller: _salesOrderSearchCtrl,
+                              hintText: 'Search SO...',
+                              isSearchVisible: _isSOSearchVisible,
+                              onToggle: () => setState(
+                                () => _isSOSearchVisible =
+                                    !_isSOSearchVisible,
+                              ),
+                              textAlign: TextAlign.center,
+                              showSortControls: true,
+                              sortAscending: _salesOrderSortAscending,
+                              onSortAscendingTap: () {
+                                if (_salesOrderSortAscending) return;
+                                setState(() => _salesOrderSortAscending = true);
+                              },
+                              onSortDescendingTap: () {
+                                if (!_salesOrderSortAscending) return;
+                                setState(() => _salesOrderSortAscending = false);
+                              },
+                              onChanged: (val) => setState(
+                                () => _salesOrderSearchQuery = val,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                        const Expanded(
+                          flex: 1,
+                          child: Center(
+                            child: Text(
+                              'QTY ORDERED',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _textSecondary,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                        const Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: Text(
+                              'PREFERRED BIN',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _textSecondary,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'QTY TO PICK',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                ZTooltip(
+                                  message:
+                                      "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
+                                  child: Icon(
+                                    LucideIcons.info,
+                                    size: 12,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'QTY PICKED',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                ZTooltip(
+                                  message:
+                                      "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
+                                  child: Icon(
+                                    LucideIcons.info,
+                                    size: 12,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                        const SizedBox(width: 40),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: grouped.keys.length,
+            itemBuilder: (context, index) {
+              final productId = grouped.keys.elementAt(index);
+              final itemsInGroup = grouped[productId]!;
+              final firstItem = itemsInGroup.first;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            'Total Items: ${grouped.length}',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: _borderCol),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Column(
-            children: [
-              IntrinsicHeight(
-                child: Container(
-                  padding: const EdgeInsets.only(
-                    left: 16,
-                    right: 0,
-                    top: 10,
-                    bottom: 10,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF9FAFB),
-                    border: Border(bottom: BorderSide(color: _borderCol)),
-                  ),
+              return Container(
+                padding: const EdgeInsets.only(left: 16, right: 0),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: _borderCol)),
+                ),
+                child: IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
                         flex: 6,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 4,
-                              child: _buildHeaderSearchField(
-                                label: 'ITEMS',
-                                controller: _itemNameSearchCtrl,
-                                hintText: 'Search items...',
-                                isSearchVisible: _isItemSearchVisible,
-                                onToggle: () => setState(
-                                  () => _isItemSearchVisible =
-                                      !_isItemSearchVisible,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 4,
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      firstItem.productName,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Total Orders: ${itemsInGroup.length}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: _textSecondary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                onChanged: (val) =>
-                                    setState(() => _itemNameSearchQuery = val),
                               ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                            Expanded(
-                              flex: 2,
-                              child: Center(
-                                child: Text(
-                                  'ASSIGNEE',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: _textSecondary,
+                              const VerticalDivider(
+                                width: 1,
+                                color: _borderCol,
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Center(
+                                  child: MouseRegion(
+                                    onEnter: (_) => setState(
+                                      () => _hoveredAssigneeFieldKeys.add(
+                                        'item_assignee_$productId',
+                                      ),
+                                    ),
+                                    onExit: (_) => setState(
+                                      () =>
+                                          _hoveredAssigneeFieldKeys.remove(
+                                            'item_assignee_$productId',
+                                          ),
+                                    ),
+                                    child: Consumer(
+                                      builder: (context, ref, _) {
+                                        final usersAsync = ref.watch(
+                                          allUsersProvider,
+                                        );
+                                        final assigneeOptions = usersAsync
+                                            .maybeWhen(
+                                              data: (users) => users
+                                                  .map((u) => u.fullName)
+                                                  .where(
+                                                    (name) => name
+                                                        .trim()
+                                                        .isNotEmpty,
+                                                  )
+                                                  .toList(),
+                                              orElse: () => <String>[],
+                                            );
+                                        final assigneeItems =
+                                            assigneeOptions.isNotEmpty
+                                            ? assigneeOptions
+                                            : ['User 1', 'User 2'];
+
+                                        return FormDropdown<String>(
+                                          hint: 'Select User',
+                                          value:
+                                              assigneeItems.contains(
+                                                _itemGroupAssigneeByProductId[productId],
+                                              )
+                                              ? _itemGroupAssigneeByProductId[productId]
+                                              : null,
+                                          items: assigneeItems,
+                                          border: Border.all(
+                                            color:
+                                                _hoveredAssigneeFieldKeys
+                                                        .contains(
+                                                          'item_assignee_$productId',
+                                                        ) ||
+                                                    _itemGroupAssigneeByProductId[productId] !=
+                                                        null
+                                                ? _focusBorder
+                                                : Colors.transparent,
+                                          ),
+                                          fillColor: Colors.transparent,
+                                          displayStringForValue: (v) => v,
+                                          searchStringForValue: (v) => v,
+                                          onChanged: (val) => setState(
+                                            () =>
+                                                _itemGroupAssigneeByProductId[productId] =
+                                                    val,
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
+                      const VerticalDivider(width: 1, color: _borderCol),
                       Expanded(
                         flex: 9,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: Center(
-                                child: _buildHeaderSearchField(
-                                  label: 'SALES ORDER#',
-                                  controller: _salesOrderSearchCtrl,
-                                  hintText: 'Search SO...',
-                                  isSearchVisible: _isSOSearchVisible,
-                                  onToggle: () => setState(
-                                    () => _isSOSearchVisible =
-                                        !_isSOSearchVisible,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  onChanged: (val) => setState(
-                                    () => _salesOrderSearchQuery = val,
-                                  ),
-                                ),
+                        child: Column(
+                          children: itemsInGroup.map((item) {
+                            final isLast = item == itemsInGroup.last;
+                            final available = item.availableQuantity;
+                            final rowKey = _buildRowKey(item);
+
+                            return Container(
+                              padding: EdgeInsets.zero,
+                              decoration: BoxDecoration(
+                                border: isLast
+                                    ? null
+                                    : const Border(
+                                        bottom: BorderSide(
+                                          color: _borderCol,
+                                        ),
+                                      ),
                               ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                            const Expanded(
-                              flex: 1,
-                              child: Center(
-                                child: Text(
-                                  'QTY ORDERED',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: _textSecondary,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                            const Expanded(
-                              flex: 2,
-                              child: Center(
-                                child: Text(
-                                  'PREFERRED BIN',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: _textSecondary,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                            Expanded(
-                              flex: 2,
-                              child: Center(
+                              child: IntrinsicHeight(
                                 child: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
-                                    const Text(
-                                      'QTY TO PICK',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: _textSecondary,
+                                    Expanded(
+                                      flex: 2,
+                                      child: Center(
+                                        child: Text(
+                                          item.salesOrderNumber ?? '--',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: _textPrimary,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                    const SizedBox(width: 4),
-                                    const _PicklistZTooltip(
-                                      message:
-                                          "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
-                                      child: Icon(
-                                        LucideIcons.info,
-                                        size: 12,
-                                        color: _textSecondary,
+                                    const VerticalDivider(
+                                      width: 1,
+                                      color: _borderCol,
+                                    ),
+                                    Expanded(
+                                      flex: 1,
+                                      child: Center(
+                                        child: Text(
+                                          '${item.quantityOrdered?.toInt() ?? 1}',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const VerticalDivider(
+                                      width: 1,
+                                      color: _borderCol,
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Center(
+                                        child: Text(
+                                          item.preferredBin ?? 'N/A',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: _textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const VerticalDivider(
+                                      width: 1,
+                                      color: _borderCol,
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          _buildQuantityField(
+                                            fieldKey:
+                                                '${rowKey}_to_pick_compact',
+                                            initialValue:
+                                                item.quantityToPick ?? 1.0,
+                                            onChanged: (val) {
+                                              final d = val.trim().isEmpty ? 0.0 : double.tryParse(val);
+                                              if (d != null) {
+                                                setState(() {
+                                                  final idx = _selectedItems.indexOf(item);
+                                                  if (idx != -1) {
+                                                    final normalizedToPick = d < 0 ? 0.0 : d;
+                                                    _selectedItems[idx] = item.copyWith(
+                                                      quantityToPick: normalizedToPick,
+                                                    );
+                                                  }
+                                                });
+                                              }
+                                            },
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Available To Pick:\n${available.toInt()} pcs',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color:
+                                                  available >=
+                                                      (item.quantityToPick ??
+                                                          1.0)
+                                                  ? _textSecondary
+                                                  : _dangerRed,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const VerticalDivider(
+                                      width: 1,
+                                      color: _borderCol,
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          _buildQuantityField(
+                                            fieldKey:
+                                                '${rowKey}_picked_compact',
+                                            initialValue: _currentPickedQty(
+                                              item,
+                                            ),
+                                            isRed:
+                                                _currentPickedQty(item) >
+                                                (item.quantityOrdered ?? 0),
+                                            isBlue:
+                                                _currentPickedQty(item) >
+                                                    0 &&
+                                                _currentPickedQty(item) <=
+                                                    (item.quantityOrdered ??
+                                                        0),
+                                            readOnly: _savedBatchKeys
+                                                .contains(rowKey),
+                                            showPermanentBorder:
+                                                (_currentPickedQty(item) -
+                                                        _currentQtyToPick(
+                                                          item,
+                                                        ))
+                                                    .abs() <
+                                                0.0001,
+                                            onChanged: (val) {
+                                              final d = val.trim().isEmpty ? 0.0 : double.tryParse(val);
+                                              if (d != null) {
+                                                setState(() {
+                                                  final idx = _selectedItems
+                                                      .indexOf(item);
+                                                  if (idx != -1) {
+                                                    _selectedItems[idx] =
+                                                        item.copyWith(
+                                                          quantityPicked:
+                                                              d < 0
+                                                              ? 0.0
+                                                              : d,
+                                                        );
+                                                  }
+                                                });
+                                              }
+                                            },
+                                          ),
+                                          if (_currentPickedQty(item) >
+                                              0) ...[
+                                            if (_savedBatchKeys.contains(
+                                              rowKey,
+                                            )) ...[
+                                              const SizedBox(height: 6),
+                                              _buildBatchBreakdownWidget(
+                                                item,
+                                              ),
+                                              InkWell(
+                                                onTap: () =>
+                                                    _showSelectBatchesDialog(
+                                                      item,
+                                                    ),
+                                                child: Text(
+                                                  _buildBatchSummaryText(
+                                                    item,
+                                                  ),
+                                                  textAlign:
+                                                      TextAlign.center,
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(
+                                                      0xFF2563EB,
+                                                    ),
+                                                    fontFamily: 'Inter',
+                                                    decoration:
+                                                        TextDecoration
+                                                            .underline,
+                                                  ),
+                                                ),
+                                              ),
+                                            ] else if (_currentPickedQty(
+                                                  item,
+                                                ) <=
+                                                (item.quantityOrdered ??
+                                                    0)) ...[
+                                              const SizedBox(height: 6),
+                                              InkWell(
+                                                onTap: () =>
+                                                    _showSelectBatchesDialog(
+                                                      item,
+                                                    ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.max,
+                                                  children: [
+                                                    const Icon(
+                                                      LucideIcons
+                                                          .alertTriangle,
+                                                      size: 12,
+                                                      color: Color(
+                                                        0xFFEF4444,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(
+                                                      width: 4,
+                                                    ),
+                                                    const Flexible(
+                                                      child: Text(
+                                                        'Select Batch and Bin',
+                                                        maxLines: 1,
+                                                        overflow:
+                                                            TextOverflow
+                                                                .ellipsis,
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: Color(
+                                                            0xFF2563EB,
+                                                          ),
+                                                          fontWeight:
+                                                              FontWeight
+                                                                  .w500,
+                                                          fontFamily:
+                                                              'Inter',
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    const VerticalDivider(
+                                      width: 1,
+                                      color: _borderCol,
+                                    ),
+                                    SizedBox(
+                                      width: 40,
+                                      child: InkWell(
+                                        onTap: () => setState(
+                                          () => _selectedItems.remove(item),
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                          4,
+                                        ),
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(8),
+                                          child: Icon(
+                                            LucideIcons.x,
+                                            size: 16,
+                                            color: _dangerRed,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                            Expanded(
-                              flex: 2,
-                              child: Center(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      'QTY PICKED',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: _textSecondary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const _PicklistZTooltip(
-                                      message:
-                                          "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
-                                      child: Icon(
-                                        LucideIcons.info,
-                                        size: 12,
-                                        color: _textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                            const SizedBox(width: 40),
-                          ],
+                            );
+                          }).toList(),
                         ),
                       ),
                     ],
                   ),
                 ),
+              );
+            },
+          ),
+        ],
+      ),
+    ),
+  ],
+);
+}
+
+Widget _buildTableBySalesOrder() {
+final Map<String, List<WarehouseStockData>> grouped = {};
+for (var item in _filteredSelectedItems) {
+  final so = item.salesOrderNumber ?? 'Unknown SO';
+  if (!grouped.containsKey(so)) {
+    grouped[so] = [];
+  }
+  grouped[so]!.add(item);
+}
+
+return Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        'Total Sales Orders: ${grouped.length}',
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+    ),
+    Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _borderCol),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        children: [
+          IntrinsicHeight(
+            child: Container(
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 0,
+                top: 10,
+                bottom: 10,
               ),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: grouped.keys.length,
-                itemBuilder: (context, index) {
-                  final productId = grouped.keys.elementAt(index);
-                  final itemsInGroup = grouped[productId]!;
-                  final firstItem = itemsInGroup.first;
-
-                  return Container(
-                    padding: const EdgeInsets.only(left: 16, right: 0),
-                    decoration: const BoxDecoration(
-                      border: Border(bottom: BorderSide(color: _borderCol)),
-                    ),
-                    child: IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            flex: 6,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 4,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          firstItem.productName,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Total Orders: ${itemsInGroup.length}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: _textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const VerticalDivider(
-                                    width: 1,
-                                    color: _borderCol,
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Center(
-                                      child: MouseRegion(
-                                        onEnter: (_) => setState(
-                                          () => _hoveredAssigneeFieldKeys.add(
-                                            'item_assignee_$productId',
-                                          ),
-                                        ),
-                                        onExit: (_) => setState(
-                                          () =>
-                                              _hoveredAssigneeFieldKeys.remove(
-                                                'item_assignee_$productId',
-                                              ),
-                                        ),
-                                        child: Consumer(
-                                          builder: (context, ref, _) {
-                                            final usersAsync = ref.watch(
-                                              allUsersProvider,
-                                            );
-                                            final assigneeOptions = usersAsync
-                                                .maybeWhen(
-                                                  data: (users) => users
-                                                      .map((u) => u.fullName)
-                                                      .where(
-                                                        (name) => name
-                                                            .trim()
-                                                            .isNotEmpty,
-                                                      )
-                                                      .toList(),
-                                                  orElse: () => <String>[],
-                                                );
-                                            final assigneeItems =
-                                                assigneeOptions.isNotEmpty
-                                                ? assigneeOptions
-                                                : ['User 1', 'User 2'];
-
-                                            return FormDropdown<String>(
-                                              hint: 'Select User',
-                                              value:
-                                                  assigneeItems.contains(
-                                                    _itemGroupAssigneeByProductId[productId],
-                                                  )
-                                                  ? _itemGroupAssigneeByProductId[productId]
-                                                  : null,
-                                              items: assigneeItems,
-                                              border: Border.all(
-                                                color:
-                                                    _hoveredAssigneeFieldKeys
-                                                            .contains(
-                                                              'item_assignee_$productId',
-                                                            ) ||
-                                                        _itemGroupAssigneeByProductId[productId] !=
-                                                            null
-                                                    ? _focusBorder
-                                                    : Colors.transparent,
-                                              ),
-                                              fillColor: Colors.transparent,
-                                              displayStringForValue: (v) => v,
-                                              searchStringForValue: (v) => v,
-                                              onChanged: (val) => setState(
-                                                () =>
-                                                    _itemGroupAssigneeByProductId[productId] =
-                                                        val,
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+              decoration: const BoxDecoration(
+                color: Color(0xFFF9FAFB),
+                border: Border(bottom: BorderSide(color: _borderCol)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: _buildHeaderSearchField(
+                            label: 'SALES ORDER#',
+                            controller: _salesOrderSearchCtrl,
+                            hintText: 'Search SO...',
+                            isSearchVisible: _isSOSearchVisible,
+                            onToggle: () => setState(
+                              () =>
+                                  _isSOSearchVisible = !_isSOSearchVisible,
+                            ),
+                            showSortControls: true,
+                            sortAscending: _salesOrderSortAscending,
+                            onSortAscendingTap: () {
+                              if (_salesOrderSortAscending) return;
+                              setState(() => _salesOrderSortAscending = true);
+                            },
+                            onSortDescendingTap: () {
+                              if (!_salesOrderSortAscending) return;
+                              setState(() => _salesOrderSortAscending = false);
+                            },
+                            onChanged: (val) => setState(
+                              () => _salesOrderSearchQuery = val,
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: Text(
+                              'ASSIGNEE',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _textSecondary,
                               ),
                             ),
                           ),
-                          const VerticalDivider(width: 1, color: _borderCol),
-                          Expanded(
-                            flex: 9,
-                            child: Column(
-                              children: itemsInGroup.map((item) {
-                                final isLast = item == itemsInGroup.last;
-                                final available = item.availableQuantity;
-                                final rowKey = _buildRowKey(item);
-
-                                return Container(
-                                  padding: EdgeInsets.zero,
-                                  decoration: BoxDecoration(
-                                    border: isLast
-                                        ? null
-                                        : const Border(
-                                            bottom: BorderSide(
-                                              color: _borderCol,
-                                            ),
-                                          ),
-                                  ),
-                                  child: IntrinsicHeight(
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        Expanded(
-                                          flex: 2,
-                                          child: Center(
-                                            child: Text(
-                                              item.salesOrderNumber ?? '--',
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                color: _textPrimary,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const VerticalDivider(
-                                          width: 1,
-                                          color: _borderCol,
-                                        ),
-                                        Expanded(
-                                          flex: 1,
-                                          child: Center(
-                                            child: Text(
-                                              '${item.quantityOrdered?.toInt() ?? 1}',
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const VerticalDivider(
-                                          width: 1,
-                                          color: _borderCol,
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Center(
-                                            child: Text(
-                                              item.preferredBin ?? 'N/A',
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                color: _textPrimary,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const VerticalDivider(
-                                          width: 1,
-                                          color: _borderCol,
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              _buildQuantityField(
-                                                fieldKey:
-                                                    '${rowKey}_to_pick_compact',
-                                                initialValue:
-                                                    item.quantityToPick ?? 1.0,
-                                                onChanged: (val) {
-                                                  final d = double.tryParse(
-                                                    val,
-                                                  );
-                                                  if (d != null) {
-                                                    setState(() {
-                                                      final idx = _selectedItems
-                                                          .indexOf(item);
-                                                      if (idx != -1) {
-                                                        final normalizedToPick =
-                                                            d < 0 ? 0.0 : d;
-                                                        _selectedItems[idx] =
-                                                            item.copyWith(
-                                                              quantityToPick:
-                                                                  normalizedToPick,
-                                                            );
-                                                      }
-                                                    });
-                                                  }
-                                                },
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                'Available To Pick:\n${available.toInt()} pcs',
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  color:
-                                                      available >=
-                                                          (item.quantityToPick ??
-                                                              1.0)
-                                                      ? _textSecondary
-                                                      : _dangerRed,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const VerticalDivider(
-                                          width: 1,
-                                          color: _borderCol,
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              _buildQuantityField(
-                                                fieldKey:
-                                                    '${rowKey}_picked_compact',
-                                                initialValue: _currentPickedQty(
-                                                  item,
-                                                ),
-                                                isRed:
-                                                    _currentPickedQty(item) >
-                                                    (item.quantityOrdered ?? 0),
-                                                isBlue:
-                                                    _currentPickedQty(item) >
-                                                        0 &&
-                                                    _currentPickedQty(item) <=
-                                                        (item.quantityOrdered ??
-                                                            0),
-                                                readOnly: _savedBatchKeys
-                                                    .contains(rowKey),
-                                                showPermanentBorder:
-                                                    (_currentPickedQty(item) -
-                                                            _currentQtyToPick(
-                                                              item,
-                                                            ))
-                                                        .abs() <
-                                                    0.0001,
-                                                onChanged: (val) {
-                                                  final d = double.tryParse(
-                                                    val,
-                                                  );
-                                                  if (d != null) {
-                                                    setState(() {
-                                                      final idx = _selectedItems
-                                                          .indexOf(item);
-                                                      if (idx != -1) {
-                                                        _selectedItems[idx] =
-                                                            item.copyWith(
-                                                              quantityPicked:
-                                                                  d < 0
-                                                                  ? 0.0
-                                                                  : d,
-                                                            );
-                                                      }
-                                                    });
-                                                  }
-                                                },
-                                              ),
-                                              if (_currentPickedQty(item) >
-                                                  0) ...[
-                                                if (_savedBatchKeys.contains(
-                                                  rowKey,
-                                                )) ...[
-                                                  const SizedBox(height: 6),
-                                                  _buildBatchBreakdownWidget(
-                                                    item,
-                                                  ),
-                                                  InkWell(
-                                                    onTap: () =>
-                                                        _showSelectBatchesDialog(
-                                                          item,
-                                                        ),
-                                                    child: Text(
-                                                      _buildBatchSummaryText(
-                                                        item,
-                                                      ),
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      style: const TextStyle(
-                                                        fontSize: 11,
-                                                        color: Color(
-                                                          0xFF2563EB,
-                                                        ),
-                                                        fontFamily: 'Inter',
-                                                        decoration:
-                                                            TextDecoration
-                                                                .underline,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ] else if (_currentPickedQty(
-                                                      item,
-                                                    ) <=
-                                                    (item.quantityOrdered ??
-                                                        0)) ...[
-                                                  const SizedBox(height: 6),
-                                                  InkWell(
-                                                    onTap: () =>
-                                                        _showSelectBatchesDialog(
-                                                          item,
-                                                        ),
-                                                    child: Row(
-                                                      mainAxisSize:
-                                                          MainAxisSize.max,
-                                                      children: [
-                                                        const Icon(
-                                                          LucideIcons
-                                                              .alertTriangle,
-                                                          size: 12,
-                                                          color: Color(
-                                                            0xFFEF4444,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 4,
-                                                        ),
-                                                        const Flexible(
-                                                          child: Text(
-                                                            'Select Batch and Bin',
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style: TextStyle(
-                                                              fontSize: 11,
-                                                              color: Color(
-                                                                0xFF2563EB,
-                                                              ),
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                              fontFamily:
-                                                                  'Inter',
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ],
-                                          ),
-                                        ),
-                                        const VerticalDivider(
-                                          width: 1,
-                                          color: _borderCol,
-                                        ),
-                                        SizedBox(
-                                          width: 40,
-                                          child: InkWell(
-                                            onTap: () => setState(
-                                              () => _selectedItems.remove(item),
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                            child: const Padding(
-                                              padding: EdgeInsets.all(8),
-                                              child: Icon(
-                                                LucideIcons.x,
-                                                size: 16,
-                                                color: _dangerRed,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    flex: 9,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 12),
+                            child: _buildHeaderSearchField(
+                              label: 'ITEMS',
+                              controller: _itemNameSearchCtrl,
+                              hintText: 'Search items...',
+                              isSearchVisible: _isItemSearchVisible,
+                              onToggle: () => setState(
+                                () => _isItemSearchVisible =
+                                    !_isItemSearchVisible,
+                              ),
+                              sortAscending: _salesOrderSortAscending,
+                              onChanged: (val) => setState(
+                                () => _itemNameSearchQuery = val,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                        const Expanded(
+                          flex: 1,
+                          child: Center(
+                            child: Text(
+                              'QTY ORDERED',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _textSecondary,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                        const Expanded(
+                          flex: 1,
+                          child: Center(
+                            child: Text(
+                              'PREFERRED BIN',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _textSecondary,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'QTY TO PICK',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                ZTooltip(
+                                  message:
+                                      "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
+                                  child: Icon(
+                                    LucideIcons.info,
+                                    size: 12,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(width: 1, color: _borderCol),
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'QTY PICKED',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                ZTooltip(
+                                  message:
+                                      "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
+                                  child: Icon(
+                                    LucideIcons.info,
+                                    size: 12,
+                                    color: _textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 40),
+                      ],
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ],
-    );
-  }
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: grouped.keys.length,
+            itemBuilder: (context, index) {
+              final so = grouped.keys.elementAt(index);
+              final itemsInGroup = grouped[so]!;
 
-  Widget _buildTableBySalesOrder() {
-    final Map<String, List<WarehouseStockData>> grouped = {};
-    for (var item in _filteredSelectedItems) {
-      final so = item.salesOrderNumber ?? 'Unknown SO';
-      if (!grouped.containsKey(so)) {
-        grouped[so] = [];
-      }
-      grouped[so]!.add(item);
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            'Total Sales Orders: ${grouped.length}',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: _borderCol),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Column(
-            children: [
-              IntrinsicHeight(
-                child: Container(
-                  padding: const EdgeInsets.only(
-                    left: 16,
-                    right: 0,
-                    top: 10,
-                    bottom: 10,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF9FAFB),
-                    border: Border(bottom: BorderSide(color: _borderCol)),
-                  ),
+              return Container(
+                padding: const EdgeInsets.only(left: 16, right: 0),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: _borderCol)),
+                ),
+                child: IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
                         flex: 5,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: _buildHeaderSearchField(
-                                label: 'SALES ORDER#',
-                                controller: _salesOrderSearchCtrl,
-                                hintText: 'Search SO...',
-                                isSearchVisible: _isSOSearchVisible,
-                                onToggle: () => setState(
-                                  () =>
-                                      _isSOSearchVisible = !_isSOSearchVisible,
-                                ),
-                                onChanged: (val) => setState(
-                                  () => _salesOrderSearchQuery = val,
-                                ),
-                              ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                            Expanded(
-                              flex: 2,
-                              child: Center(
-                                child: Text(
-                                  'ASSIGNEE',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: _textSecondary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        flex: 9,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 12),
-                                child: _buildHeaderSearchField(
-                                  label: 'ITEMS',
-                                  controller: _itemNameSearchCtrl,
-                                  hintText: 'Search items...',
-                                  isSearchVisible: _isItemSearchVisible,
-                                  onToggle: () => setState(
-                                    () => _isItemSearchVisible =
-                                        !_isItemSearchVisible,
-                                  ),
-                                  onChanged: (val) => setState(
-                                    () => _itemNameSearchQuery = val,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                            const Expanded(
-                              flex: 1,
-                              child: Center(
-                                child: Text(
-                                  'QTY ORDERED',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: _textSecondary,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                            const Expanded(
-                              flex: 1,
-                              child: Center(
-                                child: Text(
-                                  'PREFERRED BIN',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: _textSecondary,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                            Expanded(
-                              flex: 2,
-                              child: Center(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Text(
-                                      'QTY TO PICK',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: _textSecondary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const _PicklistZTooltip(
-                                      message:
-                                          "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
-                                      child: Icon(
-                                        LucideIcons.info,
-                                        size: 12,
-                                        color: _textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                            Expanded(
-                              flex: 2,
-                              child: Center(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Text(
-                                      'QTY PICKED',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: _textSecondary,
+                                    Text(
+                                      so,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    const SizedBox(width: 4),
-                                    const _PicklistZTooltip(
-                                      message:
-                                          "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
-                                      child: Icon(
-                                        LucideIcons.info,
-                                        size: 12,
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Total Items: ${itemsInGroup.length}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
                                         color: _textSecondary,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ),
-                            const VerticalDivider(width: 1, color: _borderCol),
-                            const SizedBox(width: 40),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: grouped.keys.length,
-                itemBuilder: (context, index) {
-                  final so = grouped.keys.elementAt(index);
-                  final itemsInGroup = grouped[so]!;
-                  final firstItem = itemsInGroup.first;
+                              const VerticalDivider(width: 1, color: _borderCol),
+                              Expanded(
+                                flex: 2,
+                                child: Center(
+                                  child: MouseRegion(
+                                    onEnter: (_) => setState(() =>
+                                        _hoveredAssigneeFieldKeys.add('so_assignee_$so')),
+                                    onExit: (_) => setState(() =>
+                                        _hoveredAssigneeFieldKeys.remove('so_assignee_$so')),
+                                    child: Consumer(
+                                      builder: (context, ref, _) {
+                                        final usersAsync = ref.watch(allUsersProvider);
+                                        final assigneeOptions = usersAsync.maybeWhen(
+                                          data: (users) => users
+                                              .map((u) => u.fullName)
+                                              .where((name) => name.trim().isNotEmpty)
+                                              .toList(),
+                                          orElse: () => <String>[],
+                                        );
+                                        final assigneeItems = assigneeOptions.isNotEmpty
+                                            ? assigneeOptions
+                                            : ['User 1', 'User 2'];
 
-                  return Container(
-                    padding: const EdgeInsets.only(left: 16, right: 0),
-                    decoration: const BoxDecoration(
-                      border: Border(bottom: BorderSide(color: _borderCol)),
-                    ),
-                    child: IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            flex: 5,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          so,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
+                                        return FormDropdown<String>(
+                                          hint: 'Select User',
+                                          value: assigneeItems.contains(_salesOrderGroupAssigneeByOrderNumber[so])
+                                              ? _salesOrderGroupAssigneeByOrderNumber[so]
+                                              : null,
+                                          items: assigneeItems,
+                                          border: Border.all(
+                                            color: _hoveredAssigneeFieldKeys.contains('so_assignee_$so') ||
+                                                    _salesOrderGroupAssigneeByOrderNumber[so] != null
+                                                ? _focusBorder
+                                                : Colors.transparent,
                                           ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Customer: ${firstItem.customerName ?? "Unknown"}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: _textSecondary,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Total Items: ${itemsInGroup.length}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: _textSecondary,
-                                          ),
-                                        ),
-                                      ],
+                                          fillColor: Colors.transparent,
+                                          displayStringForValue: (v) => v,
+                                          searchStringForValue: (v) => v,
+                                          onChanged: (val) => setState(
+                                              () => _salesOrderGroupAssigneeByOrderNumber[so] = val),
+                                        );
+                                      },
                                     ),
                                   ),
-                                  const VerticalDivider(
-                                    width: 1,
-                                    color: _borderCol,
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Center(
-                                      child: MouseRegion(
-                                        onEnter: (_) => setState(
-                                          () => _hoveredAssigneeFieldKeys.add(
-                                            'so_assignee_$so',
-                                          ),
-                                        ),
-                                        onExit: (_) => setState(
-                                          () => _hoveredAssigneeFieldKeys
-                                              .remove('so_assignee_$so'),
-                                        ),
-                                        child: Consumer(
-                                          builder: (context, ref, _) {
-                                            final usersAsync = ref.watch(
-                                              allUsersProvider,
-                                            );
-                                            final assigneeOptions = usersAsync
-                                                .maybeWhen(
-                                                  data: (users) => users
-                                                      .map((u) => u.fullName)
-                                                      .where(
-                                                        (name) => name
-                                                            .trim()
-                                                            .isNotEmpty,
-                                                      )
-                                                      .toList(),
-                                                  orElse: () => <String>[],
-                                                );
-                                            final assigneeItems =
-                                                assigneeOptions.isNotEmpty
-                                                ? assigneeOptions
-                                                : ['User 1', 'User 2'];
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const VerticalDivider(width: 1, color: _borderCol),
+                      Expanded(
+                        flex: 9,
+                        child: Column(
+                          children: itemsInGroup.map((item) {
+                            final isLast = item == itemsInGroup.last;
+                            final available = item.availableQuantity;
+                            final rowKey = _buildRowKey(item);
 
-                                            return FormDropdown<String>(
-                                              hint: 'Select User',
-                                              value:
-                                                  assigneeItems.contains(
-                                                    _salesOrderGroupAssigneeByOrderNumber[so],
-                                                  )
-                                                  ? _salesOrderGroupAssigneeByOrderNumber[so]
-                                                  : null,
-                                              items: assigneeItems,
-                                              border: Border.all(
-                                                color:
-                                                    _hoveredAssigneeFieldKeys
-                                                            .contains(
-                                                              'so_assignee_$so',
-                                                            ) ||
-                                                        _salesOrderGroupAssigneeByOrderNumber[so] !=
-                                                            null
-                                                    ? _focusBorder
-                                                    : Colors.transparent,
+                            return Container(
+                              padding: EdgeInsets.zero,
+                              decoration: BoxDecoration(
+                                border: isLast
+                                    ? null
+                                    : const Border(bottom: BorderSide(color: _borderCol)),
+                              ),
+                              child: IntrinsicHeight(
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(left: 12),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              item.productName,
+                                              style: const TextStyle(fontSize: 13),
+                                            ),
+                                            Text(
+                                              'Unit: ${item.unitTitle ?? "pcs"}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: _textSecondary,
                                               ),
-                                              fillColor: Colors.transparent,
-                                              displayStringForValue: (v) => v,
-                                              searchStringForValue: (v) => v,
-                                              onChanged: (val) => setState(
-                                                () =>
-                                                    _salesOrderGroupAssigneeByOrderNumber[so] =
-                                                        val,
-                                              ),
-                                            );
-                                          },
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const VerticalDivider(width: 1, color: _borderCol),
-                          Expanded(
-                            flex: 9,
-                            child: Column(
-                              children: itemsInGroup.map((item) {
-                                final isLast = item == itemsInGroup.last;
-                                final available = item.availableQuantity;
-                                final rowKey = _buildRowKey(item);
-
-                                return Container(
-                                  padding: EdgeInsets.zero,
-                                  decoration: BoxDecoration(
-                                    border: isLast
-                                        ? null
-                                        : const Border(
-                                            bottom: BorderSide(
-                                              color: _borderCol,
+                                    const VerticalDivider(width: 1, color: _borderCol),
+                                    Expanded(
+                                      flex: 1,
+                                      child: Center(
+                                        child: Text(
+                                          '${item.quantityOrdered?.toInt() ?? 1}',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                    ),
+                                    const VerticalDivider(width: 1, color: _borderCol),
+                                    Expanded(
+                                      flex: 1,
+                                      child: Center(
+                                        child: Text(
+                                          item.preferredBin ?? 'N/A',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                    ),
+                                    const VerticalDivider(width: 1, color: _borderCol),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          _buildQuantityField(
+                                            fieldKey: '${rowKey}_to_pick_mobile',
+                                            initialValue: item.quantityToPick ?? 1.0,
+                                            onChanged: (val) {
+                                              final d = val.trim().isEmpty ? 0.0 : double.tryParse(val);
+                                              if (d != null) {
+                                                setState(() {
+                                                  final idx = _selectedItems.indexOf(item);
+                                                  if (idx != -1) {
+                                                    _selectedItems[idx] = item.copyWith(
+                                                      quantityToPick: d < 0 ? 0.0 : d,
+                                                    );
+                                                  }
+                                                });
+                                              }
+                                            },
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Available To Pick:\n${available.toInt()} pcs',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: available >= (item.quantityToPick ?? 1.0)
+                                                  ? _textSecondary
+                                                  : _dangerRed,
                                             ),
                                           ),
-                                  ),
-                                  child: IntrinsicHeight(
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        Expanded(
-                                          flex: 3,
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(
-                                              left: 12,
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Text(
-                                                  item.productName,
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    color: _textPrimary,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  'Unit: ${item.unitTitle ?? "pcs"}',
+                                        ],
+                                      ),
+                                    ),
+                                    const VerticalDivider(width: 1, color: _borderCol),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          _buildQuantityField(
+                                            fieldKey: '${rowKey}_picked_mobile',
+                                            initialValue: _currentPickedQty(item),
+                                            isRed: _currentPickedQty(item) >
+                                                (item.quantityOrdered ?? 0),
+                                            isBlue: _currentPickedQty(item) > 0 &&
+                                                _currentPickedQty(item) <=
+                                                    (item.quantityOrdered ?? 0),
+                                            readOnly: _savedBatchKeys.contains(rowKey),
+                                            showPermanentBorder: (_currentPickedQty(item) -
+                                                        _currentQtyToPick(item))
+                                                    .abs() <
+                                                0.0001,
+                                            onChanged: (val) {
+                                              final d = val.trim().isEmpty ? 0.0 : double.tryParse(val);
+                                              if (d != null) {
+                                                setState(() {
+                                                  final idx = _selectedItems.indexOf(item);
+                                                  if (idx != -1) {
+                                                    _selectedItems[idx] = item.copyWith(
+                                                      quantityPicked: d < 0 ? 0.0 : d,
+                                                    );
+                                                  }
+                                                });
+                                              }
+                                            },
+                                          ),
+                                          if (_currentPickedQty(item) > 0) ...[
+                                            if (_savedBatchKeys.contains(rowKey)) ...[
+                                              const SizedBox(height: 6),
+                                              _buildBatchBreakdownWidget(item),
+                                              InkWell(
+                                                onTap: () => _showSelectBatchesDialog(item),
+                                                child: Text(
+                                                  _buildBatchSummaryText(item),
+                                                  textAlign: TextAlign.center,
                                                   style: const TextStyle(
                                                     fontSize: 11,
-                                                    color: _textSecondary,
+                                                    color: Color(0xFF2563EB),
+                                                    fontFamily: 'Inter',
+                                                    decoration: TextDecoration.underline,
                                                   ),
                                                 ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        const VerticalDivider(
-                                          width: 1,
-                                          color: _borderCol,
-                                        ),
-                                        Expanded(
-                                          flex: 1,
-                                          child: Center(
-                                            child: Text(
-                                              '${item.quantityOrdered?.toInt() ?? 1}',
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                fontSize: 13,
                                               ),
-                                            ),
-                                          ),
-                                        ),
-                                        const VerticalDivider(
-                                          width: 1,
-                                          color: _borderCol,
-                                        ),
-                                        Expanded(
-                                          flex: 1,
-                                          child: Center(
-                                            child: Text(
-                                              item.preferredBin ?? 'N/A',
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                color: _textPrimary,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const VerticalDivider(
-                                          width: 1,
-                                          color: _borderCol,
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              _buildQuantityField(
-                                                fieldKey:
-                                                    '${rowKey}_to_pick_mobile',
-                                                initialValue:
-                                                    item.quantityToPick ?? 1.0,
-                                                onChanged: (val) {
-                                                  final d = double.tryParse(
-                                                    val,
-                                                  );
-                                                  if (d != null) {
-                                                    setState(() {
-                                                      final idx = _selectedItems
-                                                          .indexOf(item);
-                                                      if (idx != -1) {
-                                                        final normalizedToPick =
-                                                            d < 0 ? 0.0 : d;
-                                                        _selectedItems[idx] =
-                                                            item.copyWith(
-                                                              quantityToPick:
-                                                                  normalizedToPick,
-                                                            );
-                                                      }
-                                                    });
-                                                  }
-                                                },
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                'Available To Pick:\n${available.toInt()} pcs',
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  color:
-                                                      available >=
-                                                          (item.quantityToPick ??
-                                                              1.0)
-                                                      ? _textSecondary
-                                                      : _dangerRed,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const VerticalDivider(
-                                          width: 1,
-                                          color: _borderCol,
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              _buildQuantityField(
-                                                fieldKey:
-                                                    '${rowKey}_picked_mobile',
-                                                initialValue: _currentPickedQty(
-                                                  item,
-                                                ),
-                                                isRed:
-                                                    _currentPickedQty(item) >
-                                                    (item.quantityOrdered ?? 0),
-                                                isBlue:
-                                                    _currentPickedQty(item) >
-                                                        0 &&
-                                                    _currentPickedQty(item) <=
-                                                        (item.quantityOrdered ??
-                                                            0),
-                                                readOnly: _savedBatchKeys
-                                                    .contains(rowKey),
-                                                showPermanentBorder:
-                                                    (_currentPickedQty(item) -
-                                                            _currentQtyToPick(
-                                                              item,
-                                                            ))
-                                                        .abs() <
-                                                    0.0001,
-                                                onChanged: (val) {
-                                                  final d = double.tryParse(
-                                                    val,
-                                                  );
-                                                  if (d != null) {
-                                                    setState(() {
-                                                      final idx = _selectedItems
-                                                          .indexOf(item);
-                                                      if (idx != -1) {
-                                                        _selectedItems[idx] =
-                                                            item.copyWith(
-                                                              quantityPicked:
-                                                                  d < 0
-                                                                  ? 0.0
-                                                                  : d,
-                                                            );
-                                                      }
-                                                    });
-                                                  }
-                                                },
-                                              ),
-                                              if (_currentPickedQty(item) >
-                                                  0) ...[
-                                                if (_savedBatchKeys.contains(
-                                                  rowKey,
-                                                )) ...[
-                                                  const SizedBox(height: 6),
-                                                  _buildBatchBreakdownWidget(
-                                                    item,
-                                                  ),
-                                                  InkWell(
-                                                    onTap: () =>
-                                                        _showSelectBatchesDialog(
-                                                          item,
-                                                        ),
-                                                    child: Text(
-                                                      _buildBatchSummaryText(
-                                                        item,
-                                                      ),
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      style: const TextStyle(
+                                            ] else if (_currentPickedQty(item) <=
+                                                (item.quantityOrdered ?? 0)) ...[
+                                              const SizedBox(height: 6),
+                                              InkWell(
+                                                onTap: () => _showSelectBatchesDialog(item),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(
+                                                      LucideIcons.alertTriangle,
+                                                      size: 12,
+                                                      color: Color(0xFFEF4444),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'Select Batch and Bin',
+                                                      textAlign: TextAlign.center,
+                                                      style: TextStyle(
                                                         fontSize: 11,
-                                                        color: Color(
-                                                          0xFF2563EB,
-                                                        ),
+                                                        color: Color(0xFF2563EB),
+                                                        fontWeight: FontWeight.w500,
                                                         fontFamily: 'Inter',
-                                                        decoration:
-                                                            TextDecoration
-                                                                .underline,
                                                       ),
                                                     ),
-                                                  ),
-                                                ] else if (_currentPickedQty(
-                                                      item,
-                                                    ) <=
-                                                    (item.quantityOrdered ??
-                                                        0)) ...[
-                                                  const SizedBox(height: 6),
-                                                  InkWell(
-                                                    onTap: () =>
-                                                        _showSelectBatchesDialog(
-                                                          item,
-                                                        ),
-                                                    child: Row(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      children: [
-                                                        const Icon(
-                                                          LucideIcons
-                                                              .alertTriangle,
-                                                          size: 12,
-                                                          color: Color(
-                                                            0xFFEF4444,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 4,
-                                                        ),
-                                                        Text(
-                                                          'Select Batch and Bin',
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                          style: TextStyle(
-                                                            fontSize: 11,
-                                                            color: Color(
-                                                              0xFF2563EB,
-                                                            ),
-                                                            fontWeight:
-                                                                FontWeight.w500,
-                                                            fontFamily: 'Inter',
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ],
-                                          ),
-                                        ),
-                                        const VerticalDivider(
-                                          width: 1,
-                                          color: _borderCol,
-                                        ),
-                                        SizedBox(
-                                          width: 40,
-                                          child: InkWell(
-                                            onTap: () => setState(
-                                              () => _selectedItems.remove(item),
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                            child: const Padding(
-                                              padding: EdgeInsets.all(8),
-                                              child: Icon(
-                                                LucideIcons.x,
-                                                size: 16,
-                                                color: _dangerRed,
+                                                  ],
+                                                ),
                                               ),
-                                            ),
+                                            ],
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 40,
+                                      child: InkWell(
+                                        onTap: () => setState(() => _selectedItems.remove(item)),
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(8),
+                                          child: Icon(
+                                            LucideIcons.x,
+                                            size: 16,
+                                            color: _dangerRed,
                                           ),
                                         ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                         ],
                       ),
                     ),
@@ -2749,18 +2866,7 @@ class _InventoryPicklistsCreateScreenState
                     if (_validationErrors.isNotEmpty) return;
 
                     setState(() => _isSaving = true);
-                    // Simulate API call
-                    await Future.delayed(const Duration(seconds: 1));
-                    if (mounted) {
-                      setState(() => _isSaving = false);
-                      context.pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Picklist generated successfully'),
-                          backgroundColor: _greenBtn,
-                        ),
-                      );
-                    }
+                    await _savePicklist();
                   },
             style: ElevatedButton.styleFrom(
               backgroundColor:
@@ -2790,9 +2896,9 @@ class _InventoryPicklistsCreateScreenState
                       color: Colors.white,
                     ),
                   )
-                : const Text(
+                : Text(
                     'Generate picklist',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       fontFamily: 'Inter',
@@ -2857,6 +2963,7 @@ class _InventoryPicklistsCreateScreenState
 
             return stocksAsync.when(
               data: (allItems) => _AddItemsDialogContent(
+                warehouseId: warehouseId,
                 warehouseItems: allItems,
                 warehouseName: _selectedWarehouse!.name,
                 initialSelectedItems: _selectedItems,
@@ -2887,12 +2994,14 @@ class _InventoryPicklistsCreateScreenState
 }
 
 class _AddItemsDialogContent extends ConsumerStatefulWidget {
+  final String warehouseId;
   final List<WarehouseStockData> warehouseItems;
   final String warehouseName;
   final Function(List<WarehouseStockData>) onItemsSelected;
   final List<WarehouseStockData> initialSelectedItems;
 
   const _AddItemsDialogContent({
+    required this.warehouseId,
     required this.warehouseItems,
     required this.warehouseName,
     required this.onItemsSelected,
@@ -2912,7 +3021,8 @@ class _AddItemsDialogContentState
   bool _isSalesOrdersFilterHovered = false;
 
   String _buildRowKey(WarehouseStockData item) {
-    return '${item.productId}_${item.batchNo ?? ''}_${item.salesOrderId ?? ''}';
+    return item.id ??
+        '${item.productId}_${item.batchNo ?? ''}_${item.salesOrderId ?? ''}_${item.warehouseId}';
   }
 
   late String _currentGrouping;
@@ -2920,14 +3030,153 @@ class _AddItemsDialogContentState
   int activeTab = 0; // 0 = All Items, 1 = Selected Items
   bool _showFilters = true;
   bool _sortAscending = true;
+  int _pageSize = 30;
+  int _currentPage = 1;
+  int _totalPages = 1;
+  List<WarehouseStockData> _allItems = [];
+  List<WarehouseStockData> _filteredItems = [];
+  List<WarehouseStockData> _items = [];
+  int _totalItems = 0;
+  bool _isLoading = false;
+  final Map<String, WarehouseStockData> _selectedItemsMap = {};
+  List<Map<String, dynamic>> _initialCustomers = [];
+  List<Map<String, dynamic>> _initialProducts = [];
+  List<Map<String, dynamic>> _initialSalesOrders = [];
+
+  List<Map<String, dynamic>> _buildProductFallbackOptions() {
+    final sourceItems = _allItems.isNotEmpty
+        ? _allItems
+        : (_items.isNotEmpty ? _items : widget.warehouseItems);
+    final uniqueByProductId = <String, Map<String, dynamic>>{};
+    for (final item in sourceItems) {
+      if (item.productId.isEmpty) continue;
+      if (uniqueByProductId.containsKey(item.productId)) continue;
+      uniqueByProductId[item.productId] = {
+        'id': item.productId,
+        'name': item.productName,
+      };
+    }
+    return uniqueByProductId.values.take(20).toList();
+  }
+
+  List<Map<String, dynamic>> _buildSalesOrderFallbackOptions() {
+    final sourceItems = _allItems.isNotEmpty
+        ? _allItems
+        : (_items.isNotEmpty ? _items : widget.warehouseItems);
+    final uniqueBySalesOrderId = <String, Map<String, dynamic>>{};
+    for (final item in sourceItems) {
+      final salesOrderId = item.salesOrderId;
+      final salesOrderNumber = item.salesOrderNumber;
+      final optionId =
+          (salesOrderId != null && salesOrderId.isNotEmpty)
+          ? salesOrderId
+          : (salesOrderNumber ?? '');
+      if (optionId.isEmpty) continue;
+      if (uniqueBySalesOrderId.containsKey(optionId)) continue;
+      uniqueBySalesOrderId[optionId] = {
+        'id': optionId,
+        'number': salesOrderNumber ?? optionId,
+      };
+    }
+    return uniqueBySalesOrderId.values.take(20).toList();
+  }
+
+
+  Future<void> _fetchData() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final repository = ref.read(inventoryPicklistRepositoryProvider);
+
+      // Build comma-separated filter IDs for server-side filtering
+      final customerIds = _selectedCustomers
+          .map((c) => c['id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .join(',');
+      final productIds = _selectedProducts
+          .map((p) => p['id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .join(',');
+      final salesOrderIds = _selectedSalesOrders
+          .map((o) => o['id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .join(',');
+
+      final result = await repository.getWarehouseItems(
+        warehouseId: widget.warehouseId,
+        page: _currentPage,
+        limit: _pageSize,
+        search: searchQuery.isEmpty ? null : searchQuery,
+        customerId: customerIds.isEmpty ? null : customerIds,
+        productId: productIds.isEmpty ? null : productIds,
+        salesOrderId: salesOrderIds.isEmpty ? null : salesOrderIds,
+        sortBy: 'salesOrder',
+        sortAscending: _sortAscending,
+      );
+
+      final items = result['items'] as List<WarehouseStockData>;
+      final total = result['total'] as int;
+
+      if (mounted) {
+        setState(() {
+          _allItems = items;
+          _items = items;
+          _filteredItems = items;
+          _totalItems = total;
+          _totalPages = max(1, (total / _pageSize).ceil());
+          if (_currentPage > _totalPages) {
+            _currentPage = _totalPages;
+          }
+          if (_initialProducts.isEmpty) {
+            _initialProducts = _buildProductFallbackOptions();
+          }
+          if (_initialSalesOrders.isEmpty) {
+            _initialSalesOrders = _buildSalesOrderFallbackOptions();
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _currentGrouping = 'No Grouping';
-    selectedRowKeys.addAll(
-      widget.initialSelectedItems.map((e) => _buildRowKey(e)),
-    );
+    for (final item in widget.initialSelectedItems) {
+      _selectedItemsMap[_buildRowKey(item)] = item;
+    }
+    selectedRowKeys.addAll(_selectedItemsMap.keys);
+    _loadInitialFilterData();
+    _fetchData();
+  }
+
+  Future<void> _loadInitialFilterData() async {
+    try {
+      final results = await Future.wait([
+        _onSearchCustomers(''),
+        _onSearchProducts(''),
+        _onSearchSalesOrders(''),
+      ]);
+      if (mounted) {
+        setState(() {
+          _initialCustomers = results[0];
+          _initialProducts = results[1].isNotEmpty
+              ? results[1]
+              : _buildProductFallbackOptions();
+          _initialSalesOrders = results[2].isNotEmpty
+              ? results[2]
+              : _buildSalesOrderFallbackOptions();
+        });
+      }
+    } catch (e) {
+      // Ignore errors for initial filter load
+    }
   }
 
   // Real filter data - removed as we now use local provider data in build()
@@ -2935,53 +3184,152 @@ class _AddItemsDialogContentState
 
   bool isSearching = false;
 
-  // Selection states
-  Set<String> _selectedCustomerId = <String>{};
-  Set<String> _selectedProductId = <String>{};
-  Set<String> _selectedSalesOrderId = <String>{};
-  Set<String> _appliedCustomerId = <String>{};
-  Set<String> _appliedProductId = <String>{};
-  Set<String> _appliedSalesOrderId = <String>{};
+  // Selection states — full objects so chips display actual names
+  List<Map<String, dynamic>> _selectedCustomers = [];
+  List<Map<String, dynamic>> _selectedProducts = [];
+  List<Map<String, dynamic>> _selectedSalesOrders = [];
 
-  void _onSearch() async {
-    setState(() {
-      isSearching = true;
-      _appliedCustomerId = Set<String>.from(_selectedCustomerId);
-      _appliedProductId = Set<String>.from(_selectedProductId);
-      _appliedSalesOrderId = Set<String>.from(_selectedSalesOrderId);
-    });
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
-    setState(() => isSearching = false);
+  void _onSearch() {
+    _currentPage = 1;
+    _fetchData();
   }
 
-  void _toggleSelectAll(List<WarehouseStockData> items) {
+  void _onSelectionChanged(WarehouseStockData item, bool isSelected) {
+    final key = _buildRowKey(item);
     setState(() {
-      if (selectedRowKeys.length == items.length) {
-        selectedRowKeys.clear();
+      if (isSelected) {
+        selectedRowKeys.add(key);
+        _selectedItemsMap[key] = item;
       } else {
-        selectedRowKeys.addAll(items.map((e) => _buildRowKey(e)));
+        selectedRowKeys.remove(key);
+        _selectedItemsMap.remove(key);
       }
     });
   }
 
-  List<Map<String, String>> _salesOrdersForPopupFilters() {
-    final byId = <String, Map<String, String>>{};
+  Future<void> _toggleSelectAll(List<WarehouseStockData> currentItems) async {
+    final allKeysOnPage = currentItems.map((e) => _buildRowKey(e)).toList();
+    final areAllOnPageSelected = allKeysOnPage.every((k) => selectedRowKeys.contains(k));
 
-    for (final item in widget.warehouseItems) {
-      final soId = (item.salesOrderId ?? '').trim();
-      final soNo = (item.salesOrderNumber ?? '').trim();
-      if (soId.isEmpty || soNo.isEmpty) continue;
-      byId[soId] = {'id': soId, 'number': soNo};
+    if (areAllOnPageSelected) {
+      // Uncheck everything
+      setState(() {
+        selectedRowKeys.clear();
+        _selectedItemsMap.clear();
+      });
+    } else {
+      // 1. SELECT CURRENT PAGE IMMEDIATELY FOR INSTANT FEEDBACK
+      setState(() {
+        for (final item in currentItems) {
+          final key = _buildRowKey(item);
+          selectedRowKeys.add(key);
+          _selectedItemsMap[key] = item;
+        }
+      });
+
+      // 2. IF THERE ARE MORE ITEMS, FETCH THEM IN BACKGROUND
+      if (activeTab == 0 && _totalItems > currentItems.length) {
+        setState(() => _isLoading = true);
+        try {
+          final repository = ref.read(inventoryPicklistRepositoryProvider);
+          
+          final customerIds = _selectedCustomers.map((c) => c['id']?.toString() ?? '').where((id) => id.isNotEmpty).join(',');
+          final productIds = _selectedProducts.map((p) => p['id']?.toString() ?? '').where((id) => id.isNotEmpty).join(',');
+          final salesOrderIds = _selectedSalesOrders.map((o) => o['id']?.toString() ?? '').where((id) => id.isNotEmpty).join(',');
+
+          final result = await repository.getWarehouseItems(
+            warehouseId: widget.warehouseId,
+            page: 1,
+            limit: 5000, 
+            search: searchQuery.isEmpty ? null : searchQuery,
+            customerId: customerIds.isEmpty ? null : customerIds,
+            productId: productIds.isNotEmpty ? productIds : null, // Clean up
+            salesOrderId: salesOrderIds.isNotEmpty ? salesOrderIds : null, // Clean up
+          );
+
+          final allItems = result['items'] as List<WarehouseStockData>;
+          
+          setState(() {
+            for (final item in allItems) {
+              final key = _buildRowKey(item);
+              selectedRowKeys.add(key);
+              _selectedItemsMap[key] = item;
+            }
+            _isLoading = false;
+          });
+        } catch (e) {
+          setState(() => _isLoading = false);
+        }
+      }
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _onSearchCustomers(String query) async {
+    final apiService = ref.read(salesOrderApiServiceProvider);
+    final customers = await apiService.getCustomers(search: query, limit: 20);
+    return customers.map((c) => {'id': c.id, 'name': c.displayName}).take(20).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _onSearchProducts(String query) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isNotEmpty && normalizedQuery.length < 3) {
+      return _initialProducts.isNotEmpty
+          ? _initialProducts
+          : _buildProductFallbackOptions();
     }
 
-    final orders = byId.values.toList()
-      ..sort(
-        (a, b) => (a['number'] ?? '').toLowerCase().compareTo(
-          (b['number'] ?? '').toLowerCase(),
-        ),
+    try {
+      final repo = ref.read(itemRepositoryProvider);
+      final products = normalizedQuery.isEmpty
+          ? await repo.getItems(limit: 20, offset: 0)
+          : await repo.searchProducts(normalizedQuery, limit: 20);
+
+      final mapped = products
+          .map((i) => {'id': i.id ?? '', 'name': i.productName})
+          .where((item) => (item['id'] ?? '').toString().isNotEmpty)
+          .take(20)
+          .toList();
+
+      if (mapped.isNotEmpty) {
+        return mapped;
+      }
+      return _buildProductFallbackOptions();
+    } catch (_) {
+      return _buildProductFallbackOptions();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _onSearchSalesOrders(String query) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isNotEmpty && normalizedQuery.length < 3) {
+      return _initialSalesOrders.isNotEmpty
+          ? _initialSalesOrders
+          : _buildSalesOrderFallbackOptions();
+    }
+
+    try {
+      final apiService = ref.read(salesOrderApiServiceProvider);
+      final orders = await apiService.getSalesByType(
+        'order',
+        search: normalizedQuery,
+        limit: 20,
       );
-    return orders;
+
+      final mapped = orders
+          .map((o) => {'id': o.id, 'number': o.saleNumber})
+          .where((item) =>
+              (item['id'] ?? '').toString().isNotEmpty &&
+              (item['number'] ?? '').toString().isNotEmpty)
+          .take(20)
+          .toList();
+
+      if (mapped.isNotEmpty) {
+        return mapped;
+      }
+      return _buildSalesOrderFallbackOptions();
+    } catch (_) {
+      return _buildSalesOrderFallbackOptions();
+    }
   }
 
   Border _buildFilterFieldBorder({
@@ -3036,40 +3384,9 @@ class _AddItemsDialogContentState
 
   @override
   Widget build(BuildContext context) {
-    // Show all warehouse items (no availableQuantity filter)
-    final List<WarehouseStockData> displayItems = widget.warehouseItems;
-
-    final filteredItems = displayItems.where((item) {
-      // Apply Text Search
-      if (searchQuery.isNotEmpty) {
-        final query = searchQuery.toLowerCase();
-        if (!item.productName.toLowerCase().contains(query) &&
-            !item.productCode.toLowerCase().contains(query)) {
-          return false;
-        }
-      }
-
-      // Apply Filters (INCLUSIVE: show items that match the selected options)
-      if (_appliedCustomerId.isNotEmpty) {
-        if (!_appliedCustomerId.contains(item.customerId)) return false;
-      }
-      if (_appliedProductId.isNotEmpty) {
-        if (!_appliedProductId.contains(item.productId)) return false;
-      }
-      if (_appliedSalesOrderId.isNotEmpty) {
-        if (!_appliedSalesOrderId.contains(item.salesOrderId)) return false;
-      }
-
-      return true;
-    }).toList();
-
-    // Apply Sorting based on Sales Order Number
-    filteredItems.sort((a, b) {
-      final aNo = (a.salesOrderNumber ?? '').toLowerCase();
-      final bNo = (b.salesOrderNumber ?? '').toLowerCase();
-      return _sortAscending ? aNo.compareTo(bNo) : bNo.compareTo(aNo);
-    });
-
+    final totalFiltered = _totalItems;
+    final totalPages = _totalPages;
+    final clampedCurrentPage = _currentPage.clamp(1, totalPages);
     return Dialog(
       alignment: Alignment.topCenter,
       backgroundColor: Colors.white,
@@ -3087,17 +3404,28 @@ class _AddItemsDialogContentState
             _buildFilterSection(),
 
             // Tabs & Group By
-            _buildTabsAndGroupBy(filteredItems.length),
+            _buildTabsAndGroupBy(_totalItems),
 
             // Table
             Expanded(
-              child: activeTab == 0
-                  ? _buildItemsTable(filteredItems)
-                  : _buildSelectedItemsTable(displayItems),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : activeTab == 0
+                      ? _buildItemsTable(
+                          _items,
+                          selectionScopeItems: _filteredItems,
+                        )
+                      : _buildSelectedItemsTable(widget.warehouseItems),
             ),
 
-            // Footer
-            _buildDialogFooter(displayItems),
+            // Footer Section
+            if (activeTab == 0)
+              _buildDialogFooter(
+                _items,
+                totalFiltered: totalFiltered,
+                currentPage: clampedCurrentPage,
+                totalPages: totalPages,
+              ),
           ],
         ),
       ),
@@ -3130,7 +3458,7 @@ class _AddItemsDialogContentState
                 ),
               ),
               const SizedBox(width: 4),
-              const _PicklistZTooltip(
+              ZTooltip(
                 message:
                     'Only items from this location can be added to the picklist.',
                 child: Icon(
@@ -3151,7 +3479,7 @@ class _AddItemsDialogContentState
             ),
           ),
           const SizedBox(width: 24),
-          _PicklistZTooltip(
+          ZTooltip(
             message: 'Toggle filter view',
             child: OutlinedButton.icon(
               onPressed: () => setState(() => _showFilters = !_showFilters),
@@ -3198,202 +3526,160 @@ class _AddItemsDialogContentState
             children: [
               // Customer Name filter
               Expanded(
-                child: Consumer(
-                  builder: (context, ref, _) {
-                    final customersAsync = ref.watch(salesCustomersProvider);
-                    final customerList = customersAsync.maybeWhen(
-                      data: (list) => list
-                          .map((c) => {'id': c.id, 'name': c.displayName})
-                          .toList(),
-                      orElse: () => <Map<String, dynamic>>[],
-                    );
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Customer Name',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF4B5563),
-                            fontWeight: FontWeight.w500,
-                          ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Customer Name',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF4B5563),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    MouseRegion(
+                      onEnter: (_) =>
+                          setState(() => _isCustomerFilterHovered = true),
+                      onExit: (_) =>
+                          setState(() => _isCustomerFilterHovered = false),
+                      child: FormDropdown<dynamic>(
+                        hint: 'Click or Type to select',
+                        multiSelect: true,
+                        height: 30,
+                        value: null,
+                        onChanged: (_) {},
+                        border: _buildFilterFieldBorder(
+                          isHovered: _isCustomerFilterHovered,
+                          hasValue: _selectedCustomers.isNotEmpty,
                         ),
-                        const SizedBox(height: 8),
-                        MouseRegion(
-                          onEnter: (_) =>
-                              setState(() => _isCustomerFilterHovered = true),
-                          onExit: (_) =>
-                              setState(() => _isCustomerFilterHovered = false),
-                          child: FormDropdown<dynamic>(
-                            hint: 'Click or Type to select',
-                            multiSelect: true,
-                            value: null,
-                            onChanged: (_) {},
-                            border: _buildFilterFieldBorder(
-                              isHovered: _isCustomerFilterHovered,
-                              hasValue: _selectedCustomerId.isNotEmpty,
+                        selectedValues: _selectedCustomers,
+                        items: _initialCustomers,
+                        onSearch: _onSearchCustomers,
+                        onSelectedValuesChanged: (vals) {
+                          _selectedCustomers = vals.cast<Map<String, dynamic>>();
+                          _currentPage = 1;
+                          _fetchData();
+                        },
+                        displayStringForValue: (val) => val['name'] as String,
+                        showSearch: true,
+                        searchStringForValue: (val) => val['name'] as String,
+                        hideSelectedItemsInMultiSelect: true,
+                        itemBuilder: (item, isSelected, isHovered) =>
+                            _buildFilterDropdownItem(
+                              label: item['name'] as String,
+                              isSelected: isSelected,
+                              isHovered: isHovered,
                             ),
-                            selectedValues: customerList
-                                .where(
-                                  (c) => _selectedCustomerId.contains(c['id']),
-                                )
-                                .toList(),
-                            items: customerList,
-                            onSelectedValuesChanged: (vals) => setState(() {
-                              _selectedCustomerId = vals
-                                  .map((v) => v['id'] as String)
-                                  .toSet();
-                            }),
-                            displayStringForValue: (val) =>
-                                val['name'] as String,
-                            showSearch: true,
-                            searchStringForValue: (val) =>
-                                val['name'] as String,
-                            hideSelectedItemsInMultiSelect: true,
-                            itemBuilder: (item, isSelected, isHovered) =>
-                                _buildFilterDropdownItem(
-                                  label: item['name'] as String,
-                                  isSelected: isSelected,
-                                  isHovered: isHovered,
-                                ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 24),
               // Items filter
               Expanded(
-                child: Consumer(
-                  builder: (context, ref, _) {
-                    final itemsState = ref.watch(itemsControllerProvider);
-                    final productsList = itemsState.items
-                        .map((i) => {'id': i.id, 'name': i.productName})
-                        .toList();
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Items',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF4B5563),
-                            fontWeight: FontWeight.w500,
-                          ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Items',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF4B5563),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    MouseRegion(
+                      onEnter: (_) =>
+                          setState(() => _isItemsFilterHovered = true),
+                      onExit: (_) =>
+                          setState(() => _isItemsFilterHovered = false),
+                      child: FormDropdown<dynamic>(
+                        hint: 'Click or Type to select',
+                        multiSelect: true,
+                        height: 30,
+                        value: null,
+                        onChanged: (_) {},
+                        border: _buildFilterFieldBorder(
+                          isHovered: _isItemsFilterHovered,
+                          hasValue: _selectedProducts.isNotEmpty,
                         ),
-                        const SizedBox(height: 8),
-                        MouseRegion(
-                          onEnter: (_) =>
-                              setState(() => _isItemsFilterHovered = true),
-                          onExit: (_) =>
-                              setState(() => _isItemsFilterHovered = false),
-                          child: FormDropdown<dynamic>(
-                            hint: 'Click or Type to select',
-                            multiSelect: true,
-                            value: null,
-                            onChanged: (_) {},
-                            border: _buildFilterFieldBorder(
-                              isHovered: _isItemsFilterHovered,
-                              hasValue: _selectedProductId.isNotEmpty,
+                        selectedValues: _selectedProducts,
+                        items: _initialProducts,
+                        onSearch: _onSearchProducts,
+                        onSelectedValuesChanged: (vals) {
+                          _selectedProducts = vals.cast<Map<String, dynamic>>();
+                          _currentPage = 1;
+                          _fetchData();
+                        },
+                        displayStringForValue: (val) => val['name'] as String,
+                        showSearch: true,
+                        searchStringForValue: (val) => val['name'] as String,
+                        hideSelectedItemsInMultiSelect: true,
+                        itemBuilder: (item, isSelected, isHovered) =>
+                            _buildFilterDropdownItem(
+                              label: item['name'] as String,
+                              isSelected: isSelected,
+                              isHovered: isHovered,
                             ),
-                            selectedValues: productsList
-                                .where(
-                                  (i) => _selectedProductId.contains(i['id']),
-                                )
-                                .toList(),
-                            items: productsList,
-                            onSelectedValuesChanged: (vals) => setState(() {
-                              _selectedProductId = vals
-                                  .map((v) => v['id'] as String)
-                                  .toSet();
-                            }),
-                            displayStringForValue: (val) =>
-                                val['name'] as String,
-                            showSearch: true,
-                            searchStringForValue: (val) =>
-                                val['name'] as String,
-                            hideSelectedItemsInMultiSelect: true,
-                            itemBuilder: (item, isSelected, isHovered) =>
-                                _buildFilterDropdownItem(
-                                  label: item['name'] as String,
-                                  isSelected: isSelected,
-                                  isHovered: isHovered,
-                                ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 24),
-              // Sales Orders filter (dynamic to selected warehouse popup data)
+              // Sales Orders filter
               Expanded(
-                child: Builder(
-                  builder: (context) {
-                    final ordersList = _salesOrdersForPopupFilters();
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Sales Orders',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF4B5563),
-                            fontWeight: FontWeight.w500,
-                          ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Sales Orders',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF4B5563),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    MouseRegion(
+                      onEnter: (_) =>
+                          setState(() => _isSalesOrdersFilterHovered = true),
+                      onExit: (_) =>
+                          setState(() => _isSalesOrdersFilterHovered = false),
+                      child: FormDropdown<dynamic>(
+                        hint: 'Click or Type to select',
+                        multiSelect: true,
+                        height: 30,
+                        value: null,
+                        onChanged: (_) {},
+                        border: _buildFilterFieldBorder(
+                          isHovered: _isSalesOrdersFilterHovered,
+                          hasValue: _selectedSalesOrders.isNotEmpty,
                         ),
-                        const SizedBox(height: 8),
-                        MouseRegion(
-                          onEnter: (_) => setState(
-                            () => _isSalesOrdersFilterHovered = true,
-                          ),
-                          onExit: (_) => setState(
-                            () => _isSalesOrdersFilterHovered = false,
-                          ),
-                          child: FormDropdown<dynamic>(
-                            hint: 'Click or Type to select',
-                            multiSelect: true,
-                            value: null,
-                            onChanged: (_) {},
-                            border: _buildFilterFieldBorder(
-                              isHovered: _isSalesOrdersFilterHovered,
-                              hasValue: _selectedSalesOrderId.isNotEmpty,
+                        selectedValues: _selectedSalesOrders,
+                        items: _initialSalesOrders,
+                        onSearch: _onSearchSalesOrders,
+                        onSelectedValuesChanged: (vals) {
+                          _selectedSalesOrders = vals.cast<Map<String, dynamic>>();
+                          _currentPage = 1;
+                          _fetchData();
+                        },
+                        displayStringForValue: (val) => val['number'] as String,
+                        showSearch: true,
+                        searchStringForValue: (val) => val['number'] as String,
+                        hideSelectedItemsInMultiSelect: true,
+                        itemBuilder: (item, isSelected, isHovered) =>
+                            _buildFilterDropdownItem(
+                              label: item['number'] as String,
+                              isSelected: isSelected,
+                              isHovered: isHovered,
                             ),
-                            selectedValues: ordersList
-                                .where(
-                                  (s) =>
-                                      _selectedSalesOrderId.contains(s['id']),
-                                )
-                                .toList(),
-                            items: ordersList,
-                            onSelectedValuesChanged: (vals) => setState(() {
-                              _selectedSalesOrderId = vals
-                                  .map((v) => v['id'] as String)
-                                  .toSet();
-                            }),
-                            displayStringForValue: (val) =>
-                                val['number'] as String,
-                            showSearch: true,
-                            searchStringForValue: (val) =>
-                                val['number'] as String,
-                            hideSelectedItemsInMultiSelect: true,
-                            itemBuilder: (item, isSelected, isHovered) =>
-                                _buildFilterDropdownItem(
-                                  label: item['number'] as String,
-                                  isSelected: isSelected,
-                                  isHovered: isHovered,
-                                ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -3456,10 +3742,11 @@ class _AddItemsDialogContentState
                 style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
               ),
               SizedBox(
-                width: 140,
-                height: 40,
+                width: 190,
+                height: 30,
                 child: FormDropdown<String>(
                   value: _currentGrouping,
+                  height: 30,
                   items: const ['No Grouping', 'By Item', 'By Sales Orders'],
                   hint: 'No Grouping',
                   showSearch: false,
@@ -3504,7 +3791,11 @@ class _AddItemsDialogContentState
                   ),
                   onChanged: (val) {
                     if (val != null) {
-                      setState(() => _currentGrouping = val);
+                      setState(() {
+                      _currentGrouping = val;
+                      _currentPage = 1;
+                      _fetchData();
+                      });
                     }
                   },
                 ),
@@ -3570,14 +3861,25 @@ class _AddItemsDialogContentState
 
     setState(() {
       if (allSelected) {
-        selectedRowKeys.removeAll(groupKeys);
+        for (final item in itemsInGroup) {
+          final key = _buildRowKey(item);
+          selectedRowKeys.remove(key);
+          _selectedItemsMap.remove(key);
+        }
       } else {
-        selectedRowKeys.addAll(groupKeys);
+        for (final item in itemsInGroup) {
+          final key = _buildRowKey(item);
+          selectedRowKeys.add(key);
+          _selectedItemsMap[key] = item;
+        }
       }
     });
   }
 
-  Widget _buildItemsTable(List<WarehouseStockData> items) {
+  Widget _buildItemsTable(
+    List<WarehouseStockData> items, {
+    required List<WarehouseStockData> selectionScopeItems,
+  }) {
     // Determine the flat list to render based on grouping logic
     final flatList = <dynamic>[];
 
@@ -3614,9 +3916,13 @@ class _AddItemsDialogContentState
                 height: 20,
                 child: Checkbox(
                   value:
-                      items.isNotEmpty &&
-                      selectedRowKeys.length == items.length,
-                  onChanged: (val) => _toggleSelectAll(items),
+                        _filteredItems.isNotEmpty &&
+                        _filteredItems.every(
+                        (item) => selectedRowKeys.contains(_buildRowKey(item)),
+                      ),
+                    onChanged: (val) async {
+                      await _toggleSelectAll(selectionScopeItems);
+                    },
                   activeColor: const Color(0xFF3B82F6),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(2),
@@ -3671,11 +3977,11 @@ class _AddItemsDialogContentState
                         child: Checkbox(
                           value: _isGroupFullSelected(
                             itemOrHeader['title'] as String,
-                            items,
+                            selectionScopeItems,
                           ),
                           onChanged: (val) => _toggleGroupSelection(
                             itemOrHeader['title'] as String,
-                            items,
+                            selectionScopeItems,
                           ),
                           activeColor: const Color(0xFF3B82F6),
                           shape: RoundedRectangleBorder(
@@ -3714,15 +4020,10 @@ class _AddItemsDialogContentState
                 ),
                 child: Row(
                   children: [
-                    _buildTableCheckbox(isSelected, () {
-                      setState(() {
-                        if (isSelected) {
-                          selectedRowKeys.remove(rowKey);
-                        } else {
-                          selectedRowKeys.add(rowKey);
-                        }
-                      });
-                    }),
+                    _buildTableCheckbox(
+                      isSelected,
+                      () => _onSelectionChanged(item, !isSelected),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 3,
@@ -3798,10 +4099,8 @@ class _AddItemsDialogContentState
     );
   }
 
-  Widget _buildSelectedItemsTable(List<WarehouseStockData> allMergedItems) {
-    final selectedItems = allMergedItems
-        .where((item) => selectedRowKeys.contains(_buildRowKey(item)))
-        .toList();
+  Widget _buildSelectedItemsTable(List<WarehouseStockData> _) {
+    final selectedItems = _selectedItemsMap.values.toList();
 
     if (selectedItems.isEmpty) {
       return const Center(
@@ -3812,17 +4111,16 @@ class _AddItemsDialogContentState
       );
     }
 
-    return _buildItemsTable(selectedItems);
+    return _buildItemsTable(
+      selectedItems,
+      selectionScopeItems: selectedItems,
+    );
   }
 
   Widget _headerCell(String text, {bool hasSort = false, TextAlign? align}) {
     return InkWell(
       onTap: hasSort
-          ? () {
-              setState(() {
-                _sortAscending = !_sortAscending;
-              });
-            }
+          ? null
           : null,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -3845,19 +4143,47 @@ class _AddItemsDialogContentState
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  LucideIcons.chevronUp,
-                  size: 8,
-                  color: _sortAscending
-                      ? const Color(0xFF3B82F6)
-                      : const Color(0xFF9CA3AF),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (_sortAscending) return;
+                    setState(() {
+                      _sortAscending = true;
+                      _currentPage = 1;
+                    });
+                    _fetchData();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1),
+                    child: Icon(
+                      LucideIcons.chevronUp,
+                      size: 10,
+                      color: _sortAscending
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF9CA3AF),
+                    ),
+                  ),
                 ),
-                Icon(
-                  LucideIcons.chevronDown,
-                  size: 8,
-                  color: !_sortAscending
-                      ? const Color(0xFF3B82F6)
-                      : const Color(0xFF9CA3AF),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (!_sortAscending) return;
+                    setState(() {
+                      _sortAscending = false;
+                      _currentPage = 1;
+                    });
+                    _fetchData();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1),
+                    child: Icon(
+                      LucideIcons.chevronDown,
+                      size: 10,
+                      color: !_sortAscending
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF9CA3AF),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -3881,9 +4207,17 @@ class _AddItemsDialogContentState
     );
   }
 
-  Widget _buildDialogFooter(List<WarehouseStockData> allMergedItems) {
+  Widget _buildDialogFooter(
+    List<WarehouseStockData> allMergedItems, {
+    required int totalFiltered,
+    required int currentPage,
+    required int totalPages,
+  }) {
+    final pageIndicator =
+        totalFiltered == 0 ? '0 - 0' : '$currentPage - $totalPages';
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
       ),
@@ -3891,9 +4225,7 @@ class _AddItemsDialogContentState
         children: [
           ElevatedButton(
             onPressed: () {
-              final selectedItems = allMergedItems
-                  .where((e) => selectedRowKeys.contains(_buildRowKey(e)))
-                  .toList();
+              final selectedItems = _selectedItemsMap.values.toList();
               widget.onItemsSelected(selectedItems);
             },
             style: ElevatedButton.styleFrom(
@@ -3926,7 +4258,279 @@ class _AddItemsDialogContentState
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),
+          const Spacer(),
+          // ── Pagination ──
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Page size dropdown
+              _PaginationSizeDropdown(
+                value: _pageSize,
+                options: const [30, 50, 100, 200, 500],
+                onChanged: (size) {
+                  _pageSize = size;
+                  _currentPage = 1;
+                  _fetchData();
+                },
+              ),
+              const SizedBox(width: 16),
+              // Prev button
+              _PaginationArrow(
+                icon: LucideIcons.chevronLeft,
+                enabled: currentPage > 1,
+                onTap: () {
+                  _currentPage = currentPage - 1;
+                  _fetchData();
+                },
+              ),
+              const SizedBox(width: 8),
+              // Range display
+              Text(
+                pageIndicator,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF374151),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Next button
+              _PaginationArrow(
+                icon: LucideIcons.chevronRight,
+                enabled: currentPage < totalPages,
+                onTap: () {
+                  _currentPage = currentPage + 1;
+                  _fetchData();
+                },
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _PaginationSizeDropdown extends StatefulWidget {
+  final int value;
+  final List<int> options;
+  final ValueChanged<int> onChanged;
+
+  const _PaginationSizeDropdown({
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  @override
+  State<_PaginationSizeDropdown> createState() =>
+      _PaginationSizeDropdownState();
+}
+
+class _PaginationSizeDropdownState extends State<_PaginationSizeDropdown> {
+  OverlayEntry? _overlay;
+  final LayerLink _link = LayerLink();
+  int? _hoveredOption;
+
+  void _open() {
+    _close();
+    _hoveredOption = null;
+    _overlay = OverlayEntry(
+      builder: (_) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _close,
+              behavior: HitTestBehavior.translucent,
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _link,
+            showWhenUnlinked: false,
+            offset: const Offset(0, -(_kRowH * 5 + 2)),
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(4),
+              color: Colors.white,
+              child: Container(
+                width: 120,
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: widget.options.map((opt) {
+                    final isSelected = opt == widget.value;
+                    final isHovered = _hoveredOption == opt;
+                    final bgColor = isHovered
+                        ? const Color(0xFF3B82F6)
+                        : (isSelected
+                              ? const Color(0xFFF3F4F6)
+                              : Colors.white);
+                    final fgColor = isHovered
+                        ? Colors.white
+                        : const Color(0xFF111827);
+
+                    return MouseRegion(
+                      onEnter: (_) {
+                        _hoveredOption = opt;
+                        _overlay?.markNeedsBuild();
+                      },
+                      onExit: (_) {
+                        if (_hoveredOption == opt) {
+                          _hoveredOption = null;
+                          _overlay?.markNeedsBuild();
+                        }
+                      },
+                      child: GestureDetector(
+                        onTap: () {
+                          widget.onChanged(opt);
+                          _close();
+                        },
+                        child: Container(
+                          height: _kRowH,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            color: bgColor,
+                            borderRadius: opt == widget.options.first
+                                ? const BorderRadius.vertical(
+                                    top: Radius.circular(4),
+                                  )
+                                : opt == widget.options.last
+                                ? const BorderRadius.vertical(
+                                    bottom: Radius.circular(4),
+                                  )
+                                : BorderRadius.zero,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '$opt per page',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: fgColor,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected) ...[
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.check,
+                                  size: 14,
+                                  color: fgColor,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_overlay!);
+  }
+
+  void _close() {
+    _overlay?.remove();
+    _overlay = null;
+    _hoveredOption = null;
+  }
+
+  @override
+  void dispose() {
+    _close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _link,
+      child: GestureDetector(
+        onTap: _open,
+        child: Container(
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.settings_outlined,
+                size: 14,
+                color: const Color(0xFF6B7280),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${widget.value} per page',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF374151),
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.keyboard_arrow_down,
+                size: 16,
+                color: Color(0xFF6B7280),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const double _kRowH = 36.0;
+
+class _PaginationArrow extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _PaginationArrow({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: enabled
+                ? const Color(0xFFD1D5DB)
+                : const Color(0xFFE5E7EB),
+          ),
+          borderRadius: BorderRadius.circular(4),
+          color: Colors.white,
+        ),
+        child: Icon(
+          icon,
+          size: 14,
+          color: enabled
+              ? const Color(0xFF374151)
+              : const Color(0xFFD1D5DB),
+        ),
       ),
     );
   }
@@ -4039,14 +4643,16 @@ class _PicklistSelectBatchesDialog extends ConsumerStatefulWidget {
   final String itemName;
   final String productId;
   final String warehouseName;
+  final String warehouseId;
   final String? branchId;
   final double totalQuantity;
   final List<Map<String, String>>? savedBatchData;
 
-  const _PicklistSelectBatchesDialog({
+  _PicklistSelectBatchesDialog({
     required this.itemName,
     required this.productId,
     required this.warehouseName,
+    required this.warehouseId,
     this.branchId,
     required this.totalQuantity,
     this.savedBatchData,
@@ -4063,14 +4669,8 @@ class _PicklistSelectBatchesDialogState
   static const double _batchTextFieldHeight = 38;
   final List<_PicklistBatchRowController> _rows = [];
   final Set<int> _hoveredFocRows = <int>{};
-  final List<String> _mockBinLocations = const <String>[
-    'A1-R1-S1',
-    'A1-R1-S2',
-    'A1-R2-S1',
-    'B1-R1-S1',
-    'B1-R2-S3',
-    'C1-R4-S2',
-  ];
+  final Set<int> _hoveredBatchRows = <int>{};
+  List<String> _binLocations = [];
   bool _overwriteLineItem = false;
   bool _showMfgDetails = false;
   bool _showFocColumn = false;
@@ -4081,6 +4681,7 @@ class _PicklistSelectBatchesDialogState
   @override
   void initState() {
     super.initState();
+    _loadBins();
     if (widget.savedBatchData != null && widget.savedBatchData!.isNotEmpty) {
       for (var batchData in widget.savedBatchData!) {
         final row = _PicklistBatchRowController();
@@ -4123,6 +4724,20 @@ class _PicklistSelectBatchesDialogState
       final firstRow = _PicklistBatchRowController();
       firstRow.qtyOutCtrl.text = widget.totalQuantity.toInt().toString();
       _rows.add(firstRow);
+    }
+  }
+
+  Future<void> _loadBins() async {
+    try {
+      final repository = ref.read(inventoryPicklistRepositoryProvider);
+      final bins = await repository.getWarehouseBins(warehouseId: widget.warehouseId);
+      if (mounted) {
+        setState(() {
+          _binLocations = bins.map((b) => b['binCode'] ?? '').where((c) => c.isNotEmpty).toList();
+        });
+      }
+    } catch (_) {
+      // Error handling
     }
   }
 
@@ -4702,81 +5317,89 @@ class _PicklistSelectBatchesDialogState
                 itemCount: _rows.length,
                 itemBuilder: (context, index) {
                   final row = _rows[index];
+                  final isRowHovered = _hoveredBatchRows.contains(index);
                   return Column(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 4,
-                          horizontal: 8,
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                      MouseRegion(
+                        onEnter: (_) => setState(() => _hoveredBatchRows.add(index)),
+                        onExit: (_) => setState(() => _hoveredBatchRows.remove(index)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 4,
+                            horizontal: 8,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                             Expanded(
                               flex: 15,
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 4,
                                 ),
-                                child: SizedBox(
-                                  height: _batchDropdownHeight,
-                                  child: FormDropdown<String>(
+                                child: _BinHoverBox(
+                                  isEnabled: row.binLocationCtrl.text.isNotEmpty,
+                                  message: row.binLocationCtrl.text,
+                                  child: SizedBox(
                                     height: _batchDropdownHeight,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: _borderCol),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 8,
-                                    ),
-                                    value:
-                                        _mockBinLocations.contains(
-                                          row.binLocationCtrl.text.trim(),
-                                        )
-                                        ? row.binLocationCtrl.text.trim()
-                                        : null,
-                                    items: _mockBinLocations,
-                                    hint: 'Select Bin',
-                                    showSearch: true,
-                                    maxVisibleItems: 4,
-                                    menuMaxHeight: 220,
-                                    displayStringForValue: (v) => v,
-                                    searchStringForValue: (v) => v,
-                                    itemBuilder:
-                                        (
-                                          item,
-                                          isSelected,
-                                          isHovered,
-                                        ) => Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
-                                          ),
-                                          color: isHovered
-                                              ? const Color(0xFF3B82F6)
-                                              : (isSelected
-                                                    ? const Color(0xFFF3F4F6)
-                                                    : Colors.transparent),
-                                          child: Text(
+                                    child: FormDropdown<String>(
+                                      height: _batchDropdownHeight,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: _borderCol),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 8,
+                                      ),
+                                      value:
+                                          _binLocations.contains(
+                                            row.binLocationCtrl.text.trim(),
+                                          )
+                                          ? row.binLocationCtrl.text.trim()
+                                          : null,
+                                      items: _binLocations,
+                                      hint: 'Select Bin',
+                                      showSearch: true,
+                                      maxVisibleItems: 4,
+                                      menuMaxHeight: 220,
+                                      displayStringForValue: (v) => v,
+                                      searchStringForValue: (v) => v,
+                                      itemBuilder:
+                                          (
                                             item,
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: isHovered
-                                                  ? Colors.white
-                                                  : (isSelected
-                                                        ? const Color(
-                                                            0xFF1F2937,
-                                                          )
-                                                        : const Color(
-                                                            0xFF1F2937,
-                                                          )),
+                                            isSelected,
+                                            isHovered,
+                                          ) => Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
+                                            color: isHovered
+                                                ? const Color(0xFF3B82F6)
+                                                : (isSelected
+                                                      ? const Color(0xFFF3F4F6)
+                                                      : Colors.transparent),
+                                            child: Text(
+                                              item,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: isHovered
+                                                    ? Colors.white
+                                                    : (isSelected
+                                                          ? const Color(
+                                                              0xFF1F2937,
+                                                            )
+                                                          : const Color(
+                                                              0xFF1F2937,
+                                                            )),
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                    onChanged: (val) {
-                                      setState(() {
-                                        row.binLocationCtrl.text = val ?? '';
-                                      });
-                                    },
+                                      onChanged: (val) {
+                                        setState(() {
+                                          row.binLocationCtrl.text = val ?? '';
+                                        });
+                                      },
+                                    ),
                                   ),
                                 ),
                               ),
@@ -4933,19 +5556,25 @@ class _PicklistSelectBatchesDialogState
                               isNumber: true,
                             ),
                             if (_showFocColumn) _buildFocInput(row, index),
-                            SizedBox(
-                              width: 24,
-                              child: IconButton(
-                                onPressed: () => _removeRow(index),
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(
-                                  LucideIcons.xCircle,
-                                  size: 14,
-                                  color: _dangerRed,
+                              SizedBox(
+                                width: 24,
+                                child: AnimatedOpacity(
+                                  opacity: isRowHovered ? 1 : 0,
+                                  duration: const Duration(milliseconds: 120),
+                                  child: IconButton(
+                                    onPressed: () => _removeRow(index),
+                                    tooltip: 'Remove row',
+                                    padding: EdgeInsets.zero,
+                                    icon: const Icon(
+                                      LucideIcons.x,
+                                      size: 15,
+                                      color: _dangerRed,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                       if (index < _rows.length - 1)
@@ -5452,113 +6081,83 @@ class __PicklistPreferencesDialogState
   }
 }
 
-class _PicklistZTooltip extends StatefulWidget {
+class _BinHoverBox extends StatefulWidget {
   final String message;
-  final Widget? child;
+  final Widget child;
+  final bool isEnabled;
 
-  const _PicklistZTooltip({required this.message, this.child});
+  const _BinHoverBox({
+    required this.message,
+    required this.child,
+    this.isEnabled = true,
+  });
 
   @override
-  State<_PicklistZTooltip> createState() => _PicklistZTooltipState();
+  State<_BinHoverBox> createState() => _BinHoverBoxState();
 }
 
-class _PicklistZTooltipState extends State<_PicklistZTooltip> {
+class _BinHoverBoxState extends State<_BinHoverBox> {
   OverlayEntry? _entry;
   final LayerLink _layerLink = LayerLink();
-  bool _isHovering = false;
-  bool _isTooltipHovering = false;
 
-  void _showTooltip() {
-    if (_entry != null) return;
+  void _showOverlay() {
+    if (_entry != null || !widget.isEnabled) return;
     _entry = _createOverlayEntry();
-    if (_entry != null) {
-      Overlay.of(context).insert(_entry!);
-    }
+    Overlay.of(context).insert(_entry!);
   }
 
-  void _hideTooltip() async {
-    await Future.delayed(const Duration(milliseconds: 100));
-    if (mounted && !_isHovering && !_isTooltipHovering) {
-      _entry?.remove();
-      _entry = null;
-    }
+  void _hideOverlay() {
+    _entry?.remove();
+    _entry = null;
   }
 
-  OverlayEntry? _createOverlayEntry() {
-    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null || !renderBox.hasSize) return null;
-
+  OverlayEntry _createOverlayEntry() {
     return OverlayEntry(
-      builder: (context) {
-        return Stack(
-          children: [
-            CompositedTransformFollower(
-              link: _layerLink,
-              showWhenUnlinked: false,
-              targetAnchor: Alignment.topCenter,
-              followerAnchor: Alignment.bottomCenter,
-              offset: const Offset(0, -8),
-              child: FractionalTranslation(
-                translation: const Offset(0, 0),
-                child: MouseRegion(
-                  onEnter: (_) => _isTooltipHovering = true,
-                  onExit: (_) {
-                    _isTooltipHovering = false;
-                    _hideTooltip();
-                  },
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          constraints: const BoxConstraints(maxWidth: 220),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1F2937),
-                            borderRadius: BorderRadius.circular(6),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.15),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            widget.message,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                        CustomPaint(
-                          size: const Size(10, 6),
-                          painter: _PicklistTooltipArrowDownPainter(),
-                        ),
-                      ],
+      builder: (context) => Stack(
+        children: [
+          CompositedTransformFollower(
+            link: _layerLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomCenter,
+            followerAnchor: Alignment.topCenter,
+            offset: const Offset(0, 4),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 250),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
+                  ],
+                ),
+                child: Text(
+                  widget.message,
+                  style: const TextStyle(
+                    color: Color(0xFF1F2937),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: 'Inter',
                   ),
                 ),
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 
   @override
   void dispose() {
-    _entry?.remove();
-    _entry = null;
+    _hideOverlay();
     super.dispose();
   }
 
@@ -5567,38 +6166,10 @@ class _PicklistZTooltipState extends State<_PicklistZTooltip> {
     return CompositedTransformTarget(
       link: _layerLink,
       child: MouseRegion(
-        onEnter: (_) {
-          _isHovering = true;
-          _showTooltip();
-        },
-        onExit: (_) {
-          _isHovering = false;
-          _hideTooltip();
-        },
-        child:
-            widget.child ??
-            const Icon(LucideIcons.helpCircle, size: 14, color: _textSecondary),
+        onEnter: (_) => _showOverlay(),
+        onExit: (_) => _hideOverlay(),
+        child: widget.child,
       ),
     );
   }
-}
-
-class _PicklistTooltipArrowDownPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF1F2937)
-      ..style = PaintingStyle.fill;
-
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -12,6 +13,8 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_date_picker_field.dart';
+import 'package:intl/intl.dart' as intl;
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
@@ -25,6 +28,8 @@ import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/sales/presentation/widgets/sales_order_item_row.dart';
 import 'package:zerpai_erp/modules/sales/presentation/widgets/bulk_items_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
+import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'widgets/advanced_customer_search_dialog.dart';
 import 'package:zerpai_erp/shared/services/lookup_service.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
@@ -32,6 +37,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dar
 import 'package:zerpai_erp/shared/widgets/inputs/manage_simple_list_dialog.dart';
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'widgets/sales_order_preferences_dialog.dart';
+import 'sales_customer_create.dart';
 
 // ─── Colour constants ────────────────────────────────────────────────────────
 const _kBorder = Color(0xFFE5E7EB);
@@ -125,7 +131,6 @@ class _SalesOrderCreateScreenState
   bool _showPriceList = false;
   OverlayEntry? _rowActionsOverlay;
   OverlayEntry? _hsnOverlay;
-  OverlayEntry? _warehouseOverlay;
   OverlayEntry? _itemDetailsSidebarOverlay;
   OverlayEntry? _customerDetailsSidebarOverlay;
   bool _isLoadingCustomerDetails = false;
@@ -137,6 +142,9 @@ class _SalesOrderCreateScreenState
   final _uploadLink = LayerLink();
   OverlayEntry? _uploadOverlay;
   bool _isUploadButtonHovered = false;
+  final _salesOrderDateKey = GlobalKey();
+  final _expectedShipmentDateKey = GlobalKey();
+  bool _isAdjustmentLabelHovered = false;
 
   bool _isAutoGenerateSO = true;
   String _soPrefix = 'SO-';
@@ -551,6 +559,33 @@ class _SalesOrderCreateScreenState
     return raw;
   }
 
+  void _showNewCustomerDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 200, vertical: 0),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: SalesCustomerCreateScreen(
+            showLayout: false,
+            onSaveSuccess: (newCustomer) {
+              Navigator.of(dialogContext).pop();
+              setState(() {
+                _selectedCustomer = newCustomer;
+                _selectedCustomerId = newCustomer.id;
+                // Refresh customer list to include the new one
+                ref.refresh(salesCustomersProvider);
+              });
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildCustomerDropdownItem(
     SalesCustomer customer,
     bool isSelected,
@@ -805,43 +840,21 @@ class _SalesOrderCreateScreenState
     }
 
     return ZerpaiLayout(
-      pageTitle: _isEditMode ? 'Edit Sales Order' : 'New Sales Order',
-      actions: [
-        IconButton(
-          icon: const Icon(
-            LucideIcons.settings,
-            color: Color(0xFF3B82F6),
-            size: 14,
-          ),
-          onPressed: () {},
-        ),
-        const SizedBox(width: 4),
-        IconButton(
-          icon: const Icon(LucideIcons.x, color: Color(0xFF6B7280), size: 16),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/sales/orders');
-            }
-          },
-        ),
-      ],
+      pageTitle: '',
       enableBodyScroll: true,
       useHorizontalPadding: false,
+      useTopPadding: false,
       footer: _buildFooter(),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: bodyHorizontalPadding),
-              child: _buildHeaderSection(
-                customersAsync,
-                priceListsAsync,
-                currenciesAsync,
-              ),
+            _buildHeader(),
+            _buildHeaderSection(
+              customersAsync,
+              priceListsAsync,
+              currenciesAsync,
             ),
             const SizedBox(height: 24),
             Padding(
@@ -880,19 +893,72 @@ class _SalesOrderCreateScreenState
     );
   }
 
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 24, 32, 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Icon(LucideIcons.shoppingCart, size: 24, color: _kBodyText),
+          const SizedBox(width: 12),
+          Text(
+            _isEditMode ? 'Edit Sales Order' : 'New Sales Order',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: _kBodyText,
+              fontFamily: 'Inter',
+            ),
+          ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(
+              LucideIcons.settings,
+              color: Color(0xFF3B82F6),
+              size: 18,
+            ),
+            onPressed: () {},
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 1,
+            height: 24,
+            color: _kBorder,
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(LucideIcons.x, color: Color(0xFF6B7280), size: 20),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/sales/orders');
+              }
+            },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeaderSection(
     AsyncValue<List<SalesCustomer>> customersAsync,
     AsyncValue<List<PriceList>> priceListsAsync,
     AsyncValue<List<CurrencyOption>> currenciesAsync,
   ) {
+    final warehouseList = ref.watch(warehousesProvider).value ?? <Warehouse>[];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Top Section: Customer Name & Details
         Container(
           width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          margin: const EdgeInsets.only(bottom: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           decoration: const BoxDecoration(color: Color(0xFFF3F4F6)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -924,6 +990,11 @@ class _SalesOrderCreateScreenState
                             child: FormDropdown<SalesCustomer>(
                               value: selectedCustomerFromList,
                               height: _kDropdownHeight,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(4),
+                                bottomLeft: Radius.circular(4),
+                              ),
+                              showRightBorder: false,
                               items: customers,
                               hint: 'Select or add a customer',
                               displayStringForValue: (c) => c.displayName,
@@ -931,10 +1002,7 @@ class _SalesOrderCreateScreenState
                               showSettings: true,
                               settingsLabel: 'New Customer',
                               settingsIcon: LucideIcons.plus,
-                              onSettingsTap: () {
-                                // Logic to add new customer
-                                context.push('/sales/customers/create');
-                              },
+                              onSettingsTap: _showNewCustomerDialog,
                               itemBuilder: (customer, isSelected, isHovered) =>
                                   _buildCustomerDropdownItem(
                                     customer,
@@ -961,14 +1029,15 @@ class _SalesOrderCreateScreenState
                               },
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          // Green Search Button
                           Container(
                             height: 32,
                             width: 32,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981), // Emerald-500
-                              borderRadius: BorderRadius.circular(4),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF10B981), // Emerald-500
+                              borderRadius: BorderRadius.only(
+                                topRight: Radius.circular(4),
+                                bottomRight: Radius.circular(4),
+                              ),
                             ),
                             child: IconButton(
                               padding: EdgeInsets.zero,
@@ -1117,6 +1186,12 @@ class _SalesOrderCreateScreenState
                       '[TN] - Tamil Nadu',
                       '[KA] - Karnataka',
                     ], // Simplified options
+                    itemBuilder: (item, isSelected, isHovered) =>
+                        _dropdownItemBuilder(
+                          item,
+                          isSelected,
+                          isHovered,
+                        ),
                     onChanged: (v) => setState(() => placeOfSupply = v),
                   ),
                 ),
@@ -1124,10 +1199,11 @@ class _SalesOrderCreateScreenState
             ],
           ),
         ),
-
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               // Sales Order#
               SharedFieldLayout(
                 label: 'Sales Order#',
@@ -1142,6 +1218,12 @@ class _SalesOrderCreateScreenState
                         value: 'Default Transaction Series',
                         height: _kDropdownHeight,
                         items: const ['Default Transaction Series'],
+                        itemBuilder: (item, isSelected, isHovered) =>
+                            _dropdownItemBuilder(
+                              item,
+                              isSelected,
+                              isHovered,
+                            ),
                         onChanged: (v) {},
                       ),
                     ),
@@ -1157,7 +1239,7 @@ class _SalesOrderCreateScreenState
                           child: InkWell(
                             onTap: _showSalesOrderPreferencesDialog,
                             child: const Padding(
-                              padding: EdgeInsets.only(right: 8),
+                              padding: EdgeInsets.only(right: 2),
                               child: Icon(
                                 LucideIcons.settings,
                                 color: Color(0xFF3B82F6),
@@ -1173,97 +1255,85 @@ class _SalesOrderCreateScreenState
               ),
 
               // Reference#
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 180,
-                    child: Text(
-                      'Reference#',
-                      style: TextStyle(fontSize: 13, color: _kLabelGrey, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 320,
-                    child: CustomTextField(
-                      controller: referenceCtrl,
-                      height: 32,
-                    ),
-                  ),
-                ],
+              SharedFieldLayout(
+                label: 'Reference#',
+                labelWidth: 180,
+                maxWidth: 600,
+                child: CustomTextField(
+                  controller: referenceCtrl,
+                  height: 32,
+                ),
               ),
-              const SizedBox(height: 12),
 
               // Sales Order Date
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 180,
-                    child: Text.rich(
-                      TextSpan(
-                        text: 'Sales Order Date',
-                        style: TextStyle(fontSize: 13, color: _kLabelGrey, fontWeight: FontWeight.w500),
-                        children: const [
-                          TextSpan(
-                            text: ' *',
-                            style: TextStyle(color: _kBlue, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
+              SharedFieldLayout(
+                label: 'Sales Order Date',
+                required: true,
+                labelWidth: 180,
+                maxWidth: 600,
+                child: CustomTextField(
+                  key: _salesOrderDateKey,
+                  controller: TextEditingController(
+                    text: intl.DateFormat('dd-MM-yyyy').format(salesOrderDate),
                   ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 320,
-                    child: ZDatePickerField(
-                      selectedDate: salesOrderDate,
-                      onDateSelected: (d) => setState(() => salesOrderDate = d),
-                    ),
+                  height: 32,
+                  readOnly: true,
+                  onTap: () async {
+                    final picked = await ZerpaiDatePicker.show(
+                      context,
+                      initialDate: salesOrderDate,
+                      targetKey: _salesOrderDateKey,
+                    );
+                    if (picked != null) {
+                      setState(() => salesOrderDate = picked);
+                    }
+                  },
+                  suffixWidget: const Icon(
+                    LucideIcons.calendar,
+                    size: 16,
+                    color: _kLabelGrey,
                   ),
-                ],
+                ),
               ),
-              const SizedBox(height: 12),
 
               // Expected Shipment Date
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 180,
-                    child: Text(
-                      'Expected Shipment Date',
-                      style: TextStyle(fontSize: 13, color: _kLabelGrey, fontWeight: FontWeight.w500),
-                    ),
+              SharedFieldLayout(
+                label: 'Expected Shipment Date',
+                labelWidth: 180,
+                maxWidth: 600,
+                child: CustomTextField(
+                  key: _expectedShipmentDateKey,
+                  controller: TextEditingController(
+                    text: expectedShipmentDate == null
+                        ? ''
+                        : intl.DateFormat('dd-MM-yyyy').format(expectedShipmentDate!),
                   ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 320,
-                    child: ZDatePickerField(
-                      selectedDate: expectedShipmentDate ?? DateTime.now(),
-                      onDateSelected: (d) => setState(() => expectedShipmentDate = d),
-                    ),
+                  height: 32,
+                  readOnly: true,
+                  onTap: () async {
+                    final picked = await ZerpaiDatePicker.show(
+                      context,
+                      initialDate: expectedShipmentDate ?? DateTime.now(),
+                      targetKey: _expectedShipmentDateKey,
+                    );
+                    if (picked != null) {
+                      setState(() => expectedShipmentDate = picked);
+                    }
+                  },
+                  suffixWidget: const Icon(
+                    LucideIcons.calendar,
+                    size: 16,
+                    color: _kLabelGrey,
                   ),
-                ],
+                ),
               ),
-              const SizedBox(height: 12),
 
               // Payment Terms
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 180,
-                    child: Text(
-                      'Payment Terms',
-                      style: TextStyle(fontSize: 13, color: _kLabelGrey, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 320,
-                    child: FormDropdown<String>(
+              SharedFieldLayout(
+                label: 'Payment Terms',
+                labelWidth: 180,
+                maxWidth: 600,
+                child: FormDropdown<String>(
                   value: paymentTerms,
                   height: _kDropdownHeight,
                   items: _paymentTermsList
@@ -1279,11 +1349,21 @@ class _SalesOrderCreateScreenState
                     );
                     return term['term_name'] ?? id;
                   },
+                  itemBuilder: (id, isSelected, isHovered) {
+                    final term = _paymentTermsList.firstWhere(
+                      (t) => t['id'] == id,
+                      orElse: () => {'term_name': id},
+                    );
+                    return _dropdownItemBuilder(
+                      term['term_name'] ?? id,
+                      isSelected,
+                      isHovered,
+                    );
+                  },
                   onChanged: (v) => setState(() => paymentTerms = v),
-                    ),
-                  ),
-                ],
+                ),
               ),
+
               const SizedBox(height: 12),
 
               const SizedBox(height: 24),
@@ -1298,6 +1378,12 @@ class _SalesOrderCreateScreenState
                   height: _kDropdownHeight,
                   hint: 'Select a delivery method or type to add',
                   items: const ['None', 'FedEx', 'UPS', 'DHL', 'Post'],
+                  itemBuilder: (item, isSelected, isHovered) =>
+                      _dropdownItemBuilder(
+                        item,
+                        isSelected,
+                        isHovered,
+                      ),
                   onChanged: (v) => setState(() => deliveryMethod = v),
                 ),
               ),
@@ -1328,6 +1414,17 @@ class _SalesOrderCreateScreenState
                     );
                     return person['name']?.toString() ?? val;
                   },
+                  itemBuilder: (id, isSelected, isHovered) {
+                    final sp = _salespersonList.firstWhere(
+                      (s) => s['id'] == id,
+                      orElse: () => {'salesperson_name': id},
+                    );
+                    return _dropdownItemBuilder(
+                      sp['salesperson_name'] ?? id,
+                      isSelected,
+                      isHovered,
+                    );
+                  },
                   onChanged: (v) => setState(() => salesperson = v),
                 ),
               ),
@@ -1342,24 +1439,37 @@ class _SalesOrderCreateScreenState
                   children: [
                     SizedBox(
                       width: 320,
-                      child: FormDropdown<String>(
-                        value: warehouse,
+                      child: FormDropdown<Warehouse>(
+                        value: warehouseList.isEmpty
+                            ? null
+                            : warehouseList.firstWhere(
+                                (w) => w.name == warehouse,
+                                orElse: () => warehouseList.first,
+                              ),
                         height: _kDropdownHeight,
-                        items: const ['Main Warehouse', 'Secondary Warehouse'],
+                        items: warehouseList,
                         hint: 'Select Warehouse',
-                        onChanged: (v) => setState(() => warehouse = v),
+                        displayStringForValue: (w) => w.name,
+                        searchStringForValue: (w) => w.name,
+                        showSearch: warehouseList.length > 5,
+                        itemBuilder: (w, isSelected, isHovered) =>
+                            _dropdownItemBuilder(w.name, isSelected, isHovered),
+                        onChanged: (w) =>
+                            setState(() => warehouse = w?.name),
                       ),
                     ),
-                    const SizedBox(width: 32),
-                    const Text(
-                      'Price List',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF6B7280),
+                    const SizedBox(width: 48),
+                    const SizedBox(
+                      width: 120,
+                      child: Text(
+                        'Price List',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: _kLabelGrey,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 12),
                     SizedBox(
                       width: 320,
                       child: priceListsAsync.when(
@@ -1370,6 +1480,14 @@ class _SalesOrderCreateScreenState
                           displayStringForValue: (id) =>
                               priceLists.firstWhere((p) => p.id == id).name,
                           hint: 'Select Price List',
+                          itemBuilder: (id, isSelected, isHovered) =>
+                              _dropdownItemBuilder(
+                                priceLists
+                                    .firstWhere((p) => p.id == id)
+                                    .name,
+                                isSelected,
+                                isHovered,
+                              ),
                           onChanged: (v) {
                             setState(() {
                               priceListId = v;
@@ -1377,7 +1495,7 @@ class _SalesOrderCreateScreenState
                                   customersAsync.asData?.value ?? [];
                               final customer = customers.firstWhere(
                                 (c) => c.id == _selectedCustomerId,
-                                orElse: () => customers.first,
+                                orElse: () => _selectedCustomer!,
                               );
                               for (var row in rows) {
                                 if (row.itemId.isNotEmpty && row.item != null) {
@@ -1387,8 +1505,8 @@ class _SalesOrderCreateScreenState
                             });
                           },
                         ),
-                        loading: () => const Skeleton(height: 32, width: 180),
-                        error: (_, __) => const SizedBox(),
+                        loading: () => const Skeleton(height: 32, width: 320),
+                        error: (_, __) => const Text('Error loading price lists'),
                       ),
                     ),
                   ],
@@ -1399,9 +1517,10 @@ class _SalesOrderCreateScreenState
             const Divider(),
           ],
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _buildItemsTable(
     List<Item>? products,
@@ -1922,6 +2041,16 @@ class _SalesOrderCreateScreenState
                                               products
                                                   .firstWhere((p) => p.id == id)
                                                   .productName,
+                                          itemBuilder: (id, isSelected, isHovered) =>
+                                              _dropdownItemBuilder(
+                                                products
+                                                    .firstWhere(
+                                                      (p) => p.id == id,
+                                                    )
+                                                    .productName,
+                                                isSelected,
+                                                isHovered,
+                                              ),
                                           onChanged: (v) {
                                             if (v == null) return;
                                             final p = products.firstWhere(
@@ -2097,6 +2226,12 @@ class _SalesOrderCreateScreenState
                                     height: 32,
                                     hint: 'Apply Price List',
                                     items: const [],
+                                    itemBuilder: (item, isSelected, isHovered) =>
+                                        _dropdownItemBuilder(
+                                          item,
+                                          isSelected,
+                                          isHovered,
+                                        ),
                                     onChanged: (v) {},
                                   ),
                                 ),
@@ -2173,6 +2308,16 @@ class _SalesOrderCreateScreenState
                                   .firstOrNull
                                   ?.taxName ??
                               'Select Tax',
+                          itemBuilder: (id, isSelected, isHovered) =>
+                              _dropdownItemBuilder(
+                                taxRates
+                                        .where((t) => t.id == id)
+                                        .firstOrNull
+                                        ?.taxName ??
+                                    'Select Tax',
+                                isSelected,
+                                isHovered,
+                              ),
                           onChanged: (v) {
                             setState(() => row.taxId = v);
                             _calculateTotals();
@@ -2420,38 +2565,6 @@ class _SalesOrderCreateScreenState
                 ],
               ),
             ),
-            const SizedBox(width: 24),
-            CompositedTransformTarget(
-              link: row.warehouseLink,
-              child: InkWell(
-                onTap: () => _toggleWarehouseOverlay(row),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      LucideIcons.home,
-                      size: 14,
-                      color: Color(0xFF9CA3AF),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Warehouse',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF374151),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      LucideIcons.chevronDown,
-                      size: 14,
-                      color: Color(0xFF9CA3AF),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ],
         ),
       ],
@@ -2592,16 +2705,29 @@ class _SalesOrderCreateScreenState
                     const SizedBox(height: 16),
                     const Divider(height: 1, color: Color(0xFFE5E7EB)),
                     const SizedBox(height: 16),
-                    _summaryRadioRow(),
-                    const SizedBox(height: 16),
-                    _summaryInputRow(
-                      'Adjustment',
-                      adjustmentCtrl,
-                      labelCtrl: adjustmentLabelCtrl,
-                      isAdjustment: true,
-                      tooltip:
-                          'Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.',
-                    ),
+                    if (_tdsTcsType == 'TDS') ...[
+                      _summaryRadioRow(),
+                      const SizedBox(height: 16),
+                      _summaryInputRow(
+                        'Adjustment',
+                        adjustmentCtrl,
+                        labelCtrl: adjustmentLabelCtrl,
+                        isAdjustment: true,
+                        tooltip:
+                            'Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.',
+                      ),
+                    ] else ...[
+                      _summaryInputRow(
+                        'Adjustment',
+                        adjustmentCtrl,
+                        labelCtrl: adjustmentLabelCtrl,
+                        isAdjustment: true,
+                        tooltip:
+                            'Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.',
+                      ),
+                      const SizedBox(height: 16),
+                      _summaryRadioRow(),
+                    ],
                     const SizedBox(height: 16),
                     _summaryRow('Round Off', _roundOff),
                     const SizedBox(height: 24),
@@ -3099,29 +3225,7 @@ class _SalesOrderCreateScreenState
                     const SizedBox(height: 4),
                     _buildUploadItem('Attach From Desktop', true),
                     _buildUploadItem('Attach From Documents', false),
-                    _buildUploadItem('Attach From Cloud', false),
-                    const Divider(height: 1, color: Color(0xFFF3F4F6)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildCloudIcon(Icons.folder_outlined, const Color(0xFF6B7280)),
-                          _buildCloudIcon(Icons.description_outlined, const Color(0xFF10B981)),
-                          _buildCloudIcon(Icons.cloud_queue_outlined, const Color(0xFFFBBF24)),
-                          _buildCloudIcon(Icons.inventory_2_outlined, const Color(0xFF3B82F6)),
-                          _buildCloudIcon(Icons.storage_outlined, const Color(0xFF2563EB)),
-                          _buildCloudIcon(
-                            LucideIcons.cloud,
-                            const Color(0xFF0EA5E9),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
@@ -3148,7 +3252,7 @@ class _SalesOrderCreateScreenState
           },
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
             decoration: BoxDecoration(
               color: isSelected
@@ -3251,36 +3355,45 @@ class _SalesOrderCreateScreenState
 
     Widget labelWidget() {
       if (isAdjustment && labelCtrl != null) {
-        return CustomPaint(
-          foregroundPainter: _DashedBorderPainter(
-            color: _adjustmentLabelFocusNode.hasFocus
-                ? _kBlue
-                : const Color(0xFFCBD5E1),
-            isFocused: _adjustmentLabelFocusNode.hasFocus,
-          ),
-          child: SizedBox(
-            width: 140,
-            height: 32,
-            child: TextField(
-              controller: labelCtrl,
-              focusNode: _adjustmentLabelFocusNode,
-              style: const TextStyle(
-                fontSize: 13,
-                color: _kBodyText,
+        return MouseRegion(
+          onEnter: (_) => setState(() => _isAdjustmentLabelHovered = true),
+          onExit: (_) => setState(() => _isAdjustmentLabelHovered = false),
+          child: CustomPaint(
+            foregroundPainter: _DashedBorderPainter(
+              color: (_adjustmentLabelFocusNode.hasFocus ||
+                      _isAdjustmentLabelHovered)
+                  ? _kBlue
+                  : const Color(0xFFCBD5E1),
+              isFocused: _adjustmentLabelFocusNode.hasFocus,
+              isHovered: _isAdjustmentLabelHovered,
+            ),
+            child: Container(
+              width: 140,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
               ),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-                isDense: true,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 5,
-                  vertical: 9,
+              child: TextField(
+                controller: labelCtrl,
+                focusNode: _adjustmentLabelFocusNode,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: _kBodyText,
+                ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
+                  isDense: true,
+                  filled: false,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 9,
+                  ),
                 ),
               ),
             ),
@@ -3392,6 +3505,17 @@ class _SalesOrderCreateScreenState
                   orElse: () => {'tax_name': id},
                 )['tax_name']
                 as String,
+        itemBuilder: (id, isSelected, isHovered) {
+          final term = _tdsList.firstWhere(
+            (t) => t['id'] == id,
+            orElse: () => {'tax_name': id},
+          );
+          return _dropdownItemBuilder(
+            term['tax_name'] ?? id,
+            isSelected,
+            isHovered,
+          );
+        },
         onChanged: (v) => setState(() => _selectedTdsId = v),
       ),
     );
@@ -3885,7 +4009,7 @@ class _SalesOrderCreateScreenState
             const SizedBox(width: 32),
             // Shipping
             SizedBox(
-              width: 320, // Increased width to accommodate both links
+              width: 240,
               child: _buildAddressColumn(
                 label: 'SHIPPING ADDRESS',
                 hasAddress: hasShipping,
@@ -3897,7 +4021,6 @@ class _SalesOrderCreateScreenState
                 zip: c.shippingAddressZip,
                 country: c.shippingAddressCountryId,
                 phone: c.shippingAddressPhone,
-                showDropshipping: true,
               ),
             ),
           ],
@@ -3997,7 +4120,6 @@ class _SalesOrderCreateScreenState
     String? zip,
     String? country,
     String? phone,
-    bool showDropshipping = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4039,21 +4161,6 @@ class _SalesOrderCreateScreenState
                   ),
                 ),
               ),
-              if (showDropshipping) ...[
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: () =>
-                      _showAddressDialog(title: 'Drop Shipping Address'),
-                  child: const Text(
-                    '+ Dropshipping Address',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF2563EB),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
             ],
           )
         else
@@ -4138,10 +4245,9 @@ class _SalesOrderCreateScreenState
       transitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (ctx, _, __) {
         final isBilling = title.contains('BILLING');
-        final isDropshipping = title.contains('Drop Shipping');
         final c = _selectedCustomer;
         final initialAddress = {
-          'companyName': isDropshipping ? '' : c?.companyName,
+          'companyName': c?.companyName,
           'attention': '',
           'street1': isBilling
               ? c?.billingAddressStreet1
@@ -4159,18 +4265,7 @@ class _SalesOrderCreateScreenState
           initialAddress: initialAddress,
           onSave: (val) {
             setState(() {
-              if (isDropshipping) {
-                _selectedCustomer = _selectedCustomer?.copyWith(
-                  companyName: val['companyName'],
-                  shippingAddressStreet1: val['street1'],
-                  shippingAddressStreet2: val['street2'],
-                  shippingAddressCity: val['city'],
-                  shippingAddressStateId: val['state'],
-                  shippingAddressZip: val['zip'],
-                  shippingAddressCountryId: val['country'],
-                  shippingAddressPhone: val['phone'],
-                );
-              } else if (isBilling) {
+              if (isBilling) {
                 _selectedCustomer = _selectedCustomer?.copyWith(
                   billingAddressStreet1: val['street1'],
                   billingAddressStreet2: val['street2'],
@@ -4854,48 +4949,6 @@ class _SalesOrderCreateScreenState
     setState(() {});
   }
 
-  void _toggleWarehouseOverlay(SalesOrderItemRow row) {
-    if (_warehouseOverlay != null) {
-      _warehouseOverlay?.remove();
-      _warehouseOverlay = null;
-      setState(() {});
-      return;
-    }
-
-    _warehouseOverlay = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                _warehouseOverlay?.remove();
-                _warehouseOverlay = null;
-                setState(() {});
-              },
-              behavior: HitTestBehavior.opaque,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
-          CompositedTransformFollower(
-            link: row.warehouseLink,
-            showWhenUnlinked: false,
-            offset: const Offset(-20, 24),
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                width: 200,
-                color: Colors.white,
-                child: const Center(child: Text('Warehouse Popup')),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    Overlay.of(context).insert(_warehouseOverlay!);
-    setState(() {});
-  }
-
   void _showAdvancedCustomerSearch(List<SalesCustomer> customers) {
     showGeneralDialog(
       context: context,
@@ -4944,6 +4997,45 @@ class _SalesOrderCreateScreenState
       ),
     );
   }
+}
+
+Widget _dropdownItemBuilder(String label, bool isSelected, bool isHovered) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: isHovered
+          ? const Color(0xFF3B82F6)
+          : (isSelected ? const Color(0xFFF3F4F6) : Colors.transparent),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontFamily: 'Inter',
+              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+              color: isHovered
+                  ? Colors.white
+                  : (isSelected
+                      ? const Color(0xFF1F2937)
+                      : const Color(0xFF1F2937)),
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (isSelected)
+          Icon(
+            Icons.check,
+            size: 16,
+            color: isHovered ? Colors.white : const Color(0xFF1F2937),
+          ),
+      ],
+    ),
+  );
 }
 
 class _ManageTaxInfoDialog extends ConsumerStatefulWidget {
@@ -5223,6 +5315,12 @@ class _ManageTaxInfoDialogState extends ConsumerState<_ManageTaxInfoDialog> {
                       items: _gstOptions,
                       hint: 'Select a GST treatment',
                       displayStringForValue: (v) => v.label,
+                      itemBuilder: (opt, isSelected, isHovered) =>
+                          _dropdownItemBuilder(
+                            opt.label,
+                            isSelected,
+                            isHovered,
+                          ),
                       onChanged: (v) => setState(() => _selectedTreatment = v),
                     ),
                   ],
@@ -5351,24 +5449,36 @@ class _TrianglePainter extends CustomPainter {
 class _DashedBorderPainter extends CustomPainter {
   final Color color;
   final bool isFocused;
+  final bool isHovered;
 
   const _DashedBorderPainter({
     this.color = const Color(0xFFCBD5E1),
     this.isFocused = false,
+    this.isHovered = false,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      const Radius.circular(6),
+    );
+
     if (isFocused) {
-      final focusedPaint = Paint()
+      // Draw glow
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: 0.15)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3;
+      canvas.drawRRect(rrect, glowPaint);
+
+      // Draw solid border
+      final solidPaint = Paint()
         ..color = color
-        ..strokeWidth = 1.5
+        ..strokeWidth = 1.2
         ..style = PaintingStyle.stroke;
-      final focusedRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(0.75, 0.75, size.width - 1.5, size.height - 1.5),
-        const Radius.circular(3),
-      );
-      canvas.drawRRect(focusedRect, focusedPaint);
+      canvas.drawRRect(rrect, solidPaint);
       return;
     }
 
@@ -5380,54 +5490,25 @@ class _DashedBorderPainter extends CustomPainter {
     const dash = 4.0;
     const gap = 3.0;
 
-    // top
-    double x = 0;
-    while (x < size.width) {
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset((x + dash).clamp(0, size.width), 0),
-        paint,
-      );
-      x += dash + gap;
-    }
+    final path = Path()..addRRect(rrect);
 
-    // bottom
-    x = 0;
-    while (x < size.width) {
-      canvas.drawLine(
-        Offset(x, size.height),
-        Offset((x + dash).clamp(0, size.width), size.height),
-        paint,
-      );
-      x += dash + gap;
-    }
-
-    // left
-    double y = 0;
-    while (y < size.height) {
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(0, (y + dash).clamp(0, size.height)),
-        paint,
-      );
-      y += dash + gap;
-    }
-
-    // right
-    y = 0;
-    while (y < size.height) {
-      canvas.drawLine(
-        Offset(size.width, y),
-        Offset(size.width, (y + dash).clamp(0, size.height)),
-        paint,
-      );
-      y += dash + gap;
+    for (final metric in path.computeMetrics()) {
+      double distance = 0;
+      while (distance < metric.length) {
+        canvas.drawPath(
+          metric.extractPath(distance, distance + dash),
+          paint,
+        );
+        distance += dash + gap;
+      }
     }
   }
 
   @override
   bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.isFocused != isFocused;
+      oldDelegate.color != color ||
+      oldDelegate.isFocused != isFocused ||
+      oldDelegate.isHovered != isHovered;
 }
 
 // ─── Helper widgets ──────────────────────────────────────────────────────────
@@ -5599,18 +5680,16 @@ class _AddressDialogState extends ConsumerState<_AddressDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final dialogTitle = widget.title == 'Drop Shipping Address'
-        ? 'Drop Shipping Address'
-        : widget.title.contains('BILLING')
+    final dialogTitle = widget.title.contains('BILLING')
         ? 'Billing Address'
         : widget.title.contains('SHIPPING')
-        ? 'Shipping Address'
-        : widget.title;
+            ? 'Shipping Address'
+            : widget.title;
 
     return Align(
       alignment: Alignment.topCenter,
       child: Padding(
-        padding: const EdgeInsets.only(top: 40),
+        padding: const EdgeInsets.only(top: 0),
         child: Material(
           color: Colors.transparent,
           child: Container(
@@ -5698,6 +5777,12 @@ class _AddressDialogState extends ConsumerState<_AddressDialog> {
                               isLoading: countriesAsync.isLoading,
                               items: countries,
                               displayStringForValue: (c) => c['name'] ?? '',
+                              itemBuilder: (c, isSelected, isHovered) =>
+                                  _dropdownItemBuilder(
+                                    c['name'] ?? '',
+                                    isSelected,
+                                    isHovered,
+                                  ),
                               onChanged: (v) =>
                                   setState(() => _selectedCountry = v),
                             );
@@ -5760,13 +5845,19 @@ class _AddressDialogState extends ConsumerState<_AddressDialog> {
                                       );
                                       final states = statesAsync.value ?? [];
                                       return FormDropdown<Map<String, String>>(
-                                        height: 44,
+                                        height: 32,
                                         value: _selectedState,
                                         hint: 'Select or type to add',
                                         isLoading: statesAsync.isLoading,
                                         items: states,
                                         displayStringForValue: (s) =>
                                             s['name'] ?? '',
+                                        itemBuilder: (s, isSelected, isHovered) =>
+                                            _dropdownItemBuilder(
+                                              s['name'] ?? '',
+                                              isSelected,
+                                              isHovered,
+                                            ),
                                         onChanged: (v) =>
                                             setState(() => _selectedState = v),
                                       );
@@ -5807,7 +5898,7 @@ class _AddressDialogState extends ConsumerState<_AddressDialog> {
                                   Row(
                                     children: [
                                       Container(
-                                        height: 44,
+                                        height: 32,
                                         decoration: BoxDecoration(
                                           color: Colors.white,
                                           border: Border.all(
@@ -5817,27 +5908,32 @@ class _AddressDialogState extends ConsumerState<_AddressDialog> {
                                             4,
                                           ),
                                         ),
+                                        alignment: Alignment.center,
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
+                                          horizontal: 8,
                                         ),
-                                        child: DropdownButton<String>(
-                                          value: _phoneCode,
-                                          underline: const SizedBox(),
-                                          isDense: true,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: _kBodyText,
+                                        child: DropdownButtonHideUnderline(
+                                          child: DropdownButton<String>(
+                                            value: _phoneCode,
+                                            isDense: true,
+                                            alignment: Alignment.center,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontFamily: 'Inter',
+                                              color: _kBodyText,
+                                            ),
+                                            items: _phoneCodes
+                                                .map(
+                                                  (c) => DropdownMenuItem(
+                                                    value: c,
+                                                    alignment: Alignment.center,
+                                                    child: Text(c),
+                                                  ),
+                                                )
+                                                .toList(),
+                                            onChanged: (v) =>
+                                                setState(() => _phoneCode = v!),
                                           ),
-                                          items: _phoneCodes
-                                              .map(
-                                                (c) => DropdownMenuItem(
-                                                  value: c,
-                                                  child: Text(c),
-                                                ),
-                                              )
-                                              .toList(),
-                                          onChanged: (v) =>
-                                              setState(() => _phoneCode = v!),
                                         ),
                                       ),
                                       const SizedBox(width: 6),
@@ -5890,9 +5986,7 @@ class _AddressDialogState extends ConsumerState<_AddressDialog> {
                                 ),
                               ),
                               TextSpan(
-                                text: dialogTitle == 'Drop Shipping Address'
-                                    ? 'This address will be used only in the current transaction.'
-                                    : 'Changes made here will be updated for this customer.',
+                                text: 'Changes made here will be updated for this customer.',
                                 style: const TextStyle(color: _kLabelGrey),
                               ),
                             ],
@@ -6219,15 +6313,16 @@ class _TaxPreferenceDialogState extends State<_TaxPreferenceDialog> {
     Color subtitle = const Color(0xFF6B7280);
     Color check = const Color(0xFF2563EB);
 
-    if (isSelected) {
+    if (isHovered) {
       bg = const Color(0xFF3B82F6);
       title = Colors.white;
-      subtitle = Colors.white70;
+      subtitle = Colors.white.withValues(alpha: 0.8);
       check = Colors.white;
-    } else if (isHovered) {
-      bg = const Color(0xFFEFF6FF);
-      title = const Color(0xFF1D4ED8);
-      subtitle = const Color(0xFF1D4ED8);
+    } else if (isSelected) {
+      bg = const Color(0xFFF3F4F6);
+      title = const Color(0xFF1F2937);
+      subtitle = const Color(0xFF4B5563);
+      check = const Color(0xFF1F2937);
     }
 
     return Container(
@@ -7360,10 +7455,10 @@ class TooltipShapeBorder extends ShapeBorder {
   EdgeInsetsGeometry get dimensions => EdgeInsets.only(bottom: arrowHeight);
 
   @override
-  Path getInnerPath(Rect rect, {TextDirection? textDirection}) => Path();
+  Path getInnerPath(Rect rect, {ui.TextDirection? textDirection}) => Path();
 
   @override
-  Path getOuterPath(Rect rect, {TextDirection? textDirection}) {
+  Path getOuterPath(Rect rect, {ui.TextDirection? textDirection}) {
     // Leave room for the arrow at the bottom
     final normalizedRect = Rect.fromLTRB(
       rect.left,
@@ -7386,7 +7481,7 @@ class TooltipShapeBorder extends ShapeBorder {
   }
 
   @override
-  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {}
+  void paint(Canvas canvas, Rect rect, {ui.TextDirection? textDirection}) {}
 
   @override
   ShapeBorder scale(double t) => this;

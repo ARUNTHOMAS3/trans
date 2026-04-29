@@ -18,7 +18,7 @@ export enum CustomerType {
 }
 
 export enum GstTreatment {
-  REGISTERED_BUSINESS = "registered_business",
+  REGISTERED_BUSINESS = "registered business",
   UNREGISTERED_BUSINESS = "unregistered_business",
   OVERSEAS = "overseas",
   CONSUMER = "consumer",
