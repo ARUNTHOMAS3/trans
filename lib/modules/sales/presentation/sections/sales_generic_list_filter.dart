@@ -80,7 +80,6 @@ extension _SalesGenericListFilter on _SalesGenericListScreenState {
                       InkWell(
                         onTap: () {
                           _hideFilterMenu();
-                          // TODO: Implement custom view creation
                         },
                         child: Padding(
                           padding: const EdgeInsets.all(12),

@@ -8,6 +8,7 @@ class SalesOrderItemRow {
   final TextEditingController fQtyCtrl;
   final TextEditingController mrpCtrl;
   final TextEditingController descriptionCtrl;
+  final FocusNode rateFocus;
   String itemId;
   Item? item;
   String discountType; // '%' or 'Value'
@@ -39,7 +40,8 @@ class SalesOrderItemRow {
     this.isHeader = false,
   }) : fQtyCtrl = fQtyCtrl ?? TextEditingController(text: '0'),
        mrpCtrl = mrpCtrl ?? TextEditingController(text: '0'),
-       descriptionCtrl = descriptionCtrl ?? TextEditingController();
+       descriptionCtrl = descriptionCtrl ?? TextEditingController(),
+       rateFocus = FocusNode();
 
   void dispose() {
     quantityCtrl.dispose();
@@ -48,5 +50,6 @@ class SalesOrderItemRow {
     fQtyCtrl.dispose();
     mrpCtrl.dispose();
     descriptionCtrl.dispose();
+    rateFocus.dispose();
   }
 }

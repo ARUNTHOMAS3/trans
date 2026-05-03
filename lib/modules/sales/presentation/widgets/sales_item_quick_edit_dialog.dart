@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
@@ -9,7 +8,6 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/items/items/controllers/items_state.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 
 class SalesItemQuickEditDialog extends ConsumerStatefulWidget {
@@ -274,17 +272,9 @@ class _SalesItemQuickEditDialogState
                               style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                             ),
                           ),
-                          _buildRadio(
-                            'Goods',
-                            isGoods,
-                            (v) => setState(() => isGoods = true),
-                          ),
+                          _buildTypeRadio('Goods', true),
                           const SizedBox(width: 24),
-                          _buildRadio(
-                            'Service',
-                            !isGoods,
-                            (v) => setState(() => isGoods = false),
-                          ),
+                          _buildTypeRadio('Service', false),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -316,7 +306,7 @@ class _SalesItemQuickEditDialogState
                         isRequired: true,
                         child: FormDropdown<String>(
                           value: selectedUnitId,
-                          items: itemsState.units.map((u) => u.id!).toList(),
+                          items: itemsState.units.map((u) => u.id).toList(),
                           displayStringForValue: (id) =>
                               itemsState.units.firstWhere((u) => u.id == id).unitName,
                           onChanged: (v) => setState(() => selectedUnitId = v),
@@ -667,7 +657,7 @@ class _SalesItemQuickEditDialogState
                         hasDottedUnderline: true,
                         child: FormDropdown<String>(
                           value: intraStateTaxId,
-                          items: itemsState.taxRates.map((t) => t.id!).toList(),
+                          items: itemsState.taxRates.map((t) => t.id).toList(),
                           displayStringForValue: (id) => itemsState.taxRates
                               .firstWhere((t) => t.id == id)
                               .taxName,
@@ -680,7 +670,7 @@ class _SalesItemQuickEditDialogState
                         hasDottedUnderline: true,
                         child: FormDropdown<String>(
                           value: interStateTaxId,
-                          items: itemsState.taxRates.map((t) => t.id!).toList(),
+                          items: itemsState.taxRates.map((t) => t.id).toList(),
                           displayStringForValue: (id) => itemsState.taxRates
                               .firstWhere((t) => t.id == id)
                               .taxName,
@@ -777,19 +767,21 @@ class _SalesItemQuickEditDialogState
     );
   }
 
-  Widget _buildRadio(String label, bool selected, Function(bool?) onChanged) {
+  Widget _buildTypeRadio(String label, bool value) {
     return InkWell(
-      onTap: () => onChanged(!selected),
+      onTap: () => setState(() => isGoods = value),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Radio<bool>(
-            value: true,
-            groupValue: selected,
-            onChanged: onChanged,
-            activeColor: const Color(0xFF0088FF),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
+          RadioGroup<bool>(
+            groupValue: isGoods,
+            onChanged: (v) => setState(() => isGoods = v!),
+            child: Radio<bool>(
+              value: value,
+              activeColor: const Color(0xFF0088FF),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
           ),
           const SizedBox(width: 4),
           Text(label, style: const TextStyle(fontSize: 13)),
@@ -956,12 +948,14 @@ class _SalesItemQuickEditDialogState
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            Radio<bool>(
-              value: true,
+            RadioGroup<bool>(
               groupValue: selected,
               onChanged: (_) => onTap(),
-              activeColor: const Color(0xFF0088FF),
-              visualDensity: VisualDensity.compact,
+              child: const Radio<bool>(
+                value: true,
+                activeColor: Color(0xFF0088FF),
+                visualDensity: VisualDensity.compact,
+              ),
             ),
             const SizedBox(width: 8),
             Text(label, style: const TextStyle(fontSize: 14)),

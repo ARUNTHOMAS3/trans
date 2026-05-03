@@ -1,0 +1,258 @@
+﻿                                 padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 15,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: SizedBox(
+                                height: 38,
+                                child: Consumer(
+                                  builder: (context, ref, _) {
+                                    final batchesAsync = ref.watch(
+                                      batchLookupProvider(widget.itemId ?? ''),
+                                    );
+                                    final batches = batchesAsync.value ?? [];
+
+                                    return FormDropdown<Map<String, dynamic>>(
+                                      height: 38,
+                                      isLoading: batchesAsync.isLoading,
+                                      value: batches
+                                          .where(
+                                            (b) =>
+                                                b['batch_no']?.toString() ==
+                                                r.batchNoCtrl.text,
+                                          )
+                                          .firstOrNull,
+                                      items: batches,
+                                      hint: batchesAsync.isLoading
+                                          ? 'Loading...'
+                                          : (batches.isEmpty
+                                              ? 'No batches available'
+                                              : 'Select Batch'),
+                                      displayStringForValue: (b) =>
+                                          b['batch_no']?.toString() ?? '',
+                                      onChanged: (v) {
+                                        if (v != null) {
+                                          setState(() {
+                                            final batchNo =
+                                                v['batch_no']?.toString() ?? '';
+                                            r.batchNoCtrl.text = batchNo;
+                                            r.batchRefCtrl.text =
+                                                v['id']?.toString() ?? '';
+                                            if (v['expiry_date'] != null) {
+                                              try {
+                                                r.expDateCtrl.text =
+                                                    DateFormat('dd-MM-yyyy')
+                                                        .format(DateTime.parse(
+                                                            v['expiry_date']
+                                                                .toString()));
+                                                r.expDate = DateTime.parse(
+                                                    v['expiry_date']
+                                                        .toString());
+                                              } catch (_) {}
+                                            }
+                                            if (v['unit_pack'] != null) {
+                                              r.unitPackCtrl.text =
+                                                  v['unit_pack'].toString();
+                                            }
+                                            final prices = v['prices'] as List?;
+                                            if (prices != null &&
+                                                prices.isNotEmpty) {
+                                              r.mrpCtrl.text = prices[0]['mrp']
+                                                      ?.toString() ??
+                                                  '';
+                                              r.ptrCtrl.text = prices[0]['ptr']
+                                                      ?.toString() ??
+                                                  '';
+                                            }
+                                            if (v['manufacture_batch_number'] !=
+                                                null) {
+                                              r.mfgBatchCtrl.text =
+                                                  v['manufacture_batch_number']
+                                                      .toString();
+                                            }
+                                            if (v['manufacture_exp'] != null) {
+                                              try {
+                                                r.mfgDateCtrl.text =
+                                                    DateFormat('dd-MM-yyyy')
+                                                        .format(DateTime.parse(
+                                                            v['manufacture_exp']
+                                                                .toString()));
+                                                r.mfgDate = DateTime.parse(
+                                                    v['manufacture_exp']
+                                                        .toString());
+                                              } catch (_) {}
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Batch No - FormDropdown from batch_master
+                              Expanded(
+                                flex: 15,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: SizedBox(
+                                    height: 38,
+                                    child: Consumer(
+                                      builder: (context, ref, _) {
+                                        final batchesAsync = ref.watch(
+                                          batchLookupProvider(widget.itemId),
+                                        );
+                                        final batches =
+                                            batchesAsync.value ?? [];
+
+                                        return FormDropdown<
+                                            Map<String, dynamic>>(
+                                          height: 38,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          border: Border.all(color: _borderCol),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 8,
+                                          ),
+                                          value: batches
+                                                  .firstWhere(
+                                                    (b) =>
+                                                        b['batch_no']
+                                                            ?.toString()
+                                                            .trim() ==
+                                                        row.batchRefCtrl.text
+                                                            .trim(),
+                                                    orElse: () =>
+                                                        <String, dynamic>{},
+                                                  )
+                                                  .isEmpty
+                                              ? null
+                                              : batches.firstWhere(
+                                                  (b) =>
+                                                      b['batch_no']
+                                                          ?.toString()
+                                                          .trim() ==
+                                                      row.batchRefCtrl.text
+                                                          .trim(),
+                                                ),
+                                          items: batches,
+                                          hint: 'Select Batch',
+                                          showSearch: true,
+                                          displayStringForValue: (v) =>
+                                              v['batch_no']?.toString() ?? '',
+                                          searchStringForValue: (v) =>
+                                              v['batch_no']?.toString() ?? '',
+                                          onChanged: (v) {
+                                            setState(() {
+                                              if (v != null) {
+                                                final batchNo = v['batch_no']
+                                                    ?.toString()
+                                                    .trim();
+                                                row.batchRefCtrl.text =
+                                                    batchNo ?? '';
+                                                row.batchNoCtrl.text =
+                                                    batchNo ?? '';
+
+                                                // Auto-fill details from selected batch map
+                                                row.unitPackCtrl.text =
+                                                    v['unit_pack']
+                                                            ?.toString() ??
+                                                        '';
+                                                row.expDateCtrl.text =
+                                                    v['expiry_date']
+                                                            ?.toString() ??
+                                                        '';
+
+                                                final prices =
+                                                    v['prices'] as List?;
+                                                if (prices != null &&
+                                                    prices.isNotEmpty) {
+                                                  final p = prices[0];
+                                                  row.mrpCtrl.text =
+                                                      (p['mrp'] as num?)
+                                                              ?.toDouble()
+                                                              .toStringAsFixed(
+                                                                  2) ??
+                                                          '0.00';
+                                                  row.ptrCtrl.text =
+                                                      (p['ptr'] as num?)
+                                                              ?.toDouble()
+                                                              .toStringAsFixed(
+                                                                  2) ??
+                                                          '0.00';
+                                                }
+                                              }
+                                            });
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              _buildInput(
+                                controller: row.unitPackCtrl,
+                                flex: 15,
+                                hint: 'Pack',
+                                isNumber: true,
+                                readOnly: true,
+                              ),
+                              _buildInput(
+                                controller: row.mrpCtrl,
+                                flex: 15,
+                                hint: '0',
+                                isNumber: true,
+                                readOnly: true,
+                              ),
+                              _buildInput(
+                                controller: row.ptrCtrl,
+                                flex: 15,
+                                hint: '0',
+                                isNumber: true,
+                                readOnly: true,
+                              ),
+                              _buildDatePicker(
+                                controller: row.expDateCtrl,
+                                anchorKey: row.expKey,
+                                flex: 15,
+                                currentDate: row.expDate,
+                                onDateChanged: (d) =>
+                                    setState(() => row.expDate = d),
+                                readOnly: true,
+                              ),
+                              if (_showMfgDetails) ...[
+                                _buildDatePicker(
+                                  controller: row.mfgDateCtrl,
+                                  anchorKey: row.mfgKey,
+                                  flex: 15,
+                                  currentDate: row.mfgDate,
+                                  onDateChanged: (d) =>
+                                      setState(() => row.mfgDate = d),
+                                  readOnly: true,
+                                ),
+                                _buildInput(
+                                  controller: row.mfgBatchCtrl,
+                                  flex: 15,
+                                  hint: 'Mfg Batch',
+                                  readOnly: true,
+                                ),
+                              ],
+                              _buildInput(
+                                controller: row.qtyOutCtrl,
+                                flex: 15,
+                                hint: '0',
+                                isNumber: true,
+                              ),
+                              if (_showFocColumn)
+                                _buildInp

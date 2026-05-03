@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 class InventoryShipmentsListScreen extends StatelessWidget {
@@ -8,150 +10,50 @@ class InventoryShipmentsListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color _textPrimary = Color(0xFF16191E);
-    const Color _textSecondary = Color(0xFF6B7280);
-    const Color _greenBtn = Color(0xFF28A745);
-    const Color _borderCol = Color(0xFFE5E7EB);
-
     return ZerpaiLayout(
-      pageTitle: '', // Custom title below
+      pageTitle: '',
       enableBodyScroll: true,
       useHorizontalPadding: false,
       useTopPadding: false,
-      actions: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Text(
-              'View EasyPost Usage',
-              style: TextStyle(
-                fontSize: 13,
-                color: Color(0xFF3B82F6),
-                fontWeight: FontWeight.w500,
-                fontFamily: 'Inter',
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Text(
-              'easypost.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF1E3A8A),
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Inter',
-              ),
-            ),
-            const SizedBox(width: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                context.go('/inventory/shipments/create');
-              },
-              icon: const Icon(LucideIcons.plus, size: 14),
-              label: const Text(
-                'New',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'Inter',
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _greenBtn,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                elevation: 0,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              height: 32,
-              width: 32,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                border: Border.all(color: _borderCol),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Icon(
-                LucideIcons.moreHorizontal,
-                size: 16,
-                color: _textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // custom header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-            child: Row(
-              children: [
-                const Text(
-                  'All Shipments',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
-                    color: _textPrimary,
-                    fontFamily: 'Inter',
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(
-                  LucideIcons.chevronDown,
-                  size: 16,
-                  color: Color(0xFF0088FF),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
+          _buildToolbar(context),
           
           // Filter Bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: _borderCol)),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
             child: Row(
               children: [
-                const Text(
+                Text(
                   'Filter By :',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: _textPrimary,
-                    fontFamily: 'Inter',
+                  style: AppTheme.bodyText.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
+                    color: AppTheme.backgroundColor,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: _borderCol),
+                    border: Border.all(color: AppTheme.borderColor),
                   ),
                   child: Row(
-                    children: const [
+                    children: [
                       Text(
                         'Type: All',
-                        style: TextStyle(
+                        style: AppTheme.bodyText.copyWith(
                           fontSize: 13,
-                          color: _textPrimary,
-                          fontFamily: 'Inter',
+                          color: AppTheme.textPrimary,
                         ),
                       ),
-                      SizedBox(width: 4),
-                      Icon(LucideIcons.chevronDown, size: 14, color: _textSecondary),
+                      const SizedBox(width: 6),
+                      const Icon(LucideIcons.chevronDown, size: 14, color: AppTheme.textSecondary),
                     ],
                   ),
                 ),
@@ -159,112 +61,100 @@ class InventoryShipmentsListScreen extends StatelessWidget {
             ),
           ),
           
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
-              child: Column(
-                children: [
-                  // Top Title & Subtitle
-                  const Text(
-                    'Ship with Confidence and Accuracy',
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w500,
-                      color: _textPrimary,
-                      fontFamily: 'Inter',
-                    ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+            child: Column(
+              children: [
+                // Top Title & Subtitle
+                Text(
+                  'Ship with Confidence and Accuracy',
+                  style: AppTheme.bodyText.copyWith(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Create shipment records and track delivery status for your orders.',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: _textSecondary,
-                      fontFamily: 'Inter',
-                    ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Create shipment records and track delivery status for your orders.',
+                  style: AppTheme.bodyText.copyWith(
+                    fontSize: 15,
+                    color: AppTheme.textSecondary,
                   ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    height: 40,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        context.go('/inventory/shipments/create');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF28A745),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        elevation: 0,
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  height: 40,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      context.go('/inventory/shipments/create');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.successGreen,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text(
-                        'CREATE SHIPMENT',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                          fontFamily: 'Inter',
-                        ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'CREATE SHIPMENT',
+                      style: AppTheme.bodyText.copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-                  
-                  const SizedBox(height: 64),
-                  
-                  // Flowchart Section
-                  const Text(
-                    'Life cycle of Shipments',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: _textPrimary,
-                      fontFamily: 'Inter',
-                    ),
+                ),
+                const SizedBox(height: 64),
+                // Flowchart Section
+                Text(
+                  'Life cycle of Shipments',
+                  style: AppTheme.bodyText.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
                   ),
-                  const SizedBox(height: 48),
-                  
-                  // The Diagram
-                  _buildFlowchart(),
-                  
-                  const SizedBox(height: 64),
-                  
-                  // Bottom Features
-                  const Text(
-                    'In the Shipments module, you can:',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: _textPrimary,
-                      fontFamily: 'Inter',
-                    ),
+                ),
+                const SizedBox(height: 48),
+                // The Diagram
+                _buildFlowchart(),
+                const SizedBox(height: 64),
+                // Bottom Features
+                Text(
+                  'In the Shipments module, you can:',
+                  style: AppTheme.bodyText.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
                   ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF0088FF),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(LucideIcons.check, size: 10, color: Colors.white),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryBlue,
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Generate and manage outbound shipments.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: _textPrimary,
-                          fontFamily: 'Inter',
-                        ),
+                      child: const Icon(LucideIcons.check, size: 10, color: Colors.white),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Generate and manage outbound shipments.',
+                      style: AppTheme.bodyText.copyWith(
+                        fontSize: 14,
+                        color: AppTheme.textPrimary,
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -339,11 +229,10 @@ class InventoryShipmentsListScreen extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
+              style: AppTheme.bodyText.copyWith(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF374151),
-                fontFamily: 'Inter',
+                color: AppTheme.textPrimary,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -362,6 +251,89 @@ class InventoryShipmentsListScreen extends StatelessWidget {
         children: [
           Container(height: 1, width: 24, color: const Color(0xFFE5E7EB)),
           const Icon(LucideIcons.chevronRight, size: 14, color: Color(0xFFD1D5DB)),
+        ],
+      ),
+    );
+  }
+  Widget _buildToolbar(BuildContext context) {
+    return Container(
+      height: 64,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+      ),
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'All Shipments',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                    fontFamily: 'Inter',
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  LucideIcons.chevronDown,
+                  size: 18,
+                  color: AppTheme.primaryBlue,
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          Text(
+            'View EasyPost Usage',
+            style: AppTheme.bodyText.copyWith(
+              fontSize: 13,
+              color: AppTheme.primaryBlue,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Text(
+            'easypost.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF1E3A8A),
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Inter',
+            ),
+          ),
+          const SizedBox(width: 24),
+          const Icon(LucideIcons.search, size: 18, color: AppTheme.textSecondary),
+          const SizedBox(width: 20),
+          const Icon(LucideIcons.filter, size: 18, color: AppTheme.textSecondary),
+          const SizedBox(width: 20),
+          ZButton.primary(
+            onPressed: () {
+              context.go('/inventory/shipments/create');
+            },
+            icon: LucideIcons.plus,
+            label: 'New',
+          ),
+          const SizedBox(width: 8),
+          Container(
+            height: 36,
+            width: 36,
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor,
+              border: Border.all(color: AppTheme.borderColor),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(
+              LucideIcons.moreHorizontal,
+              size: 16,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(width: 24),
         ],
       ),
     );

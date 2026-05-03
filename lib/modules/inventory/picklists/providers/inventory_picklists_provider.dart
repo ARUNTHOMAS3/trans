@@ -34,6 +34,7 @@ class PicklistsNotifier extends AsyncNotifier<List<Picklist>> {
       final repository = ref.read(inventoryPicklistRepositoryProvider);
       final result = await repository.updatePicklist(id, data);
       ref.invalidateSelf();
+      ref.invalidate(picklistByIdProvider(id));
       return result;
     } catch (e) {
       rethrow;
@@ -44,6 +45,17 @@ class PicklistsNotifier extends AsyncNotifier<List<Picklist>> {
     try {
       final repository = ref.read(inventoryPicklistRepositoryProvider);
       await repository.updatePicklist(id, {'status': status});
+      ref.invalidateSelf();
+      ref.invalidate(picklistByIdProvider(id));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> updatePicklistAssignee(String id, String assigneeId) async {
+    try {
+      final repository = ref.read(inventoryPicklistRepositoryProvider);
+      await repository.updatePicklist(id, {'assignee_id': assigneeId});
       ref.invalidateSelf();
       ref.invalidate(picklistByIdProvider(id));
     } catch (e) {

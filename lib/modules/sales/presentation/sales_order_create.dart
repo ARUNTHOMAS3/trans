@@ -14,6 +14,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
@@ -149,6 +150,10 @@ class _SalesOrderCreateScreenState
   bool _isAutoGenerateSO = true;
   String _soPrefix = 'SO-';
   String _soNextNumber = '00028';
+
+  bool _showSearchItemDetails = false;
+  String _itemDetailsSearchQuery = '';
+  final TextEditingController _itemDetailsSearchCtrl = TextEditingController();
 
   late TextEditingController adjustmentLabelCtrl;
   bool _isHydratingInitialOrder = false;
@@ -381,6 +386,7 @@ class _SalesOrderCreateScreenState
     Item? item,
     String discountType = '%',
     String? taxId,
+    bool isHeader = false,
   }) {
     final row = SalesOrderItemRow(
       quantityCtrl: TextEditingController(text: quantity),
@@ -393,6 +399,7 @@ class _SalesOrderCreateScreenState
       item: item,
       discountType: discountType,
       taxId: taxId,
+      isHeader: isHeader,
     );
 
     void onAnyChange() {
@@ -414,6 +421,13 @@ class _SalesOrderCreateScreenState
     row.discountCtrl.addListener(_calculateTotals);
     row.fQtyCtrl.addListener(_calculateTotals);
     row.mrpCtrl.addListener(_calculateTotals);
+
+    row.rateFocus.addListener(() {
+      if (!row.rateFocus.hasFocus) {
+        _handleRateCalculation(row);
+      }
+    });
+
     return row;
   }
 
@@ -583,6 +597,7 @@ class _SalesOrderCreateScreenState
                 _selectedCustomer = newCustomer;
                 _selectedCustomerId = newCustomer.id;
                 // Refresh customer list to include the new one
+                // ignore: unused_result
                 ref.refresh(salesCustomersProvider);
               });
             },
@@ -761,10 +776,6 @@ class _SalesOrderCreateScreenState
     Overlay.of(context).insert(_itemDetailsSidebarOverlay!);
   }
 
-  void _addItemRow() {
-    setState(() => rows.add(_createItemRow()));
-  }
-
   void _updateRowRate(
     SalesOrderItemRow row,
     SalesCustomer? customer,
@@ -794,7 +805,32 @@ class _SalesOrderCreateScreenState
     }
   }
 
+  void _handleRateCalculation(SalesOrderItemRow row) {
+    final text = row.rateCtrl.text.trim();
+    if (text.isEmpty) return;
+
+    // Only try to parse if it contains operators
+    if (text.contains(RegExp(r'[+\-*/()]'))) {
+      final double? result = _evaluateExpression(text);
+      if (result != null) {
+        row.rateCtrl.text = result % 1 == 0
+            ? result.toInt().toString()
+            : result.toStringAsFixed(2);
+        _calculateTotals();
+      }
+    }
+  }
+
+  double? _evaluateExpression(String input) {
+    try {
+      return _MathParser(input.replaceAll(' ', '')).parse();
+    } catch (_) {
+      return null;
+    }
+  }
+
   void _calculateTotals() {
+
     double st = 0;
     for (var row in rows) {
       if (row.itemId.isNotEmpty) {
@@ -988,7 +1024,7 @@ class _SalesOrderCreateScreenState
                           children: [
                             // Search dropdown
                             SizedBox(
-                              width: 320,
+                              width: 550,
                               child: FormDropdown<SalesCustomer>(
                                 value: selectedCustomerFromList,
                                 height: _kDropdownHeight,
@@ -1202,11 +1238,13 @@ class _SalesOrderCreateScreenState
             ],
           ),
         ),
+        const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SizedBox(height: 16),
               // Sales Order#
               SharedFieldLayout(
                 label: 'Sales Order#',
@@ -1725,21 +1763,38 @@ class _SalesOrderCreateScreenState
                         )
                       else
                         const SizedBox(width: 40), // Space for drag handle
-                      const Expanded(
+                      Expanded(
                         flex: 14,
                         child: Padding(
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 10,
                           ),
-                          child: _TH('ITEMS DETAILS'),
+                          child: _buildHeaderSearchField(
+                            label: 'ITEMS DETAILS',
+                            controller: _itemDetailsSearchCtrl,
+                            hintText: 'Search items...',
+                            onChanged: (val) {
+                              setState(() => _itemDetailsSearchQuery = val);
+                            },
+                            isSearchVisible: _showSearchItemDetails,
+                            onToggle: () {
+                              setState(() {
+                                _showSearchItemDetails = !_showSearchItemDetails;
+                                if (!_showSearchItemDetails) {
+                                  _itemDetailsSearchCtrl.clear();
+                                  _itemDetailsSearchQuery = '';
+                                }
+                              });
+                            },
+                          ),
                         ),
                       ),
                       _vLine(),
-                      const Expanded(
+                      Expanded(
                         flex: 4,
                         child: Padding(
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 10,
                           ),
@@ -1748,10 +1803,10 @@ class _SalesOrderCreateScreenState
                       ),
                       if (_saleType == 'Business') ...[
                         _vLine(),
-                        const Expanded(
+                        Expanded(
                           flex: 3,
                           child: Padding(
-                            padding: EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 10,
                             ),
@@ -1772,20 +1827,28 @@ class _SalesOrderCreateScreenState
                             children: [
                               const _TH('RATE'),
                               const SizedBox(width: 4),
-                              Icon(
-                                LucideIcons.layoutGrid,
-                                size: 14,
-                                color: _kLabelGrey,
+                              ZTooltip(
+                                message:
+                                    'You can perform basic calculations directly in this field using parentheses ( ) and arithmetic operators: + - / *',
+                                child: SvgPicture.string(
+                                  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>',
+                                  width: 14,
+                                  height: 14,
+                                  colorFilter: const ColorFilter.mode(
+                                    Color(0xFF0088FF),
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ),
                       _vLine(),
-                      const Expanded(
+                      Expanded(
                         flex: 5,
                         child: Padding(
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 10,
                           ),
@@ -1793,10 +1856,10 @@ class _SalesOrderCreateScreenState
                         ),
                       ),
                       _vLine(),
-                      const Expanded(
+                      Expanded(
                         flex: 4,
                         child: Padding(
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 10,
                           ),
@@ -1808,10 +1871,10 @@ class _SalesOrderCreateScreenState
                         ),
                       ),
                       _vLine(),
-                      const Expanded(
+                      Expanded(
                         flex: 4,
                         child: Padding(
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 10,
                           ),
@@ -1847,14 +1910,25 @@ class _SalesOrderCreateScreenState
                 rows.insert(newIndex, item);
               });
             },
-            itemBuilder: (ctx, idx) => _buildItemRow(
-              idx,
-              products,
-              customersAsync,
-              priceListsAsync,
-              taxRates,
-              key: ValueKey(rows[idx]),
-            ),
+            itemBuilder: (ctx, idx) {
+              final row = rows[idx];
+              // Apply search filter
+              if (_itemDetailsSearchQuery.isNotEmpty) {
+                final itemName = (row.item?.productName ?? row.descriptionCtrl.text).toLowerCase();
+                if (!itemName.contains(_itemDetailsSearchQuery.toLowerCase())) {
+                  return SizedBox(key: ValueKey(row));
+                }
+              }
+              
+              return _buildItemRow(
+                idx,
+                products,
+                customersAsync,
+                priceListsAsync,
+                taxRates,
+                key: ValueKey(row),
+              );
+            },
           ),
         ),
 
@@ -2050,6 +2124,7 @@ class _SalesOrderCreateScreenState
                                               'Type or click to select an item.',
                                           hideBorderDefault: true,
                                           items: products
+                                              .where((p) => !rows.any((r) => r.itemId == p.id))
                                               .map((p) => p.id!)
                                               .toList(),
                                           displayStringForValue: (id) =>
@@ -2073,19 +2148,10 @@ class _SalesOrderCreateScreenState
                                               (e) => e.id == v,
                                             );
                                             setState(() {
-                                              // Remove empty row above if it exists
-                                              if (idx > 0 && rows[idx - 1].itemId.isEmpty) {
-                                                rows.removeAt(idx - 1);
-                                              }
-                                              
                                               row.itemId = v;
                                               row.item = p;
-                                              if (row.rateCtrl.text == '0' ||
-                                                  row.rateCtrl.text.isEmpty) {
-                                                row.rateCtrl.text =
-                                                    (p.sellingPrice ?? 0)
-                                                        .toString();
-                                              }
+                                              final r = p.sellingPrice ?? 0;
+                                              row.rateCtrl.text = r == 0 ? '' : r.toString();
                                               if (row.mrpCtrl.text == '0' ||
                                                   row.mrpCtrl.text.isEmpty) {
                                                 row.mrpCtrl.text = (p.mrp ?? 0)
@@ -2222,7 +2288,9 @@ class _SalesOrderCreateScreenState
                           children: [
                             CustomTextField(
                               controller: row.rateCtrl,
+                              focusNode: row.rateFocus,
                               height: 32,
+                              hintText: '0',
                               hideBorderDefault: true,
                               keyboardType:
                                   const TextInputType.numberWithOptions(
@@ -2236,6 +2304,7 @@ class _SalesOrderCreateScreenState
                                     extentOffset: row.rateCtrl.text.length,
                                   ),
                               onChanged: (_) => _calculateTotals(),
+                              onSubmitted: (_) => _handleRateCalculation(row),
                             ),
                             if (row.itemId.isNotEmpty) ...[
                               if (_showPriceList) ...[
@@ -2607,6 +2676,7 @@ class _SalesOrderCreateScreenState
   }
 
   OverlayEntry? _reportingTagsOverlay;
+  // ignore: unused_field
   final LayerLink _reportingTagsLink = LayerLink();
 
   void _toggleReportingTagsOverlay(SalesOrderItemRow row) {
@@ -2842,23 +2912,23 @@ class _SalesOrderCreateScreenState
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      LucideIcons.tag,
-                      size: 14,
-                      color: Color(0xFF9CA3AF),
+                    SvgPicture.string(
+                      '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z"/><path d="M2 7v6.172a2 2 0 0 0 .586 1.414l6.71 6.71a2.4 2.4 0 0 0 3.191.193"/><circle cx="10.5" cy="6.5" r=".5" fill="#22C55E"/></svg>',
+                      width: 14,
+                      height: 14,
                     ),
                     const SizedBox(width: 8),
                     const Text(
                       'Reporting Tags',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: Color(0xFF374151),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(width: 4),
                     const Icon(
-                      LucideIcons.chevronDown,
+                      Icons.keyboard_arrow_down,
                       size: 14,
                       color: Color(0xFF9CA3AF),
                     ),
@@ -3154,61 +3224,64 @@ class _SalesOrderCreateScreenState
     return CompositedTransformTarget(
       link: _addRowLink,
       child: Container(
-        height: 38,
+        height: 32,
         decoration: BoxDecoration(
           color: const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             InkWell(
-              onTap: _addItemRow,
+              onTap: () {
+                setState(() {
+                  rows.add(_createItemRow());
+                });
+              },
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(6),
-                bottomLeft: Radius.circular(6),
+                topLeft: Radius.circular(4),
+                bottomLeft: Radius.circular(4),
               ),
               child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
+                padding: EdgeInsets.symmetric(horizontal: 10),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      LucideIcons.plusCircle,
-                      size: 18,
+                      Icons.add_circle_outline,
+                      size: 14,
                       color: Color(0xFF2563EB),
                     ),
-                    SizedBox(width: 8),
+                    SizedBox(width: 6),
                     Text(
                       'Add New Row',
                       style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
                         color: Color(0xFF374151),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            const VerticalDivider(
+            Container(
               width: 1,
-              color: Color(0xFFE5E7EB),
-              thickness: 1,
-              indent: 4,
-              endIndent: 4,
+              height: 20,
+              color: const Color(0xFFE5E7EB),
             ),
             InkWell(
               onTap: _toggleAddRowOverlay,
               borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(6),
-                bottomRight: Radius.circular(6),
+                topRight: Radius.circular(4),
+                bottomRight: Radius.circular(4),
               ),
               child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
+                padding: EdgeInsets.symmetric(horizontal: 6),
                 child: Icon(
                   Icons.keyboard_arrow_down,
-                  size: 20,
+                  size: 16,
                   color: Color(0xFF6B7280),
                 ),
               ),
@@ -3267,10 +3340,10 @@ class _SalesOrderCreateScreenState
                     // Implement Add New Header logic
                     setState(() {
                       rows.add(
-                        SalesOrderItemRow(
-                          quantityCtrl: TextEditingController(text: '0'),
-                          rateCtrl: TextEditingController(text: '0'),
-                          discountCtrl: TextEditingController(text: '0'),
+                        _createItemRow(
+                          quantity: '0',
+                          rate: '0',
+                          discount: '0',
                           isHeader: true,
                         ),
                       );
@@ -3317,16 +3390,17 @@ class _SalesOrderCreateScreenState
             products: products,
             onItemsSelected: (selectedItems) {
               setState(() {
+                // Remove empty rows before adding bulk items
+                rows.removeWhere((r) => r.itemId.isEmpty && !r.isHeader);
+
                 selectedItems.forEach((item, quantity) {
                   rows.add(
-                    SalesOrderItemRow(
-                      quantityCtrl: TextEditingController(
-                        text: quantity.toString(),
-                      ),
-                      rateCtrl: TextEditingController(
-                        text: (item.sellingPrice ?? 0).toString(),
-                      ),
-                      discountCtrl: TextEditingController(text: '0'),
+                    _createItemRow(
+                      quantity: quantity.toString(),
+                      rate: (item.sellingPrice ?? 0) == 0
+                          ? ''
+                          : (item.sellingPrice ?? 0).toString(),
+                      discount: '0',
                       itemId: item.id ?? '',
                       item: item,
                     ),
@@ -3338,26 +3412,26 @@ class _SalesOrderCreateScreenState
           ),
         );
       },
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
-        height: 38,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(LucideIcons.plusCircle, size: 18, color: Color(0xFF2563EB)),
-            SizedBox(width: 8),
+            Icon(Icons.add_circle_outline, size: 14, color: Color(0xFF2563EB)),
+            SizedBox(width: 6),
             Text(
               'Add Items in Bulk',
               style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontSize: 12,
                 color: Color(0xFF374151),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -3577,6 +3651,7 @@ class _SalesOrderCreateScreenState
     );
   }
 
+  // ignore: unused_element
   Widget _buildCloudIcon(IconData icon, Color color) {
     return InkWell(
       onTap: () {
@@ -4737,12 +4812,6 @@ class _SalesOrderCreateScreenState
                                   ),
                                 ),
                                 const Icon(
-                                  LucideIcons.chevronUp,
-                                  size: 14,
-                                  color: Color(0xFF9CA3AF),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(
                                   LucideIcons.chevronDown,
                                   size: 14,
                                   color: Color(0xFF9CA3AF),
@@ -5004,26 +5073,18 @@ class _SalesOrderCreateScreenState
                             final idx = rows.indexOf(row);
                             if (idx != -1) {
                               setState(() {
-                                final newRow = SalesOrderItemRow(
-                                  quantityCtrl: TextEditingController(
-                                    text: '1',
-                                  ),
-                                  rateCtrl: TextEditingController(text: '0'),
-                                  discountCtrl: TextEditingController(
-                                    text: '0',
-                                  ),
+                                final newRow = _createItemRow(
+                                  quantity: row.quantityCtrl.text,
+                                  rate: row.rateCtrl.text,
+                                  discount: row.discountCtrl.text,
+                                  fQty: row.fQtyCtrl.text,
+                                  mrp: row.mrpCtrl.text,
+                                  description: row.descriptionCtrl.text,
+                                  itemId: row.itemId,
+                                  item: row.item,
+                                  discountType: row.discountType,
+                                  taxId: row.taxId,
                                 );
-                                if (row.item != null) {
-                                  newRow.itemId = row.itemId;
-                                  newRow.item = row.item;
-                                  newRow.rateCtrl.text = row.rateCtrl.text;
-                                  newRow.quantityCtrl.text =
-                                      row.quantityCtrl.text;
-                                  newRow.discountCtrl.text =
-                                      row.discountCtrl.text;
-                                  newRow.mrpCtrl.text = row.mrpCtrl.text;
-                                  newRow.fQtyCtrl.text = row.fQtyCtrl.text;
-                                }
                                 rows.insert(idx + 1, newRow);
                               });
                               _calculateTotals();
@@ -5045,14 +5106,10 @@ class _SalesOrderCreateScreenState
                               setState(() {
                                 rows.insert(
                                   idx + 1,
-                                  SalesOrderItemRow(
-                                    quantityCtrl: TextEditingController(
-                                      text: '1',
-                                    ),
-                                    rateCtrl: TextEditingController(text: '0'),
-                                    discountCtrl: TextEditingController(
-                                      text: '0',
-                                    ),
+                                  _createItemRow(
+                                    quantity: '1',
+                                    rate: '0',
+                                    discount: '0',
                                   ),
                                 );
                               });
@@ -5291,6 +5348,82 @@ class _SalesOrderCreateScreenState
       transitionBuilder: (ctx, anim, _, child) => FadeTransition(
         opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
         child: child,
+      ),
+    );
+  }
+
+  Widget _buildHeaderSearchField({
+    required String label,
+    required TextEditingController controller,
+    required String hintText,
+    required ValueChanged<String> onChanged,
+    required bool isSearchVisible,
+    required VoidCallback onToggle,
+    TextAlign textAlign = TextAlign.start,
+  }) {
+    if (!isSearchVisible) {
+      return Row(
+        mainAxisAlignment: textAlign == TextAlign.center
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _TH(label),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: onToggle,
+            child: const Icon(
+              LucideIcons.search,
+              size: 13,
+              color: _kLabelGrey,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: _kBorder),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.search, size: 12, color: Color(0xFF9CA3AF)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              autofocus: true,
+              style: const TextStyle(fontSize: 11, color: _kBodyText),
+              textAlign: textAlign,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: hintText,
+                hintStyle: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF9CA3AF),
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () {
+              controller.clear();
+              onChanged('');
+              onToggle();
+            },
+            child: const Icon(LucideIcons.x, size: 12, color: _kLabelGrey),
+          ),
+        ],
       ),
     );
   }
@@ -7825,5 +7958,78 @@ class _MenuHoverItemState extends State<_MenuHoverItem> {
         ),
       ),
     );
+  }
+}
+
+class _MathParser {
+  _MathParser(this.input);
+  final String input;
+  int pos = -1, ch = -1;
+
+  void nextChar() {
+    ch = (++pos < input.length) ? input.codeUnitAt(pos) : -1;
+  }
+
+  bool eat(int charToEat) {
+    while (ch == 32) nextChar(); // skip spaces
+    if (ch == charToEat) {
+      nextChar();
+      return true;
+    }
+    return false;
+  }
+
+  double parse() {
+    nextChar();
+    double x = parseExpression();
+    if (pos < input.length) throw Exception("Unexpected: ${input[pos]}");
+    return x;
+  }
+
+  double parseExpression() {
+    double x = parseTerm();
+    for (;;) {
+      if (eat(43)) {
+        x += parseTerm(); // +
+      } else if (eat(45)) {
+        x -= parseTerm(); // -
+      } else {
+        return x;
+      }
+    }
+  }
+
+  double parseTerm() {
+    double x = parseFactor();
+    for (;;) {
+      if (eat(42)) {
+        x *= parseFactor(); // *
+      } else if (eat(47)) {
+        x /= parseFactor(); // /
+      } else {
+        return x;
+      }
+    }
+  }
+
+  double parseFactor() {
+    if (eat(43)) return parseFactor(); // +
+    if (eat(45)) return -parseFactor(); // -
+    double x;
+    int startPos = pos;
+    if (eat(40)) {
+      // (
+      x = parseExpression();
+      eat(41); // )
+    } else if ((ch >= 48 && ch <= 57) || ch == 46) {
+      // numbers
+      while ((ch >= 48 && ch <= 57) || ch == 46) nextChar();
+      x = double.parse(input.substring(startPos, pos));
+    } else {
+      throw Exception(
+        "Unexpected: ${ch == -1 ? 'EOF' : String.fromCharCode(ch)}",
+      );
+    }
+    return x;
   }
 }

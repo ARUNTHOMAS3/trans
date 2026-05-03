@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'dart:math' as math;
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
+import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 import '../models/purchases_purchase_receives_model.dart';
 import '../providers/purchase_receives_provider.dart';
 
@@ -372,30 +374,15 @@ class _PurchasesPurchaseReceivesListScreenState
   Widget build(BuildContext context) {
     final receivesAsync = ref.watch(purchaseReceivesProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
+    return ZerpaiLayout(
+      pageTitle: '',
+      enableBodyScroll: false,
+      useHorizontalPadding: false,
+      useTopPadding: false,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header Actions
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
-            ),
-            child: Row(
-              children: [
-                _buildViewSelector(),
-                const Spacer(),
-                _buildActionIcons(),
-                const SizedBox(width: 12),
-                _buildNewButton(),
-                const SizedBox(width: 8),
-                _buildMoreMenu(),
-              ],
-            ),
-          ),
-
+          _buildToolbar(),
           Expanded(
             child: receivesAsync.when(
               data: (state) => _buildTable(state.receives),
@@ -409,6 +396,31 @@ class _PurchasesPurchaseReceivesListScreenState
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolbar() {
+    return Container(
+      height: 64,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+      ),
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: _buildViewSelector(),
+          ),
+          const Spacer(),
+          _buildActionIcons(),
+          const SizedBox(width: 12),
+          _buildNewButton(),
+          const SizedBox(width: 8),
+          _buildMoreMenu(),
+          const SizedBox(width: 24),
         ],
       ),
     );
@@ -453,8 +465,8 @@ class _PurchasesPurchaseReceivesListScreenState
                     ? 'All Purchase Receives'
                     : _selectedView,
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                   color: Color(0xFF1F2937),
                   fontFamily: 'Inter',
                 ),

@@ -587,6 +587,9 @@ class _ZerpaiNavbarState extends ConsumerState<ZerpaiNavbar> {
                 ),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
+                    if (constraints.maxWidth < 40) {
+                      return const SizedBox.shrink();
+                    }
                     final isUltraCompact = constraints.maxWidth < 96;
                     return Row(
                       children: [

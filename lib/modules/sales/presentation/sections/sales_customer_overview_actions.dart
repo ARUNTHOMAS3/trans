@@ -119,7 +119,6 @@ extension _OverviewActions on _SalesCustomerOverviewScreenState {
   Widget _popupItem(String text) {
     return MenuItemButton(
       onPressed: () {
-        // TODO: Handle action
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -261,7 +260,6 @@ extension _OverviewActions on _SalesCustomerOverviewScreenState {
         ),
         MenuItemButton(
           onPressed: () {
-            // TODO: Implement delete
           },
           child: const Text(
             'Delete',

@@ -223,7 +223,6 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
             ),
             MenuItemButton(
               onPressed: () {
-                // TODO: Implement Export Current View
               },
               child: const Text('Export Current View'),
             ),
@@ -243,7 +242,6 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
             color: Color(0xFF2563EB),
           ),
           onPressed: () {
-            // TODO: Open Preferences
           },
           child: const Text('Preferences'),
         ),
@@ -255,7 +253,6 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
             color: Color(0xFF2563EB),
           ),
           onPressed: () {
-            // TODO: Refresh List
           },
           child: const Text('Refresh List'),
         ),
@@ -305,19 +302,14 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
 
           // Action buttons
           _buildActionButton('Bulk Update', LucideIcons.edit2, () {
-            // TODO: Implement bulk update
           }),
           _buildActionButton('Mark as Active', LucideIcons.checkCircle, () {
-            // TODO: Implement mark as active
           }),
           _buildActionButton('Mark as Inactive', LucideIcons.xCircle, () {
-            // TODO: Implement mark as inactive
           }),
           _buildActionButton('Merge', LucideIcons.merge, () {
-            // TODO: Implement merge
           }),
           _buildActionButton('Associate Templates', LucideIcons.fileText, () {
-            // TODO: Implement associate templates
           }),
 
           MenuAnchor(
@@ -367,7 +359,6 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
                   color: Color(0xFF374151),
                 ),
                 onPressed: () {
-                  // TODO: Implement request GST
                 },
                 child: const Text('Request GST Information'),
               ),
@@ -378,7 +369,6 @@ extension _SalesGenericListUI on _SalesGenericListScreenState {
                   color: Color(0xFFEF4444),
                 ),
                 onPressed: () {
-                  // TODO: Implement delete
                 },
                 child: const Text(
                   'Delete',

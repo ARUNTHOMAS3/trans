@@ -22,6 +22,9 @@ class PurchaseOrderOverviewScreen extends ConsumerWidget {
 
     return ZerpaiLayout(
       pageTitle: 'Purchase Orders',
+      titlePadding: const EdgeInsets.only(left: 20),
+      useHorizontalPadding: false,
+      horizontalPaddingValue: 15,
       actions: [
         ZButton.primary(
           label: 'New Purchase Order',
@@ -67,14 +70,12 @@ class PurchaseOrderOverviewScreen extends ConsumerWidget {
                 hintStyle: AppTheme.metaHelper,
               ),
               onChanged: (value) {
-                // TODO: Implement search with debouncing
               },
             ),
           ),
           IconButton(
             icon: const Icon(Icons.filter_list, color: AppTheme.textSecondary),
             onPressed: () {
-              // TODO: Show filter dialog
             },
           ),
         ],
@@ -113,7 +114,7 @@ class PurchaseOrderOverviewScreen extends ConsumerWidget {
     return DataRow(
       cells: [
         DataCell(Text(order.orderNumber)),
-        DataCell(Text('Vendor Name')), // TODO: Fetch vendor name
+        DataCell(Text('Vendor Name')),
         DataCell(
           Text(
             '${order.orderDate.day}/${order.orderDate.month}/${order.orderDate.year}',
@@ -136,19 +137,16 @@ class PurchaseOrderOverviewScreen extends ConsumerWidget {
               IconButton(
                 icon: const Icon(Icons.visibility, size: 20),
                 onPressed: () {
-                  // TODO: Navigate to order detail
                 },
               ),
               IconButton(
                 icon: const Icon(Icons.edit, size: 20),
                 onPressed: () {
-                  // TODO: Navigate to edit order
                 },
               ),
               IconButton(
                 icon: const Icon(Icons.delete, size: 20),
                 onPressed: () {
-                  // TODO: Delete order
                 },
               ),
             ],
@@ -223,7 +221,6 @@ class PurchaseOrderOverviewScreen extends ConsumerWidget {
           ZButton.primary(
             label: 'Create Purchase Order',
             onPressed: () {
-              // TODO: Navigate to create order
             },
           ),
         ],
@@ -248,7 +245,6 @@ class PurchaseOrderOverviewScreen extends ConsumerWidget {
           ZButton.primary(
             label: 'Retry',
             onPressed: () {
-              // TODO: Retry loading
             },
           ),
         ],

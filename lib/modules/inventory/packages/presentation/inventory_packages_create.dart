@@ -7,17 +7,23 @@ import 'package:intl/intl.dart';
 import '../../../../shared/widgets/inputs/dropdown_input.dart';
 import '../../../../shared/widgets/inputs/zerpai_date_picker.dart';
 import '../../../../shared/widgets/zerpai_layout.dart';
+import 'package:skeletonizer/skeletonizer.dart' hide Skeleton;
+import '../../../../shared/utils/zerpai_toast.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_order_item_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/models/inventory_picklist_model.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/providers/inventory_picklists_provider.dart';
 import '../../../../shared/widgets/inputs/warehouse_popover.dart';
 import '../../../../shared/widgets/inputs/custom_text_field.dart';
+import '../../../../shared/widgets/inputs/radio_group.dart';
 import '../../../../shared/widgets/skeleton.dart';
 import '../../../../shared/providers/lookup_providers.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
+import '../../providers/warehouse_provider.dart';
 
 const Color _textPrimary = Color(0xFF1F2937);
 const Color _textSecondary = Color(0xFF6B7280);
@@ -40,10 +46,9 @@ class _InventoryPackagesCreateScreenState
   List<_PackageItem> _items = [];
   final List<_PackageItemRowController> _rowControllers = [];
   final Set<String> _hoveredQtyFields = {};
-  final Set<int> _hoveredNormalRows = <int>{};
-  final Set<int> _hoveredManualRows = <int>{};
   final Map<int, String> _rowSelectedViews = {};
   final Map<int, String> _rowSelectedWarehouses = {};
+  final Map<int, String> _rowSelectedWarehouseIds = {};
   final Set<String> _focusedQtyFields = {};
   final Map<int, int> _savedBatchCounts = <int, int>{};
   final Set<int> _savedBatchKeys = <int>{};
@@ -124,7 +129,7 @@ class _InventoryPackagesCreateScreenState
         : (isSelected ? const Color(0xFFF3F4F6) : Colors.white);
     final primaryTextColor = isHovered ? Colors.white : _textPrimary;
     final secondaryTextColor = isHovered
-        ? Colors.white.withOpacity(0.85)
+        ? Colors.white.withValues(alpha: 0.85)
         : _textSecondary;
 
     return Container(
@@ -142,7 +147,7 @@ class _InventoryPackagesCreateScreenState
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isHovered
-                  ? Colors.white.withOpacity(0.25)
+                  ? Colors.white.withValues(alpha: 0.25)
                   : const Color(0xFFE5E7EB),
             ),
             alignment: Alignment.center,
@@ -199,8 +204,9 @@ class _InventoryPackagesCreateScreenState
   }
 
   SalesCustomer? _selectedCustomer;
-  String? _selectedSalesOrder;
-  SalesOrder? _selectedSalesOrderData;
+  List<String> _selectedSalesOrderValues = [];
+  List<SalesOrder> _selectedSalesOrderDataList = [];
+  List<Picklist> _selectedPicklistValues = [];
   final TextEditingController _packageSlipCtrl = TextEditingController();
   final TextEditingController _notesCtrl = TextEditingController();
   final TextEditingController _dateCtrl = TextEditingController();
@@ -220,6 +226,15 @@ class _InventoryPackagesCreateScreenState
   final FocusNode _dimLengthFocus = FocusNode();
   final FocusNode _dimWidthFocus = FocusNode();
   final FocusNode _dimHeightFocus = FocusNode();
+
+  // Search State
+  final _itemNameSearchCtrl = TextEditingController();
+  final _salesOrderSearchCtrl = TextEditingController();
+  String _itemNameSearchQuery = '';
+  String _salesOrderSearchQuery = '';
+  bool _isItemSearchVisible = false;
+  bool _isSOSearchVisible = false;
+
   bool _dimFocused = false;
 
   bool _isAutoGenerate = true;
@@ -230,7 +245,7 @@ class _InventoryPackagesCreateScreenState
   bool _isLoadingItems = false;
   final List<TextEditingController> _normalRowControllers = [];
 
-  bool get _isSalesOrderSelected => _selectedSalesOrder != null;
+  bool get _isSalesOrderSelected => _selectedSalesOrderValues.isNotEmpty;
 
   bool get _isFormValid => _isSalesOrderSelected;
 
@@ -338,19 +353,8 @@ class _InventoryPackagesCreateScreenState
     if (index < _items.length) {
       setState(() {
         _items.removeAt(index);
-        if (index < _rowControllers.length) {
-          _rowControllers[index].dispose();
-          _rowControllers.removeAt(index);
-        }
-        if (index < _salesOrderItems.length) {
-          _salesOrderItems.removeAt(index);
-        }
-        if (index < _normalRowControllers.length) {
-          _normalRowControllers[index].dispose();
-          _normalRowControllers.removeAt(index);
-        }
-        _hoveredNormalRows.remove(index);
-        _hoveredManualRows.remove(index);
+        _rowControllers[index].dispose();
+        _rowControllers.removeAt(index);
       });
     }
   }
@@ -369,6 +373,10 @@ class _InventoryPackagesCreateScreenState
     _dimensionWidthCtrl.dispose();
     _dimensionHeightCtrl.dispose();
     _weightCtrl.dispose();
+
+    _itemNameSearchCtrl.dispose();
+    _salesOrderSearchCtrl.dispose();
+
     _weightFocusNode.dispose();
     _dimLengthFocus.dispose();
     _dimWidthFocus.dispose();
@@ -380,7 +388,7 @@ class _InventoryPackagesCreateScreenState
     super.dispose();
   }
 
-  Future<void> _fetchSalesOrderItems(String salesOrderId) async {
+  Future<void> _fetchMultipleSalesOrderItems(List<String> salesOrderIds) async {
     setState(() {
       _isLoadingItems = true;
       _salesOrderItems = [];
@@ -392,28 +400,43 @@ class _InventoryPackagesCreateScreenState
     });
 
     try {
-      final order = await ref
-          .read(salesOrderApiServiceProvider)
-          .getSalesOrderById(salesOrderId);
-      final items = (order.items ?? [])
-          .where(
-            (item) =>
-                item.salesOrderId == null || item.salesOrderId == salesOrderId,
-          )
-          .toList();
+      final List<SalesOrderItem> allItems = [];
+      final List<SalesOrder> allOrders = [];
+
+      for (var id in salesOrderIds) {
+        final order = await ref
+            .read(salesOrderApiServiceProvider)
+            .getSalesOrderById(id);
+        allOrders.add(order);
+        final items = (order.items ?? []).toList();
+        allItems.addAll(items);
+      }
+
       if (mounted) {
         setState(() {
-          _salesOrderItems = items;
-          _items = items
-              .map(
-                (item) => _PackageItem(
-                  itemId: item.itemId,
-                  itemName: item.item?.productName ?? item.description ?? '',
-                  ordered: item.quantity,
-                  qtyToPack: item.quantity,
-                ),
-              )
-              .toList();
+          _salesOrderItems = allItems;
+          _items = allItems.map((item) {
+            final order = allOrders.isNotEmpty
+                ? allOrders.firstWhere(
+                    (o) => o.id == item.salesOrderId,
+                    orElse: () => allOrders.first,
+                  )
+                : SalesOrder(
+                    id: '',
+                    customerId: '',
+                    saleNumber: '',
+                    saleDate: DateTime.now(),
+                    total: 0.0,
+                  );
+            return _PackageItem(
+              itemId: item.itemId,
+              itemName: item.item?.productName ?? item.description ?? '',
+              ordered: item.quantity,
+              qtyToPack: item.quantity,
+              salesOrderId: item.salesOrderId,
+              salesOrderNumber: order.saleNumber,
+            );
+          }).toList();
 
           _rowControllers.clear();
           _rowControllers.addAll(
@@ -426,8 +449,9 @@ class _InventoryPackagesCreateScreenState
           _normalRowControllers.clear();
           _normalRowControllers.addAll(
             List.generate(
-              items.length,
-              (i) => TextEditingController(text: items[i].quantity.toString()),
+              allItems.length,
+              (i) =>
+                  TextEditingController(text: allItems[i].quantity.toString()),
             ),
           );
           _isLoadingItems = false;
@@ -436,9 +460,7 @@ class _InventoryPackagesCreateScreenState
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingItems = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error fetching items: $e')));
+        ZerpaiToast.error(context, 'Error fetching items: $e');
       }
     }
   }
@@ -502,102 +524,29 @@ class _InventoryPackagesCreateScreenState
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 750),
+                        constraints: const BoxConstraints(maxWidth: 1200),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildFormRow(
-                              label: 'Customer Name',
-                              child: ref
-                                  .watch(salesCustomersProvider)
-                                  .when(
-                                    data: (customers) =>
-                                        FormDropdown<SalesCustomer>(
-                                          fillColor: Colors.white,
-                                          textStyle: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w400,
-                                            color: _textPrimary,
-                                          ),
-                                          value: _selectedCustomer,
-                                          hint: 'Select Customer',
-                                          items: customers,
-                                          maxVisibleItems: 4,
-                                          itemBuilder:
-                                              (item, isSelected, isHovered) =>
-                                                  _buildCustomerDropdownItem(
-                                                    item,
-                                                    isSelected,
-                                                    isHovered,
-                                                  ),
-                                          displayStringForValue: (val) =>
-                                              val.displayName,
-                                          searchStringForValue: (val) =>
-                                              val.displayName,
-                                          onChanged: (val) {
-                                            setState(() {
-                                              _selectedCustomer = val;
-                                              _selectedSalesOrder = null;
-                                              _selectedSalesOrderData = null;
-                                            });
-                                            if (val != null) {
-                                              ref.invalidate(
-                                                salesOrdersByCustomerProvider(
-                                                  val.id,
-                                                ),
-                                              );
-                                            }
-                                          },
-                                          height: 32,
-                                        ),
-                                    loading: () => const Skeleton(
-                                      height: 32,
-                                      width: double.infinity,
-                                    ),
-                                    error: (e, _) => Text('Error: $e'),
-                                  ),
-                            ),
-                            const SizedBox(height: 20),
-                            _buildFormRow(
-                              label: 'Sales Order#',
-                              isRequired: true,
-                              child: _selectedCustomer == null
-                                  ? FormDropdown<String>(
-                                      fillColor: AppTheme.bgDisabled,
-                                      value: null,
-                                      hint: 'Select Sales Order',
-                                      items: const [],
-                                      itemBuilder:
-                                          (item, isSelected, isHovered) =>
-                                              _commonItemBuilder<String>(
-                                                item,
-                                                isSelected,
-                                                isHovered,
-                                                (s) => s,
-                                              ),
-                                      displayStringForValue: (s) => s,
-                                      searchStringForValue: (s) => s,
-                                      onChanged: (val) {},
-                                      height: 32,
-                                    )
-                                  : ref
-                                        .watch(
-                                          salesOrdersByCustomerProvider(
-                                            _selectedCustomer!.id,
-                                          ),
-                                        )
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildFormRow(
+                                    label: 'Customer Name',
+                                    child: ref
+                                        .watch(salesCustomersProvider)
                                         .when(
-                                          data: (orders) =>
-                                              FormDropdown<SalesOrder>(
+                                          data: (customers) =>
+                                              FormDropdown<SalesCustomer>(
                                                 fillColor: Colors.white,
                                                 textStyle: const TextStyle(
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w400,
                                                   color: _textPrimary,
                                                 ),
-                                                value: _selectedSalesOrderData,
-                                                hint: 'Select Sales Order',
-                                                items: orders,
+                                                value: _selectedCustomer,
+                                                hint: 'Select Customer',
+                                                items: customers,
                                                 maxVisibleItems: 4,
                                                 itemBuilder:
                                                     (
@@ -605,29 +554,32 @@ class _InventoryPackagesCreateScreenState
                                                       isSelected,
                                                       isHovered,
                                                     ) =>
-                                                        _commonItemBuilder<
-                                                          SalesOrder
-                                                        >(
+                                                        _buildCustomerDropdownItem(
                                                           item,
                                                           isSelected,
                                                           isHovered,
-                                                          (val) =>
-                                                              val.saleNumber,
                                                         ),
                                                 displayStringForValue: (val) =>
-                                                    val.saleNumber,
+                                                    val.displayName,
                                                 searchStringForValue: (val) =>
-                                                    val.saleNumber,
+                                                    val.displayName,
                                                 onChanged: (val) {
                                                   setState(() {
-                                                    _selectedSalesOrder =
-                                                        val?.id;
-                                                    _selectedSalesOrderData =
-                                                        val;
+                                                    _selectedCustomer = val;
+                                                    _selectedSalesOrderValues =
+                                                        [];
+                                                    _selectedSalesOrderDataList =
+                                                        [];
+                                                    _selectedPicklistValues =
+                                                        [];
+                                                    _salesOrderItems = [];
+                                                    _clearRowControllers();
                                                   });
                                                   if (val != null) {
-                                                    _fetchSalesOrderItems(
-                                                      val.id,
+                                                    ref.invalidate(
+                                                      salesOrdersByCustomerProvider(
+                                                        val.id,
+                                                      ),
                                                     );
                                                   }
                                                 },
@@ -639,12 +591,194 @@ class _InventoryPackagesCreateScreenState
                                           ),
                                           error: (e, _) => Text('Error: $e'),
                                         ),
+                                  ),
+                                ),
+                                const SizedBox(width: 32),
+                                Expanded(
+                                  child: _buildFormRow(
+                                    label: 'Sales Order#',
+                                    isRequired: true,
+                                    child: _selectedCustomer == null
+                                        ? FormDropdown<String>(
+                                            fillColor: AppTheme.bgDisabled,
+                                            value: null,
+                                            hint: 'Select Sales Order',
+                                            items: const [],
+                                            itemBuilder:
+                                                (item, isSelected, isHovered) =>
+                                                    _commonItemBuilder<String>(
+                                                      item,
+                                                      isSelected,
+                                                      isHovered,
+                                                      (s) => s,
+                                                    ),
+                                            displayStringForValue: (s) => s,
+                                            searchStringForValue: (s) => s,
+                                            onChanged: (val) {},
+                                            height: 32,
+                                          )
+                                        : ref
+                                              .watch(
+                                                salesOrdersByCustomerProvider(
+                                                  _selectedCustomer!.id,
+                                                ),
+                                              )
+                                              .when(
+                                                data: (orders) => FormDropdown<SalesOrder>(
+                                                  value: null,
+                                                  onChanged: (val) {},
+                                                  fillColor: Colors.white,
+                                                  textStyle: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w400,
+                                                    color: _textPrimary,
+                                                  ),
+                                                  multiSelect: true,
+                                                  selectedValues:
+                                                      _selectedSalesOrderDataList,
+                                                  onSelectedValuesChanged: (vals) {
+                                                    setState(() {
+                                                      _selectedSalesOrderDataList =
+                                                          vals;
+                                                      _selectedSalesOrderValues =
+                                                          vals
+                                                              .map((e) => e.id)
+                                                              .toList();
+                                                    });
+                                                    if (vals.isNotEmpty) {
+                                                      _fetchMultipleSalesOrderItems(
+                                                        _selectedSalesOrderValues,
+                                                      );
+                                                    } else {
+                                                      setState(() {
+                                                        _salesOrderItems = [];
+                                                        _items = [];
+                                                        _clearRowControllers();
+                                                      });
+                                                    }
+                                                  },
+                                                  hint: 'Select Sales Order',
+                                                  items: orders,
+                                                  maxVisibleItems: 4,
+                                                  itemBuilder:
+                                                      (
+                                                        item,
+                                                        isSelected,
+                                                        isHovered,
+                                                      ) =>
+                                                          _commonItemBuilder<
+                                                            SalesOrder
+                                                          >(
+                                                            item,
+                                                            isSelected,
+                                                            isHovered,
+                                                            (val) =>
+                                                                val.saleNumber,
+                                                          ),
+                                                  displayStringForValue:
+                                                      (val) => val.saleNumber,
+                                                  searchStringForValue: (val) =>
+                                                      val.saleNumber,
+                                                  height: 32,
+                                                ),
+                                                loading: () => const Skeleton(
+                                                  height: 32,
+                                                  width: double.infinity,
+                                                ),
+                                                error: (e, _) =>
+                                                    Text('Error: $e'),
+                                              ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildFormRow(
+                                    label: 'Picklist',
+                                    child: ref
+                                        .watch(picklistsProvider)
+                                        .when(
+                                          data: (picklists) {
+                                            final filteredPicklists =
+                                                _selectedCustomer == null
+                                                ? picklists
+                                                : picklists
+                                                      .where(
+                                                        (p) =>
+                                                            p.customerName ==
+                                                            _selectedCustomer
+                                                                ?.displayName,
+                                                      )
+                                                      .toList();
+                                            return FormDropdown<Picklist>(
+                                              value: null,
+                                              onChanged: (val) {},
+                                              fillColor:
+                                                  _selectedCustomer == null
+                                                  ? AppTheme.bgDisabled
+                                                  : Colors.white,
+                                              enabled:
+                                                  _selectedCustomer != null,
+                                              multiSelect: true,
+                                              selectedValues:
+                                                  _selectedPicklistValues,
+                                              onSelectedValuesChanged: (vals) {
+                                                setState(() {
+                                                  _selectedPicklistValues =
+                                                      vals;
+                                                  // Auto-select related sales orders if needed
+                                                  for (var p in vals) {
+                                                    if (p.salesOrderNumber !=
+                                                        null) {
+                                                      // Logic to find and add SO could go here
+                                                    }
+                                                  }
+                                                });
+                                              },
+                                              hint: 'Select Picklist',
+                                              items: filteredPicklists,
+                                              maxVisibleItems: 4,
+                                              itemBuilder:
+                                                  (
+                                                    item,
+                                                    isSelected,
+                                                    isHovered,
+                                                  ) =>
+                                                      _commonItemBuilder<
+                                                        Picklist
+                                                      >(
+                                                        item,
+                                                        isSelected,
+                                                        isHovered,
+                                                        (p) => p.picklistNumber,
+                                                      ),
+                                              displayStringForValue: (p) =>
+                                                  p.picklistNumber,
+                                              searchStringForValue: (p) =>
+                                                  p.picklistNumber,
+                                              height: 32,
+                                            );
+                                          },
+                                          loading: () => const Skeleton(
+                                            height: 32,
+                                            width: double.infinity,
+                                          ),
+                                          error: (e, _) => Text('Error: $e'),
+                                        ),
+                                  ),
+                                ),
+                                const SizedBox(width: 32),
+                                const Spacer(),
+                              ], // END ROW CHILDREN
+                            ), // END ROW
+                          ], // END COLUMN CHILDREN
+                        ), // END COLUMN
+                      ), // END CONSTRAINEDBOX
+                    ), // END ALIGN
+                  ), // END CONTAINER
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
@@ -1268,7 +1402,15 @@ class _InventoryPackagesCreateScreenState
             child: Row(
               children: [
                 ElevatedButton(
-                  onPressed: _isFormValid ? () {} : null,
+                  onPressed: _isFormValid
+                      ? () {
+                          ZerpaiToast.success(
+                            context,
+                            'Package generated successfully',
+                          );
+                          context.pop();
+                        }
+                      : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _isFormValid
                         ? _greenBtn
@@ -1410,6 +1552,90 @@ class _InventoryPackagesCreateScreenState
     );
   }
 
+  Widget _buildHeaderSearchField({
+    required String label,
+    required TextEditingController controller,
+    required String hintText,
+    required ValueChanged<String> onChanged,
+    required bool isSearchVisible,
+    required VoidCallback onToggle,
+    TextAlign textAlign = TextAlign.start,
+  }) {
+    if (!isSearchVisible) {
+      return Row(
+        mainAxisAlignment: textAlign == TextAlign.center
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: _textSecondary,
+              fontFamily: 'Inter',
+            ),
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: onToggle,
+            child: const Icon(
+              LucideIcons.search,
+              size: 13,
+              color: _textSecondary,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: _borderCol),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.search, size: 12, color: Color(0xFF9CA3AF)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              autofocus: true,
+              style: const TextStyle(fontSize: 11, color: _textPrimary),
+              textAlign: textAlign,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: hintText,
+                hintStyle: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF9CA3AF),
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () {
+              controller.clear();
+              onChanged('');
+              onToggle();
+            },
+            child: const Icon(LucideIcons.x, size: 12, color: _textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildItemsTable() {
     if (_isManualMode) {
       return _buildManualItemsTable();
@@ -1427,7 +1653,30 @@ class _InventoryPackagesCreateScreenState
       );
     }
 
-    final soItems = _salesOrderItems;
+    final filteredItems = _salesOrderItems.where((item) {
+      final matchesName = (item.item?.productName ?? item.description ?? '')
+          .toLowerCase()
+          .contains(_itemNameSearchQuery.toLowerCase());
+
+      final order = _selectedSalesOrderDataList.firstWhere(
+        (o) => o.id == item.salesOrderId,
+        orElse: () => _selectedSalesOrderDataList.isNotEmpty
+            ? _selectedSalesOrderDataList.first
+            : SalesOrder(
+                id: '',
+                customerId: '',
+                saleNumber: '',
+                saleDate: DateTime.now(),
+                total: 0.0,
+              ),
+      );
+      final matchesSO = order.saleNumber.toLowerCase().contains(
+        _salesOrderSearchQuery.toLowerCase(),
+      );
+
+      return matchesName && matchesSO;
+    }).toList();
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1437,7 +1686,7 @@ class _InventoryPackagesCreateScreenState
       child: Column(
         children: [
           _buildTableHeader(),
-          if (soItems.isEmpty)
+          if (filteredItems.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 16),
@@ -1457,146 +1706,184 @@ class _InventoryPackagesCreateScreenState
               ),
             )
           else
-            ...soItems.asMap().entries.map((entry) {
+            ...filteredItems.asMap().entries.map((entry) {
               final index = entry.key;
               final item = entry.value;
-              return _buildItemRowNormal(index, item);
+              return _buildItemRowNormal(index, item, filteredItems);
             }),
         ],
       ),
     );
   }
 
-  Widget _buildItemRowNormal(int index, SalesOrderItem soItem) {
-    final isHovered = _hoveredNormalRows.contains(index);
+  Widget _buildItemRowNormal(
+    int index,
+    SalesOrderItem soItem,
+    List<SalesOrderItem> filteredItems,
+  ) {
+    final bool isFirstInGroup =
+        index == 0 ||
+        filteredItems[index - 1].salesOrderId != soItem.salesOrderId;
+    final bool isLastInGroup =
+        index == filteredItems.length - 1 ||
+        filteredItems[index + 1].salesOrderId != soItem.salesOrderId;
+
+    final order = _selectedSalesOrderDataList.firstWhere(
+      (o) => o.id == soItem.salesOrderId,
+      orElse: () => _selectedSalesOrderDataList.isNotEmpty
+          ? _selectedSalesOrderDataList.first
+          : SalesOrder(
+              id: '',
+              customerId: '',
+              saleNumber: '',
+              saleDate: DateTime.now(),
+              total: 0.0,
+            ),
+    );
 
     return Container(
-      padding: const EdgeInsets.only(left: 16, right: 0),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _borderCol)),
-      ),
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hoveredNormalRows.add(index)),
-        onExit: (_) => setState(() => _hoveredNormalRows.remove(index)),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+      padding: const EdgeInsets.only(left: 24, right: 0),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 1,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: isLastInGroup
+                      ? const Border(bottom: BorderSide(color: _borderCol))
+                      : null,
+                ),
+                child: isFirstInGroup
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          order.saleNumber,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: _textPrimary,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      )
+                    : const SizedBox(),
+              ),
+            ),
+            const VerticalDivider(width: 1, color: _borderCol),
             Expanded(
               flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 2, right: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      soItem.item?.productName ??
-                          soItem.description ??
-                          'Unknown Item',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: _textPrimary,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    Text(
-                      'Unit: ${soItem.item?.unitName ?? "pcs"}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: _textSecondary,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    if (soItem.item?.sku != null && soItem.item?.sku != "")
+              child: Container(
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: _borderCol)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2, right: 12, left: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                       Text(
-                        'SKU: ${soItem.item?.sku}',
+                        soItem.item?.productName ??
+                            soItem.description ??
+                            'Unknown Item',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: _textPrimary,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                      Text(
+                        'Unit: ${soItem.item?.unitName ?? "pcs"}',
                         style: const TextStyle(
                           fontSize: 11,
                           color: _textSecondary,
                           fontFamily: 'Inter',
                         ),
                       ),
-                  ],
-                ),
-              ),
-            ),
-            const VerticalDivider(width: 1, color: _borderCol),
-            Expanded(
-              flex: 1,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Center(
-                  child: Text(
-                    soItem.quantity.toString(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: _textPrimary,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const VerticalDivider(width: 1, color: _borderCol),
-            Expanded(
-              flex: 1,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Center(
-                  child: Text(
-                    '0',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: _textPrimary,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const VerticalDivider(width: 1, color: _borderCol),
-            Expanded(
-              flex: 1,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  _buildQuantityCell(
-                    index,
-                    _buildNormalQtyInput(index, soItem),
-                    "ZABNIX PVT/LTD",
-                  ),
-                ],
-              ),
-            ),
-              SizedBox(
-                width: 40,
-                child: Align(
-                  alignment: Alignment.center,
-                  child: IgnorePointer(
-                    ignoring: !isHovered,
-                    child: AnimatedOpacity(
-                      opacity: isHovered ? 1 : 0,
-                      duration: const Duration(milliseconds: 120),
-                      child: IconButton(
-                        onPressed: () => _removeItem(index),
-                        icon: const Icon(
-                          LucideIcons.x,
-                          size: 16,
-                          color: _dangerRed,
+                      if (soItem.item?.sku != null && soItem.item?.sku != "")
+                        Text(
+                          'SKU: ${soItem.item?.sku}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: _textSecondary,
+                            fontFamily: 'Inter',
+                          ),
                         ),
-                        splashRadius: 20,
-                        tooltip: 'Remove row',
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const VerticalDivider(width: 1, color: _borderCol),
+            Expanded(
+              flex: 1,
+              child: Container(
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: _borderCol)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Center(
+                    child: Text(
+                      soItem.quantity.toString(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: _textPrimary,
+                        fontFamily: 'Inter',
                       ),
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+            const VerticalDivider(width: 1, color: _borderCol),
+            Expanded(
+              flex: 1,
+              child: Container(
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: _borderCol)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Center(
+                    child: Text(
+                      '0',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: _textPrimary,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const VerticalDivider(width: 1, color: _borderCol),
+            Expanded(
+              flex: 1,
+              child: Container(
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: _borderCol)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _buildQuantityCell(
+                      index,
+                      _buildNormalQtyInput(index, soItem),
+                      _rowSelectedWarehouses[index] ?? "ZABNIX PVT/LTD",
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 40),
+          ],
         ),
       ),
     );
@@ -1680,7 +1967,7 @@ class _InventoryPackagesCreateScreenState
 
   Widget _buildTableHeader() {
     return Container(
-      padding: const EdgeInsets.only(left: 16, right: 0, top: 10, bottom: 10),
+      padding: const EdgeInsets.only(left: 24, right: 0, top: 10, bottom: 10),
       decoration: const BoxDecoration(
         color: Color(0xFFF9FAFB),
         border: Border(bottom: BorderSide(color: _borderCol)),
@@ -1690,17 +1977,36 @@ class _InventoryPackagesCreateScreenState
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              flex: 2,
+              flex: 1,
               child: Padding(
                 padding: const EdgeInsets.only(right: 12),
-                child: Text(
-                  'ITEMS & DESCRIPTION',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _textSecondary,
-                    fontFamily: 'Inter',
+                child: _buildHeaderSearchField(
+                  label: 'SALES ORDER',
+                  controller: _salesOrderSearchCtrl,
+                  hintText: 'Search SO...',
+                  isSearchVisible: _isSOSearchVisible,
+                  onToggle: () =>
+                      setState(() => _isSOSearchVisible = !_isSOSearchVisible),
+                  onChanged: (val) =>
+                      setState(() => _salesOrderSearchQuery = val),
+                ),
+              ),
+            ),
+            const VerticalDivider(width: 1, color: _borderCol),
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12, left: 12),
+                child: _buildHeaderSearchField(
+                  label: 'ITEMS & DESCRIPTION',
+                  controller: _itemNameSearchCtrl,
+                  hintText: 'Search items...',
+                  isSearchVisible: _isItemSearchVisible,
+                  onToggle: () => setState(
+                    () => _isItemSearchVisible = !_isItemSearchVisible,
                   ),
+                  onChanged: (val) =>
+                      setState(() => _itemNameSearchQuery = val),
                 ),
               ),
             ),
@@ -1764,144 +2070,131 @@ class _InventoryPackagesCreateScreenState
     // ignore: unused_local_variable
     final ctrl = _rowControllers[index];
     final soItems = _salesOrderItems;
-    final isHovered = _hoveredManualRows.contains(index);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: _borderCol)),
       ),
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hoveredManualRows.add(index)),
-        onExit: (_) => setState(() => _hoveredManualRows.remove(index)),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FormDropdown<SalesOrderItem>(
-                    fillColor: Colors.white,
-                    value: soItems
-                        .where((it) => it.itemId == item.itemId)
-                        .firstOrNull,
-                    hint: 'Select Item',
-                    items: soItems,
-                    maxVisibleItems: 4,
-                    itemBuilder: (item, isSelected, isHovered) =>
-                        _commonItemBuilder<SalesOrderItem>(
-                          item,
-                          isSelected,
-                          isHovered,
-                          (it) =>
-                              it.item?.productName ?? it.description ?? 'Unknown',
-                        ),
-                    displayStringForValue: (it) =>
-                        it.item?.productName ?? it.description ?? 'Unknown',
-                    searchStringForValue: (it) =>
-                        it.item?.productName ?? it.description ?? '',
-                    onChanged: (val) {
-                      if (val == null) return;
-                      setState(() {
-                        _items[index] = _items[index].copyWith(
-                          itemId: val.itemId,
-                          itemName:
-                              val.item?.productName ?? val.description ?? '',
-                          ordered: val.quantity,
-                          qtyToPack: val.quantity,
-                          batches: const [], // Reset batches when product changes
-                        );
-                        _rowControllers[index].qtyCtrl.text = val.quantity
-                            .toString();
-                      });
-                    },
-                  ),
-                  if (item.itemId != null && item.itemId!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4, left: 4),
-                      child: Text(
-                        'Unit: ${soItems.firstWhere((it) => it.itemId == item.itemId, orElse: () => soItems.first).item?.unitName ?? "pcs"}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: _textSecondary,
-                          fontFamily: 'Inter',
-                        ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FormDropdown<SalesOrderItem>(
+                  fillColor: Colors.white,
+                  value: soItems
+                      .where((it) => it.itemId == item.itemId)
+                      .firstOrNull,
+                  hint: 'Select Item',
+                  items: soItems,
+                  maxVisibleItems: 4,
+                  itemBuilder: (item, isSelected, isHovered) =>
+                      _commonItemBuilder<SalesOrderItem>(
+                        item,
+                        isSelected,
+                        isHovered,
+                        (it) =>
+                            it.item?.productName ?? it.description ?? 'Unknown',
                       ),
-                    ),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 1,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Text(
-                  item.ordered.toString(),
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: _textPrimary,
-                    fontFamily: 'Inter',
-                  ),
+                  displayStringForValue: (it) =>
+                      it.item?.productName ?? it.description ?? 'Unknown',
+                  searchStringForValue: (it) =>
+                      it.item?.productName ?? it.description ?? '',
+                  onChanged: (val) {
+                    if (val == null) return;
+                    setState(() {
+                      _items[index] = _items[index].copyWith(
+                        itemId: val.itemId,
+                        itemName:
+                            val.item?.productName ?? val.description ?? '',
+                        ordered: val.quantity,
+                        qtyToPack: val.quantity,
+                        batches: const [], // Reset batches when product changes
+                      );
+                      _rowControllers[index].qtyCtrl.text = val.quantity
+                          .toString();
+                    });
+                  },
                 ),
-              ),
-            ),
-            Expanded(
-              flex: 1,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Text(
-                  item.packed.toString(),
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: _textPrimary,
-                    fontFamily: 'Inter',
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 1,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  IgnorePointer(
-                    ignoring: item.itemId == null || item.itemId!.isEmpty,
-                    child: Opacity(
-                      opacity: (item.itemId != null && item.itemId!.isNotEmpty)
-                          ? 1.0
-                          : 0.4,
-                      child: _buildQuantityCell(
-                        index,
-                        _buildQtyInput(index),
-                        _rowSelectedWarehouses[index] ?? "Select Warehouse",
+                if (item.itemId != null && item.itemId!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4),
+                    child: Text(
+                      'Unit: ${soItems.firstWhere((it) => it.itemId == item.itemId, orElse: () => soItems.first).item?.unitName ?? "pcs"}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: _textSecondary,
+                        fontFamily: 'Inter',
                       ),
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
-            SizedBox(
-              width: 32,
-              child: IgnorePointer(
-                ignoring: !isHovered,
-                child: AnimatedOpacity(
-                  opacity: isHovered ? 1 : 0,
-                  duration: const Duration(milliseconds: 120),
-                  child: IconButton(
-                    onPressed: () => _removeItem(index),
-                    icon: const Icon(LucideIcons.x, size: 16, color: _dangerRed),
-                    splashRadius: 20,
-                    tooltip: 'Remove row',
-                  ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                item.ordered.toString(),
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: _textPrimary,
+                  fontFamily: 'Inter',
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                item.packed.toString(),
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: _textPrimary,
+                  fontFamily: 'Inter',
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IgnorePointer(
+                  ignoring: item.itemId == null || item.itemId!.isEmpty,
+                  child: Opacity(
+                    opacity: (item.itemId != null && item.itemId!.isNotEmpty)
+                        ? 1.0
+                        : 0.4,
+                    child: _buildQuantityCell(
+                      index,
+                      _buildQtyInput(index),
+                      _rowSelectedWarehouses[index] ?? "ZABNIX PVT/LTD",
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 32,
+            child: IconButton(
+              onPressed: () => _removeItem(index),
+              icon: const Icon(LucideIcons.trash2, size: 16, color: _dangerRed),
+              splashRadius: 20,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1948,8 +2241,21 @@ class _InventoryPackagesCreateScreenState
               });
             },
             onWarehouseChanged: (newName) {
-              setState(() {
-                _rowSelectedWarehouses[index] = newName;
+              // We need the ID for the warehouse.
+              // Since WarehouseHoverPopover only gives name,
+              // we look it up in the warehousesProvider cache.
+              ref.read(warehousesProvider).whenData((warehouses) {
+                final w = warehouses.firstWhere(
+                  (element) => element.name == newName,
+                  orElse: () => warehouses.isNotEmpty
+                      ? warehouses.first
+                      : warehouses
+                            .first, // This will still throw if empty, but better than nothing
+                );
+                setState(() {
+                  _rowSelectedWarehouses[index] = newName;
+                  _rowSelectedWarehouseIds[index] = w.id;
+                });
               });
             },
             child: Row(
@@ -2101,7 +2407,8 @@ class _InventoryPackagesCreateScreenState
       builder: (_) => _PackageBatchSelectionDialog(
         itemId: item.itemId,
         itemName: item.itemName,
-        warehouseName: _rowSelectedViews[index] ?? 'DEMO WAREHOUSE 1',
+        warehouseName: _rowSelectedWarehouses[index] ?? "ZABNIX PVT/LTD",
+        warehouseId: _rowSelectedWarehouseIds[index],
         totalQuantity: qtyToPack,
         savedBatches: item.batches,
       ),
@@ -2185,6 +2492,8 @@ class _PackageItem {
   final double packed;
   final double qtyToPack;
   final List<_PackageBatch> batches;
+  final String? salesOrderId;
+  final String? salesOrderNumber;
 
   const _PackageItem({
     this.itemId,
@@ -2193,6 +2502,8 @@ class _PackageItem {
     this.packed = 0,
     this.qtyToPack = 0,
     this.batches = const [],
+    this.salesOrderId,
+    this.salesOrderNumber,
   });
 
   _PackageItem copyWith({
@@ -2202,6 +2513,8 @@ class _PackageItem {
     double? packed,
     double? qtyToPack,
     List<_PackageBatch>? batches,
+    String? salesOrderId,
+    String? salesOrderNumber,
   }) {
     return _PackageItem(
       itemId: itemId ?? this.itemId,
@@ -2210,6 +2523,8 @@ class _PackageItem {
       packed: packed ?? this.packed,
       qtyToPack: qtyToPack ?? this.qtyToPack,
       batches: batches ?? this.batches,
+      salesOrderId: salesOrderId ?? this.salesOrderId,
+      salesOrderNumber: salesOrderNumber ?? this.salesOrderNumber,
     );
   }
 }
@@ -2312,46 +2627,41 @@ class __PackagePreferencesDialogState extends State<_PackagePreferencesDialog> {
             const Divider(height: 1, color: borderCol),
             Padding(
               padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Your package slip numbers are set on auto-generate mode to save your time.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: textPrimary,
-                            fontFamily: 'Inter',
+              child: RadioScope<bool>(
+                value: _isAuto,
+                onChanged: (val) => setState(() => _isAuto = val),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Your package slip numbers are set on auto-generate mode to save your time.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: textPrimary,
+                              fontFamily: 'Inter',
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Are you sure about changing this setting?',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: textPrimary,
-                      fontFamily: 'Inter',
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  InkWell(
-                    onTap: () => setState(() => _isAuto = true),
-                    child: Row(
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Are you sure about changing this setting?',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: textPrimary,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
                       children: [
-                        SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: Radio<bool>(
-                            value: true,
-                            groupValue: _isAuto,
-                            onChanged: (val) => setState(() => _isAuto = val!),
-                            activeColor: const Color(0xFF3B82F6),
-                          ),
+                        RadioGroupItem<bool>(
+                          value: true,
+                          activeColor: Color(0xFF3B82F6),
                         ),
                         const SizedBox(width: 8),
                         const Text(
@@ -2375,114 +2685,105 @@ class __PackagePreferencesDialogState extends State<_PackagePreferencesDialog> {
                         ),
                       ],
                     ),
-                  ),
-                  if (_isAuto) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(left: 48, top: 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Prefix',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: textSecondary,
-                                    fontFamily: 'Inter',
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                TextField(
-                                  controller: _prefixCtrl,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontFamily: 'Inter',
-                                  ),
-                                  decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
+                    if (_isAuto) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(left: 48, top: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Prefix',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: textSecondary,
+                                      fontFamily: 'Inter',
                                     ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                      borderSide: const BorderSide(
-                                        color: borderCol,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  TextField(
+                                    controller: _prefixCtrl,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontFamily: 'Inter',
+                                    ),
+                                    decoration: InputDecoration(
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                        borderSide: const BorderSide(
+                                          color: borderCol,
+                                        ),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                        borderSide: const BorderSide(
+                                          color: borderCol,
+                                        ),
                                       ),
                                     ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                      borderSide: const BorderSide(
-                                        color: borderCol,
-                                      ),
-                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Next Number',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: textSecondary,
-                                    fontFamily: 'Inter',
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                TextField(
-                                  controller: _numberCtrl,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontFamily: 'Inter',
-                                  ),
-                                  decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Next Number',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: textSecondary,
+                                      fontFamily: 'Inter',
                                     ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                      borderSide: const BorderSide(
-                                        color: borderCol,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  TextField(
+                                    controller: _numberCtrl,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontFamily: 'Inter',
+                                    ),
+                                    decoration: InputDecoration(
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                        borderSide: const BorderSide(
+                                          color: borderCol,
+                                        ),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                        borderSide: const BorderSide(
+                                          color: borderCol,
+                                        ),
                                       ),
                                     ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                      borderSide: const BorderSide(
-                                        color: borderCol,
-                                      ),
-                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  InkWell(
-                    onTap: () => setState(() => _isAuto = false),
-                    child: Row(
+                    ],
+                    const SizedBox(height: 16),
+                    Row(
                       children: [
-                        SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: Radio<bool>(
-                            value: false,
-                            groupValue: _isAuto,
-                            onChanged: (val) => setState(() => _isAuto = val!),
-                            activeColor: const Color(0xFF3B82F6),
-                          ),
+                        RadioGroupItem<bool>(
+                          value: false,
+                          activeColor: Color(0xFF3B82F6),
                         ),
                         const SizedBox(width: 8),
                         const Text(
@@ -2496,8 +2797,8 @@ class __PackagePreferencesDialogState extends State<_PackagePreferencesDialog> {
                         ),
                       ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             const Divider(height: 1, color: borderCol),
@@ -2589,6 +2890,7 @@ class _PackageBatchSelectionDialog extends ConsumerStatefulWidget {
   final String? itemId;
   final String itemName;
   final String warehouseName;
+  final String? warehouseId;
   final double totalQuantity;
   final List<_PackageBatch> savedBatches;
 
@@ -2596,6 +2898,7 @@ class _PackageBatchSelectionDialog extends ConsumerStatefulWidget {
     this.itemId,
     required this.itemName,
     required this.warehouseName,
+    this.warehouseId,
     required this.totalQuantity,
     this.savedBatches = const [],
   });
@@ -2608,27 +2911,24 @@ class _PackageBatchSelectionDialog extends ConsumerStatefulWidget {
 class _PackageBatchSelectionDialogState
     extends ConsumerState<_PackageBatchSelectionDialog> {
   final List<_PackageBatchRowController> _rows = [];
-  final List<String> _mockBinLocations = const <String>[
-    'A1-R1-S1',
-    'A1-R1-S2',
-    'A1-R2-S1',
-    'B1-R1-S1',
-    'B1-R2-S3',
-    'C1-R4-S2',
-  ];
+  final Set<int> _hoveredBatchRows = {};
+  List<String> _binLocations = [];
   bool _overwriteLineItem = false;
   bool _showMfgDetails = false;
   bool _showFocColumn = false;
+  bool _isLoadingBins = false;
   String? _dialogErrorMessage;
 
   @override
   void initState() {
     super.initState();
+    _loadBins();
     if (widget.savedBatches.isNotEmpty) {
       for (var b in widget.savedBatches) {
         final row = _PackageBatchRowController();
         row.binLocationCtrl.text = b.binLocation ?? '';
         row.batchRefCtrl.text = b.batchRef ?? '';
+        row.batchNoCtrl.text = b.batchNo;
         row.unitPackCtrl.text = b.unitPack ?? '';
         row.mrpCtrl.text = b.mrp ?? '';
         row.ptrCtrl.text = b.ptr ?? '';
@@ -2637,6 +2937,18 @@ class _PackageBatchSelectionDialogState
         row.mfgBatchCtrl.text = b.mfgBatch ?? '';
         row.qtyOutCtrl.text = b.quantity.toInt().toString();
         row.focCtrl.text = b.foc?.toInt().toString() ?? '';
+
+        if (b.expDate != null) {
+          try {
+            row.expDate = DateFormat('dd-MM-yyyy').parse(b.expDate!);
+          } catch (_) {}
+        }
+        if (b.mfgDate != null) {
+          try {
+            row.mfgDate = DateFormat('dd-MM-yyyy').parse(b.mfgDate!);
+          } catch (_) {}
+        }
+
         _rows.add(row);
       }
     } else {
@@ -2644,6 +2956,62 @@ class _PackageBatchSelectionDialogState
       if (_rows.isNotEmpty) {
         _rows[0].qtyOutCtrl.text = widget.totalQuantity.toInt().toString();
       }
+    }
+  }
+
+  Future<void> _loadBins() async {
+    String? warehouseId = widget.warehouseId;
+
+    // Fix: Properly await warehouse resolution if ID is missing
+    if (warehouseId == null || warehouseId.isEmpty) {
+      debugPrint('⚠️ Warehouse ID missing. Resolving from provider...');
+      try {
+        final warehouses = await ref.read(warehousesProvider.future);
+        if (warehouses.isNotEmpty) {
+          final defaultW = warehouses.firstWhere(
+            (w) => w.name == widget.warehouseName,
+            orElse: () => warehouses.first,
+          );
+          warehouseId = defaultW.id;
+          debugPrint('✅ Resolved warehouse ID to: $warehouseId');
+        }
+      } catch (e) {
+        debugPrint('❌ Failed to resolve warehouse: $e');
+      }
+    }
+
+    if (warehouseId == null || warehouseId.isEmpty) {
+      debugPrint('❌ Cannot load bins: Warehouse ID is still null');
+      return;
+    }
+
+    setState(() => _isLoadingBins = true);
+    try {
+      debugPrint(
+        '🔄 Loading bins for Packages - Warehouse: $warehouseId, Product: ${widget.itemId}',
+      );
+      final repository = ref.read(inventoryPicklistRepositoryProvider);
+      
+      // Using widget.itemId to filter bins by the specific product (same logic as Picklist)
+      final bins = await repository.getWarehouseBins(
+        warehouseId: warehouseId,
+        productId: widget.itemId, 
+      );
+      
+      debugPrint('📦 Found ${bins.length} bins from repository');
+      
+      if (mounted) {
+        setState(() {
+          _binLocations = bins
+              .map((b) => (b['binCode'] ?? b['bin_code'] ?? '').toString())
+              .where((c) => c.isNotEmpty)
+              .toList();
+          _isLoadingBins = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading bins: $e');
+      if (mounted) setState(() => _isLoadingBins = false);
     }
   }
 
@@ -2670,6 +3038,7 @@ class _PackageBatchSelectionDialogState
       _dialogErrorMessage = null;
       if (_rows.length == 1) {
         _rows[index].batchRefCtrl.clear();
+        _rows[index].batchNoCtrl.clear();
         _rows[index].qtyOutCtrl.clear();
       } else {
         _rows[index].dispose();
@@ -2686,18 +3055,18 @@ class _PackageBatchSelectionDialogState
     final isRequired = text.contains('*');
     return Expanded(
       flex: flex,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Text(
-          text,
-          textAlign: alignment,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: isRequired ? const Color(0xFFD32F2F) : _textPrimary,
-            fontFamily: 'Inter',
-          ),
-        ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                text,
+                textAlign: alignment,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isRequired ? const Color(0xFFD32F2F) : _textPrimary,
+                  fontFamily: 'Inter',
+                ),
+              ),
       ),
     );
   }
@@ -2707,52 +3076,131 @@ class _PackageBatchSelectionDialogState
     required int flex,
     required String hint,
     bool isNumber = false,
+    bool readOnly = false,
   }) {
     return Expanded(
       flex: flex,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: SizedBox(
-          height: 38,
-          child: TextField(
-            controller: controller,
-            keyboardType: isNumber
-                ? const TextInputType.numberWithOptions(decimal: true)
-                : null,
-            inputFormatters: isNumber
-                ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
-                : null,
-            textAlign: isNumber ? TextAlign.right : TextAlign.left,
-            textAlignVertical: TextAlignVertical.center,
-            strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
-            style: const TextStyle(
-              fontSize: 13,
-              color: _textPrimary,
-              fontFamily: 'Inter',
-            ),
-            decoration: InputDecoration(
-              isDense: false,
-              hintText: hint,
-              hintStyle: const TextStyle(color: _textSecondary, fontSize: 13),
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 12,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: TextField(
+                controller: controller,
+                readOnly: readOnly,
+                keyboardType: isNumber
+                    ? const TextInputType.numberWithOptions(decimal: true)
+                    : null,
+                inputFormatters: isNumber
+                    ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
+                    : null,
+                textAlign: isNumber ? TextAlign.right : TextAlign.left,
+                textAlignVertical: TextAlignVertical.center,
+                strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: readOnly ? _textSecondary : _textPrimary,
+                  fontFamily: 'Inter',
+                ),
+                decoration: InputDecoration(
+                  isDense: false,
+                  hintText: hint,
+                  hintStyle: const TextStyle(color: _textSecondary, fontSize: 13),
+                  filled: true,
+                  fillColor: readOnly ? const Color(0xFFF9FAFB) : Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 12,
+                  ),
+                  constraints: const BoxConstraints(minHeight: 38, maxHeight: 38),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide(
+                      color: readOnly ? const Color(0xFFE5E7EB) : _borderCol,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide(
+                      color: readOnly ? const Color(0xFFE5E7EB) : _focusBorder,
+                      width: 1.4,
+                    ),
+                  ),
+                ),
+                onChanged: (_) => setState(() => _dialogErrorMessage = null),
               ),
-              constraints: const BoxConstraints(minHeight: 38, maxHeight: 38),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: _borderCol),
+      ),
+    );
+  }
+
+  Widget _buildDatePicker({
+    required TextEditingController controller,
+    required GlobalKey anchorKey,
+    required int flex,
+    DateTime? currentDate,
+    required Function(DateTime) onDateChanged,
+    bool readOnly = false,
+  }) {
+    return Expanded(
+      flex: flex,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: SizedBox(
+                height: 38,
+                child: TextField(
+                  key: anchorKey,
+                  controller: controller,
+                  readOnly: true,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: readOnly ? _textSecondary : _textPrimary,
+                    fontFamily: 'Inter',
+                  ),
+                  decoration: InputDecoration(
+                    isDense: false,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 12,
+                    ),
+                    constraints: const BoxConstraints(minHeight: 38, maxHeight: 38),
+                    filled: true,
+                    fillColor: readOnly ? const Color(0xFFF9FAFB) : Colors.white,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(
+                        color: readOnly ? const Color(0xFFE5E7EB) : _borderCol,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(
+                        color: readOnly ? const Color(0xFFE5E7EB) : _focusBorder,
+                        width: 1.4,
+                      ),
+                    ),
+                    suffixIconConstraints: const BoxConstraints(
+                      minHeight: 38,
+                      maxHeight: 38,
+                      minWidth: 32,
+                      maxWidth: 32,
+                    ),
+                    suffixIcon: const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: Icon(LucideIcons.calendar, size: 14),
+                    ),
+                  ),
+                  onTap: readOnly
+                      ? null
+                      : () async {
+                          final d = await ZerpaiDatePicker.show(
+                            context,
+                            initialDate: currentDate ?? DateTime.now(),
+                            targetKey: anchorKey,
+                          );
+                          if (d != null) {
+                            onDateChanged(d);
+                            controller.text = DateFormat('dd-MM-yyyy').format(d);
+                          }
+                        },
+                ),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: _focusBorder, width: 1.4),
-              ),
-            ),
-            onChanged: (_) => setState(() => _dialogErrorMessage = null),
-          ),
-        ),
       ),
     );
   }
@@ -2766,8 +3214,8 @@ class _PackageBatchSelectionDialogState
       insetPadding: const EdgeInsets.fromLTRB(40, 0, 40, 40),
       child: SizedBox(
         width: _showMfgDetails
-            ? (_showFocColumn ? 1340 : 1180)
-            : (_showFocColumn ? 1060 : 860),
+            ? (_showFocColumn ? 1480 : 1320)
+            : (_showFocColumn ? 1320 : 1160),
         height: MediaQuery.of(context).size.height * 0.86,
         child: Column(
           children: [
@@ -2805,61 +3253,6 @@ class _PackageBatchSelectionDialogState
               ),
             ),
             const Divider(height: 1),
-            if (_dialogErrorMessage != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFDECEC),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFF9D3D3)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          '•',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 25,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _dialogErrorMessage!,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: _textPrimary,
-                            fontFamily: 'Inter',
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () => setState(() => _dialogErrorMessage = null),
-                        child: const Padding(
-                          padding: EdgeInsets.only(left: 8),
-                          child: Icon(
-                            LucideIcons.x,
-                            size: 16,
-                            color: _dangerRed,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             // Sub-header info
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -2969,294 +3362,367 @@ class _PackageBatchSelectionDialogState
               ),
             ),
             const SizedBox(height: 12),
-            // Table Header
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-              color: const Color(0xFFF9FAFB),
-              child: Row(
-                children: [
-                  _headerCell('BIN LOCATION*', 16),
-                  _headerCell('BATCH REF*', 16),
-                  _headerCell('UNIT PACK*', 14),
-                  _headerCell('MRP*', 14),
-                  _headerCell('PTR', 14),
-                  _headerCell('EXPIRY*', 18),
-                  if (_showMfgDetails) ...[
-                    _headerCell('MFG DATE', 14),
-                    _headerCell('MFG BATCH', 14),
-                  ],
-                  _headerCell('QTY OUT*', 14),
-                  if (_showFocColumn) _headerCell('FOC', 14),
-                  const SizedBox(width: 40),
-                ],
-              ),
-            ),
-            // Rows
+            // Table Content with Skeletonizer
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                itemCount: _rows.length,
-                itemBuilder: (context, i) {
-                  final r = _rows[i];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          flex: 16,
-                          child: SizedBox(
-                            height: 38,
-                            child: FormDropdown<String>(
-                              height: 38,
-                              value:
-                                  _mockBinLocations.contains(
-                                    r.binLocationCtrl.text,
-                                  )
-                                  ? r.binLocationCtrl.text
-                                  : null,
-                              items: _mockBinLocations,
-                              hint: 'Select Bin',
-                              displayStringForValue: (v) => v,
-                              onChanged: (v) => setState(
-                                () => r.binLocationCtrl.text = v ?? '',
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 16,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: SizedBox(
-                              height: 38,
-                              child: Consumer(
-                                builder: (context, ref, _) {
-                                  final batchesAsync = ref.watch(
-                                    batchLookupProvider(widget.itemId ?? ''),
-                                  );
-                                  final batches = batchesAsync.value ?? [];
-
-                                  return FormDropdown<Map<String, dynamic>>(
-                                    height: 38,
-                                    isLoading: batchesAsync.isLoading,
-                                    value: batches
-                                        .where(
-                                          (b) => b['id'] == r.batchRefCtrl.text,
-                                        )
-                                        .firstOrNull,
-                                    items: batches,
-                                    hint: batchesAsync.isLoading
-                                        ? 'Loading...'
-                                        : (batches.isEmpty
-                                              ? 'No batches available'
-                                              : 'Select Ref'),
-                                    displayStringForValue: (b) =>
-                                        b['batch_no']?.toString() ?? '',
-                                    onChanged: (v) {
-                                      if (v != null) {
-                                        setState(() {
-                                          r.batchRefCtrl.text =
-                                              v['id']?.toString() ?? '';
-                                          if (v['expiry_date'] != null) {
-                                            try {
-                                              r.expDateCtrl.text =
-                                                  DateFormat(
-                                                    'dd-MM-yyyy',
-                                                  ).format(
-                                                    DateTime.parse(
-                                                      v['expiry_date']
-                                                          .toString(),
-                                                    ),
-                                                  );
-                                            } catch (_) {}
-                                          }
-                                          if (v['unit_pack'] != null) {
-                                            r.unitPackCtrl.text = v['unit_pack']
-                                                .toString();
-                                          }
-                                          final prices = v['prices'] as List?;
-                                          if (prices != null &&
-                                              prices.isNotEmpty) {
-                                            r.mrpCtrl.text =
-                                                prices[0]['mrp']?.toString() ??
-                                                '';
-                                            r.ptrCtrl.text =
-                                                prices[0]['ptr']?.toString() ??
-                                                '';
-                                          }
-                                          if (v['manufacture_batch_number'] !=
-                                              null) {
-                                            r.mfgBatchCtrl.text =
-                                                v['manufacture_batch_number']
-                                                    .toString();
-                                          }
-                                          if (v['manufacture_exp'] != null) {
-                                            try {
-                                              r.mfgDateCtrl.text =
-                                                  DateFormat(
-                                                    'dd-MM-yyyy',
-                                                  ).format(
-                                                    DateTime.parse(
-                                                      v['manufacture_exp']
-                                                          .toString(),
-                                                    ),
-                                                  );
-                                            } catch (_) {}
-                                          }
-                                        });
-                                      }
-                                    },
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 8,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                        _buildInput(
-                          controller: r.unitPackCtrl,
-                          flex: 14,
-                          hint: 'Unit Pack',
-                          isNumber: true,
-                        ),
-                        _buildInput(
-                          controller: r.mrpCtrl,
-                          flex: 14,
-                          hint: 'MRP',
-                          isNumber: true,
-                        ),
-                        _buildInput(
-                          controller: r.ptrCtrl,
-                          flex: 14,
-                          hint: 'PTR',
-                          isNumber: true,
-                        ),
-                        Expanded(
-                          flex: 18,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: SizedBox(
-                              height: 38,
-                              child: TextField(
-                                key: r.expDateKey,
-                                controller: r.expDateCtrl,
-                                readOnly: true,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontFamily: 'Inter',
-                                ),
-                                decoration: InputDecoration(
-                                  isDense: false,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 12,
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    minHeight: 38,
-                                    maxHeight: 38,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  suffixIconConstraints: const BoxConstraints(
-                                    minHeight: 38,
-                                    maxHeight: 38,
-                                    minWidth: 32,
-                                    maxWidth: 32,
-                                  ),
-                                  suffixIcon: const Padding(
-                                    padding: EdgeInsets.only(right: 8),
-                                    child: Icon(LucideIcons.calendar, size: 14),
-                                  ),
-                                ),
-                                onTap: () async {
-                                  final d = await ZerpaiDatePicker.show(
-                                    context,
-                                    initialDate: DateTime.now(),
-                                    targetKey: r.expDateKey,
-                                  );
-                                  if (d != null) {
-                                    setState(
-                                      () => r.expDateCtrl.text = DateFormat(
-                                        'dd-MM-yyyy',
-                                      ).format(d),
-                                    );
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (_showMfgDetails) ...[
-                          _buildInput(
-                            controller: r.mfgDateCtrl,
-                            flex: 14,
-                            hint: 'MFG Date',
-                          ), // Simplified for now
-                          _buildInput(
-                            controller: r.mfgBatchCtrl,
-                            flex: 14,
-                            hint: 'MFG Batch',
-                          ),
+              child: Skeletonizer(
+                enabled: _isLoadingBins,
+                child: Column(
+                  children: [
+                    // Table Header
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                      color: const Color(0xFFF9FAFB),
+                      child: Row(
+                        children: [
+                          _headerCell('BIN LOCATION*', 15),
+                          _headerCell('BATCH NO*', 15),
+                          _headerCell('UNIT PACK*', 15),
+                          _headerCell('MRP*', 15),
+                          _headerCell('PTR', 15),
+                          _headerCell('EXPIRY DATE*', 15),
+                          if (_showMfgDetails) ...[
+                            _headerCell('MANUFACTURED DATE', 15),
+                            _headerCell('MANUFACTURER BATCH', 15),
+                          ],
+                          _headerCell('QUANTITY OUT*', 15),
+                          if (_showFocColumn) _headerCell('FOC', 15),
+                          const SizedBox(width: 24),
                         ],
-                        _buildInput(
-                          controller: r.qtyOutCtrl,
-                          flex: 14,
-                          hint: 'Qty',
-                          isNumber: true,
-                        ),
-                        if (_showFocColumn)
-                          _buildInput(
-                            controller: r.focCtrl,
-                            flex: 14,
-                            hint: 'FOC',
-                            isNumber: true,
-                          ),
-                        IconButton(
-                          onPressed: () => _removeRow(i),
-                          icon: const Icon(
-                            LucideIcons.xCircle,
-                            size: 20,
-                            color: _dangerRed,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
+                    // Rows
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.45,
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        itemCount: _rows.length,
+                        itemBuilder: (context, i) {
+                  final r = _rows[i];
+                  final isRowHovered = _hoveredBatchRows.contains(i);
+                  return Column(
+                    children: [
+                      MouseRegion(
+                        onEnter: (_) =>
+                            setState(() => _hoveredBatchRows.add(i)),
+                        onExit: (_) =>
+                            setState(() => _hoveredBatchRows.remove(i)),
+                        child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                              Expanded(
+                              flex: 15,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                            ),
+                                  child: _BinHoverBox(
+                                    isEnabled:
+                                        r.binLocationCtrl.text.isNotEmpty,
+                                    message: r.binLocationCtrl.text,
+                                    child: SizedBox(
+                                      height: 38,
+                                      child: FormDropdown<String>(
+                                        height: 38,
+                                        maxVisibleItems: 4,
+                                        menuMaxHeight: 220,
+                                        showSearch: true,
+                                        value:
+                                            _binLocations.contains(
+                                              r.binLocationCtrl.text.trim(),
+                                            )
+                                            ? r.binLocationCtrl.text.trim()
+                                            : null,
+                                        items: _binLocations,
+                                        hint: 'Select Bin',
+                                        displayStringForValue: (v) => v,
+                                        onChanged: (v) => setState(
+                                          () =>
+                                              r.binLocationCtrl.text = v ?? '',
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 8,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Batch No — FormDropdown from batch_master
+                              Expanded(
+                              flex: 15,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: SizedBox(
+                                    height: 38,
+                                    child: Consumer(
+                                      builder: (context, ref, _) {
+                                        final batchesAsync = ref.watch(
+                                          batchLookupProvider(
+                                            widget.itemId ?? '',
+                                          ),
+                                        );
+                                        final batches =
+                                            batchesAsync.value ?? [];
+
+                                        return FormDropdown<
+                                          Map<String, dynamic>
+                                        >(
+                                          height: 38,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          border: Border.all(color: _borderCol),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 8,
+                                          ),
+                                          value:
+                                              batches
+                                                  .firstWhere(
+                                                    (b) =>
+                                                        b['batch_no']
+                                                            ?.toString()
+                                                            .trim() ==
+                                                        r.batchRefCtrl.text
+                                                            .trim(),
+                                                    orElse: () =>
+                                                        <String, dynamic>{},
+                                                  )
+                                                  .isEmpty
+                                              ? null
+                                              : batches.firstWhere(
+                                                  (b) =>
+                                                      b['batch_no']
+                                                          ?.toString()
+                                                          .trim() ==
+                                                      r.batchRefCtrl.text
+                                                          .trim(),
+                                                  orElse: () => batches.first,
+                                                ),
+                                          items: batches,
+                                          hint: 'Select Batch',
+                                          showSearch: true,
+                                          itemBuilder:
+                                              (item, isSelected, isHovered) {
+                                                final batchNo =
+                                                    item['batch_no']
+                                                        ?.toString() ??
+                                                    '-';
+                                                final balance =
+                                                    item['balance']
+                                                        ?.toString() ??
+                                                    '0';
+                                                final expDate =
+                                                    item['expiry_date']
+                                                        ?.toString() ??
+                                                    '-';
+                                                final mrp =
+                                                    item['mrp']?.toString() ??
+                                                    '0.00';
+                                                final ptr =
+                                                    item['ptr']?.toString() ??
+                                                    '0.00';
+
+                                                final displayText =
+                                                    '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | PTR: $ptr';
+
+                                                return Container(
+                                                  width: double.infinity,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 8,
+                                                      ),
+                                                  color: isHovered
+                                                      ? const Color(0xFF3B82F6)
+                                                      : (isSelected
+                                                            ? const Color(
+                                                                0xFFF3F4F6,
+                                                              )
+                                                            : Colors
+                                                                  .transparent),
+                                                  child: Text(
+                                                    displayText,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: isHovered
+                                                          ? Colors.white
+                                                          : const Color(
+                                                              0xFF1F2937,
+                                                            ),
+                                                      fontFamily: 'Inter',
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                          displayStringForValue: (v) =>
+                                              v['batch_no']?.toString() ?? '',
+                                          searchStringForValue: (v) =>
+                                              v['batch_no']?.toString() ?? '',
+                                          onChanged: (v) {
+                                            setState(() {
+                                              if (v != null) {
+                                                final batchNo = v['batch_no']
+                                                    ?.toString()
+                                                    .trim();
+                                                r.batchRefCtrl.text =
+                                                    batchNo ?? '';
+                                                r.batchNoCtrl.text =
+                                                    batchNo ?? '';
+
+                                                // Auto-fill details from selected batch map
+                                                r.unitPackCtrl.text =
+                                                    v['unit_pack']
+                                                        ?.toString() ??
+                                                    '';
+                                                r.expDateCtrl.text =
+                                                    v['expiry_date']
+                                                        ?.toString() ??
+                                                    '';
+
+                                                final prices =
+                                                    v['prices'] as List?;
+                                                if (prices != null &&
+                                                    prices.isNotEmpty) {
+                                                  final p = prices[0];
+                                                  r.mrpCtrl.text =
+                                                      (p['mrp'] as num?)
+                                                          ?.toDouble()
+                                                          .toStringAsFixed(2) ??
+                                                      '0.00';
+                                                  r.ptrCtrl.text =
+                                                      (p['ptr'] as num?)
+                                                          ?.toDouble()
+                                                          .toStringAsFixed(2) ??
+                                                      '0.00';
+                                                }
+                                              }
+                                            });
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                            ),
+                            _buildInput(
+                              controller: r.unitPackCtrl,
+                              flex: 15,
+                                hint: 'Pack',
+                                isNumber: true,
+                              readOnly: true,
+                            ),
+                            _buildInput(
+                              controller: r.mrpCtrl,
+                              flex: 15,
+                                hint: '0',
+                              isNumber: true,
+                              readOnly: true,
+                            ),
+                            _buildInput(
+                              controller: r.ptrCtrl,
+                              flex: 15,
+                                hint: '0',
+                              isNumber: true,
+                              readOnly: true,
+                            ),
+                            _buildDatePicker(
+                              controller: r.expDateCtrl,
+                              anchorKey: r.expKey,
+                              flex: 15,
+                              currentDate: r.expDate,
+                                onDateChanged: (d) =>
+                                    setState(() => r.expDate = d),
+                              readOnly: true,
+                            ),
+                            if (_showMfgDetails) ...[
+                              _buildDatePicker(
+                                controller: r.mfgDateCtrl,
+                                anchorKey: r.mfgKey,
+                                flex: 15,
+                                currentDate: r.mfgDate,
+                                  onDateChanged: (d) =>
+                                      setState(() => r.mfgDate = d),
+                                readOnly: true,
+                              ),
+                              _buildInput(
+                                controller: r.mfgBatchCtrl,
+                                flex: 15,
+                                hint: 'Mfg Batch',
+                                readOnly: true,
+                              ),
+                            ],
+                              _buildInput(
+                                controller: r.qtyOutCtrl,
+                                flex: 15,
+                                hint: '0',
+                                isNumber: true,
+                              ),
+                              if (_showFocColumn)
+                            _buildInput(
+                                  controller: r.focCtrl,
+                              flex: 15,
+                              hint: '0',
+                              isNumber: true,
+                            ),
+                            SizedBox(
+                                width: 24,
+                                child: AnimatedOpacity(
+                                  opacity: isRowHovered ? 1 : 0,
+                                  duration: const Duration(milliseconds: 120),
+                              child: IconButton(
+                                onPressed: () => _removeRow(i),
+                                    tooltip: 'Remove row',
+                                    padding: EdgeInsets.zero,
+                                icon: const Icon(
+                                      LucideIcons.x,
+                                      size: 15,
+                                  color: _dangerRed,
+                                    ),
+                                ),
+                              ),
+                            ),
+                          ],
+                          ),
+                        ),
+                      ),
+                      if (i < _rows.length - 1)
+                        const Divider(height: 1, color: _borderCol),
+                    ],
                   );
                 },
               ),
             ),
-            // Actions below table
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Row(
                 children: [
                   InkWell(
                     onTap: _addRow,
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           LucideIcons.plusCircle,
-                          size: 16,
-                          color: _greenBtn,
+                          size: 14,
+                          color: Colors.blue.shade600,
                         ),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Text(
                           'New Row',
                           style: TextStyle(
                             fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: _greenBtn,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.blue.shade600,
                             fontFamily: 'Inter',
                           ),
                         ),
@@ -3266,103 +3732,136 @@ class _PackageBatchSelectionDialogState
                   const Spacer(),
                   Text(
                     'Batches added: ${_rows.length}/100',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: _textSecondary,
-                      fontFamily: 'Inter',
-                    ),
+                    style: const TextStyle(fontSize: 13, color: _textPrimary),
                   ),
                 ],
               ),
             ),
-            // Footer
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            const Divider(height: 1, color: _borderCol),
+            // Locked footer for Save/Cancel buttons
+            Container(
+              padding: const EdgeInsets.all(24),
               child: Row(
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      // Validate mandatory fields for rows with qty > 0
-                      for (int i = 0; i < _rows.length; i++) {
-                        final r = _rows[i];
-                        final qtyStr = r.qtyOutCtrl.text.trim();
-                        final qty = double.tryParse(qtyStr) ?? 0;
+                      for (var i = 0; i < _rows.length; i++) {
+                        final row = _rows[i];
+                        if (row.binLocationCtrl.text.isEmpty) {
+                          ZerpaiToast.error(
+                            context,
+                            'Please select Bin Location in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+                        if (row.batchRefCtrl.text.isEmpty) {
+                          ZerpaiToast.error(
+                            context,
+                            'Please select Batch Reference in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+                        if (row.batchNoCtrl.text.isEmpty) {
+                          ZerpaiToast.error(
+                            context,
+                            'Please enter Batch No in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+                        if (row.unitPackCtrl.text.isEmpty) {
+                          ZerpaiToast.error(
+                            context,
+                            'Please enter Unit Pack in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+                        if (row.mrpCtrl.text.isEmpty) {
+                          ZerpaiToast.error(
+                            context,
+                            'Please enter MRP in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+                        if (row.expDateCtrl.text.isEmpty) {
+                          ZerpaiToast.error(
+                            context,
+                            'Please select Expiry Date in Row ${i + 1}.',
+                          );
+                          return;
+                        }
 
-                        if (qty > 0) {
-                          if (r.binLocationCtrl.text.isEmpty) {
-                            setState(
-                              () => _dialogErrorMessage =
-                                  'Please select Bin Location in row ${i + 1}',
-                            );
-                            return;
-                          }
-                          if (r.batchRefCtrl.text.isEmpty) {
-                            setState(
-                              () => _dialogErrorMessage =
-                                  'Please select Batch Reference in row ${i + 1}',
-                            );
-                            return;
-                          }
-                          if (r.unitPackCtrl.text.isEmpty) {
-                            setState(
-                              () => _dialogErrorMessage =
-                                  'Please enter Unit Pack in row ${i + 1}',
-                            );
-                            return;
-                          }
-                          if (r.mrpCtrl.text.isEmpty) {
-                            setState(
-                              () => _dialogErrorMessage =
-                                  'Please enter MRP in row ${i + 1}',
-                            );
-                            return;
-                          }
-                          if (r.expDateCtrl.text.isEmpty) {
-                            setState(
-                              () => _dialogErrorMessage =
-                                  'Please select Expiry Date in row ${i + 1}',
-                            );
-                            return;
-                          }
+                        // Rule: Either Quantity Out or FOC must be filled
+                        final qtyOut =
+                            double.tryParse(row.qtyOutCtrl.text.trim()) ?? 0;
+                        final foc =
+                            double.tryParse(row.focCtrl.text.trim()) ?? 0;
+                        if (qtyOut <= 0 && foc <= 0) {
+                          ZerpaiToast.error(
+                            context,
+                            'Either Quantity Out or FOC must be filled in Row ${i + 1}.',
+                          );
+                          return;
                         }
                       }
+
+                    // Check for duplicate Bin Location + Batch No
+                    final seenPairs = <String>{};
+                    for (var i = 0; i < _rows.length; i++) {
+                      final row = _rows[i];
+                      final bin = row.binLocationCtrl.text.trim();
+                      final batch = row.batchNoCtrl.text.trim();
+                      if (bin.isNotEmpty && batch.isNotEmpty) {
+                        final pair = '$bin|$batch';
+                        if (seenPairs.contains(pair)) {
+                          ZerpaiToast.error(
+                            context,
+                            'Same Bin Location and Batch No can\'t be used multiple times.',
+                          );
+                          return;
+                        }
+                        seenPairs.add(pair);
+                      }
+                    }
+
+                    final totalApplied = _totalQuantityOut;
+                    if ((totalApplied - widget.totalQuantity).abs() > 0.0001 &&
+                        !_overwriteLineItem) {
+                      ZerpaiToast.error(
+                        context,
+                        'Total Quantity Out ($totalApplied) must be equal to Total Quantity (${widget.totalQuantity.toInt()}) unless overwrite is enabled.',
+                      );
+                      return;
+                    }
 
                       final batches = _rows
                           .map(
                             (r) => _PackageBatch(
-                              batchNo: r.batchRefCtrl.text,
-                              quantity: double.tryParse(r.qtyOutCtrl.text) ?? 0,
                               binLocation: r.binLocationCtrl.text,
                               batchRef: r.batchRefCtrl.text,
+                              batchNo: r.batchNoCtrl.text,
                               unitPack: r.unitPackCtrl.text,
                               mrp: r.mrpCtrl.text,
                               ptr: r.ptrCtrl.text,
                               expDate: r.expDateCtrl.text,
                               mfgDate: r.mfgDateCtrl.text,
                               mfgBatch: r.mfgBatchCtrl.text,
+                              quantity: double.tryParse(r.qtyOutCtrl.text) ?? 0,
                               foc: double.tryParse(r.focCtrl.text),
                             ),
                           )
-                          .where((b) => b.quantity > 0)
                           .toList();
 
-                      if (batches.isEmpty) {
-                        setState(
-                          () => _dialogErrorMessage =
-                              'Please add at least one row with quantity',
-                        );
-                        return;
-                      }
                       Navigator.pop(
                         context,
                         _PackageBatchDialogResult(
                           overwriteLineItem: _overwriteLineItem,
                           batchCount: batches.length,
-                          appliedQuantity: batches.fold(
-                            0.0,
-                            (s, b) => s + b.quantity,
-                          ),
+                          appliedQuantity: totalApplied,
                           batches: batches,
                         ),
                       );
@@ -3370,31 +3869,31 @@ class _PackageBatchSelectionDialogState
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _greenBtn,
                       foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 12,
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      elevation: 0,
                     ),
                     child: const Text(
                       'Save',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _textPrimary,
                       side: const BorderSide(color: _borderCol),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
+                        horizontal: 20,
                         vertical: 12,
                       ),
                       shape: RoundedRectangleBorder(
@@ -3404,8 +3903,8 @@ class _PackageBatchSelectionDialogState
                     child: const Text(
                       'Cancel',
                       style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -3422,6 +3921,7 @@ class _PackageBatchSelectionDialogState
 class _PackageBatchRowController {
   final TextEditingController binLocationCtrl = TextEditingController();
   final TextEditingController batchRefCtrl = TextEditingController();
+  final TextEditingController batchNoCtrl = TextEditingController();
   final TextEditingController unitPackCtrl = TextEditingController();
   final TextEditingController mrpCtrl = TextEditingController();
   final TextEditingController ptrCtrl = TextEditingController();
@@ -3431,12 +3931,15 @@ class _PackageBatchRowController {
   final TextEditingController mfgDateCtrl = TextEditingController();
   final TextEditingController mfgBatchCtrl = TextEditingController();
 
-  final GlobalKey expDateKey = GlobalKey();
-  final GlobalKey mfgDateKey = GlobalKey();
+  final GlobalKey expKey = GlobalKey();
+  final GlobalKey mfgKey = GlobalKey();
+  DateTime? expDate;
+  DateTime? mfgDate;
 
   void dispose() {
     binLocationCtrl.dispose();
     batchRefCtrl.dispose();
+    batchNoCtrl.dispose();
     unitPackCtrl.dispose();
     mrpCtrl.dispose();
     ptrCtrl.dispose();
@@ -3445,5 +3948,100 @@ class _PackageBatchRowController {
     expDateCtrl.dispose();
     mfgDateCtrl.dispose();
     mfgBatchCtrl.dispose();
+  }
+}
+
+class _BinHoverBox extends StatefulWidget {
+  final String message;
+  final Widget child;
+  final bool isEnabled;
+
+  const _BinHoverBox({
+    required this.message,
+    required this.child,
+    this.isEnabled = true,
+  });
+
+  @override
+  State<_BinHoverBox> createState() => _BinHoverBoxState();
+}
+
+class _BinHoverBoxState extends State<_BinHoverBox> {
+  OverlayEntry? _entry;
+  final LayerLink _layerLink = LayerLink();
+
+  void _showOverlay() {
+    if (_entry != null || !widget.isEnabled) return;
+    _entry = _createOverlayEntry();
+    Overlay.of(context).insert(_entry!);
+  }
+
+  void _hideOverlay() {
+    _entry?.remove();
+    _entry = null;
+  }
+
+  OverlayEntry _createOverlayEntry() {
+    return OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          CompositedTransformFollower(
+            link: _layerLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomCenter,
+            followerAnchor: Alignment.topCenter,
+            offset: const Offset(0, 4),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 250),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Text(
+                  widget.message,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF1F2937),
+                    fontFamily: 'Inter',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _hideOverlay();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: MouseRegion(
+        onEnter: (_) => _showOverlay(),
+        onExit: (_) => _hideOverlay(),
+        child: widget.child,
+      ),
+    );
   }
 }

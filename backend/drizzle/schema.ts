@@ -13,6 +13,8 @@ export const branchType = pgEnum("branch_type", ['FOCO', 'COCO', 'FICO', 'FOFO',
 export const challanType = pgEnum("challan_type", ['supply', 'job_work', 'other'])
 export const compositeType = pgEnum("composite_type", ['assembly', 'kit'])
 export const hsnSacType = pgEnum("hsn_sac_type", ['HSN', 'SAC'])
+export const inventoryAdjustmentStatus = pgEnum("inventory_adjustment_status", ['draft', 'submitted', 'approved', 'rejected', 'cancelled'])
+export const inventoryAdjustmentType = pgEnum("inventory_adjustment_type", ['quantity', 'value'])
 export const inventoryValuationMethod = pgEnum("inventory_valuation_method", ['FIFO', 'LIFO', 'Weighted Average', 'Specific Identification', 'FEFO'])
 export const locationType = pgEnum("location_type", ['business', 'warehouse'])
 export const productType = pgEnum("product_type", ['goods', 'service'])
@@ -146,12 +148,23 @@ export const batchStockLayers = pgTable("batch_stock_layers", {
 	refType: varchar("ref_type", { length: 30 }).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	reservedQty: numeric("reserved_qty", { precision: 15, scale:  3 }).default('0').notNull(),
 }, (table) => [
 	index("idx_batch_stock_layers_bin_id").using("btree", table.binId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.productId],
 			foreignColumns: [products.id],
 			name: "batch_stock_layers_product_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.vendorId],
+			foreignColumns: [vendors.id],
+			name: "batch_stock_layers_vendor_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.warehouseId],
+			foreignColumns: [warehouses.id],
+			name: "batch_stock_layers_warehouse_id_fkey"
 		}),
 	foreignKey({
 			columns: [table.batchId],
@@ -447,10 +460,12 @@ export const products = pgTable("products", {
 	sideEffects: jsonb("side_effects"),
 	faqText: jsonb("faq_text"),
 }, (table) => [
-	index("idx_products_active_created_id").using("btree", table.isActive.asc().nullsLast().op("bool_ops"), table.createdAt.desc().nullsFirst().op("timestamp_ops"), table.id.desc().nullsFirst().op("bool_ops")),
+	index("idx_products_active_created_id").using("btree", table.isActive.asc().nullsLast().op("bool_ops"), table.createdAt.desc().nullsFirst().op("timestamp_ops"), table.id.desc().nullsFirst().op("uuid_ops")),
 	index("idx_products_ean").using("btree", table.ean.asc().nullsLast().op("text_ops")),
 	index("idx_products_name_trgm").using("gin", sql`lower((product_name)::text)`),
 	index("idx_products_sku").using("btree", table.sku.asc().nullsLast().op("text_ops")),
+	index("products_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamp_ops")),
+	index("products_created_at_idx1").using("btree", table.createdAt.asc().nullsLast().op("timestamp_ops")),
 	foreignKey({
 			columns: [table.brandId],
 			foreignColumns: [brands.id],
@@ -572,6 +587,43 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
 			foreignColumns: [taxRates.id],
 			name: "purchases_purchase_order_items_tax_id_fkey"
 		}),
+]);
+
+export const inventoryAdjustmentValueItems = pgTable("inventory_adjustment_value_items", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	adjustmentId: uuid("adjustment_id").notNull(),
+	entityId: uuid("entity_id").notNull(),
+	productId: uuid("product_id").notNull(),
+	batchId: uuid("batch_id"),
+	batchStockLayerId: uuid("batch_stock_layer_id"),
+	currentValue: numeric("current_value", { precision: 18, scale:  2 }).default('0').notNull(),
+	changedValue: numeric("changed_value", { precision: 18, scale:  2 }).default('0').notNull(),
+	adjustedValue: numeric("adjusted_value", { precision: 18, scale:  2 }).default('0').notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_inv_adj_value_items_adj").using("btree", table.adjustmentId.asc().nullsLast().op("uuid_ops")),
+	index("idx_inv_adj_value_items_entity").using("btree", table.entityId.asc().nullsLast().op("uuid_ops"), table.productId.asc().nullsLast().op("uuid_ops"), table.batchId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.adjustmentId],
+			foreignColumns: [inventoryAdjustments.id],
+			name: "inventory_adjustment_value_items_adjustment_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.batchId],
+			foreignColumns: [batchMaster.id],
+			name: "inventory_adjustment_value_items_batch_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.entityId],
+			foreignColumns: [organisationBranchMaster.id],
+			name: "inventory_adjustment_value_items_entity_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.productId],
+			foreignColumns: [products.id],
+			name: "inventory_adjustment_value_items_product_id_fkey"
+		}).onDelete("restrict"),
 ]);
 
 export const taxRates = pgTable("tax_rates", {
@@ -722,13 +774,42 @@ export const shipmentPreferences = pgTable("shipment_preferences", {
 	unique("shipment_preferences_name_key").on(table.name),
 ]);
 
+export const inventoryAdjustmentAccountEntries = pgTable("inventory_adjustment_account_entries", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	adjustmentId: uuid("adjustment_id").notNull(),
+	entityId: uuid("entity_id").notNull(),
+	accountId: uuid("account_id").notNull(),
+	debit: numeric({ precision: 18, scale:  2 }).default('0').notNull(),
+	credit: numeric({ precision: 18, scale:  2 }).default('0').notNull(),
+	description: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_inv_adj_acc_entries_adj").using("btree", table.adjustmentId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.accountId],
+			foreignColumns: [accounts.id],
+			name: "inventory_adjustment_account_entries_account_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.adjustmentId],
+			foreignColumns: [inventoryAdjustments.id],
+			name: "inventory_adjustment_account_entries_adjustment_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.entityId],
+			foreignColumns: [organisationBranchMaster.id],
+			name: "inventory_adjustment_account_entries_entity_id_fkey"
+		}).onDelete("restrict"),
+]);
+
 export const priceLists = pgTable("price_lists", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 255 }).notNull(),
-	description: text().default('),
+	description: text().default(''),
 	currency: varchar({ length: 20 }).default('INR'),
 	pricingScheme: varchar("pricing_scheme", { length: 50 }).notNull(),
-	details: text().default('),
+	details: text().default(''),
 	roundOffPreference: varchar("round_off_preference", { length: 50 }).default('never_mind'),
 	status: varchar({ length: 20 }).default('active'),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
@@ -938,6 +1019,67 @@ export const salesOrderAttachments = pgTable("sales_order_attachments", {
 		}).onDelete("cascade"),
 ]);
 
+export const picklistMaster = pgTable("picklist_master", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	picklistNo: varchar("picklist_no", { length: 50 }).notNull(),
+	entityId: uuid("entity_id").notNull(),
+	warehouseId: uuid("warehouse_id").notNull(),
+	assigneeId: uuid("assignee_id"),
+	picklistDate: date("picklist_date").notNull(),
+	status: text(),
+	notes: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("picklist_master_picklist_no_key").on(table.picklistNo),
+]);
+
+export const inventoryAdjustmentItems = pgTable("inventory_adjustment_items", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	adjustmentId: uuid("adjustment_id").notNull(),
+	entityId: uuid("entity_id").notNull(),
+	productId: uuid("product_id").notNull(),
+	quantityBefore: numeric("quantity_before", { precision: 15, scale:  2 }).default('0').notNull(),
+	quantityAdjusted: numeric("quantity_adjusted", { precision: 15, scale:  2 }).default('0').notNull(),
+	quantityAfter: numeric("quantity_after", { precision: 15, scale:  2 }).default('0').notNull(),
+	costPrice: numeric("cost_price", { precision: 15, scale:  2 }),
+	purchaseRate: numeric("purchase_rate", { precision: 15, scale:  2 }),
+	mrp: numeric({ precision: 15, scale:  2 }),
+	adjustmentValue: numeric("adjustment_value", { precision: 15, scale:  2 }).default('0').notNull(),
+	batchId: uuid("batch_id"),
+	batchReference: varchar("batch_reference", { length: 150 }),
+	batchAllocations: jsonb("batch_allocations").default([]).notNull(),
+	reportingTags: jsonb("reporting_tags").default({}).notNull(),
+	mfdMonthYear: varchar("mfd_month_year", { length: 7 }),
+	expiryMonthYear: varchar("expiry_month_year", { length: 7 }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_inv_adj_items_adj").using("btree", table.adjustmentId.asc().nullsLast().op("uuid_ops")),
+	index("idx_inv_adj_items_entity").using("btree", table.entityId.asc().nullsLast().op("uuid_ops"), table.productId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.adjustmentId],
+			foreignColumns: [inventoryAdjustments.id],
+			name: "inventory_adjustment_items_adjustment_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.batchId],
+			foreignColumns: [batchMaster.id],
+			name: "inventory_adjustment_items_batch_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.entityId],
+			foreignColumns: [organisationBranchMaster.id],
+			name: "inventory_adjustment_items_entity_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.productId],
+			foreignColumns: [products.id],
+			name: "inventory_adjustment_items_product_id_fkey"
+		}).onDelete("restrict"),
+	check("chk_inv_adj_items_expiry_mm_yyyy", sql`(expiry_month_year IS NULL) OR ((expiry_month_year)::text ~ '^(0[1-9]|1[0-2])/[0-9]{4}$'::text)`),
+	check("chk_inv_adj_items_mfd_mm_yyyy", sql`(mfd_month_year IS NULL) OR ((mfd_month_year)::text ~ '^(0[1-9]|1[0-2])/[0-9]{4}$'::text)`),
+]);
+
 export const manualJournalAttachments = pgTable("manual_journal_attachments", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	manualJournalId: uuid("manual_journal_id").notNull(),
@@ -1047,6 +1189,8 @@ export const productContents = pgTable("product_contents", {
 	displayOrder: integer("display_order").default(0),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 }, (table) => [
+	index("product_contents_product_id_idx").using("btree", table.productId.asc().nullsLast().op("uuid_ops")),
+	index("product_contents_product_id_idx1").using("btree", table.productId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.contentId],
 			foreignColumns: [contents.id],
@@ -1066,6 +1210,25 @@ export const productContents = pgTable("product_contents", {
 			columns: [table.strengthId],
 			foreignColumns: [drugStrengths.id],
 			name: "product_contents_strength_id_fkey"
+		}),
+]);
+
+export const picklistItems = pgTable("picklist_items", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	picklistId: uuid("picklist_id").notNull(),
+	productId: uuid("product_id").notNull(),
+	salesOrderId: uuid("sales_order_id"),
+	salesOrderLineId: uuid("sales_order_line_id"),
+	qtyOrdered: numeric("qty_ordered", { precision: 15, scale:  3 }),
+	qtyToPick: numeric("qty_to_pick", { precision: 15, scale:  3 }),
+	qtyPicked: numeric("qty_picked", { precision: 15, scale:  3 }).default('0'),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	status: text(),
+}, (table) => [
+	foreignKey({
+			columns: [table.picklistId],
+			foreignColumns: [picklistMaster.id],
+			name: "picklist_items_picklist_id_fkey"
 		}),
 ]);
 
@@ -1338,6 +1501,39 @@ export const vendors = pgTable("vendors", {
 			name: "vendors_entity_id_fkey"
 		}),
 	unique("vendors_vendor_number_unique").on(table.vendorNumber),
+]);
+
+export const picklistBatchAllocation = pgTable("picklist_batch_allocation", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	picklistItemId: uuid("picklist_item_id").notNull(),
+	batchId: uuid("batch_id").notNull(),
+	layerId: varchar("layer_id", { length: 100 }).notNull(),
+	warehouseId: uuid("warehouse_id").notNull(),
+	binId: uuid("bin_id").notNull(),
+	qty: numeric({ precision: 15, scale:  3 }).notNull(),
+	focQty: numeric("foc_qty", { precision: 15, scale:  3 }).default('0'),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.batchId],
+			foreignColumns: [batchMaster.id],
+			name: "picklist_batch_allocation_batch_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.binId],
+			foreignColumns: [binMaster.id],
+			name: "picklist_batch_allocation_bin_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.picklistItemId],
+			foreignColumns: [picklistItems.id],
+			name: "picklist_batch_allocation_picklist_item_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.warehouseId],
+			foreignColumns: [warehouses.id],
+			name: "picklist_batch_allocation_warehouse_id_fkey"
+		}),
 ]);
 
 export const buyingRules = pgTable("buying_rules", {
@@ -1783,6 +1979,44 @@ export const journalTemplateItems = pgTable("journal_template_items", {
 		}),
 ]);
 
+export const inventoryAdjustmentAttachments = pgTable("inventory_adjustment_attachments", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	entityId: uuid("entity_id").notNull(),
+	adjustmentId: uuid("adjustment_id").notNull(),
+	fileName: text("file_name").notNull(),
+	fileUrl: text("file_url"),
+	storageBucket: text("storage_bucket"),
+	storagePath: text("storage_path"),
+	mimeType: text("mime_type"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	fileSizeBytes: bigint("file_size_bytes", { mode: "number" }),
+	fileHash: text("file_hash"),
+	uploadedBy: uuid("uploaded_by"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_inv_adj_attach_adjustment_created").using("btree", table.adjustmentId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("uuid_ops")),
+	index("idx_inv_adj_attach_entity_adjustment").using("btree", table.entityId.asc().nullsLast().op("uuid_ops"), table.adjustmentId.asc().nullsLast().op("uuid_ops")),
+	index("idx_inv_adj_attach_uploaded_by_created").using("btree", table.uploadedBy.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("uuid_ops")),
+	uniqueIndex("ux_inv_adj_attach_adjustment_storage_path").using("btree", table.adjustmentId.asc().nullsLast().op("uuid_ops"), table.storagePath.asc().nullsLast().op("text_ops")).where(sql`(storage_path IS NOT NULL)`),
+	foreignKey({
+			columns: [table.adjustmentId],
+			foreignColumns: [inventoryAdjustments.id],
+			name: "inventory_adjustment_attachments_adjustment_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.entityId],
+			foreignColumns: [organisationBranchMaster.id],
+			name: "inventory_adjustment_attachments_entity_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.uploadedBy],
+			foreignColumns: [users.id],
+			name: "inventory_adjustment_attachments_uploaded_by_fkey"
+		}),
+	check("inventory_adjustment_attachments_file_size_bytes_check", sql`(file_size_bytes IS NULL) OR (file_size_bytes >= 0)`),
+]);
+
 export const hsnSacCodes = pgTable("hsn_sac_codes", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	type: hsnSacType().notNull(),
@@ -2004,84 +2238,6 @@ export const batchTransactions = pgTable("batch_transactions", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 });
 
-export const priceListVolumeRanges = pgTable("price_list_volume_ranges", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	priceListItemId: uuid("price_list_item_id").notNull(),
-	startQuantity: numeric("start_quantity", { precision: 15, scale:  2 }).notNull(),
-	endQuantity: numeric("end_quantity", { precision: 15, scale:  2 }),
-	rate: numeric({ precision: 15, scale:  2 }).notNull(),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
-}, (table) => [
-	index("idx_price_list_volume_ranges_item").using("btree", table.priceListItemId.asc().nullsLast().op("uuid_ops")),
-	foreignKey({
-			columns: [table.priceListItemId],
-			foreignColumns: [priceListItems.id],
-			name: "price_list_volume_ranges_price_list_item_id_fkey"
-		}).onDelete("cascade"),
-]);
-
-export const companyIdLabels = pgTable("company_id_labels", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	label: varchar({ length: 50 }).notNull(),
-	isActive: boolean("is_active").default(true).notNull(),
-	sortOrder: smallint("sort_order").default(0).notNull(),
-}, (table) => [
-	unique("company_id_labels_label_key").on(table.label),
-]);
-
-export const industries = pgTable("industries", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	name: varchar({ length: 255 }).notNull(),
-	isActive: boolean("is_active").default(true).notNull(),
-	sortOrder: smallint("sort_order").default(0).notNull(),
-}, (table) => [
-	unique("industries_name_key").on(table.name),
-]);
-
-export const zoneMaster = pgTable("zone_master", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	entityId: uuid("entity_id").notNull(),
-	warehouseId: uuid("warehouse_id").notNull(),
-	zoneName: varchar("zone_name", { length: 100 }).notNull(),
-	isActive: boolean("is_active").default(true),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}, (table) => [
-	index("idx_zone_master_entity_warehouse").using("btree", table.entityId.asc().nullsLast().op("uuid_ops"), table.warehouseId.asc().nullsLast().op("uuid_ops")),
-	uniqueIndex("uq_zone_master_entity_warehouse_name").using("btree", sql`entity_id`, sql`warehouse_id`, sql`lower((zone_name)::text)`),
-]);
-
-export const productVendorMappings = pgTable("product_vendor_mappings", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	vendorId: uuid("vendor_id").notNull(),
-	itemId: uuid("item_id").notNull(),
-	mappingName: varchar("mapping_name", { length: 255 }).notNull(),
-	vendorProductCode: varchar("vendor_product_code", { length: 255 }),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}, (table) => [
-	foreignKey({
-			columns: [table.itemId],
-			foreignColumns: [products.id],
-			name: "item_vendor_mappings_item_id_fkey"
-		}).onDelete("cascade"),
-]);
-
-export const organisationBranchMaster = pgTable("organisation_branch_master", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	name: varchar({ length: 150 }).notNull(),
-	type: varchar({ length: 20 }).notNull(),
-	refId: uuid("ref_id").notNull(),
-	parentId: uuid("parent_id"),
-	isActive: boolean("is_active").default(true),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}, (table) => [
-	index("idx_organisation_branch_master_parent_id").using("btree", table.parentId.asc().nullsLast().op("uuid_ops")),
-	index("idx_organisation_branch_master_type").using("btree", table.type.asc().nullsLast().op("text_ops")),
-	unique("unique_entity").on(table.type, table.refId),
-	unique("organisation_branch_master_ref_id_key").on(table.refId),
-]);
-
 export const customers = pgTable("customers", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	displayName: varchar("display_name", { length: 255 }).notNull(),
@@ -2162,7 +2318,14 @@ export const customers = pgTable("customers", {
 	billingAddressCountryId: uuid("billing_address_country_id"),
 	shippingAddressCountryId: uuid("shipping_address_country_id"),
 	entityId: uuid("entity_id").notNull(),
+	associatedBranchId: uuid("associated_branch_id"),
 }, (table) => [
+	index("idx_customers_associated_branch_id").using("btree", table.associatedBranchId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.associatedBranchId],
+			foreignColumns: [branches.id],
+			name: "customers_associated_branch_id_fkey"
+		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.billingAddressCountryId],
 			foreignColumns: [countries.id],
@@ -2204,6 +2367,84 @@ export const customers = pgTable("customers", {
 			name: "customers_shipping_address_state_id_states_id_fk"
 		}),
 	unique("customers_customer_number_key").on(table.customerNumber),
+]);
+
+export const priceListVolumeRanges = pgTable("price_list_volume_ranges", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	priceListItemId: uuid("price_list_item_id").notNull(),
+	startQuantity: numeric("start_quantity", { precision: 15, scale:  2 }).notNull(),
+	endQuantity: numeric("end_quantity", { precision: 15, scale:  2 }),
+	rate: numeric({ precision: 15, scale:  2 }).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_price_list_volume_ranges_item").using("btree", table.priceListItemId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.priceListItemId],
+			foreignColumns: [priceListItems.id],
+			name: "price_list_volume_ranges_price_list_item_id_fkey"
+		}).onDelete("cascade"),
+]);
+
+export const companyIdLabels = pgTable("company_id_labels", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	label: varchar({ length: 50 }).notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+}, (table) => [
+	unique("company_id_labels_label_key").on(table.label),
+]);
+
+export const industries = pgTable("industries", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	isActive: boolean("is_active").default(true).notNull(),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+}, (table) => [
+	unique("industries_name_key").on(table.name),
+]);
+
+export const zoneMaster = pgTable("zone_master", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	entityId: uuid("entity_id").notNull(),
+	warehouseId: uuid("warehouse_id").notNull(),
+	zoneName: varchar("zone_name", { length: 100 }).notNull(),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_zone_master_entity_warehouse").using("btree", table.entityId.asc().nullsLast().op("uuid_ops"), table.warehouseId.asc().nullsLast().op("uuid_ops")),
+	uniqueIndex("uq_zone_master_entity_warehouse_name").using("btree", sql`entity_id`, sql`warehouse_id`, sql`lower((zone_name)::text)`),
+]);
+
+export const productVendorMappings = pgTable("product_vendor_mappings", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	vendorId: uuid("vendor_id").notNull(),
+	itemId: uuid("item_id").notNull(),
+	mappingName: varchar("mapping_name", { length: 255 }).notNull(),
+	vendorProductCode: varchar("vendor_product_code", { length: 255 }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.itemId],
+			foreignColumns: [products.id],
+			name: "item_vendor_mappings_item_id_fkey"
+		}).onDelete("cascade"),
+]);
+
+export const organisationBranchMaster = pgTable("organisation_branch_master", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: varchar({ length: 150 }).notNull(),
+	type: varchar({ length: 20 }).notNull(),
+	refId: uuid("ref_id").notNull(),
+	parentId: uuid("parent_id"),
+	isActive: boolean("is_active").default(true),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_organisation_branch_master_parent_id").using("btree", table.parentId.asc().nullsLast().op("uuid_ops")),
+	index("idx_organisation_branch_master_type").using("btree", table.type.asc().nullsLast().op("text_ops")),
+	unique("unique_entity").on(table.type, table.refId),
+	unique("organisation_branch_master_ref_id_key").on(table.refId),
 ]);
 
 export const customerContactPersons = pgTable("customer_contact_persons", {
@@ -2310,7 +2551,7 @@ export const businessTypes = pgTable("business_types", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	code: varchar().notNull(),
 	label: varchar().notNull(),
-	description: text().default(').notNull(),
+	description: text().default('').notNull(),
 	sortOrder: integer("sort_order").default(0).notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -2388,8 +2629,8 @@ export const lsgdLocalBodies = pgTable("lsgd_local_bodies", {
 export const transactionalSequences = pgTable("transactional_sequences", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	module: varchar().notNull(),
-	prefix: varchar().default(').notNull(),
-	suffix: varchar().default('),
+	prefix: varchar().default('').notNull(),
+	suffix: varchar().default(''),
 	nextNumber: integer("next_number").default(1).notNull(),
 	padding: integer().default(5).notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
@@ -2410,7 +2651,7 @@ export const transactionalSequences = pgTable("transactional_sequences", {
 export const roles = pgTable("roles", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	label: varchar({ length: 100 }).notNull(),
-	description: text().default(').notNull(),
+	description: text().default('').notNull(),
 	permissions: jsonb().default({}).notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -2475,6 +2716,158 @@ export const userBranchAccess = pgTable("user_branch_access", {
 	pgPolicy("service_role_full_access", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
 ]);
 
+export const inventoryAdjustments = pgTable("inventory_adjustments", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	entityId: uuid("entity_id").notNull(),
+	productId: uuid("product_id"),
+	warehouseId: uuid("warehouse_id"),
+	adjustmentNumber: varchar("adjustment_number", { length: 100 }),
+	adjustmentDate: timestamp("adjustment_date", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	adjustmentType: inventoryAdjustmentType("adjustment_type").default('quantity').notNull(),
+	reasonId: uuid("reason_id"),
+	reason: varchar({ length: 255 }),
+	referenceNumber: varchar("reference_number", { length: 100 }),
+	notes: text(),
+	accountId: uuid("account_id"),
+	status: inventoryAdjustmentStatus().default('draft').notNull(),
+	quantityBefore: numeric("quantity_before", { precision: 15, scale:  2 }),
+	quantityAdjusted: numeric("quantity_adjusted", { precision: 15, scale:  2 }),
+	quantityAfter: numeric("quantity_after", { precision: 15, scale:  2 }),
+	costPrice: numeric("cost_price", { precision: 15, scale:  2 }),
+	adjustmentValue: numeric("adjustment_value", { precision: 15, scale:  2 }),
+	adjustedBy: uuid("adjusted_by"),
+	approvedBy: uuid("approved_by"),
+	approvedAt: timestamp("approved_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_inv_adj_entity_date").using("btree", table.entityId.asc().nullsLast().op("timestamptz_ops"), table.adjustmentDate.desc().nullsFirst().op("timestamptz_ops")),
+	index("idx_inv_adj_entity_status").using("btree", table.entityId.asc().nullsLast().op("uuid_ops"), table.status.asc().nullsLast().op("enum_ops")),
+	index("idx_inventory_adjustments_status_approved_by").using("btree", table.status.asc().nullsLast().op("uuid_ops"), table.approvedBy.asc().nullsLast().op("enum_ops")),
+	index("inventory_adjustments_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	foreignKey({
+			columns: [table.reasonId],
+			foreignColumns: [inventoryAdjustmentReasons.id],
+			name: "fk_inventory_adjustments_reason_id"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.accountId],
+			foreignColumns: [accounts.id],
+			name: "inventory_adjustments_account_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.adjustedBy],
+			foreignColumns: [users.id],
+			name: "inventory_adjustments_adjusted_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.approvedBy],
+			foreignColumns: [users.id],
+			name: "inventory_adjustments_approved_by_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.entityId],
+			foreignColumns: [organisationBranchMaster.id],
+			name: "inventory_adjustments_entity_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.productId],
+			foreignColumns: [products.id],
+			name: "inventory_adjustments_product_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.warehouseId],
+			foreignColumns: [warehouses.id],
+			name: "inventory_adjustments_warehouse_id_fkey"
+		}).onDelete("set null"),
+	unique("inventory_adjustments_adjustment_number_key").on(table.adjustmentNumber),
+]);
+
+export const inventoryAdjustmentReasons = pgTable("inventory_adjustment_reasons", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	entityId: uuid("entity_id"),
+	name: varchar({ length: 200 }).notNull(),
+	code: varchar({ length: 60 }),
+	reasonType: varchar("reason_type", { length: 20 }).default('both'),
+	isActive: boolean("is_active").default(true).notNull(),
+	sortOrder: integer("sort_order").default(0).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.entityId],
+			foreignColumns: [organisationBranchMaster.id],
+			name: "inventory_adjustment_reasons_entity_id_fkey"
+		}).onDelete("cascade"),
+	unique("inventory_adjustment_reasons_entity_id_name_key").on(table.entityId, table.name),
+]);
+
+export const inventoryAdjustmentItemBatches = pgTable("inventory_adjustment_item_batches", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	adjustmentId: uuid("adjustment_id").notNull(),
+	adjustmentItemId: uuid("adjustment_item_id").notNull(),
+	entityId: uuid("entity_id").notNull(),
+	productId: uuid("product_id").notNull(),
+	warehouseId: uuid("warehouse_id"),
+	binId: uuid("bin_id"),
+	batchId: uuid("batch_id"),
+	batchReference: varchar("batch_reference", { length: 150 }),
+	quantityIn: numeric("quantity_in", { precision: 15, scale:  2 }).default('0').notNull(),
+	quantityOut: numeric("quantity_out", { precision: 15, scale:  2 }).default('0').notNull(),
+	rate: numeric({ precision: 15, scale:  2 }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	batchStockLayerId: uuid("batch_stock_layer_id"),
+}, (table) => [
+	index("idx_iab_adjustment_id").using("btree", table.adjustmentId.asc().nullsLast().op("uuid_ops")),
+	index("idx_iab_adjustment_item_id").using("btree", table.adjustmentItemId.asc().nullsLast().op("uuid_ops")),
+	index("idx_iab_batch_id").using("btree", table.batchId.asc().nullsLast().op("uuid_ops")),
+	index("idx_iab_batch_stock_layer_id").using("btree", table.batchStockLayerId.asc().nullsLast().op("uuid_ops")),
+	index("idx_iab_bin_id").using("btree", table.binId.asc().nullsLast().op("uuid_ops")),
+	index("idx_inv_adj_item_batches_adj").using("btree", table.adjustmentId.asc().nullsLast().op("uuid_ops"), table.adjustmentItemId.asc().nullsLast().op("uuid_ops")),
+	index("idx_inv_adj_item_batches_entity").using("btree", table.entityId.asc().nullsLast().op("uuid_ops"), table.productId.asc().nullsLast().op("uuid_ops"), table.batchId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.adjustmentId],
+			foreignColumns: [inventoryAdjustments.id],
+			name: "inventory_adjustment_item_batches_adjustment_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.adjustmentItemId],
+			foreignColumns: [inventoryAdjustmentItems.id],
+			name: "inventory_adjustment_item_batches_adjustment_item_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.batchId],
+			foreignColumns: [batchMaster.id],
+			name: "inventory_adjustment_item_batches_batch_id_fkey"
+		}).onDelete("set null"),
+	foreignKey({
+			columns: [table.batchStockLayerId],
+			foreignColumns: [batchStockLayers.id],
+			name: "inventory_adjustment_item_batches_batch_stock_layer_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.binId],
+			foreignColumns: [binMaster.id],
+			name: "inventory_adjustment_item_batches_bin_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.entityId],
+			foreignColumns: [organisationBranchMaster.id],
+			name: "inventory_adjustment_item_batches_entity_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.productId],
+			foreignColumns: [products.id],
+			name: "inventory_adjustment_item_batches_product_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.warehouseId],
+			foreignColumns: [warehouses.id],
+			name: "inventory_adjustment_item_batches_warehouse_id_fkey"
+		}).onDelete("set null"),
+]);
+
 export const organization = pgTable("organization", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 255 }).notNull(),
@@ -2494,11 +2887,11 @@ export const organization = pgTable("organization", {
 	companyIdValue: varchar("company_id_value", { length: 100 }),
 	paymentStubAddress: text("payment_stub_address"),
 	hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false).notNull(),
-	systemId: varchar("system_id", { length: 20 }).default((nextval(\'organization_system_id_seq').notNull(),
+	systemId: varchar("system_id", { length: 20 }).default(sql`nextval('organization_system_id_seq')`).notNull(),
 	baseCurrencyDecimals: smallint("base_currency_decimals"),
 	baseCurrencyFormat: varchar("base_currency_format", { length: 50 }),
 	organizationLanguage: varchar("organization_language", { length: 50 }).default('English'),
-	communicationLanguages: text("communication_languages").array().default(["RAY['English'::tex"]).notNull(),
+	communicationLanguages: text("communication_languages").array().default(["English"]).notNull(),
 	paymentStubDistrictId: uuid("payment_stub_district_id"),
 	paymentStubLocalBodyId: uuid("payment_stub_local_body_id"),
 	paymentStubWardId: uuid("payment_stub_ward_id"),
@@ -2630,7 +3023,7 @@ export const branches = pgTable("branches", {
 	districtId: uuid("district_id"),
 	localBodyId: uuid("local_body_id"),
 	wardId: uuid("ward_id"),
-	systemId: varchar("system_id", { length: 20 }).default((nextval(\'branches_system_id_seq').notNull(),
+	systemId: varchar("system_id", { length: 20 }).default(sql`nextval('branches_system_id_seq')`).notNull(),
 	pan: varchar(),
 	industry: varchar(),
 	gstTreatment: varchar("gst_treatment"),

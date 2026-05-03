@@ -18,8 +18,10 @@ import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 import 'package:zerpai_erp/modules/inventory/picklists/providers/inventory_picklists_provider.dart';
-import 'package:zerpai_erp/modules/inventory/picklists/models/inventory_picklist_model.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_scan_panel.dart';
 
 const _textPrimary = Color(0xFF1F2937);
 const _textSecondary = Color(0xFF6B7280);
@@ -45,20 +47,13 @@ class _InventoryPicklistsUpdateScreenState
   final _picklistNumberCtrl = TextEditingController();
   final _dateCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
-  final _itemNameSearchCtrl = TextEditingController();
-  final _salesOrderSearchCtrl = TextEditingController();
-  String _itemNameSearchQuery = '';
-  String _salesOrderSearchQuery = '';
-  bool _salesOrderSortAscending = true;
-  bool _isItemSearchVisible = false;
-  bool _isSOSearchVisible = false;
 
   String? _selectedGroup;
   String? _selectedAssignee;
   Warehouse? _selectedWarehouse;
 
   bool _isSaving = false;
-  String? _currentStatus;
+
   List<WarehouseStockData> _selectedItems = [];
   final Set<String> _qtyPickedOverrideKeys = <String>{};
   final Set<String> _savedBatchKeys = <String>{};
@@ -70,41 +65,48 @@ class _InventoryPicklistsUpdateScreenState
   // Batch data persistence
   final Map<String, List<Map<String, String>>> _savedBatchData =
       <String, List<Map<String, String>>>{};
-
-  List<WarehouseStockData> get _filteredSelectedItems {
-    final filtered = _selectedItems.where((item) {
-      final name = item.productName.toLowerCase();
-      final productCode = item.productCode.toLowerCase();
-      final so = (item.salesOrderNumber ?? '').toLowerCase();
-
-      final matchesItem = _itemNameSearchQuery.isEmpty ||
-          name.contains(_itemNameSearchQuery.toLowerCase()) ||
-          productCode.contains(_itemNameSearchQuery.toLowerCase());
-      final matchesSO = _salesOrderSearchQuery.isEmpty ||
-          so.contains(_salesOrderSearchQuery.toLowerCase());
-
-      return matchesItem && matchesSO;
-    }).toList();
-
-    filtered.sort((a, b) {
-      final aOrder = (a.salesOrderNumber ?? '').trim();
-      final bOrder = (b.salesOrderNumber ?? '').trim();
-      final cmp = aOrder.compareTo(bOrder);
-      return _salesOrderSortAscending ? cmp : -cmp;
-    });
-    return filtered;
-  }
+  String? _initialStatus;
+  final Map<String, double> _manualPickedQty = <String, double>{};
 
   bool get _allBatchesAdded =>
-      _filteredSelectedItems.isNotEmpty &&
-      _filteredSelectedItems.every(
-        (item) {
-          final qtyPicked = _currentPickedQty(item);
-          if (qtyPicked <= 0) return true;
-          return _savedBatchKeys.contains(_buildRowKey(item));
-        },
-      );
+      _selectedItems.isNotEmpty &&
+      _selectedItems.every((item) {
+        final rowKey = _buildRowKey(item);
+        final manualQty =
+            _manualPickedQty[rowKey] ?? _getCurrentPickedQty(item);
 
+        // If manual qty > 0 OR status is IN_PROGRESS/COMPLETED, it MUST have batches and they MUST match
+        if (manualQty > 0 ||
+            item.status == 'IN_PROGRESS' ||
+            item.status == 'COMPLETED') {
+          final hasBatch = _savedBatchKeys.contains(rowKey);
+          if (!hasBatch) return false;
+
+          final batches = _savedBatchData[rowKey];
+          if (batches == null || batches.isEmpty) return false;
+
+          double batchTotal = 0;
+          for (final b in batches) {
+            batchTotal += double.tryParse(b['qtyOut']?.toString() ?? '0') ?? 0;
+          }
+          if ((manualQty - batchTotal).abs() > 0.0001) return false;
+        } else {
+          // If manualQty is 0, but batches exist, they must also match (which means 0 batches)
+          if (_savedBatchKeys.contains(rowKey)) {
+            final batches = _savedBatchData[rowKey];
+            if (batches != null && batches.isNotEmpty) {
+              double batchTotal = 0;
+              for (final b in batches) {
+                batchTotal +=
+                    double.tryParse(b['qtyOut']?.toString() ?? '0') ?? 0;
+              }
+              if (batchTotal > 0.0001) return false;
+            }
+          }
+        }
+
+        return true;
+      });
 
   @override
   void initState() {
@@ -130,10 +132,12 @@ class _InventoryPicklistsUpdateScreenState
             : '';
         _notesCtrl.text = picklist.notes ?? '';
         _selectedAssignee = picklist.assignee;
-        _currentStatus = picklist.status;
+        _initialStatus = picklist.status;
 
         // Try to find the warehouse by name or ID if possible
-        _selectedWarehouse = warehouses.where((w) => w.name == picklist.location).firstOrNull;
+        _selectedWarehouse = warehouses
+            .where((w) => w.name == picklist.location)
+            .firstOrNull;
 
         // Map items back to WarehouseStockData
         _selectedItems = picklist.items.map((pi) {
@@ -181,11 +185,12 @@ class _InventoryPicklistsUpdateScreenState
                 'ptr': ba['ptr']?.toString() ?? '',
                 'mfgDate': ba['mfg_date']?.toString() ?? '',
                 'mfgBatch': ba['mfg_batch']?.toString() ?? '',
-                'foc': ba['foc']?.toString() ?? '0',
+                'foc': ba['foc_qty']?.toString() ?? '0',
               };
             }).toList();
           }
 
+          _manualPickedQty[rowKey] = pi.qtyPicked;
           return stockData;
         }).toList();
       });
@@ -198,16 +203,25 @@ class _InventoryPicklistsUpdateScreenState
     return '${item.productId}_${item.batchNo ?? ''}_${item.salesOrderId ?? ''}';
   }
 
-  double _currentPickedQty(WarehouseStockData item) {
+  double _getCurrentPickedQty(WarehouseStockData item) {
     final rowKey = _buildRowKey(item);
     final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == rowKey);
     if (idx == -1) return item.quantityPicked ?? 0;
     return _selectedItems[idx].quantityPicked ?? 0;
   }
 
+  double _currentQtyToPick(WarehouseStockData item) {
+    final rowKey = _buildRowKey(item);
+    final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == rowKey);
+    if (idx == -1) return item.quantityToPick ?? 0;
+    return _selectedItems[idx].quantityToPick ?? 0;
+  }
 
   double _getPickedQtyOutOnly(WarehouseStockData item) {
     final rowKey = _buildRowKey(item);
+    if (_manualPickedQty.containsKey(rowKey)) {
+      return _manualPickedQty[rowKey]!;
+    }
     if (_savedBatchKeys.contains(rowKey)) {
       final batches = _savedBatchData[rowKey];
       if (batches != null && batches.isNotEmpty) {
@@ -218,12 +232,29 @@ class _InventoryPicklistsUpdateScreenState
         return totalQty;
       }
     }
-    return _currentPickedQty(item);
+    return _getCurrentPickedQty(item);
+  }
+
+  String _buildBatchQtyFocText(WarehouseStockData item) {
+    final rowKey = _buildRowKey(item);
+    final savedData = _savedBatchData[rowKey] ?? [];
+    double totalQty = 0;
+    double totalFoc = 0;
+    for (final b in savedData) {
+      totalQty += (double.tryParse(b['qtyOut']?.toString() ?? '0') ?? 0.0);
+      totalFoc += (double.tryParse(b['foc']?.toString() ?? '0') ?? 0.0);
+    }
+    return '${totalQty.toInt()} pcs + ${totalFoc.toInt()} foc';
   }
 
   String _buildBatchSummaryText(WarehouseStockData item) {
     final rowKey = _buildRowKey(item);
-    return '${_currentPickedQty(item).toInt()} pcs taken from\n${_savedBatchCounts[rowKey] ?? 1} ${(_savedBatchCounts[rowKey] ?? 1) == 1 ? "batch" : "batches"}.';
+    final savedData = _savedBatchData[rowKey] ?? [];
+    double totalQty = 0;
+    for (final b in savedData) {
+      totalQty += (double.tryParse(b['qtyOut']?.toString() ?? '0') ?? 0.0);
+    }
+    return '${totalQty.toInt()} pcs taken from\n${_savedBatchCounts[rowKey] ?? 0} ${(_savedBatchCounts[rowKey] ?? 0) <= 1 ? "batch" : "batches"}.';
   }
 
   Future<void> _showSelectBatchesDialog(WarehouseStockData item) async {
@@ -246,6 +277,7 @@ class _InventoryPicklistsUpdateScreenState
       _savedBatchKeys.add(rowKey);
       _savedBatchCounts[rowKey] = result.batchCount;
       _savedBatchData[rowKey] = result.batchDataList ?? [];
+      _manualPickedQty[rowKey] = result.totalIncludingFoc;
       final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == rowKey);
       if (idx != -1) {
         _selectedItems[idx] = _selectedItems[idx].copyWith(
@@ -311,7 +343,7 @@ class _InventoryPicklistsUpdateScreenState
             strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
             style: const TextStyle(
               fontSize: 13,
-              color: _textPrimary,
+              color: Colors.black,
               fontFamily: 'Inter',
             ),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -351,13 +383,17 @@ class _InventoryPicklistsUpdateScreenState
                 fontFamily: 'Inter',
               ),
             ),
-            controller: TextEditingController(
-              text: initialValue == 0 ? '' : initialValue.toInt().toString(),
-            )..selection = TextSelection.collapsed(
-                offset: initialValue == 0
-                    ? 0
-                    : initialValue.toInt().toString().length,
-              ),
+            controller:
+                TextEditingController(
+                    text: initialValue == 0
+                        ? ''
+                        : initialValue.toInt().toString(),
+                  )
+                  ..selection = TextSelection.collapsed(
+                    offset: initialValue == 0
+                        ? 0
+                        : initialValue.toInt().toString().length,
+                  ),
             onChanged: onChanged,
             onSubmitted: onChanged,
           ),
@@ -368,7 +404,9 @@ class _InventoryPicklistsUpdateScreenState
 
   String _formatPicklistDateValue(String value) {
     try {
-      return DateFormat('yyyy-MM-dd').format(DateFormat('dd-MM-yyyy').parse(value));
+      return DateFormat(
+        'yyyy-MM-dd',
+      ).format(DateFormat('dd-MM-yyyy').parse(value));
     } catch (_) {
       return value;
     }
@@ -384,7 +422,9 @@ class _InventoryPicklistsUpdateScreenState
       }
     }
 
-    final uniqueProductIds = _selectedItems.map((item) => item.productId).toSet();
+    final uniqueProductIds = _selectedItems
+        .map((item) => item.productId)
+        .toSet();
     final batchesByProductId = <String, Map<String, Map<String, dynamic>>>{};
     for (final productId in uniqueProductIds) {
       if (productId.isEmpty) continue;
@@ -402,21 +442,28 @@ class _InventoryPicklistsUpdateScreenState
     final items = <Map<String, dynamic>>[];
     for (final item in _selectedItems) {
       final rowKey = _buildRowKey(item);
-      final batchRows = _savedBatchData[rowKey] ?? const <Map<String, String>>[];
-      final batchLookup = batchesByProductId[item.productId] ?? const <String, Map<String, dynamic>>{};
+      final batchRows =
+          _savedBatchData[rowKey] ?? const <Map<String, String>>[];
+      final batchLookup =
+          batchesByProductId[item.productId] ??
+          const <String, Map<String, dynamic>>{};
 
       final batchAllocations = <Map<String, dynamic>>[];
       for (final row in batchRows) {
         final batchNo = row['batchNo']?.trim() ?? '';
-        final binCode = row['binLocation']?.trim() ?? '';
+        final binCode = (row['binLocation'] ?? row['binCode'] ?? '').trim();
         final batch = batchLookup[batchNo];
         final bin = binsByCode[binCode];
 
         if (batch == null) {
-          throw StateError('Batch $batchNo could not be resolved for ${item.productName}.');
+          throw StateError(
+            'Batch $batchNo could not be resolved for ${item.productName}.',
+          );
         }
         if (bin == null) {
-          throw StateError('Bin $binCode could not be resolved for ${item.productName}.');
+          throw StateError(
+            'Bin $binCode could not be resolved for ${item.productName}.',
+          );
         }
 
         final prices = batch['prices'] as List<dynamic>? ?? const [];
@@ -434,18 +481,22 @@ class _InventoryPicklistsUpdateScreenState
         });
       }
 
-      final qtyPicked = _currentPickedQty(item);
+      final qtyPicked = _getCurrentPickedQty(item);
       if (qtyPicked > 0 && batchAllocations.isEmpty) {
-        throw Exception('Please allocate batch and bin for ${item.productName} (Qty Picked: $qtyPicked)');
+        throw Exception(
+          'Please allocate batch and bin for ${item.productName} (Qty Picked: $qtyPicked)',
+        );
       }
 
       items.add({
+        'id': item.id,
         'product_id': item.productId,
         'sales_order_id': item.salesOrderId,
         'sales_order_line_id': item.salesOrderLineId,
         'qty_ordered': item.quantityOrdered ?? 0,
         'qty_to_pick': item.quantityToPick ?? 0,
         'qty_picked': qtyPicked,
+        'status': item.status,
         'batch_allocations': batchAllocations,
       });
     }
@@ -455,33 +506,56 @@ class _InventoryPicklistsUpdateScreenState
       'warehouse_id': _selectedWarehouse!.id,
       'assignee_id': _selectedAssignee,
       'picklist_date': _formatPicklistDateValue(_dateCtrl.text.trim()),
-      'status': _currentStatus ?? 'DRAFT',
+      'status': _computePicklistStatus(items),
       'notes': _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       'items': items,
     };
   }
 
-  Future<void> _savePicklist() async {
-    final repository = ref.read(inventoryPicklistRepositoryProvider);
+  String _computePicklistStatus(List<Map<String, dynamic>> items) {
+    if (items.isEmpty) return 'YET_TO_START';
 
+    final allComplete = items.every((i) {
+      final picked = ((i['qty_picked'] as num?) ?? 0).toDouble();
+      final toPick = ((i['qty_to_pick'] as num?) ?? 0).toDouble();
+      return toPick > 0 && picked >= toPick;
+    });
+
+    if (allComplete) return 'COMPLETED';
+
+    // If any item has started (picked qty > 0 OR status is IN_PROGRESS/COMPLETED),
+    // then the overall picklist is IN_PROGRESS.
+    final hasStarted = items.any((i) {
+      final picked = ((i['qty_picked'] as num?) ?? 0).toDouble();
+      final status = i['status'] as String?;
+      return picked > 0 || status == 'IN_PROGRESS' || status == 'COMPLETED';
+    });
+
+    if (hasStarted) return 'IN_PROGRESS';
+
+    // If it was manually set to ON_HOLD and hasn't started yet, keep it ON_HOLD.
+    if (_initialStatus == 'ON_HOLD') return 'ON_HOLD';
+
+    return 'YET_TO_START';
+  }
+
+  Future<void> _savePicklist() async {
     try {
       final payload = await _buildPicklistPayload();
-      final dynamic result = await repository.updatePicklist(widget.id, payload);
+      final result = await ref
+          .read(picklistsProvider.notifier)
+          .updatePicklist(widget.id, payload);
 
       if (!mounted) return;
       setState(() => _isSaving = false);
 
-      final displayNum = result is Picklist ? result.picklistNumber : (result['picklist_no'] ?? '');
+      final displayNum = result?.picklistNumber ?? '';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            displayNum.toString().isNotEmpty
-                ? 'Picklist $displayNum updated successfully'
-                : 'Picklist updated successfully',
-          ),
-          backgroundColor: _greenBtn,
-        ),
+      ZerpaiToast.success(
+        context,
+        displayNum.isNotEmpty
+            ? 'Picklist $displayNum updated successfully'
+            : 'Picklist updated successfully',
       );
 
       context.pop();
@@ -489,13 +563,55 @@ class _InventoryPicklistsUpdateScreenState
       if (!mounted) return;
       setState(() => _isSaving = false);
       final errorMessage = e.toString().replaceFirst('Exception: ', '');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update picklist: $errorMessage'),
-          backgroundColor: _dangerRed,
-        ),
-      );
+      ZerpaiToast.error(context, 'Failed to update picklist: $errorMessage');
     }
+  }
+
+  void _openScanItemSidePanel() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Scan Item',
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            elevation: 16,
+            child: ScanItemSidePanel(
+              items: _selectedItems,
+              manualPickedQty: _manualPickedQty,
+              onUpdate: (WarehouseStockData item, double newQty) {
+                setState(() {
+                  final rowKey = _buildRowKey(item);
+                  _manualPickedQty[rowKey] = newQty;
+                  final idx = _selectedItems.indexWhere(
+                    (e) => _buildRowKey(e) == rowKey,
+                  );
+                  if (idx != -1) {
+                    _selectedItems[idx] = _selectedItems[idx].copyWith(
+                      quantityPicked: newQty,
+                    );
+                  }
+                  _qtyPickedOverrideKeys.add(rowKey);
+                });
+              },
+              onClose: () => Navigator.pop(context),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+          child: child,
+        );
+      },
+    );
   }
 
   @override
@@ -503,8 +619,6 @@ class _InventoryPicklistsUpdateScreenState
     _picklistNumberCtrl.dispose();
     _dateCtrl.dispose();
     _notesCtrl.dispose();
-    _itemNameSearchCtrl.dispose();
-    _salesOrderSearchCtrl.dispose();
     super.dispose();
   }
 
@@ -611,9 +725,7 @@ class _InventoryPicklistsUpdateScreenState
                       enabled: false,
                       height: 32,
                       value: _selectedGroup,
-                      items: const [
-                        'No Grouping',
-                      ],
+                      items: const ['No Grouping'],
                       hint: 'No Grouping',
                       showSearch: false,
                       displayStringForValue: (s) => s,
@@ -633,9 +745,12 @@ class _InventoryPicklistsUpdateScreenState
                       builder: (context, ref, _) {
                         final usersAsync = ref.watch(allUsersProvider);
                         return FormDropdown<User>(
-                          enabled: false,
+                          enabled: true,
                           height: 32,
                           hint: 'Select User',
+                          fillColor: Colors.white,
+                          border: Border.all(color: _borderCol),
+                          borderRadius: BorderRadius.circular(6),
                           value: usersAsync.maybeWhen(
                             data: (users) => users
                                 .where((u) => u.id == _selectedAssignee)
@@ -646,7 +761,11 @@ class _InventoryPicklistsUpdateScreenState
                             data: (users) => users,
                             orElse: () => [],
                           ),
-                          onChanged: (val) {},
+                          onChanged: (val) {
+                            setState(() {
+                              _selectedAssignee = val?.id;
+                            });
+                          },
                           displayStringForValue: (user) => user.fullName,
                           searchStringForValue: (user) => user.fullName,
                         );
@@ -721,7 +840,12 @@ class _InventoryPicklistsUpdateScreenState
           ),
           const Spacer(),
           IconButton(
-            onPressed: () => context.pop(),
+            onPressed: () {
+              final orgId =
+                  GoRouterState.of(context).pathParameters['orgSystemId'] ??
+                  '0000000000';
+              context.go('/$orgId/inventory/picklists/${widget.id}');
+            },
             icon: const Icon(LucideIcons.x, size: 20, color: _textSecondary),
           ),
         ],
@@ -787,18 +911,23 @@ class _InventoryPicklistsUpdateScreenState
           SizedBox(
             width:
                 MediaQuery.of(context).size.width *
-                (_createTableWidthFactor * (1 + _updateExtraSalesOrderColumnFactor)),
+                (_createTableWidthFactor *
+                    (1 + _updateExtraSalesOrderColumnFactor)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Align(
                   alignment: Alignment.centerRight,
                   child: InkWell(
-                    onTap: () {}, // Scan item placeholder
+                    onTap: _openScanItemSidePanel,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(LucideIcons.scan, size: 16, color: _focusBorder),
+                        const Icon(
+                          LucideIcons.scan,
+                          size: 16,
+                          color: _focusBorder,
+                        ),
                         const SizedBox(width: 6),
                         const Text(
                           'Scan Item',
@@ -821,114 +950,6 @@ class _InventoryPicklistsUpdateScreenState
     );
   }
 
-  Widget _buildHeaderSearchField({
-    required String label,
-    required TextEditingController controller,
-    required String hintText,
-    required ValueChanged<String> onChanged,
-    required bool isSearchVisible,
-    required VoidCallback onToggle,
-    TextAlign textAlign = TextAlign.start,
-    bool showSortControls = false,
-    required bool sortAscending,
-    VoidCallback? onSortAscendingTap,
-    VoidCallback? onSortDescendingTap,
-  }) {
-    if (!isSearchVisible) {
-      return Row(
-        mainAxisAlignment: textAlign == TextAlign.center
-            ? MainAxisAlignment.center
-            : MainAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: _textSecondary,
-              fontFamily: 'Inter',
-            ),
-          ),
-          if (showSortControls) ...[
-            const SizedBox(width: 4),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onSortAscendingTap,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 1),
-                    child: Icon(
-                      LucideIcons.chevronUp,
-                      size: 10,
-                      color: sortAscending
-                          ? const Color(0xFF3B82F6)
-                          : const Color(0xFF9CA3AF),
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onSortDescendingTap,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 1),
-                    child: Icon(
-                      LucideIcons.chevronDown,
-                      size: 10,
-                      color: !sortAscending
-                          ? const Color(0xFF3B82F6)
-                          : const Color(0xFF9CA3AF),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(width: 4),
-          InkWell(
-            onTap: onToggle,
-            child: const Icon(
-              LucideIcons.search,
-              size: 12,
-              color: _textSecondary,
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Container(
-      height: 28,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: _borderCol),
-      ),
-      child: TextField(
-        controller: controller,
-        onChanged: onChanged,
-        style: const TextStyle(fontSize: 11),
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: const TextStyle(fontSize: 11, color: _textSecondary),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          border: InputBorder.none,
-          isDense: true,
-          suffixIcon: InkWell(
-            onTap: () {
-              controller.clear();
-              onChanged('');
-              onToggle();
-            },
-            child: const Icon(Icons.close, size: 14, color: _textSecondary),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildSelectedItemsTable() {
     return Container(
       decoration: BoxDecoration(
@@ -941,7 +962,12 @@ class _InventoryPicklistsUpdateScreenState
           // Header
           IntrinsicHeight(
             child: Container(
-              padding: const EdgeInsets.only(left: 16, right: 0, top: 10, bottom: 10),
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 0,
+                top: 10,
+                bottom: 10,
+              ),
               decoration: const BoxDecoration(
                 color: Color(0xFFF9FAFB),
                 border: Border(bottom: BorderSide(color: _borderCol)),
@@ -951,46 +977,36 @@ class _InventoryPicklistsUpdateScreenState
                   Expanded(
                     flex: 4,
                     child: Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: _buildHeaderSearchField(
-                        label: 'ITEM DETAILS',
-                        controller: _itemNameSearchCtrl,
-                        hintText: 'Search items...',
-                        isSearchVisible: _isItemSearchVisible,
-                        onToggle: () => setState(() => _isItemSearchVisible = !_isItemSearchVisible),
-                        sortAscending: _salesOrderSortAscending,
-                        onChanged: (val) => setState(() => _itemNameSearchQuery = val),
+                      padding: EdgeInsets.only(right: 12),
+                      child: Text(
+                        'ITEM DETAILS',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _textSecondary,
+                        ),
                       ),
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: _borderCol),
+                  VerticalDivider(width: 1, color: _borderCol),
                   Expanded(
                     flex: 2,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: _buildHeaderSearchField(
-                        label: 'SALES ORDER#',
-                        controller: _salesOrderSearchCtrl,
-                        hintText: 'Search SO...',
-                        isSearchVisible: _isSOSearchVisible,
-                        onToggle: () => setState(() => _isSOSearchVisible = !_isSOSearchVisible),
-                        textAlign: TextAlign.center,
-                        showSortControls: true,
-                        sortAscending: _salesOrderSortAscending,
-                        onSortAscendingTap: () {
-                          if (_salesOrderSortAscending) return;
-                          setState(() => _salesOrderSortAscending = true);
-                        },
-                        onSortDescendingTap: () {
-                          if (!_salesOrderSortAscending) return;
-                          setState(() => _salesOrderSortAscending = false);
-                        },
-                        onChanged: (val) => setState(() => _salesOrderSearchQuery = val),
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Center(
+                        child: Text(
+                          'SALES ORDER#',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _textSecondary,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: _borderCol),
-                  const Expanded(
+                  VerticalDivider(width: 1, color: _borderCol),
+                  Expanded(
                     flex: 1,
                     child: Text(
                       'QUANTITY ORDERED',
@@ -998,13 +1014,12 @@ class _InventoryPicklistsUpdateScreenState
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: _textSecondary,
-                        fontFamily: 'Inter',
                       ),
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: _borderCol),
-                  const Expanded(
+                  VerticalDivider(width: 1, color: _borderCol),
+                  Expanded(
                     flex: 1,
                     child: Text(
                       'QUANTITY PACKED',
@@ -1012,12 +1027,11 @@ class _InventoryPicklistsUpdateScreenState
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: _textSecondary,
-                        fontFamily: 'Inter',
                       ),
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: _borderCol),
+                  VerticalDivider(width: 1, color: _borderCol),
                   Expanded(
                     flex: 2,
                     child: Center(
@@ -1030,19 +1044,23 @@ class _InventoryPicklistsUpdateScreenState
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: _textSecondary,
-                              fontFamily: 'Inter',
                             ),
                           ),
                           const SizedBox(width: 4),
                           ZTooltip(
-                            message: "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
-                            child: Icon(LucideIcons.info, size: 12, color: _textSecondary),
+                            message:
+                                "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
+                            child: Icon(
+                              LucideIcons.info,
+                              size: 12,
+                              color: _textSecondary,
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: _borderCol),
+                  VerticalDivider(width: 1, color: _borderCol),
                   Expanded(
                     flex: 2,
                     child: Center(
@@ -1058,13 +1076,17 @@ class _InventoryPicklistsUpdateScreenState
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                   color: _textSecondary,
-                                  fontFamily: 'Inter',
                                 ),
                               ),
                               const SizedBox(width: 4),
                               ZTooltip(
-                                message: "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
-                                child: Icon(LucideIcons.info, size: 12, color: _textSecondary),
+                                message:
+                                    "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
+                                child: Icon(
+                                  LucideIcons.info,
+                                  size: 12,
+                                  color: _textSecondary,
+                                ),
                               ),
                             ],
                           ),
@@ -1072,10 +1094,18 @@ class _InventoryPicklistsUpdateScreenState
                           InkWell(
                             onTap: () {
                               setState(() {
-                                for (int i = 0; i < _selectedItems.length; i++) {
+                                for (
+                                  int i = 0;
+                                  i < _selectedItems.length;
+                                  i++
+                                ) {
                                   final item = _selectedItems[i];
+                                  final rowKey = _buildRowKey(item);
+                                  final qty = item.quantityOrdered ?? 0;
+                                  _manualPickedQty[rowKey] = qty;
                                   _selectedItems[i] = item.copyWith(
-                                    quantityPicked: item.quantityToPick ?? 0,
+                                    quantityPicked: qty,
+                                    status: 'COMPLETED',
                                   );
                                 }
                               });
@@ -1086,7 +1116,6 @@ class _InventoryPicklistsUpdateScreenState
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF2563EB),
-                                fontFamily: 'Inter',
                               ),
                             ),
                           ),
@@ -1094,8 +1123,7 @@ class _InventoryPicklistsUpdateScreenState
                       ),
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: _borderCol),
-                  const Expanded(
+                  Expanded(
                     flex: 2,
                     child: Text(
                       'STATUS',
@@ -1103,7 +1131,6 @@ class _InventoryPicklistsUpdateScreenState
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: _textSecondary,
-                        fontFamily: 'Inter',
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -1113,7 +1140,7 @@ class _InventoryPicklistsUpdateScreenState
             ),
           ),
           // Rows
-          ..._filteredSelectedItems.map((item) {
+          ..._selectedItems.map((item) {
             final rowKey = _buildRowKey(item);
             return IntrinsicHeight(
               child: Container(
@@ -1127,19 +1154,31 @@ class _InventoryPicklistsUpdateScreenState
                     Expanded(
                       flex: 4,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
+                        padding: const EdgeInsets.only(
+                          top: 12,
+                          bottom: 12,
+                          right: 12,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(item.productName,
-                                style: const TextStyle(
-                                    fontSize: 13, fontWeight: FontWeight.w500)),
+                            Text(
+                              item.productName,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                             if (item.productCode.isNotEmpty) ...[
                               const SizedBox(height: 2),
-                              Text(item.productCode,
-                                  style: const TextStyle(
-                                      fontSize: 11, color: _textSecondary)),
+                              Text(
+                                item.productCode,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: _textSecondary,
+                                ),
+                              ),
                             ],
                           ],
                         ),
@@ -1185,9 +1224,28 @@ class _InventoryPicklistsUpdateScreenState
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            item.quantityToPick?.toInt().toString() ?? '0',
-                            style: const TextStyle(fontSize: 13),
+                          _buildQuantityField(
+                            fieldKey: '${rowKey}_to_pick',
+                            initialValue: _currentQtyToPick(item),
+                            onChanged: (val) {
+                              final d = double.tryParse(val) ?? 0.0;
+                              final ordered = item.quantityOrdered ?? 0;
+                              final picked = _getCurrentPickedQty(item);
+
+                              // Validation: To Pick <= Ordered and To Pick >= Picked
+                              if (d > ordered || d < picked) {
+                                return;
+                              }
+
+                              setState(() {
+                                final idx = _selectedItems.indexOf(item);
+                                if (idx != -1) {
+                                  _selectedItems[idx] = item.copyWith(
+                                    quantityToPick: d,
+                                  );
+                                }
+                              });
+                            },
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -1213,37 +1271,109 @@ class _InventoryPicklistsUpdateScreenState
                         children: [
                           _buildQuantityField(
                             fieldKey: '${rowKey}_picked_update',
-                            initialValue: _currentPickedQty(item),
+                            initialValue:
+                                _manualPickedQty[rowKey] ??
+                                _getCurrentPickedQty(item),
+                            isRed:
+                                (_manualPickedQty[rowKey] ??
+                                    _getCurrentPickedQty(item)) >
+                                (item.quantityOrdered ?? 0),
+                            isBlue:
+                                (_manualPickedQty[rowKey] ??
+                                        _getCurrentPickedQty(item)) >
+                                    0 &&
+                                (_manualPickedQty[rowKey] ??
+                                        _getCurrentPickedQty(item)) <=
+                                    (item.quantityOrdered ?? 0),
                             onChanged: (val) {
-                              final d = double.tryParse(val) ?? 0.0;
+                              final d = val.trim().isEmpty
+                                  ? 0.0
+                                  : double.tryParse(val) ?? 0.0;
+                              final toPick = item.quantityToPick ?? 0;
+
                               setState(() {
+                                _manualPickedQty[rowKey] = d < 0 ? 0.0 : d;
+
                                 final idx = _selectedItems.indexOf(item);
                                 if (idx != -1) {
-                                  _selectedItems[idx] =
-                                      item.copyWith(quantityPicked: d);
+                                  // Update status automatically based on quantity
+                                  String newStatus = item.status;
+                                  if (d <= 0) {
+                                    newStatus = 'YET_TO_START';
+                                  } else if (d < toPick) {
+                                    newStatus = 'IN_PROGRESS';
+                                  } else {
+                                    newStatus = 'COMPLETED';
+                                  }
+
+                                  _selectedItems[idx] = item.copyWith(
+                                    quantityPicked: d < 0 ? 0.0 : d,
+                                    status: newStatus,
+                                  );
                                 }
                               });
                             },
                           ),
                           const SizedBox(height: 4),
-                          GestureDetector(
-                            onTap: () => _showSelectBatchesDialog(item),
-                            child: Text(
-                              _currentPickedQty(item) > 0
-                                  ? _buildBatchSummaryText(item)
-                                  : 'Select Batch',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: _focusBorder,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
+                          (_manualPickedQty[rowKey] ??
+                                      _getCurrentPickedQty(item)) <=
+                                  0
+                              ? const SizedBox.shrink()
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_savedBatchKeys.contains(rowKey))
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 2),
+                                        child: Text(
+                                          _buildBatchQtyFocText(item),
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Color(0xFF9CA3AF),
+                                            fontFamily: 'Inter',
+                                          ),
+                                        ),
+                                      ),
+                                    InkWell(
+                                      onTap:
+                                          () => _showSelectBatchesDialog(item),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (!_savedBatchKeys.contains(rowKey))
+                                            const Padding(
+                                              padding: EdgeInsets.only(
+                                                right: 4,
+                                              ),
+                                              child: Icon(
+                                                LucideIcons.alertTriangle,
+                                                size: 10,
+                                                color: Color(0xFFEF4444),
+                                              ),
+                                            ),
+                                          Text(
+                                            _savedBatchKeys.contains(rowKey)
+                                                ? _buildBatchSummaryText(item)
+                                                : 'Select Batch and Bin',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              color: Color(0xFF2563EB),
+                                              fontFamily: 'Inter',
+                                              decoration:
+                                                  TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                         ],
                       ),
                     ),
-                    const VerticalDivider(width: 1, color: _borderCol),
                     Expanded(
                       flex: 2,
                       child: Center(
@@ -1269,11 +1399,132 @@ class _InventoryPicklistsUpdateScreenState
                                 value: item.status,
                                 items: const [
                                   'YET_TO_START',
+                                  'IN_PROGRESS',
+                                  'COMPLETED',
+                                  'ON_HOLD',
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() {
+                                      final idx = _selectedItems.indexOf(item);
+                                      if (idx != -1) {
+                                        double? newQtyPicked =
+                                            item.quantityPicked;
+                                        if (val == 'YET_TO_START') {
+                                          newQtyPicked = 0;
+                                          final rowKey = _buildRowKey(item);
+                                          _manualPickedQty[rowKey] = 0;
+                                        } else if (val == 'COMPLETED') {
+                                          newQtyPicked = item.quantityOrdered;
+                                          final rowKey = _buildRowKey(item);
+                                          _manualPickedQty[rowKey] =
+                                              newQtyPicked ?? 0;
+                                        }
+
+                                        _selectedItems[idx] = item.copyWith(
+                                          status: val,
+                                          quantityPicked: newQtyPicked,
+                                        );
+                                      }
+                                    });
+                                  }
+                                },
+                                displayStringForValue: (v) {
+                                  if (v == 'YET_TO_START')
+                                    return 'Yet to start';
+                                  if (v == 'IN_PROGRESS') return 'In progress';
+                                  if (v == 'COMPLETED') return 'Completed';
+                                  if (v == 'ON_HOLD') return 'On hold';
+                                  return v;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'IN_PROGRESS':
+        return const Color(0xFF2563EB); // Blue
+      case 'ON_HOLD':
+        return const Color(0xFFEF4444); // Red
+      case 'COMPLETED':
+        return const Color(0xFF10B981); // Green
+      case 'YET_TO_START':
+      default:
+        return const Color(0xFF9CA3AF); // Grey
+    }
+  }
+
+  Widget _buildNotesSection() {
+    return _buildFormRow(
+      label: 'Internal Notes',
+      isRequired: false,
+      child: SizedBox(
+        width: 350,
+        child: TextField(
+          controller: _notesCtrl,
+          maxLines: 4,
+          style: const TextStyle(
+            fontSize: 13,
+            color: _textPrimary,
+            fontFamily: 'Inter',
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.all(12),
+            enabledBorder: OutlineInputBorder(
+              borderSide: const BorderSide(color: _borderCol),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: const BorderSide(color: _focusBorder, width: 1.4),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStickyFooter() {
+    double totalOrdered = 0;
+    double totalPicked = 0;
+    for (var item in _selectedItems) {
+      totalOrdered += item.quantityOrdered ?? 0;
+      totalPicked += _getCurrentPickedQty(item);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: _borderCol)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0a000000),
+            blurRadius: 4,
+            offset: Offset(0, -2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           ElevatedButton(
-            onPressed: (_isSaving || _selectedItems.isEmpty || !_allBatchesAdded)
+            onPressed:
+                (_isSaving || _selectedItems.isEmpty || !_allBatchesAdded)
                 ? null
                 : _savePicklist,
             style: ElevatedButton.styleFrom(
@@ -1296,10 +1547,7 @@ class _InventoryPicklistsUpdateScreenState
                   )
                 : const Text(
                     'Update',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
           ),
           const SizedBox(width: 12),
@@ -1315,10 +1563,7 @@ class _InventoryPicklistsUpdateScreenState
             ),
             child: const Text(
               'Cancel',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),
           const Spacer(),
@@ -1434,8 +1679,9 @@ class _PicklistSelectBatchesDialogState
           return DateFormat('dd-MM-yyyy').format(parsed);
         }
       }
-      return DateFormat('dd-MM-yyyy')
-          .format(DateFormat('dd-MM-yyyy').parse(value));
+      return DateFormat(
+        'dd-MM-yyyy',
+      ).format(DateFormat('dd-MM-yyyy').parse(value));
     } catch (_) {
       return value;
     }
@@ -1496,16 +1742,29 @@ class _PicklistSelectBatchesDialogState
   }
 
   Future<void> _loadBins() async {
+    if (widget.warehouseId.isEmpty) return;
     try {
+      debugPrint(
+        '🔄 Loading bins for Picklist Update - Warehouse: ${widget.warehouseId}, Product: ${widget.productId}',
+      );
       final repository = ref.read(inventoryPicklistRepositoryProvider);
-      final bins = await repository.getWarehouseBins(warehouseId: widget.warehouseId);
+      final bins = await repository.getWarehouseBins(
+        warehouseId: widget.warehouseId,
+        productId: widget.productId,
+      );
+      
+      debugPrint('📦 Found ${bins.length} bins from repository for Picklist Update');
+      
       if (mounted) {
         setState(() {
-          _binLocations = bins.map((b) => b['binCode'] ?? '').where((c) => c.isNotEmpty).toList();
+          _binLocations = bins
+              .map((b) => (b['binCode'] ?? b['bin_code'] ?? '').toString())
+              .where((c) => c.isNotEmpty)
+              .toList();
         });
       }
-    } catch (_) {
-      // Error handling
+    } catch (e) {
+      debugPrint('❌ Error loading bins in Picklist Update: $e');
     }
   }
 
@@ -1855,62 +2114,6 @@ class _PicklistSelectBatchesDialogState
               ),
             ),
             const Divider(height: 1, color: _borderCol),
-            if (_dialogErrorMessage != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFDECEC),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFF9D3D3)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 16,
-                        child: Text(
-                          '•',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 25,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                           _dialogErrorMessage!,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: _textPrimary,
-                            fontFamily: 'Inter',
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () => setState(() => _dialogErrorMessage = null),
-                        child: const Padding(
-                          padding: EdgeInsets.only(left: 8),
-                          child: Icon(
-                            LucideIcons.x,
-                            size: 16,
-                            color: _dangerRed,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
               child: Row(
@@ -2089,8 +2292,10 @@ class _PicklistSelectBatchesDialogState
                   return Column(
                     children: [
                       MouseRegion(
-                        onEnter: (_) => setState(() => _hoveredBatchRows.add(index)),
-                        onExit: (_) => setState(() => _hoveredBatchRows.remove(index)),
+                        onEnter: (_) =>
+                            setState(() => _hoveredBatchRows.add(index)),
+                        onExit: (_) =>
+                            setState(() => _hoveredBatchRows.remove(index)),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             vertical: 4,
@@ -2099,96 +2304,19 @@ class _PicklistSelectBatchesDialogState
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                            Expanded(
-                              flex: 15,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                child: _BinHoverBox(
-                                  isEnabled: row.binLocationCtrl.text.isNotEmpty,
-                                  message: row.binLocationCtrl.text,
-                                  child: SizedBox(
-                                    height: _batchDropdownHeight,
-                                    child: FormDropdown<String>(
-                                      height: _batchDropdownHeight,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: _borderCol),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 8,
-                                      ),
-                                      value:
-                                          _binLocations.contains(
-                                            row.binLocationCtrl.text.trim(),
-                                          )
-                                          ? row.binLocationCtrl.text.trim()
-                                          : null,
-                                      items: _binLocations,
-                                      hint: 'Select Bin',
-                                      showSearch: true,
-                                      maxVisibleItems: 4,
-                                      menuMaxHeight: 220,
-                                      displayStringForValue: (v) => v,
-                                      searchStringForValue: (v) => v,
-                                      itemBuilder:
-                                          (
-                                            item,
-                                            isSelected,
-                                            isHovered,
-                                          ) => Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
-                                            ),
-                                            color: isHovered
-                                                ? const Color(0xFF3B82F6)
-                                                : (isSelected
-                                                      ? const Color(0xFFF3F4F6)
-                                                      : Colors.transparent),
-                                            child: Text(
-                                              item,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: isHovered
-                                                    ? Colors.white
-                                                    : (isSelected
-                                                          ? const Color(
-                                                              0xFF1F2937,
-                                                            )
-                                                          : const Color(
-                                                              0xFF1F2937,
-                                                            )),
-                                              ),
-                                            ),
-                                          ),
-                                      onChanged: (val) {
-                                        setState(() {
-                                          row.binLocationCtrl.text = val ?? '';
-                                        });
-                                      },
-                                    ),
+                              Expanded(
+                                flex: 15,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
                                   ),
-                                ),
-                              ),
-                            ),
-                            // Batch No — FormDropdown from batch_master
-                            Expanded(
-                              flex: 15,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                child: SizedBox(
-                                  height: _batchDropdownHeight,
-                                  child: Consumer(
-                                    builder: (context, ref, _) {
-                                      final batchesAsync = ref.watch(
-                                        batchLookupProvider(widget.productId),
-                                      );
-                                      final batches = batchesAsync.value ?? [];
-
-                                      return FormDropdown<Map<String, dynamic>>(
+                                  child: _BinHoverBox(
+                                    isEnabled:
+                                        row.binLocationCtrl.text.isNotEmpty,
+                                    message: row.binLocationCtrl.text,
+                                    child: SizedBox(
+                                      height: _batchDropdownHeight,
+                                      child: FormDropdown<String>(
                                         height: _batchDropdownHeight,
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(color: _borderCol),
@@ -2197,133 +2325,221 @@ class _PicklistSelectBatchesDialogState
                                           vertical: 8,
                                         ),
                                         value:
-                                            batches
-                                                .firstWhere(
+                                            _binLocations.contains(
+                                              row.binLocationCtrl.text.trim(),
+                                            )
+                                            ? row.binLocationCtrl.text.trim()
+                                            : null,
+                                        items: _binLocations,
+                                        hint: 'Select Bin',
+                                        showSearch: true,
+                                        maxVisibleItems: 4,
+                                        menuMaxHeight: 220,
+                                        displayStringForValue: (v) => v,
+                                        searchStringForValue: (v) => v,
+                                        itemBuilder:
+                                            (
+                                              item,
+                                              isSelected,
+                                              isHovered,
+                                            ) => Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
+                                                  ),
+                                              color: isHovered
+                                                  ? const Color(0xFF3B82F6)
+                                                  : (isSelected
+                                                        ? const Color(
+                                                            0xFFF3F4F6,
+                                                          )
+                                                        : Colors.transparent),
+                                              child: Text(
+                                                item,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: isHovered
+                                                      ? Colors.white
+                                                      : (isSelected
+                                                            ? const Color(
+                                                                0xFF1F2937,
+                                                              )
+                                                            : const Color(
+                                                                0xFF1F2937,
+                                                              )),
+                                                ),
+                                              ),
+                                            ),
+                                        onChanged: (val) {
+                                          setState(() {
+                                            row.binLocationCtrl.text =
+                                                val ?? '';
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Batch No — FormDropdown from batch_master
+                              Expanded(
+                                flex: 15,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: SizedBox(
+                                    height: _batchDropdownHeight,
+                                    child: Consumer(
+                                      builder: (context, ref, _) {
+                                        final batchesAsync = ref.watch(
+                                          batchLookupProvider(widget.productId),
+                                        );
+                                        final batches =
+                                            batchesAsync.value ?? [];
+
+                                        return FormDropdown<
+                                          Map<String, dynamic>
+                                        >(
+                                          height: _batchDropdownHeight,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          border: Border.all(color: _borderCol),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 8,
+                                          ),
+                                          value:
+                                              batches
+                                                  .firstWhere(
+                                                    (b) =>
+                                                        b['batch_no']
+                                                            ?.toString()
+                                                            .trim() ==
+                                                        row.batchRefCtrl.text
+                                                            .trim(),
+                                                    orElse: () =>
+                                                        <String, dynamic>{},
+                                                  )
+                                                  .isEmpty
+                                              ? null
+                                              : batches.firstWhere(
                                                   (b) =>
                                                       b['batch_no']
                                                           ?.toString()
                                                           .trim() ==
                                                       row.batchRefCtrl.text
                                                           .trim(),
-                                                  orElse: () =>
-                                                      <String, dynamic>{},
-                                                )
-                                                .isEmpty
-                                            ? null
-                                            : batches.firstWhere(
-                                                (b) =>
-                                                    b['batch_no']
-                                                        ?.toString()
-                                                        .trim() ==
-                                                    row.batchRefCtrl.text
-                                                        .trim(),
-                                              ),
-                                        items: batches,
-                                        hint: 'Select Batch',
-                                        showSearch: true,
-                                        displayStringForValue: (v) =>
-                                            v['batch_no']?.toString() ?? '',
-                                        searchStringForValue: (v) =>
-                                            v['batch_no']?.toString() ?? '',
-                                        onChanged: (v) {
-                                          setState(() {
-                                            if (v != null) {
-                                              final batchNo = v['batch_no']
-                                                  ?.toString()
-                                                  .trim();
-                                              row.batchRefCtrl.text =
-                                                  batchNo ?? '';
-                                              row.batchNoCtrl.text =
-                                                  batchNo ?? '';
+                                                ),
+                                          items: batches,
+                                          hint: 'Select Batch',
+                                          showSearch: true,
+                                          displayStringForValue: (v) =>
+                                              v['batch_no']?.toString() ?? '',
+                                          searchStringForValue: (v) =>
+                                              v['batch_no']?.toString() ?? '',
+                                          onChanged: (v) {
+                                            setState(() {
+                                              if (v != null) {
+                                                final batchNo = v['batch_no']
+                                                    ?.toString()
+                                                    .trim();
+                                                row.batchRefCtrl.text =
+                                                    batchNo ?? '';
+                                                row.batchNoCtrl.text =
+                                                    batchNo ?? '';
 
-                                              // Auto-fill details from selected batch map
-                                              row.unitPackCtrl.text =
-                                                  v['unit_pack']?.toString() ??
-                                                  '';
-                                              row.expDateCtrl.text =
-                                                  v['expiry_date']
-                                                      ?.toString() ??
-                                                  '';
+                                                // Auto-fill details from selected batch map
+                                                row.unitPackCtrl.text =
+                                                    v['unit_pack']
+                                                        ?.toString() ??
+                                                    '';
+                                                row.expDateCtrl.text =
+                                                    v['expiry_date']
+                                                        ?.toString() ??
+                                                    '';
 
-                                              final prices =
-                                                  v['prices'] as List?;
-                                              if (prices != null &&
-                                                  prices.isNotEmpty) {
-                                                final p = prices[0];
-                                                row.mrpCtrl.text =
-                                                    (p['mrp'] as num?)
-                                                        ?.toDouble()
-                                                        .toStringAsFixed(2) ??
-                                                    '0.00';
-                                                row.ptrCtrl.text =
-                                                    (p['ptr'] as num?)
-                                                        ?.toDouble()
-                                                        .toStringAsFixed(2) ??
-                                                    '0.00';
+                                                final prices =
+                                                    v['prices'] as List?;
+                                                if (prices != null &&
+                                                    prices.isNotEmpty) {
+                                                  final p = prices[0];
+                                                  row.mrpCtrl.text =
+                                                      (p['mrp'] as num?)
+                                                          ?.toDouble()
+                                                          .toStringAsFixed(2) ??
+                                                      '0.00';
+                                                  row.ptrCtrl.text =
+                                                      (p['ptr'] as num?)
+                                                          ?.toDouble()
+                                                          .toStringAsFixed(2) ??
+                                                      '0.00';
+                                                }
                                               }
-                                            }
-                                          });
-                                        },
-                                      );
-                                    },
+                                            });
+                                          },
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            _buildInput(
-                              controller: row.unitPackCtrl,
-                              flex: 15,
-                              hint: 'Pack',
-                              isNumber: true,
-                              readOnly: true,
-                            ),
-                            _buildInput(
-                              controller: row.mrpCtrl,
-                              flex: 15,
-                              hint: '0',
-                              isNumber: true,
-                              readOnly: true,
-                            ),
-                            _buildInput(
-                              controller: row.ptrCtrl,
-                              flex: 15,
-                              hint: '0',
-                              isNumber: true,
-                              readOnly: true,
-                            ),
-                            _buildDatePicker(
-                              controller: row.expDateCtrl,
-                              anchorKey: row.expKey,
-                              flex: 15,
-                              currentDate: row.expDate,
-                              onDateChanged: (d) =>
-                                  setState(() => row.expDate = d),
-                              readOnly: true,
-                            ),
-                            if (_showMfgDetails) ...[
-                              _buildDatePicker(
-                                controller: row.mfgDateCtrl,
-                                anchorKey: row.mfgKey,
+                              _buildInput(
+                                controller: row.unitPackCtrl,
                                 flex: 15,
-                                currentDate: row.mfgDate,
-                                onDateChanged: (d) =>
-                                    setState(() => row.mfgDate = d),
+                                hint: 'Pack',
+                                isNumber: true,
                                 readOnly: true,
                               ),
                               _buildInput(
-                                controller: row.mfgBatchCtrl,
+                                controller: row.mrpCtrl,
                                 flex: 15,
-                                hint: 'Mfg Batch',
+                                hint: '0',
+                                isNumber: true,
                                 readOnly: true,
                               ),
-                            ],
-                            _buildInput(
-                              controller: row.qtyOutCtrl,
-                              flex: 15,
-                              hint: '0',
-                              isNumber: true,
-                            ),
-                            if (_showFocColumn) _buildFocInput(row, index),
+                              _buildInput(
+                                controller: row.ptrCtrl,
+                                flex: 15,
+                                hint: '0',
+                                isNumber: true,
+                                readOnly: true,
+                              ),
+                              _buildDatePicker(
+                                controller: row.expDateCtrl,
+                                anchorKey: row.expKey,
+                                flex: 15,
+                                currentDate: row.expDate,
+                                onDateChanged: (d) =>
+                                    setState(() => row.expDate = d),
+                                readOnly: true,
+                              ),
+                              if (_showMfgDetails) ...[
+                                _buildDatePicker(
+                                  controller: row.mfgDateCtrl,
+                                  anchorKey: row.mfgKey,
+                                  flex: 15,
+                                  currentDate: row.mfgDate,
+                                  onDateChanged: (d) =>
+                                      setState(() => row.mfgDate = d),
+                                  readOnly: true,
+                                ),
+                                _buildInput(
+                                  controller: row.mfgBatchCtrl,
+                                  flex: 15,
+                                  hint: 'Mfg Batch',
+                                  readOnly: true,
+                                ),
+                              ],
+                              _buildInput(
+                                controller: row.qtyOutCtrl,
+                                flex: 15,
+                                hint: '0',
+                                isNumber: true,
+                              ),
+                              if (_showFocColumn) _buildFocInput(row, index),
                               SizedBox(
                                 width: 24,
                                 child: AnimatedOpacity(
@@ -2398,53 +2614,83 @@ class _PicklistSelectBatchesDialogState
                       for (var i = 0; i < _rows.length; i++) {
                         final row = _rows[i];
                         if (row.binLocationCtrl.text.isEmpty) {
-                          setState(() {
-                            _dialogErrorMessage =
-                                'Please select Bin Location in Row ${i + 1}.';
-                          });
+                          ZerpaiToast.error(
+                            context,
+                            'Please select Bin Location in Row ${i + 1}.',
+                          );
                           return;
                         }
                         if (row.batchRefCtrl.text.isEmpty) {
-                          setState(() {
-                            _dialogErrorMessage =
-                                'Please select Batch Reference in Row ${i + 1}.';
-                          });
+                          ZerpaiToast.error(
+                            context,
+                            'Please select Batch Reference in Row ${i + 1}.',
+                          );
                           return;
                         }
                         if (row.batchNoCtrl.text.isEmpty) {
-                          setState(() {
-                            _dialogErrorMessage =
-                                'Please enter Batch No in Row ${i + 1}.';
-                          });
+                          ZerpaiToast.error(
+                            context,
+                            'Please enter Batch No in Row ${i + 1}.',
+                          );
                           return;
                         }
                         if (row.unitPackCtrl.text.isEmpty) {
-                          setState(() {
-                            _dialogErrorMessage =
-                                'Please enter Unit Pack in Row ${i + 1}.';
-                          });
+                          ZerpaiToast.error(
+                            context,
+                            'Please enter Unit Pack in Row ${i + 1}.',
+                          );
                           return;
                         }
                         if (row.mrpCtrl.text.isEmpty) {
-                          setState(() {
-                            _dialogErrorMessage =
-                                'Please enter MRP in Row ${i + 1}.';
-                          });
+                          ZerpaiToast.error(
+                            context,
+                            'Please enter MRP in Row ${i + 1}.',
+                          );
                           return;
                         }
                         if (row.expDateCtrl.text.isEmpty) {
-                          setState(() {
-                            _dialogErrorMessage =
-                                'Please select Expiry Date in Row ${i + 1}.';
-                          });
+                          ZerpaiToast.error(
+                            context,
+                            'Please select Expiry Date in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+
+                        // Rule: Either Quantity Out or FOC must be filled
+                        final qtyOut =
+                            double.tryParse(row.qtyOutCtrl.text.trim()) ?? 0;
+                        final foc =
+                            double.tryParse(row.focCtrl.text.trim()) ?? 0;
+                        if (qtyOut <= 0 && foc <= 0) {
+                          ZerpaiToast.error(
+                            context,
+                            'Either Quantity Out or FOC must be filled in Row ${i + 1}.',
+                          );
                           return;
                         }
                       }
 
+                      // Check for duplicate Bin Location + Batch No
+                      final seenPairs = <String>{};
+                      for (var i = 0; i < _rows.length; i++) {
+                        final row = _rows[i];
+                        final bin = row.binLocationCtrl.text.trim();
+                        final batch = row.batchNoCtrl.text.trim();
+                        if (bin.isNotEmpty && batch.isNotEmpty) {
+                          final pair = '$bin|$batch';
+                          if (seenPairs.contains(pair)) {
+                            ZerpaiToast.error(
+                              context,
+                              'Same Bin Location and Batch No can\'t be used multiple times.',
+                            );
+                            return;
+                          }
+                          seenPairs.add(pair);
+                        }
+                      }
+
                       if (_hasQuantityMismatch && !_overwriteLineItem) {
-                        setState(() {
-                          _dialogErrorMessage = _quantityMismatchMessage;
-                        });
+                        ZerpaiToast.error(context, _quantityMismatchMessage);
                         return;
                       }
 
@@ -2575,7 +2821,10 @@ class _BinHoverBoxState extends State<_BinHoverBox> {
               color: Colors.transparent,
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 250),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(4),
@@ -2623,4 +2872,3 @@ class _BinHoverBoxState extends State<_BinHoverBox> {
     );
   }
 }
-

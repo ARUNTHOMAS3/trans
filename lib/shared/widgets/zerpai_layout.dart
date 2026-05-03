@@ -62,6 +62,8 @@ class ZerpaiLayout extends StatelessWidget {
   final bool isDirty;
   final FocusNode? searchFocusNode;
   final Widget? endDrawer;
+  final EdgeInsetsGeometry? titlePadding;
+  final Widget? titleWidget;
 
   const ZerpaiLayout({
     super.key,
@@ -82,6 +84,8 @@ class ZerpaiLayout extends StatelessWidget {
     this.isDirty = false,
     this.searchFocusNode,
     this.endDrawer,
+    this.titlePadding,
+    this.titleWidget,
   });
 
   @override
@@ -163,12 +167,15 @@ class ZerpaiLayout extends StatelessWidget {
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              pageTitle,
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
+                            Padding(
+                              padding: titlePadding ?? EdgeInsets.zero,
+                              child: titleWidget ?? Text(
+                                pageTitle,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                ),
                               ),
                             ),
                             if (actions != null && actions!.isNotEmpty) ...[
@@ -184,15 +191,18 @@ class ZerpaiLayout extends StatelessWidget {
                       : Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                pageTitle,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimary,
+                              child: Padding(
+                                padding: titlePadding ?? EdgeInsets.zero,
+                                child: titleWidget ?? Text(
+                                  pageTitle,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             if (actions != null && actions!.isNotEmpty) ...[

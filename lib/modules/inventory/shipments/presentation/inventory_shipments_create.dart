@@ -121,7 +121,7 @@ class _InventoryShipmentsCreateScreenState
         : (isSelected ? const Color(0xFFF3F4F6) : Colors.white);
     final primaryTextColor = isHovered ? Colors.white : _textPrimary;
     final secondaryTextColor = isHovered
-        ? Colors.white.withOpacity(0.85)
+        ? Colors.white.withValues(alpha: 0.85)
         : _textSecondary;
 
     return Container(
@@ -139,7 +139,7 @@ class _InventoryShipmentsCreateScreenState
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isHovered
-                  ? Colors.white.withOpacity(0.25)
+                  ? Colors.white.withValues(alpha: 0.25)
                   : const Color(0xFFE5E7EB),
             ),
             alignment: Alignment.center,
@@ -587,7 +587,7 @@ class _InventoryShipmentsCreateScreenState
                                         isRequired: true,
                                         child: CustomTextField(
                                           controller: _shipmentOrderCtrl,
-                                          height: 32,
+                                          height: 36,
                                           suffixWidget: const ZTooltip(
                                             message:
                                                 'Click here to enable or disable auto-generation of Shipment numbers.',
@@ -1432,57 +1432,57 @@ class _InventoryShipmentsCreateScreenState
     bool isRequired = false,
   }) {
     return Row(
-      crossAxisAlignment: subLabel != null
-          ? CrossAxisAlignment.start
-          : CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 150,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      color: isRequired ? _dangerRed : _textPrimary,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                  if (isRequired)
-                    const Text(
-                      ' *',
+        crossAxisAlignment: subLabel != null
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 150,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
                       style: TextStyle(
-                        color: _dangerRed,
                         fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: isRequired ? _dangerRed : _textPrimary,
                         fontFamily: 'Inter',
                       ),
                     ),
-                ],
-              ),
-              if (subLabel != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    subLabel,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: _textSecondary,
-                      fontFamily: 'Inter',
+                    if (isRequired)
+                      const Text(
+                        ' *',
+                        style: TextStyle(
+                          color: _dangerRed,
+                          fontSize: 13,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                  ],
+                ),
+                if (subLabel != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      subLabel,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: _textSecondary,
+                        fontFamily: 'Inter',
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
+          const SizedBox(width: 16),
         Expanded(child: child),
-      ],
+        ],
     );
   }
 }

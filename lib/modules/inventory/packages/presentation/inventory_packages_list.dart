@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../shared/widgets/zerpai_layout.dart';
 import '../../../../shared/widgets/inputs/z_tooltip.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class InventoryPackagesListScreen extends StatefulWidget {
   const InventoryPackagesListScreen({super.key});
@@ -30,13 +31,60 @@ class _InventoryPackagesListScreenState
       pageTitle: 'All Packages',
       enableBodyScroll: false,
       useHorizontalPadding: false,
-      horizontalPaddingValue: 12,
+      horizontalPaddingValue: 15,
       useTopPadding: true,
+      titlePadding: const EdgeInsets.only(left: 20),
       actions: [
         Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            ElevatedButton(
+              onPressed: () {},
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Create Dispatch Entrypass',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                      Text(
+                        'generate enrtrypass',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Inter',
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(LucideIcons.fileText, size: 14),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
             Container(
               height: 32,
               decoration: BoxDecoration(
@@ -85,7 +133,7 @@ class _InventoryPackagesListScreenState
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             ElevatedButton.icon(
               onPressed: () {
                 context.go('/inventory/packages/create');

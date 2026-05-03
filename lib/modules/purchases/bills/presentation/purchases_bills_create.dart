@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/modules/purchases/bills/models/purchases_bills_bill_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
@@ -217,11 +218,13 @@ class _PurchasesBillCreateScreenState
   static const Color _fieldBorder = Color(0xFFD7DCE5);
   static const Color _textPrimary = Color(0xFF0F172A);
   static const Color _textMuted = Color(0xFF64748B);
+  static const Color _textSecondary = Color(
+    0xFF64748B,
+  ); // Added for consistency
   static const Color _primaryGreen = Color(0xFF22C55E); // Updated
   static const Color _primaryBlue = Color(0xFF3B82F6);
   static const Color _navy = Color(0xFF404452); // Added
   static const Color _danger = Color(0xFFEF4444);
-  static const Color _lightGrayHeader = Color(0xFFFBFBFB);
   static const double _fieldHeight = 36; // Re-adjusted based on visual
   static const double _labelFixedWidth = 150; // Updated
   // ─── Form state ────────────────────────────────────────────────────────────
@@ -251,7 +254,6 @@ class _PurchasesBillCreateScreenState
 
   String _warehouse = 'ZABNIX PRIVATE LIMITED';
   String _discountType = 'At Transaction Level';
-  String _customerType = 'At Transaction Level';
   String? _sourceOfSupply;
   String? _destinationOfSupply;
 
@@ -403,7 +405,11 @@ class _PurchasesBillCreateScreenState
         });
       }
     } catch (e) {
-      AppLogger.error('Error loading payment terms', error: e, module: 'purchases');
+      AppLogger.error(
+        'Error loading payment terms',
+        error: e,
+        module: 'purchases',
+      );
     }
   }
 
@@ -459,7 +465,11 @@ class _PurchasesBillCreateScreenState
                   'This payment term is in use and cannot be deleted.';
             }
           } catch (e) {
-            AppLogger.error('Error checking payment term usage', error: e, module: 'purchases');
+            AppLogger.error(
+              'Error checking payment term usage',
+              error: e,
+              module: 'purchases',
+            );
           }
           return null;
         },
@@ -787,6 +797,7 @@ class _PurchasesBillCreateScreenState
                     children: [
                       // ── Header (Fixed Gray Top Bar) ─────────────────────
                       _buildHeader(),
+                      const Divider(height: 1, color: _borderColor),
                       const SizedBox(height: 32),
                       // ── Main Form Section ────────────────────────────────
                       Padding(
@@ -827,52 +838,13 @@ class _PurchasesBillCreateScreenState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildWarehouseRow(),
-                              const SizedBox(height: 24),
-                              _buildTransactionLevelRow(),
-                              const SizedBox(height: 24),
+                              _buildItemsToolbarRow(),
+                              const SizedBox(height: 16),
                               _buildItemTable(itemsState, accountsRoots),
                               const SizedBox(height: 16),
                               _buildTotalsSection(),
                               const SizedBox(height: 24),
                               _buildNotesTermsAndAttachments(),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      // ── All remaining form fields ──────────────────────────
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 20,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _cardBg,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: _borderColor),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildMainFields(),
-                              const SizedBox(height: 16),
-                              _buildReverseChargeRow(),
-                              const SizedBox(height: 16),
-                              _buildWarehouseRow(),
-                              _buildSubjectRow(),
-                              const SizedBox(height: 24),
-                              _buildTransactionLevelRow(),
-                              const SizedBox(height: 24),
-                              _buildItemTable(itemsState, accountsRoots),
-                              const SizedBox(height: 16),
-                              _buildTotalsSection(),
-                              const SizedBox(height: 24),
-                              _buildNotesTermsAndAttachments(),
-                              const SizedBox(height: 24),
-                              _buildAdditionalFieldsNote(),
                             ],
                           ),
                         ),
@@ -892,35 +864,37 @@ class _PurchasesBillCreateScreenState
   // ─────────────────────────────────────────── Header ───────────────────────
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: const BoxDecoration(
-        color: _lightGrayHeader,
-        border: Border(bottom: BorderSide(color: _borderColor)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 24, 32, 16),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Icon(Icons.receipt_long, size: 22, color: _textPrimary),
+          const Icon(LucideIcons.fileText, size: 24, color: _textPrimary),
           const SizedBox(width: 12),
           const Text(
             'New Bill',
             style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
               color: _textPrimary,
               fontFamily: 'Inter',
             ),
           ),
           const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.close, color: _textMuted, size: 24),
-            onPressed: () {
+          const SizedBox(width: 16),
+          InkWell(
+            onTap: () {
               if (context.canPop()) {
                 context.pop();
               } else {
                 context.go(AppRoutes.bills);
               }
             },
+            borderRadius: BorderRadius.circular(4),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(LucideIcons.x, size: 20, color: _textSecondary),
+            ),
           ),
         ],
       ),
@@ -2811,6 +2785,17 @@ class _PurchasesBillCreateScreenState
           children: [
             SizedBox(
               width: _labelFixedWidth,
+              child: _buildLabel('Location'),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(width: 320, child: _buildWarehouseDropdown()),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            SizedBox(
+              width: _labelFixedWidth,
               child: _buildLabel('Bill#', required: true),
             ),
             const SizedBox(width: 12),
@@ -2935,57 +2920,52 @@ class _PurchasesBillCreateScreenState
     );
   }
 
-  // ─────────────────────────────────────────── Warehouse ───────────────────
+  // ─────────────────────────────────────────── Items Toolbar ──────────────
 
-  Widget _buildWarehouseRow() {
+  Widget _buildItemsToolbarRow() {
     return Row(
       children: [
-        SizedBox(width: 110, child: _buildLabel('Warehouse')),
+        // Warehouse Location
+        SizedBox(
+          width: 200,
+          child: _buildWarehouseDropdown(),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _buildWarehouseDropdown()),
+        // At Transaction Level (discount)
+        SizedBox(
+          width: 200,
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline, size: 16, color: _textMuted),
+              const SizedBox(width: 6),
+              Expanded(child: _buildDiscountDropdown()),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Select Price List placeholder
+        SizedBox(
+          width: 180,
+          child: Row(
+            children: [
+              const Icon(Icons.local_offer_outlined, size: 16, color: _textMuted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: FormDropdown<String>(
+                  value: null,
+                  items: const [],
+                  hint: 'Select Price List',
+                  onChanged: (_) {},
+                  height: _fieldHeight,
+                  border: Border.all(color: _fieldBorder),
+                  borderRadius: BorderRadius.circular(6),
+                  fillColor: _cardBg,
+                ),
+              ),
+            ],
+          ),
+        ),
         const Spacer(),
-      ],
-    );
-  }
-
-  Widget _buildTransactionLevelRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Discount',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _textMuted,
-                ),
-              ),
-              const SizedBox(height: 6),
-              _buildDiscountDropdown(),
-            ],
-          ),
-        ),
-        const SizedBox(width: 24),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Customers',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _textMuted,
-                ),
-              ),
-              const SizedBox(height: 6),
-              _buildCustomerTypeDropdown(),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -3234,22 +3214,6 @@ class _PurchasesBillCreateScreenState
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        // Add Row / Landed Cost
-        Row(
-          children: [
-            _buildAddRowButton(),
-            const SizedBox(width: 12),
-            _buildCustomAddButton(
-              label: 'Add Landed Cost',
-              icon: Icons.add_circle,
-              onTap: () => setState(
-                () => _lineItems.add(_BillLineItemRow(isLandedCost: true)),
-              ),
-              showInfo: true,
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -3268,9 +3232,7 @@ class _PurchasesBillCreateScreenState
         children: [
           _buildHeaderCell('ITEM DETAILS', 400),
           _buildHeaderCell('ACCOUNT', 200),
-          _buildHeaderCell('BATCH', 250),
-          _buildHeaderCell('QTY', 100, textAlign: TextAlign.right),
-          _buildHeaderCell('FREE', 90, textAlign: TextAlign.right),
+          _buildHeaderCell('QUANTITY', 100, textAlign: TextAlign.right),
           _buildHeaderCell(
             'RATE',
             130,
@@ -3313,30 +3275,23 @@ class _PurchasesBillCreateScreenState
               ),
             ),
           _buildHeaderCell('TAX', 150),
-          _buildHeaderCell('AMOUNT', 120, textAlign: TextAlign.right),
-          if (_customerType == 'At Line Item Level')
-            _buildHeaderCell(
-              'CUSTOMER',
-              160,
-              child: Row(
-                children: [
-                  const Text(
-                    'CUSTOMER',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: _textMuted,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.assignment_ind_outlined,
-                    size: 14,
+          _buildHeaderCell(
+            'CUSTOMER DETAILS',
+            160,
+            child: Row(
+              children: [
+                const Text(
+                  'CUSTOMER DETAILS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                     color: _textMuted,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
+          _buildHeaderCell('AMOUNT', 120, textAlign: TextAlign.right),
           const SizedBox(width: 50),
         ],
       ),
@@ -3391,9 +3346,7 @@ class _PurchasesBillCreateScreenState
         children: [
           _buildHeaderCell('LANDED COSTS', 400),
           _buildHeaderCell('ACCOUNT', 200),
-          _buildHeaderCell('BATCH', 250),
-          _buildHeaderCell('QTY', 100, textAlign: TextAlign.right),
-          _buildHeaderCell('FREE', 90, textAlign: TextAlign.right),
+          _buildHeaderCell('QUANTITY', 100, textAlign: TextAlign.right),
           _buildHeaderCell(
             'RATE',
             130,
@@ -3415,30 +3368,23 @@ class _PurchasesBillCreateScreenState
             ),
           ),
           _buildHeaderCell('TAX', 150),
-          _buildHeaderCell('AMOUNT', 120, textAlign: TextAlign.right),
-          if (_customerType == 'At Line Item Level')
-            _buildHeaderCell(
-              'CUSTOMER',
-              160,
-              child: Row(
-                children: [
-                  const Text(
-                    'CUSTOMER',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF374151),
-                    ),
+          _buildHeaderCell(
+            'CUSTOMER DETAILS',
+            160,
+            child: const Row(
+              children: [
+                Text(
+                  'CUSTOMER DETAILS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _textMuted,
                   ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.assignment_ind_outlined,
-                    size: 14,
-                    color: Colors.grey.shade600,
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
+          _buildHeaderCell('AMOUNT', 120, textAlign: TextAlign.right),
           const SizedBox(width: 50),
         ],
       ),
@@ -3446,7 +3392,11 @@ class _PurchasesBillCreateScreenState
   }
 
   Widget _buildWarehouseDropdown() {
-    final items = {_warehouse, 'ZABNIX PRIVATE LIMITED', 'MAIN WAREHOUSE'}.toList();
+    final items = {
+      _warehouse,
+      'ZABNIX PRIVATE LIMITED',
+      'MAIN WAREHOUSE',
+    }.toList();
     return FormDropdown<String>(
       value: _warehouse,
       items: items,
@@ -3539,82 +3489,6 @@ class _PurchasesBillCreateScreenState
     );
   }
 
-  Widget _buildCustomerTypeDropdown() {
-    return SizedBox(
-      width: double.infinity,
-      child: FormDropdown<String>(
-        value: _customerType,
-        items: const ['At Transaction Level', 'At Line Item Level'],
-        onChanged: (val) {
-          if (val != null) setState(() => _customerType = val);
-        },
-        height: _fieldHeight,
-        showSearch: false,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        border: Border.all(color: _fieldBorder),
-        borderRadius: BorderRadius.circular(6),
-        fillColor: _cardBg,
-        displayStringForValue: (val) => val,
-        itemBuilder: (item, isSelected, isHovered) {
-          final bool active = isHovered || isSelected;
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              color: active ? _primaryBlue : Colors.transparent,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.assignment_ind_outlined,
-                  size: 14,
-                  color: active ? Colors.white : _textMuted,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    item,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: active ? Colors.white : _textPrimary,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
-                ),
-                if (isSelected)
-                  const Icon(Icons.check, size: 16, color: Colors.white),
-              ],
-            ),
-          );
-        },
-        listBuilder: (items, itemBuilder) {
-          return SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(12, 12, 12, 8),
-                  child: Text(
-                    'Level Selection',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: _textMuted,
-                    ),
-                  ),
-                ),
-                ...items.map((i) => itemBuilder(i)),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   void _showItemSearchOverlay(
     _BillLineItemRow row,
@@ -4501,7 +4375,8 @@ class _PurchasesBillCreateScreenState
           }).toList();
 
     final bool isExpanded = row.itemId != null || row.showAdditionalInfo;
-    const double expandedHeight = 165;
+    final bool showBatch = isExpanded && row.showAdditionalInfo;
+    final double expandedHeight = showBatch ? 250 : 165;
     const double compactHeight = 60;
     final double cellHeight = isExpanded ? expandedHeight : compactHeight;
 
@@ -4663,9 +4538,9 @@ class _PurchasesBillCreateScreenState
                                   color: const Color(0xFFF1F5F9),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text(
-                                  'GOODS',
-                                  style: TextStyle(
+                                child: Text(
+                                  (row.itemType ?? 'goods').toUpperCase(),
+                                  style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
                                     color: Color(0xFF475569),
@@ -4676,7 +4551,7 @@ class _PurchasesBillCreateScreenState
                             ],
                           ),
                         ],
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         // Description
                         Container(
                           decoration: BoxDecoration(
@@ -4707,8 +4582,8 @@ class _PurchasesBillCreateScreenState
                             ),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        // Tags row
+                        const SizedBox(height: 8),
+                        // HSN Code + batch toggle
                         Row(
                           children: [
                             const Text(
@@ -4760,6 +4635,55 @@ class _PurchasesBillCreateScreenState
                             ),
                           ],
                         ),
+                        // Batch/pharma fields — shown via "Show Additional Information"
+                        if (row.showAdditionalInfo) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: _buildBatchSelector(row)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: _buildCompactDateField(
+                                  context,
+                                  row.expiryCtrl,
+                                  focusNode: row.expiryFocus,
+                                  hint: 'Expiry MM/YY',
+                                  onChanged: (v) =>
+                                      setState(() => row.expiry = v),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildCompactTextField(
+                                  row.unitPackCtrl,
+                                  hint: 'Pack',
+                                  focusNode: row.unitPackFocus,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: _buildCompactNumberField(
+                                  row.mrpCtrl,
+                                  focusNode: row.mrpFocus,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: _buildCompactNumberField(
+                                  row.ptrCtrl,
+                                  focusNode: row.ptrFocus,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ],
                   ),
@@ -4795,74 +4719,6 @@ class _PurchasesBillCreateScreenState
               },
             ),
           ),
-          // Batch (Pharma Consolidated)
-          _buildGridCell(
-            flex: 250,
-            cellHeight: cellHeight,
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: isExpanded
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
-              children: [
-                _buildBatchSelector(row),
-                if (isExpanded) ...[
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildCellSubField(
-                          child: _buildCompactDateField(
-                            context,
-                            row.expiryCtrl,
-                            focusNode: row.expiryFocus,
-                            hint: 'MM/YY',
-                            onChanged: (v) => setState(() => row.expiry = v),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: _buildCellSubField(
-                          child: _buildCompactTextField(
-                            row.unitPackCtrl,
-                            focusNode: row.unitPackFocus,
-                            hint: 'Pack',
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildCellSubField(
-                          child: _buildCompactNumberField(
-                            row.mrpCtrl,
-                            focusNode: row.mrpFocus,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: _buildCellSubField(
-                          child: _buildCompactNumberField(
-                            row.ptrCtrl,
-                            focusNode: row.ptrFocus,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
           // Quantity
           _buildGridCell(
             flex: 100,
@@ -4890,25 +4746,6 @@ class _PurchasesBillCreateScreenState
                     textAlign: TextAlign.right,
                   ),
                 ],
-              ],
-            ),
-          ),
-          // Free Qty
-          _buildGridCell(
-            flex: 90,
-            cellHeight: cellHeight,
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: isExpanded
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
-              children: [
-                _buildCompactNumberField(
-                  row.freeQtyCtrl,
-                  focusNode: row.freeQtyFocus,
-                  onChanged: (_) => setState(() {}),
-                ),
               ],
             ),
           ),
@@ -5049,6 +4886,80 @@ class _PurchasesBillCreateScreenState
               ],
             ),
           ),
+          // Customer Details (always visible)
+          _buildGridCell(
+            flex: 160,
+            cellHeight: cellHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            alignment: isExpanded ? Alignment.topCenter : Alignment.center,
+            child: CompositedTransformTarget(
+              link: row.customerLayerLink,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return InCellWrapper(
+                    focusNode: row.customerSearchFocus,
+                    child: InkWell(
+                      onTap: () {
+                        final customersAsync = ref.read(
+                          salesCustomersProvider,
+                        );
+                        customersAsync.whenData((customers) {
+                          _showCustomerOverlay(
+                            link: row.customerLayerLink,
+                            searchCtrl: row.customerSearchCtrl,
+                            focusNode: row.customerSearchFocus,
+                            customers: customers,
+                            selectedValue: row.customerId,
+                            onSelected: (val) {
+                              setState(() {
+                                row.customerId = val.id;
+                                row.customerName = val.displayName;
+                              });
+                            },
+                            width: constraints.maxWidth,
+                          );
+                        });
+                      },
+                      child: Container(
+                        height: 40,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: const BoxDecoration(
+                          color: Colors.transparent,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.assignment_ind_outlined,
+                              size: 14,
+                              color: _textMuted,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                row.customerName ?? 'Select Customer',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: row.customerName == null
+                                      ? _textMuted
+                                      : _textPrimary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const Icon(
+                              Icons.keyboard_arrow_down,
+                              size: 14,
+                              color: _textMuted,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
           // Amount
           _buildGridCell(
             flex: 120,
@@ -5067,81 +4978,6 @@ class _PurchasesBillCreateScreenState
               ),
             ),
           ),
-          // Customer Details
-          if (_customerType == 'At Line Item Level')
-            _buildGridCell(
-              flex: 160,
-              cellHeight: cellHeight,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              alignment: isExpanded ? Alignment.topCenter : Alignment.center,
-              child: CompositedTransformTarget(
-                link: row.customerLayerLink,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return InCellWrapper(
-                      focusNode: row.customerSearchFocus,
-                      child: InkWell(
-                        onTap: () {
-                          final customersAsync = ref.read(
-                            salesCustomersProvider,
-                          );
-                          customersAsync.whenData((customers) {
-                            _showCustomerOverlay(
-                              link: row.customerLayerLink,
-                              searchCtrl: row.customerSearchCtrl,
-                              focusNode: row.customerSearchFocus,
-                              customers: customers,
-                              selectedValue: row.customerId,
-                              onSelected: (val) {
-                                setState(() {
-                                  row.customerId = val.id;
-                                  row.customerName = val.displayName;
-                                });
-                              },
-                              width: constraints.maxWidth,
-                            );
-                          });
-                        },
-                        child: Container(
-                          height: 40,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: const BoxDecoration(
-                            color: Colors.transparent,
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.assignment_ind_outlined,
-                                size: 14,
-                                color: _textMuted,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  row.customerName ?? 'Customer',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: row.customerName == null
-                                        ? _textMuted
-                                        : _textPrimary,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const Icon(
-                                Icons.keyboard_arrow_down,
-                                size: 14,
-                                color: _textMuted,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
           // Actions
           Container(
             width: 50,
@@ -5259,8 +5095,6 @@ class _PurchasesBillCreateScreenState
           error: (e, _) => Text("Error: $e"),
         );
   }
-
-
 
   List<shared.AccountNode> _mapNodes(List<coa.AccountNode> nodes) {
     final List<coa.AccountNode> flatAccounts = <coa.AccountNode>[];
@@ -5446,241 +5280,299 @@ class _PurchasesBillCreateScreenState
   }
 
   Widget _buildTotalsSection() {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Container(
-        width: 420,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        decoration: BoxDecoration(
-          color: _cardBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _borderColor),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Left side: Reporting Tags + Add buttons
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Reporting Tags chip
+              OutlinedButton.icon(
+                onPressed: () {},
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _textMuted,
+                  side: const BorderSide(color: _fieldBorder),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                icon: const Icon(Icons.label_outline, size: 14),
+                label: const Text(
+                  'Reporting Tags',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _buildAddRowButton(),
+                  const SizedBox(width: 12),
+                  _buildCustomAddButton(
+                    label: 'Add Landed Cost',
+                    icon: Icons.add_circle,
+                    onTap: () => setState(
+                      () =>
+                          _lineItems.add(_BillLineItemRow(isLandedCost: true)),
+                    ),
+                    showInfo: true,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        child: Column(
-          children: [
-            _buildTotalRow(
-              'Sub Total',
-              _discountType == 'At Line Item Level' ? _grossAmount : _subTotal,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Discount',
-                    style: TextStyle(fontSize: 13, color: _textMuted),
-                  ),
-                ),
-                SizedBox(
-                  width: 110,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _discountPercentCtrl,
-                          textAlign: TextAlign.right,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          onChanged: (val) {
-                            setState(() {
-                              _discountPercent = double.tryParse(val) ?? 0;
-                            });
-                          },
-                          style: const TextStyle(fontSize: 13),
-                          decoration: _getInputDecoration('0'),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        width: 32,
-                        height: _fieldHeight,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: _sectionBg,
-                          border: Border.all(color: _fieldBorder),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          '%',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: _textMuted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    _discountAmount == 0
-                        ? '0.00'
-                        : '-${_discountAmount.toStringAsFixed(2)}',
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: _textPrimary,
+        const Spacer(),
+        // Right side: Totals box
+        Container(
+          width: 420,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: const Color(0xFFDBEAFE)),
+          ),
+          child: Column(
+            children: [
+              _buildTotalRow(
+                'Sub Total',
+                _discountType == 'At Line Item Level'
+                    ? _grossAmount
+                    : _subTotal,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Discount',
+                      style: TextStyle(fontSize: 13, color: _textMuted),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      RadioGroup<bool>(
-                        groupValue: _isTdsSelected,
-                        onChanged: (val) {
-                          if (val != null) setState(() => _isTdsSelected = val);
-                        },
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Radio<bool>(
-                              value: true,
-                              activeColor: _primaryBlue,
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
+                  SizedBox(
+                    width: 110,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _discountPercentCtrl,
+                            textAlign: TextAlign.right,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
                             ),
-                            const Text(
-                              'TDS',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: _textPrimary,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Radio<bool>(
-                              value: false,
-                              activeColor: _primaryBlue,
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            const Text(
-                              'TCS',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: _textPrimary,
-                              ),
-                            ),
-                          ],
+                            onChanged: (val) {
+                              setState(() {
+                                _discountPercent = double.tryParse(val) ?? 0;
+                              });
+                            },
+                            style: const TextStyle(fontSize: 13),
+                            decoration: _getInputDecoration('0'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FormDropdown<String>(
-                          height: 36,
-                          value: _selectedTotalsTax,
-                          hint: 'Select a Tax',
-                          items: {
-                            if (_selectedTotalsTax != null)
-                              _selectedTotalsTax!,
-                            ..._standardTaxOptions,
-                          }.toList(),
-                          onChanged: (val) {
-                            setState(() => _selectedTotalsTax = val);
-                          },
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 32,
+                          height: _fieldHeight,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: _sectionBg,
+                            border: Border.all(color: _fieldBorder),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            '%',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _textMuted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    _taxAmount == 0 ? '-0.00' : _taxAmount.toStringAsFixed(2),
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      _discountAmount == 0
+                          ? '0.00'
+                          : '-${_discountAmount.toStringAsFixed(2)}',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        RadioGroup<bool>(
+                          groupValue: _isTdsSelected,
+                          onChanged: (val) {
+                            if (val != null)
+                              setState(() => _isTdsSelected = val);
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Radio<bool>(
+                                value: true,
+                                activeColor: _primaryBlue,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              const Text(
+                                'TDS',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: _textPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Radio<bool>(
+                                value: false,
+                                activeColor: _primaryBlue,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              const Text(
+                                'TCS',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: _textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: FormDropdown<String>(
+                            height: 36,
+                            value: _selectedTotalsTax,
+                            hint: 'Select a Tax',
+                            items: {
+                              if (_selectedTotalsTax != null)
+                                _selectedTotalsTax!,
+                              ..._standardTaxOptions,
+                            }.toList(),
+                            onChanged: (val) {
+                              setState(() => _selectedTotalsTax = val);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      _taxAmount == 0 ? '-0.00' : _taxAmount.toStringAsFixed(2),
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _textMuted,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _adjustmentLabelCtrl,
+                      style: const TextStyle(fontSize: 13),
+                      decoration: _getInputDecoration('Adjustment'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 110,
+                    child: TextField(
+                      controller: _adjustmentAmountCtrl,
+                      textAlign: TextAlign.right,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onChanged: (val) {
+                        setState(() {
+                          _adjustment = double.tryParse(val) ?? 0;
+                        });
+                      },
+                      style: const TextStyle(fontSize: 13),
+                      decoration: _getInputDecoration('0.00'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const SizedBox(
+                    width: 18,
+                    child: Icon(
+                      Icons.info_outline,
+                      size: 14,
                       color: _textMuted,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _adjustmentLabelCtrl,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: _getInputDecoration('Adjustment'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 110,
-                  child: TextField(
-                    controller: _adjustmentAmountCtrl,
-                    textAlign: TextAlign.right,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      _adjustment == 0
+                          ? '0.00'
+                          : _adjustment.toStringAsFixed(2),
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _textPrimary,
+                      ),
                     ),
-                    onChanged: (val) {
-                      setState(() {
-                        _adjustment = double.tryParse(val) ?? 0;
-                      });
-                    },
-                    style: const TextStyle(fontSize: 13),
-                    decoration: _getInputDecoration('0.00'),
                   ),
-                ),
-                const SizedBox(width: 12),
-                const SizedBox(
-                  width: 18,
-                  child: Icon(Icons.info_outline, size: 14, color: _textMuted),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    _adjustment == 0 ? '0.00' : _adjustment.toStringAsFixed(2),
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                ],
+              ),
+              const Divider(height: 24, color: _borderColor),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Total',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                       color: _textPrimary,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const Divider(height: 24, color: _borderColor),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Total',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: _textPrimary,
+                  Text(
+                    _total.toStringAsFixed(2),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: _textPrimary,
+                    ),
                   ),
-                ),
-                Text(
-                  _total.toStringAsFixed(2),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: _textPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -5802,31 +5694,6 @@ class _PurchasesBillCreateScreenState
     );
   }
 
-  Widget _buildAdditionalFieldsNote() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: RichText(
-        text: const TextSpan(
-          style: TextStyle(fontSize: 12, color: _textMuted),
-          children: [
-            TextSpan(
-              text:
-                  'Additional Fields: Start adding custom fields for your '
-                  'payments made by going to ',
-            ),
-            TextSpan(
-              text: 'Settings > Purchases > Bills',
-              style: TextStyle(
-                color: _primaryBlue,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            TextSpan(text: '.'),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildFooter() {
     return Container(
@@ -5947,8 +5814,10 @@ class _PurchasesBillCreateScreenState
     return TextButton.icon(
       onPressed: onTap,
       style: TextButton.styleFrom(
+        backgroundColor: const Color(0xFFF0F5FF),
         foregroundColor: _primaryBlue,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
       icon: Icon(icon ?? Icons.add_circle_outline, size: 16),
       label: Row(
@@ -5987,9 +5856,6 @@ class _PurchasesBillCreateScreenState
     );
   }
 
-  Widget _buildCellSubField({required Widget child}) {
-    return child;
-  }
 
   Widget _buildCompactDateField(
     BuildContext context,

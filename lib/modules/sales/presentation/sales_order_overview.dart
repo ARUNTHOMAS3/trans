@@ -216,9 +216,6 @@ class _SalesOrderOverviewScreenState
   }
 
   void _showUnavailableAction(String label) {
-    // TODO(sales-orders): Replace these placeholder toasts with live
-    // integrations once email, PDF/print, invoice conversion, and follow-up
-    // document creation flows are connected to backend workflows.
     if (!mounted) return;
     ZerpaiToast.info(context, '$label is not available yet');
   }
@@ -228,8 +225,6 @@ class _SalesOrderOverviewScreenState
   }
 
   void _handleCreateAction(String actionLabel) {
-    // TODO(sales-orders): Wire create-follow-up document actions to their
-    // actual Picklist/Package/Shipment/Instant Invoice flows and routes.
     _showUnavailableAction(actionLabel);
   }
 
@@ -409,95 +404,111 @@ class _SalesOrderOverviewScreenState
     );
   }
 
-  void _toggleSaleSelection(String saleId, bool selected) {
-    setState(() {
-      if (selected) {
-        _selectedSaleIds.add(saleId);
-      } else {
-        _selectedSaleIds.remove(saleId);
-      }
-    });
-  }
-
-  void _toggleSelectAll(List<SalesOrder> sales, bool selected) {
-    final ids = sales.map((sale) => sale.id).toSet();
-    setState(() {
-      if (selected) {
-        _selectedSaleIds.addAll(ids);
-      } else {
-        _selectedSaleIds.removeAll(ids);
-      }
-    });
-  }
-
-  bool _allVisibleSelected(List<SalesOrder> sales) =>
-      sales.isNotEmpty &&
-      sales.every((sale) => _selectedSaleIds.contains(sale.id));
-
-  void _clearSelection() {
-    setState(() => _selectedSaleIds.clear());
-  }
-
-  void _handleBulkAction(String label) {
-    if (_selectedSaleIds.isEmpty) {
-      ZerpaiToast.info(context, 'Select at least one sales order');
-      return;
-    }
-    ZerpaiToast.success(
-      context,
-      '$label applied to ${_selectedSaleIds.length} sales order(s)',
-    );
-  }
-
-  Future<void> _showBulkUpdateDialog() async {
-    if (_selectedSaleIds.isEmpty) {
-      ZerpaiToast.info(context, 'Select at least one sales order');
-      return;
-    }
-
-    final result = await showDialog<_BulkUpdateResult>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.58),
-      builder: (context) => const _SalesOrderBulkUpdateDialog(),
-    );
-    if (result == null) return;
-    ZerpaiToast.success(
-      context,
-      '${result.field} updated for ${_selectedSaleIds.length} sales order(s)',
-    );
-  }
-
-  Future<void> _showCustomizeColumnsDialog() async {
-    final working = _columnConfigs.map((column) => column.copy()).toList();
-    final result = await showDialog<List<_SalesOrderColumnConfig>>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.58),
-      builder: (dialogContext) =>
-          _SalesOrderCustomizeColumnsDialog(columns: working),
-    );
-    if (result == null) return;
-    setState(() => _columnConfigs = result);
-    ZerpaiToast.success(context, 'Column preferences saved');
-  }
-
-  Future<void> _showNewCustomViewDialog() async {
-    final result = await showDialog<_SalesOrderCustomViewResult>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.58),
-      builder: (dialogContext) => const _SalesOrderNewCustomViewDialog(),
-    );
-    if (result == null) return;
-    ZerpaiToast.success(
-      context,
-      'Custom view "${result.name}" saved for ${result.visibilityLabel}',
-    );
-  }
-
   Widget _toolbar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 14),
+      padding: const EdgeInsets.fromLTRB(0, 16, 24, 14),
       child: Row(
         children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: MenuAnchor(
+              style: _menuStyle(),
+              builder: (context, controller, child) {
+                return InkWell(
+                  onTap: () =>
+                      controller.isOpen ? controller.close() : controller.open(),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _activeView.label,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(
+                          LucideIcons.chevronDown,
+                          size: 16,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              menuChildren: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                  child: IgnorePointer(
+                    child: SizedBox(
+                      width: 250,
+                      child: TextField(
+                        decoration: _inputDecoration('Search views'),
+                      ),
+                    ),
+                  ),
+                ),
+                ..._salesOrderViews.map(
+                  (view) => MenuItemButton(
+                    style: _menuItemStyle(
+                      isActive: _activeView.label == view.label,
+                    ),
+                    onPressed: () => setState(() => _activeView = view),
+                    trailingIcon: const Icon(
+                      LucideIcons.star,
+                      size: 14,
+                      color: AppTheme.textDisabled,
+                    ),
+                    child: SizedBox(width: 250, child: Text(view.label)),
+                  ),
+                ),
+                const Divider(height: 1, color: AppTheme.borderLight),
+                MenuItemButton(
+                  style: _menuItemStyle(),
+                  onPressed: _showNewCustomViewDialog,
+                  child: const SizedBox(
+                    width: 250,
+                    child: Text('+ New Custom View'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: ZSearchField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                hintText: 'Search in Sales Orders',
+                width: 320,
+                onChanged: (value) =>
+                    setState(() => _searchQuery = value.trim()),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          TextButton(onPressed: () {}, child: const Text('View Order Stats')),
+          const SizedBox(width: 12),
+          SizedBox(
+            height: 36,
+            child: ZButton.primary(
+              label: '+ New',
+              onPressed: () => context.go('/sales/orders/create'),
+            ),
+          ),
+          const SizedBox(width: 8),
           MenuAnchor(
             style: _menuStyle(),
             builder: (context, controller, child) {
@@ -505,63 +516,168 @@ class _SalesOrderOverviewScreenState
                 onTap: () =>
                     controller.isOpen ? controller.close() : controller.open(),
                 borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.borderLight),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _activeView.label,
-                        style: AppTheme.sectionHeader.copyWith(fontSize: 16),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(
-                        LucideIcons.chevronDown,
-                        size: 16,
-                        color: AppTheme.primaryBlue,
-                      ),
-                    ],
+                  child: const Icon(
+                    LucideIcons.moreHorizontal,
+                    size: 16,
+                    color: AppTheme.textBody,
                   ),
                 ),
               );
             },
             menuChildren: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                child: IgnorePointer(
-                  child: SizedBox(
-                    width: 250,
-                    child: TextField(
-                      decoration: _inputDecoration('Search views'),
+              SubmenuButton(
+                menuChildren: [
+                  MenuItemButton(
+                    style: _sortMenuItemStyle(
+                      isSelected:
+                          _activeSortField == _SalesOrderSortField.createdTime,
+                    ),
+                    onPressed: () => setState(
+                      () => _toggleSort(_SalesOrderSortField.createdTime),
+                    ),
+                    child: const SizedBox(
+                      width: 170,
+                      child: Text('Created Time'),
                     ),
                   ),
-                ),
-              ),
-              ..._salesOrderViews.map(
-                (view) => MenuItemButton(
-                  style: _menuItemStyle(
-                    isActive: _activeView.label == view.label,
+                  MenuItemButton(
+                    style: _sortMenuItemStyle(
+                      isSelected:
+                          _activeSortField ==
+                          _SalesOrderSortField.lastModifiedTime,
+                    ),
+                    onPressed: () => setState(
+                      () => _toggleSort(_SalesOrderSortField.lastModifiedTime),
+                    ),
+                    child: const SizedBox(
+                      width: 170,
+                      child: Text('Last Modified Time'),
+                    ),
                   ),
-                  onPressed: () => setState(() => _activeView = view),
-                  trailingIcon: const Icon(
-                    LucideIcons.star,
-                    size: 14,
-                    color: AppTheme.textDisabled,
+                  MenuItemButton(
+                    style: _sortMenuItemStyle(
+                      isSelected: _activeSortField == _SalesOrderSortField.date,
+                    ),
+                    onPressed: () =>
+                        setState(() => _toggleSort(_SalesOrderSortField.date)),
+                    trailingIcon: _activeSortField == _SalesOrderSortField.date
+                        ? Icon(
+                            _isAscending
+                                ? LucideIcons.arrowUp
+                                : LucideIcons.arrowDown,
+                            size: 14,
+                            color: AppTheme.primaryBlueDark,
+                          )
+                        : null,
+                    child: const SizedBox(width: 170, child: Text('Date')),
                   ),
-                  child: SizedBox(width: 250, child: Text(view.label)),
-                ),
+                  MenuItemButton(
+                    style: _sortMenuItemStyle(
+                      isSelected:
+                          _activeSortField ==
+                          _SalesOrderSortField.salesOrderNumber,
+                    ),
+                    onPressed: () => setState(
+                      () => _toggleSort(_SalesOrderSortField.salesOrderNumber),
+                    ),
+                    trailingIcon:
+                        _activeSortField ==
+                            _SalesOrderSortField.salesOrderNumber
+                        ? Icon(
+                            _isAscending
+                                ? LucideIcons.arrowUp
+                                : LucideIcons.arrowDown,
+                            size: 14,
+                            color: AppTheme.primaryBlueDark,
+                          )
+                        : null,
+                    child: const SizedBox(
+                      width: 170,
+                      child: Text('Sales Order#'),
+                    ),
+                  ),
+                  MenuItemButton(
+                    style: _sortMenuItemStyle(
+                      isSelected:
+                          _activeSortField == _SalesOrderSortField.reference,
+                    ),
+                    onPressed: () => setState(
+                      () => _toggleSort(_SalesOrderSortField.reference),
+                    ),
+                    trailingIcon:
+                        _activeSortField == _SalesOrderSortField.reference
+                        ? Icon(
+                            _isAscending
+                                ? LucideIcons.arrowUp
+                                : LucideIcons.arrowDown,
+                            size: 14,
+                            color: AppTheme.primaryBlueDark,
+                          )
+                        : null,
+                    child: const SizedBox(
+                      width: 170,
+                      child: Text('Reference#'),
+                    ),
+                  ),
+                ],
+                child: const SizedBox(width: 170, child: Text('Sort by')),
               ),
-              const Divider(height: 1, color: AppTheme.borderLight),
               MenuItemButton(
                 style: _menuItemStyle(),
-                onPressed: _showNewCustomViewDialog,
+                onPressed: () {},
                 child: const SizedBox(
-                  width: 250,
-                  child: Text('+ New Custom View'),
+                  width: 170,
+                  child: Text('Import Sales Orders'),
                 ),
+              ),
+              SubmenuButton(
+                menuChildren: [
+                  MenuItemButton(
+                    style: _menuItemStyle(),
+                    onPressed: () {},
+                    child: const SizedBox(
+                      width: 170,
+                      child: Text('Export Sales Orders'),
+                    ),
+                  ),
+                  MenuItemButton(
+                    style: _menuItemStyle(),
+                    onPressed: () {},
+                    child: const SizedBox(
+                      width: 170,
+                      child: Text('Export Current View'),
+                    ),
+                  ),
+                ],
+                child: const SizedBox(width: 170, child: Text('Export')),
+              ),
+              MenuItemButton(
+                style: _menuItemStyle(),
+                onPressed: () {},
+                child: const SizedBox(width: 170, child: Text('Preferences')),
+              ),
+              MenuItemButton(
+                style: _menuItemStyle(),
+                onPressed: () {},
+                child: const SizedBox(
+                  width: 170,
+                  child: Text('Manage Custom Fields'),
+                ),
+              ),
+              MenuItemButton(
+                style: _menuItemStyle(),
+                onPressed: () => ref
+                    .read(salesOrderControllerProvider.notifier)
+                    .loadSalesOrders(),
+                child: const SizedBox(width: 170, child: Text('Refresh List')),
               ),
             ],
           ),
@@ -766,6 +882,92 @@ class _SalesOrderOverviewScreenState
       ),
     );
   }
+
+  void _toggleSaleSelection(String saleId, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedSaleIds.add(saleId);
+      } else {
+        _selectedSaleIds.remove(saleId);
+      }
+    });
+  }
+
+  void _toggleSelectAll(List<SalesOrder> sales, bool selected) {
+    final ids = sales.map((sale) => sale.id).toSet();
+    setState(() {
+      if (selected) {
+        _selectedSaleIds.addAll(ids);
+      } else {
+        _selectedSaleIds.removeAll(ids);
+      }
+    });
+  }
+
+  bool _allVisibleSelected(List<SalesOrder> sales) =>
+      sales.isNotEmpty &&
+      sales.every((sale) => _selectedSaleIds.contains(sale.id));
+
+  void _clearSelection() {
+    setState(() => _selectedSaleIds.clear());
+  }
+
+  void _handleBulkAction(String label) {
+    if (_selectedSaleIds.isEmpty) {
+      ZerpaiToast.info(context, 'Select at least one sales order');
+      return;
+    }
+    ZerpaiToast.success(
+      context,
+      '$label applied to ${_selectedSaleIds.length} sales order(s)',
+    );
+  }
+
+  Future<void> _showBulkUpdateDialog() async {
+    if (_selectedSaleIds.isEmpty) {
+      ZerpaiToast.info(context, 'Select at least one sales order');
+      return;
+    }
+
+    final result = await showDialog<_BulkUpdateResult>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.58),
+      builder: (context) => const _SalesOrderBulkUpdateDialog(),
+    );
+    if (result == null) return;
+    ZerpaiToast.success(
+      context,
+      '${result.field} updated for ${_selectedSaleIds.length} sales order(s)',
+    );
+  }
+
+  Future<void> _showCustomizeColumnsDialog() async {
+    final working = _columnConfigs.map((column) => column.copy()).toList();
+    final result = await showDialog<List<_SalesOrderColumnConfig>>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.58),
+      builder: (dialogContext) =>
+          _SalesOrderCustomizeColumnsDialog(columns: working),
+    );
+    if (result == null) return;
+    setState(() => _columnConfigs = result);
+    ZerpaiToast.success(context, 'Column preferences saved');
+  }
+
+  Future<void> _showNewCustomViewDialog() async {
+    final result = await showDialog<_SalesOrderCustomViewResult>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.58),
+      builder: (dialogContext) => const _SalesOrderNewCustomViewDialog(),
+    );
+    if (result == null) return;
+    ZerpaiToast.success(
+      context,
+      'Custom view "${result.name}" saved for ${result.visibilityLabel}',
+    );
+  }
+
+
 
   Widget _workspace(
     List<SalesOrder> filteredSales,

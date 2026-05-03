@@ -36,5 +36,6 @@ abstract class InventoryPicklistRepository {
   Future<List<Map<String, String>>> getWarehouseBins({
     required String warehouseId,
     String? search,
+    String? productId,
   });
 }

@@ -33,12 +33,13 @@ import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import '../notifiers/purchase_order_notifier.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 // ── Zoho-style Colors ────────────────────────────────────────────────────────
 const _bgWhite = Color(0xFFFFFFFF);
 const _borderCol = Color(0xFFE5E7EB);
 const _fieldBorder = Color(0xFFD1D5DB);
-const _labelColor = Color(0xFF374151);
+const _labelColor = Color(0xFF6B7280);
 const _requiredLabel = Color(0xFFEF4444);
 const _hintColor = Color(0xFF6B7280);
 const _textPrimary = Color(0xFF111827);
@@ -142,6 +143,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   bool _showRecentTransactions = true;
   bool _showPriceList = true;
   bool _isUploadButtonHovered = false;
+  bool _isAdjustmentLabelHovered = false;
 
   String _getCurrencyLabel(String code) {
     final option = defaultCurrencyOptions.firstWhere(
@@ -149,6 +151,28 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       orElse: () => defaultCurrencyOptions.first,
     );
     return option.label;
+  }
+
+  Widget _buildBulkButton(String label, {required VoidCallback onTap}) {
+    return Container(
+      height: 28,
+      child: TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          backgroundColor: Colors.white,
+          foregroundColor: _linkBlue,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+            side: const BorderSide(color: Color(0xFFE5E7EB)),
+          ),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
   }
 
   void _showNewVendorDialog() {
@@ -170,6 +194,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 ref
                     .read(purchaseOrderFormNotifierProvider.notifier)
                     .updateField(vendorId: newVendor.id);
+                // ignore: unused_result
                 ref.refresh(vendorProvider);
               },
             ),
@@ -420,8 +445,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         initialQty % 1 == 0 ? 0 : 2,
       );
     }
-    if (initialRate != null) {
-      ctrl.rateCtrl.text = initialRate.toStringAsFixed(2);
+    if (initialRate != null && initialRate != 0) {
+      ctrl.rateCtrl.text = initialRate % 1 == 0
+          ? initialRate.toInt().toString()
+          : initialRate.toStringAsFixed(2);
     }
     if (initialDiscount != null) {
       ctrl.discountCtrl.text = initialDiscount.toStringAsFixed(2);
@@ -464,7 +491,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     if (text.contains(RegExp(r'[+\-*/()]'))) {
       final double? result = _evaluateExpression(text);
       if (result != null) {
-        ctrl.rateCtrl.text = result.toStringAsFixed(2);
+        ctrl.rateCtrl.text = result % 1 == 0
+            ? result.toInt().toString()
+            : result.toStringAsFixed(2);
         // Find index to update notifier
         final index = _rowControllers.indexOf(ctrl);
         if (index != -1) {
@@ -837,13 +866,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
       child: Row(
         children: [
-          const Icon(LucideIcons.fileText, size: 22, color: _textPrimary),
-          const SizedBox(width: 10),
+          const Icon(LucideIcons.fileText, size: 24, color: _textPrimary),
+          const SizedBox(width: 12),
           const Text(
             'New Purchase Order',
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
               color: _textPrimary,
               fontFamily: 'Inter',
             ),
@@ -983,42 +1012,39 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 // ── WAREHOUSE ──
                 _zFormRow(
                   label: 'Warehouse',
-                  child: SizedBox(
-                    width: 320,
-                    child: FormDropdown<String>(
-                      height: 32,
-                      value: poState.warehouseId,
-                      items: warehouses.map((w) => w.id).toList(),
-                      displayStringForValue: (id) => warehouses
-                          .firstWhere(
-                            (w) => w.id == id,
-                            orElse: () => WarehouseModel(
-                              id: '',
-                              name: 'Not selected',
-                              countryRegion: '',
-                            ),
-                          )
-                          .name,
-                      hint: 'Select Warehouse',
-                      onChanged: (id) => notifier.updateField(warehouseId: id),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: _fieldBorder),
-                      itemBuilder: (id, isSelected, isHovered) =>
-                          _buildStandardLookupRow(
-                            warehouses
-                                .firstWhere(
-                                  (w) => w.id == id,
-                                  orElse: () => WarehouseModel(
-                                    id: '',
-                                    name: '',
-                                    countryRegion: '',
-                                  ),
-                                )
-                                .name,
-                            isSelected,
-                            isHovered,
+                  child: FormDropdown<String>(
+                    height: 32,
+                    value: poState.warehouseId,
+                    items: warehouses.map((w) => w.id).toList(),
+                    displayStringForValue: (id) => warehouses
+                        .firstWhere(
+                          (w) => w.id == id,
+                          orElse: () => WarehouseModel(
+                            id: '',
+                            name: 'Not selected',
+                            countryRegion: '',
                           ),
-                    ),
+                        )
+                        .name,
+                    hint: 'Select Warehouse',
+                    onChanged: (id) => notifier.updateField(warehouseId: id),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: _fieldBorder),
+                    itemBuilder: (id, isSelected, isHovered) =>
+                        _buildStandardLookupRow(
+                          warehouses
+                              .firstWhere(
+                                (w) => w.id == id,
+                                orElse: () => WarehouseModel(
+                                  id: '',
+                                  name: '',
+                                  countryRegion: '',
+                                ),
+                              )
+                              .name,
+                          isSelected,
+                          isHovered,
+                        ),
                   ),
                 ),
                 const Padding(
@@ -1228,8 +1254,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 isRequired: true,
                 child: Row(
                   children: [
-                    SizedBox(
-                      width: 160,
+                    Expanded(
+                      flex: 4,
                       child: FormDropdown<String>(
                         height: 32,
                         value: 'Default Transaction Series',
@@ -1240,8 +1266,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    SizedBox(
-                      width: 160,
+                    Expanded(
+                      flex: 3,
                       child: _zField(
                         _poNumberCtrl,
                         hint: poState.isNumberingAuto ? 'PO-00023' : '',
@@ -1262,123 +1288,106 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               // ── Reference ──
               _zFormRow(
                 label: 'Reference#',
-                child: SizedBox(width: 320, child: _zField(_refCtrl)),
+                child: _zField(_refCtrl),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               // ── Date ──
               _zFormRow(
                 label: 'Date',
                 isRequired: true,
-                child: SizedBox(
-                  width: 320,
-                  child: _zDateField(
-                    controller: _orderDateCtrl,
-                    targetKey: _orderDateFieldKey,
-                    value: poState.orderDate,
-                    onSelected: (date) => notifier.updateField(orderDate: date),
-                  ),
+                child: _zDateField(
+                  controller: _orderDateCtrl,
+                  targetKey: _orderDateFieldKey,
+                  value: poState.orderDate,
+                  onSelected: (date) => notifier.updateField(orderDate: date),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               // ── Delivery Date + Payment Terms ──
               _zFormRow(
                 label: 'Delivery Date',
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 320,
-                      child: _zDateField(
-                        controller: _deliveryDateCtrl,
-                        targetKey: _deliveryDateFieldKey,
-                        value: poState.expectedDeliveryDate,
-                        hint: 'dd-MM-yyyy',
-                        onSelected: (date) =>
-                            notifier.updateField(expectedDeliveryDate: date),
-                      ),
-                    ),
-                    const SizedBox(width: 48),
-                    Text(
-                      'Payment Terms',
-                      style: TextStyle(fontSize: 13, color: _labelColor),
-                    ),
-                    const SizedBox(width: 16),
-                    SizedBox(
-                      width: 220,
-                      child: FormDropdown<String>(
-                        height: 32,
-                        value: poState.paymentTerms,
-                        items: _paymentTermsList
-                            .map((t) => t['id'] as String)
-                            .toList(),
-                        hint: 'Select Terms',
-                        showSettings: true,
-                        settingsLabel: 'Configure Terms',
-                        onSettingsTap: () =>
-                            _showConfigurePaymentTermsDialog(poState, notifier),
-                        displayStringForValue: (id) {
-                          final term = _paymentTermsList.firstWhere(
-                            (t) => t['id'] == id,
-                            orElse: () => {'term_name': ''},
-                          );
-                          return term['term_name'] ?? '';
-                        },
-                        searchStringForValue: (id) {
-                          final term = _paymentTermsList.firstWhere(
-                            (t) => t['id'] == id,
-                            orElse: () => {'term_name': ''},
-                          );
-                          return term['term_name'] ?? '';
-                        },
-                        itemBuilder: (id, isSelected, isHovered) {
-                          final term = _paymentTermsList.firstWhere(
-                            (t) => t['id'] == id,
-                            orElse: () => {'term_name': ''},
-                          );
-                          return _buildStandardLookupRow(
-                            term['term_name'] ?? '',
-                            isSelected,
-                            isHovered,
-                          );
-                        },
-                        onChanged: (v) => notifier.updateField(paymentTerms: v),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: _fieldBorder),
-                      ),
-                    ),
-                  ],
+                child: _zDateField(
+                  controller: _deliveryDateCtrl,
+                  targetKey: _deliveryDateFieldKey,
+                  value: poState.expectedDeliveryDate,
+                  hint: 'dd-MM-yyyy',
+                  onSelected: (date) =>
+                      notifier.updateField(expectedDeliveryDate: date),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+              // ── Payment Terms ──
+              _zFormRow(
+                label: 'Payment Terms',
+                child: FormDropdown<String>(
+                  height: 32,
+                  value: poState.paymentTerms,
+                  items: _paymentTermsList
+                      .map((t) => t['id'] as String)
+                      .toList(),
+                  hint: 'Select Terms',
+                  showSettings: true,
+                  settingsLabel: 'Configure Terms',
+                  onSettingsTap: () =>
+                      _showConfigurePaymentTermsDialog(poState, notifier),
+                  displayStringForValue: (id) {
+                    final term = _paymentTermsList.firstWhere(
+                      (t) => t['id'] == id,
+                      orElse: () => {'term_name': ''},
+                    );
+                    return term['term_name'] ?? '';
+                  },
+                  searchStringForValue: (id) {
+                    final term = _paymentTermsList.firstWhere(
+                      (t) => t['id'] == id,
+                      orElse: () => {'term_name': ''},
+                    );
+                    return term['term_name'] ?? '';
+                  },
+                  itemBuilder: (id, isSelected, isHovered) {
+                    final term = _paymentTermsList.firstWhere(
+                      (t) => t['id'] == id,
+                      orElse: () => {'term_name': ''},
+                    );
+                    return _buildStandardLookupRow(
+                      term['term_name'] ?? '',
+                      isSelected,
+                      isHovered,
+                    );
+                  },
+                  onChanged: (v) => notifier.updateField(paymentTerms: v),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: _fieldBorder),
+                ),
+              ),
+              const SizedBox(height: 16),
               // ── Shipment Preference ──
               _zFormRow(
                 label: 'Shipment Preference',
-                child: SizedBox(
-                  width: 320,
-                  child: FormDropdown<String>(
-                    height: 32,
-                    value: poState.shipmentPreference,
-                    items: _shipmentPreferencesList
-                        .map((p) => p['name'] as String)
-                        .toList(),
-                    hint: 'Choose the shipment preference or type to add',
-                    allowCustomValue: true,
-                    iconSize: 12,
-                    onChanged: (v) =>
-                        notifier.updateField(shipmentPreference: v),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: _fieldBorder),
-                    itemBuilder: (item, isSelected, isHovered) =>
-                        _buildStandardLookupRow(item, isSelected, isHovered),
-                  ),
+                child: FormDropdown<String>(
+                  height: 32,
+                  value: poState.shipmentPreference,
+                  items: _shipmentPreferencesList
+                      .map((p) => p['name'] as String)
+                      .toList(),
+                  hint: 'Choose the shipment preference or type to add',
+                  allowCustomValue: true,
+                  iconSize: 12,
+                  onChanged: (v) =>
+                      notifier.updateField(shipmentPreference: v),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: _fieldBorder),
+                  itemBuilder: (item, isSelected, isHovered) =>
+                      _buildStandardLookupRow(item, isSelected, isHovered),
                 ),
               ),
               const SizedBox(height: 8),
               _reverseChargeCheckbox(poState, notifier),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -1676,11 +1685,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           child: _zFormRow(
             label: 'Vendor Name',
             isRequired: true,
+            maxWidth: 850,
+            gap: 12,
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
-                  width: 320,
+                  width: 550,
                   child: FormDropdown<Vendor>(
                     height: 32,
                     value: selectedVendor.id.isEmpty ? null : selectedVendor,
@@ -2226,66 +2236,63 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 320,
-            child: warehouseAsync.isLoading
-                ? Container(
-                    height: 32,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: _fieldBorder),
-                      borderRadius: BorderRadius.circular(3),
-                      color: _bgWhite,
-                    ),
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: const Text(
-                      'Loading warehouses...',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
-                    ),
-                  )
-                : warehouseAsync.hasError
-                ? Container(
-                    height: 32,
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Colors.red.withValues(alpha: 0.3),
-                      ),
-                      borderRadius: BorderRadius.circular(3),
-                      color: Colors.red.withValues(alpha: 0.05),
-                    ),
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Text(
-                      'Error loading data: ${warehouseAsync.error}',
-                      style: const TextStyle(fontSize: 12, color: Colors.red),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  )
-                : FormDropdown<WarehouseModel>(
-                    height: 32,
-                    value: wh.id.isEmpty ? null : wh,
-                    items: liveWarehouses,
-                    hint: liveWarehouses.isEmpty
-                        ? 'No warehouses found'
-                        : 'Select Warehouse',
-                    showSearch: true,
-                    displayStringForValue: (w) => w.name,
-                    searchStringForValue: (w) =>
-                        '${w.name} ${w.city ?? ''} ${w.state ?? ''} ${w.addressStreet1 ?? ''}',
-                    itemBuilder: (w, isSelected, isHovered) =>
-                        _buildWarehouseDropdownItem(w, isSelected, isHovered),
-                    onChanged: (w) {
-                      notifier.updateField(
-                        deliveryWarehouseId: w?.id ?? '',
-                        deliveryAddressName: w?.name ?? '',
-                      );
-                      _deliveryNameCtrl.text = w?.name ?? '';
-                    },
-                    borderRadius: BorderRadius.circular(4),
+          warehouseAsync.isLoading
+              ? Container(
+                  height: 32,
+                  decoration: BoxDecoration(
                     border: Border.all(color: _fieldBorder),
+                    borderRadius: BorderRadius.circular(3),
+                    color: _bgWhite,
                   ),
-          ),
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: const Text(
+                    'Loading warehouses...',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+                  ),
+                )
+              : warehouseAsync.hasError
+                  ? Container(
+                      height: 32,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.3),
+                        ),
+                        borderRadius: BorderRadius.circular(3),
+                        color: Colors.red.withValues(alpha: 0.05),
+                      ),
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        'Error loading data: ${warehouseAsync.error}',
+                        style: const TextStyle(fontSize: 12, color: Colors.red),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )
+                  : FormDropdown<WarehouseModel>(
+                      height: 32,
+                      value: wh.id.isEmpty ? null : wh,
+                      items: liveWarehouses,
+                      hint: liveWarehouses.isEmpty
+                          ? 'No warehouses found'
+                          : 'Select Warehouse',
+                      showSearch: true,
+                      displayStringForValue: (w) => w.name,
+                      searchStringForValue: (w) =>
+                          '${w.name} ${w.city ?? ''} ${w.state ?? ''} ${w.addressStreet1 ?? ''}',
+                      itemBuilder: (w, isSelected, isHovered) =>
+                          _buildWarehouseDropdownItem(w, isSelected, isHovered),
+                      onChanged: (w) {
+                        notifier.updateField(
+                          deliveryWarehouseId: w?.id ?? '',
+                          deliveryAddressName: w?.name ?? '',
+                        );
+                        _deliveryNameCtrl.text = w?.name ?? '';
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: _fieldBorder),
+                    ),
           if (wh.id.isNotEmpty) ...[
             const SizedBox(height: 14),
             _warehouseAddressCard(wh, notifier, liveWarehouses, poState),
@@ -2300,17 +2307,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 320,
-            child: FormDropdown<SalesCustomer>(
-              value: cust.id.isEmpty ? null : cust,
-              items: customers,
-              hint: 'Select Customer',
-              showSearch: true,
-              displayStringForValue: (c) => c.displayName,
-              onChanged: (c) =>
-                  notifier.updateField(deliveryCustomerId: c?.id ?? ''),
-            ),
+          FormDropdown<SalesCustomer>(
+            value: cust.id.isEmpty ? null : cust,
+            items: customers,
+            hint: 'Select Customer',
+            showSearch: true,
+            displayStringForValue: (c) => c.displayName,
+            onChanged: (c) =>
+                notifier.updateField(deliveryCustomerId: c?.id ?? ''),
           ),
           if (cust.id.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -2360,36 +2364,33 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Editable bold name field
-        SizedBox(
-          width: 320,
-          child: _HoverableField(
-            builder: (isHovered) => TextFormField(
-              controller: _deliveryNameCtrl,
-              onChanged: (v) => notifier.updateField(deliveryAddressName: v),
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: _textPrimary,
+        _HoverableField(
+          builder: (isHovered) => TextFormField(
+            controller: _deliveryNameCtrl,
+            onChanged: (v) => notifier.updateField(deliveryAddressName: v),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: _textPrimary,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 9,
               ),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 9,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(3),
+                borderSide: BorderSide(
+                  color: isHovered ? _linkBlue : _fieldBorder,
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(3),
-                  borderSide: BorderSide(
-                    color: isHovered ? _linkBlue : _fieldBorder,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(3),
-                  borderSide: const BorderSide(color: _linkBlue, width: 1.5),
-                ),
-                fillColor: _bgWhite,
-                filled: true,
               ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(3),
+                borderSide: const BorderSide(color: _linkBlue, width: 1.5),
+              ),
+              fillColor: _bgWhite,
+              filled: true,
             ),
           ),
         ),
@@ -2452,35 +2453,32 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 320,
-          child: _HoverableField(
-            builder: (isHovered) => TextFormField(
-              initialValue: cust.displayName,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: _textPrimary,
+        _HoverableField(
+          builder: (isHovered) => TextFormField(
+            initialValue: cust.displayName,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: _textPrimary,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 9,
               ),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 9,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(3),
+                borderSide: BorderSide(
+                  color: isHovered ? _linkBlue : _fieldBorder,
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(3),
-                  borderSide: BorderSide(
-                    color: isHovered ? _linkBlue : _fieldBorder,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(3),
-                  borderSide: const BorderSide(color: _linkBlue, width: 1.5),
-                ),
-                fillColor: _bgWhite,
-                filled: true,
               ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(3),
+                borderSide: const BorderSide(color: _linkBlue, width: 1.5),
+              ),
+              fillColor: _bgWhite,
+              filled: true,
             ),
           ),
         ),
@@ -2934,11 +2932,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       ),
                       child: PopupMenuButton<String>(
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                        constraints: const BoxConstraints(minWidth: 250),
+                        offset: const Offset(0, 32),
                         elevation: 8,
                         color: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         onSelected: (val) {
                           if (val == 'bulk_update') {
@@ -2996,17 +2995,17 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         child: Row(
                           children: [
                             const Icon(
-                              Icons.check_circle_outline,
+                              LucideIcons.checkCircle,
                               size: 16,
-                              color: _linkBlue,
+                              color: Color(0xFF2563EB),
                             ),
                             const SizedBox(width: 4),
                             const Text(
                               'Bulk Actions',
                               style: TextStyle(
-                                color: _linkBlue,
+                                color: Color(0xFF2563EB),
                                 fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
@@ -3024,11 +3023,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       ),
                       child: PopupMenuButton<String>(
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                        constraints: const BoxConstraints(minWidth: 250),
+                        offset: const Offset(0, 32),
                         elevation: 8,
                         color: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         onSelected: (val) {
                           setState(() {
@@ -3077,24 +3077,27 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                           ),
                         ],
                         child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: _fieldBorder),
-                            borderRadius: BorderRadius.circular(4),
-                            color: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 4,
                           ),
-                          child: Row(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: _borderCol),
+                          ),
+                          child: const Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: const [
+                            children: [
                               Icon(
-                                Icons.settings_outlined,
+                                LucideIcons.settings,
                                 size: 16,
-                                color: _textPrimary,
+                                color: Color(0xFF4B5563),
                               ),
                               Icon(
                                 Icons.arrow_drop_down,
-                                size: 14,
-                                color: _hintColor,
+                                size: 16,
+                                color: Color(0xFF4B5563),
                               ),
                             ],
                           ),
@@ -3106,48 +3109,57 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               ),
               // ── Bulk mode banner ──
               if (_bulkMode)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    border: Border(bottom: BorderSide(color: _borderCol)),
-                  ),
-                  child: Row(
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF28A745),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          textStyle: const TextStyle(fontSize: 13),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
                         ),
-                        child: const Text('Update Reporting Tags'),
-                      ),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () => setState(() {
-                          _bulkMode = false;
-                          _selectedRows.clear();
-                        }),
-                        child: const Icon(
-                          Icons.close,
-                          size: 18,
-                          color: _labelColor,
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50.withValues(alpha: 0.4),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(6),
+                            topRight: Radius.circular(6),
+                          ),
+                          border: Border.all(color: _borderCol),
+                        ),
+                        child: Row(
+                          children: [
+                            _buildBulkButton(
+                              'Update Reporting Tags',
+                              onTap: () {},
+                            ),
+                            const SizedBox(width: 10),
+                            _buildBulkButton(
+                              'Update Account',
+                              onTap: () {},
+                            ),
+                            const SizedBox(width: 10),
+                            _buildBulkButton(
+                              'Update Discount',
+                              onTap: () {},
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 18),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              color: Colors.blue.shade600,
+                              onPressed: () {
+                                setState(() {
+                                  _bulkMode = false;
+                                  _selectedRows.clear();
+                                });
+                              },
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 60),
+                  ],
                 ),
               // ── Column headers ──
               Container(
@@ -3611,8 +3623,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                       final targetCtrl = _rowControllers[targetIndex];
                                       targetCtrl.nameCtrl.text = i.productName;
                                       targetCtrl.qtyCtrl.text = '1.00';
-                                      targetCtrl.rateCtrl.text = (i.costPrice ?? 0.0)
-                                          .toStringAsFixed(2);
+                                      targetCtrl.rateCtrl.text = (i.costPrice ?? 0.0) % 1 == 0
+                                          ? (i.costPrice ?? 0.0).toInt().toString()
+                                          : (i.costPrice ?? 0.0).toStringAsFixed(2);
                                       targetCtrl.discountCtrl.text = '0.00';
                                       targetCtrl.descCtrl.text =
                                           i.purchaseDescription ?? '';
@@ -4019,7 +4032,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             ctrl.rateCtrl,
                             focusNode: ctrl.rateFocus,
                             onSubmitted: (_) => _handleRateCalculation(ctrl),
-                            hint: '0.00',
+                            hint: '0',
                             textAlign: TextAlign.right,
                             onChanged: (v) {
                               final r = double.tryParse(v) ?? 0;
@@ -5168,33 +5181,41 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
     return Row(
       children: [
-        CustomPaint(
-          foregroundPainter: _DashedBorderPainter(
-            color: _adjustmentLabelFocusNode.hasFocus
-                ? const Color(0xFF2563EB)
-                : const Color(0xFFCCCCCC),
-            isFocused: _adjustmentLabelFocusNode.hasFocus,
-          ),
-          child: SizedBox(
-            width: 140,
-            height: 32,
-            child: TextField(
-              controller: _adjustmentLabelCtrl,
-              focusNode: _adjustmentLabelFocusNode,
-              style: const TextStyle(fontSize: 13, color: _textPrimary),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-                isDense: true,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 10,
+        MouseRegion(
+          onEnter: (_) => setState(() => _isAdjustmentLabelHovered = true),
+          onExit: (_) => setState(() => _isAdjustmentLabelHovered = false),
+          child: CustomPaint(
+            foregroundPainter: _DashedBorderPainter(
+              color: (_adjustmentLabelFocusNode.hasFocus || _isAdjustmentLabelHovered)
+                  ? const Color(0xFF0088FF)
+                  : const Color(0xFFCBD5E1),
+              isFocused: _adjustmentLabelFocusNode.hasFocus,
+              isHovered: _isAdjustmentLabelHovered,
+            ),
+            child: Container(
+              width: 140,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: TextField(
+                controller: _adjustmentLabelCtrl,
+                focusNode: _adjustmentLabelFocusNode,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937)),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
+                  isDense: true,
+                  filled: false,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 9,
+                  ),
                 ),
               ),
             ),
@@ -6285,14 +6306,19 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     required Widget child,
     bool isRequired = false,
     bool crossStart = false,
+    double maxWidth = 600,
+    double gap = 24,
   }) {
-    return Row(
+    return Container(
+      width: double.infinity,
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Row(
       crossAxisAlignment: crossStart
           ? CrossAxisAlignment.start
           : CrossAxisAlignment.center,
       children: [
         SizedBox(
-          width: 160,
+          width: 180,
           child: RichText(
             text: TextSpan(
               children: [
@@ -6300,8 +6326,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   text: label,
                   style: TextStyle(
                     fontSize: 13,
-                    color: _labelColor,
-                    fontWeight: FontWeight.normal,
+                    color: isRequired ? _requiredLabel : _labelColor,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 if (isRequired)
@@ -6317,9 +6343,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             ),
           ),
         ),
-        const SizedBox(width: 16),
-        Flexible(child: child),
+        SizedBox(width: gap),
+        Expanded(child: child),
       ],
+    ),
     );
   }
 
@@ -7209,9 +7236,6 @@ class _BulkAddModalState extends State<_BulkAddModal> {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// ADVANCED VENDOR SEARCH DIALOG
-// ═════════════════════════════════════════════════════════════════════════════
 class _AdvancedVendorSearchDialog extends StatefulWidget {
   final List<Vendor> vendors;
   final Function(Vendor) onSelect;
@@ -7231,7 +7255,6 @@ class _AdvancedVendorSearchDialogState
   String _selectedCategory = 'Vendor Number';
   final TextEditingController _searchCtrl = TextEditingController();
   List<Vendor> _filteredVendors = [];
-  int _hoveredIndex = -1;
 
   final List<String> _categories = [
     'Vendor Number',
@@ -7282,344 +7305,363 @@ class _AdvancedVendorSearchDialogState
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-      child: Container(
-        width: 800,
-        height: 600,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Advanced Vendor Search',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF333333),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFEF4444)),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        size: 14,
-                        color: Color(0xFFEF4444),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: EdgeInsets.zero,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 1000,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-
-            // Search Filter Area
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  // Category Dropdown
-                  Container(
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFCCCCCC)),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(4),
-                        bottomLeft: Radius.circular(4),
-                      ),
-                      color: const Color(0xFFF9FAFB),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedCategory,
-                        icon: const Icon(
-                          Icons.arrow_drop_down,
-                          color: Color(0xFF6B7280),
-                        ),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF374151),
-                        ),
-                        onChanged: (val) =>
-                            setState(() => _selectedCategory = val!),
-                        items: _categories
-                            .map(
-                              (c) => DropdownMenuItem(value: c, child: Text(c)),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                  ),
-                  // Search Input
-                  Expanded(
-                    child: SizedBox(
-                      height: 36,
-                      child: TextField(
-                        controller: _searchCtrl,
-                        onChanged: (_) => _onSearch(),
-                        onSubmitted: (_) => _onSearch(),
-                        style: const TextStyle(fontSize: 13),
-                        decoration: const InputDecoration(
-                          hintText: 'Search...',
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.zero,
-                            borderSide: BorderSide(color: Color(0xFFCCCCCC)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.zero,
-                            borderSide: BorderSide(color: Color(0xFFCCCCCC)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.zero,
-                            borderSide: BorderSide(
-                              color: Color(0xFF1D4ED8),
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Search Button
-                  GestureDetector(
-                    onTap: _onSearch,
-                    child: Container(
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF22C55E),
-                        borderRadius: BorderRadius.only(
-                          topRight: Radius.circular(4),
-                          bottomRight: Radius.circular(4),
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'Search',
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Advanced Vendor Search',
                         style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textBody,
                         ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Table Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              color: const Color(0xFFF9FAFB),
-              child: const Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      'VENDOR NAME',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF6B7280),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, size: 20),
+                        splashRadius: 20,
                       ),
-                    ),
+                    ],
                   ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'EMAIL',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'COMPANY NAME',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'PHONE',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Table Body
-            Expanded(
-              child: ListView.separated(
-                itemCount: _filteredVendors.length,
-                separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: Color(0xFFEEEEEE)),
-                itemBuilder: (ctx, index) {
-                  final v = _filteredVendors[index];
-                  return MouseRegion(
-                    onEnter: (_) => setState(() => _hoveredIndex = index),
-                    onExit: (_) => setState(() => _hoveredIndex = -1),
-                    child: GestureDetector(
-                      onTap: () => widget.onSelect(v),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        color: _hoveredIndex == index
-                            ? const Color(0xFFEFF6FF)
-                            : Colors.white,
-                        child: Row(
-                          children: [
-                            // Vendor Name & Number
-                            Expanded(
-                              flex: 3,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    v.displayName,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF1D4ED8),
-                                    ),
+                ),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 580,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: const Color(0xFFD1D5DB)),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              children: [
+                                Theme(
+                                  data: Theme.of(context).copyWith(
+                                    hoverColor: Colors.transparent,
+                                    splashColor: Colors.transparent,
                                   ),
-                                  if (v.vendorNumber != null)
-                                    Text(
-                                      v.vendorNumber!,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF6B7280),
+                                  child: PopupMenuButton<String>(
+                                    padding: EdgeInsets.zero,
+                                    onSelected: (val) =>
+                                        setState(() => _selectedCategory = val),
+                                    itemBuilder: (ctx) => _categories
+                                        .map((c) => PopupMenuItem(
+                                              value: c,
+                                              padding: EdgeInsets.zero,
+                                              height: 38,
+                                              child: Padding(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 16),
+                                                child: Text(
+                                                  c,
+                                                  style:
+                                                      const TextStyle(fontSize: 13),
+                                                ),
+                                              ),
+                                            ))
+                                        .toList(),
+                                    child: Container(
+                                      width: 190,
+                                      height: 32,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12),
+                                      decoration: const BoxDecoration(
+                                        color: AppTheme.bgLight,
+                                        borderRadius: BorderRadius.only(
+                                          topLeft: Radius.circular(5),
+                                          bottomLeft: Radius.circular(5),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              _selectedCategory,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                color: AppTheme.textBody,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const Icon(
+                                            Icons.arrow_drop_down,
+                                            color: AppTheme.textSecondary,
+                                            size: 20,
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                ],
+                                  ),
+                                ),
+                                const VerticalDivider(
+                                  width: 1,
+                                  color: Color(0xFFD1D5DB),
+                                ),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchCtrl,
+                                    onChanged: (_) => _onSearch(),
+                                    onSubmitted: (_) => _onSearch(),
+                                    style: const TextStyle(fontSize: 14),
+                                    decoration: const InputDecoration(
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF16A34A),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              minimumSize: const Size(90, 32),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
                               ),
                             ),
-                            // Email
+                            onPressed: _onSearch,
+                            child: const Text(
+                              'Search',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Container(
+                        color: AppTheme.bgLight,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        child: const Row(
+                          children: [
                             Expanded(
-                              flex: 2,
+                              flex: 3,
                               child: Text(
-                                v.email ?? '',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF374151),
+                                'VENDOR NAME',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textSecondary,
                                 ),
                               ),
                             ),
-                            // Company Name
                             Expanded(
-                              flex: 2,
+                              flex: 5,
                               child: Text(
-                                v.companyName ?? '-',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF374151),
+                                'EMAIL',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textSecondary,
                                 ),
                               ),
                             ),
-                            // Phone
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                'COMPANY NAME',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ),
                             Expanded(
                               flex: 2,
                               child: Text(
-                                v.phone ?? v.mobilePhone ?? '-',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF374151),
+                                'PHONE',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textSecondary,
                                 ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Pagination Footer
-            Container(
-              padding: const EdgeInsets.all(15),
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFDDDDDD)),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.chevron_left,
-                          size: 16,
-                          color: Color(0xFF999999),
+                      const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 400),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: _filteredVendors.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                          itemBuilder: (ctx, index) {
+                            final v = _filteredVendors[index];
+                            return InkWell(
+                              onTap: () {
+                                widget.onSelect(v);
+                                Navigator.pop(context);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 14,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            v.displayName,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              color: AppTheme.primaryBlueDark,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          if (v.vendorNumber != null)
+                                            Text(
+                                              v.vendorNumber!,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 5,
+                                      child: Text(
+                                        v.email ?? '',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textSubtle,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        v.companyName ?? '-',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textSubtle,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        v.phone ?? v.mobilePhone ?? '-',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textSubtle,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        SizedBox(width: 8),
-                        Text(
-                          '1 - ${_filteredVendors.length}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF666666),
-                          ),
+                      ),
+                      // Pagination Footer
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                border:
+                                    Border.all(color: const Color(0xFFE5E7EB)),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    LucideIcons.chevronLeft,
+                                    size: 16,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    '1 - ${_filteredVendors.length}',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF111827),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Icon(
+                                    LucideIcons.chevronRight,
+                                    size: 16,
+                                    color: Colors.grey[400],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(width: 8),
-                        Icon(
-                          Icons.chevron_right,
-                          size: 16,
-                          color: Color(0xFF999999),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -8062,59 +8104,65 @@ class _TrianglePainter extends CustomPainter {
 
 // ── Dashed Border Painter ─────────────────────────────────────────────────────
 class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter({
-    this.color = const Color(0xFFCCCCCC),
-    this.isFocused = false,
-  });
-
   final Color color;
   final bool isFocused;
+  final bool isHovered;
+
+  const _DashedBorderPainter({
+    this.color = const Color(0xFFCBD5E1),
+    this.isFocused = false,
+    this.isHovered = false,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    const dashWidth = 4.0;
-    const dashSpace = 3.0;
-
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = isFocused ? 1.5 : 1.0
-      ..style = PaintingStyle.stroke;
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      const Radius.circular(6),
+    );
 
     if (isFocused) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(0.75, 0.75, size.width - 1.5, size.height - 1.5),
-          const Radius.circular(3),
-        ),
-        paint,
-      );
+      // Draw glow
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: 0.15)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3;
+      canvas.drawRRect(rrect, glowPaint);
+
+      // Draw solid border
+      final solidPaint = Paint()
+        ..color = color
+        ..strokeWidth = 1.2
+        ..style = PaintingStyle.stroke;
+      canvas.drawRRect(rrect, solidPaint);
       return;
     }
 
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(0, 0, size.width, size.height),
-          const Radius.circular(3),
-        ),
-      );
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    const dash = 4.0;
+    const gap = 3.0;
+
+    final path = Path()..addRRect(rrect);
 
     for (final metric in path.computeMetrics()) {
       double distance = 0;
       while (distance < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(distance, distance + dashWidth),
-          paint,
-        );
-        distance += dashWidth + dashSpace;
+        canvas.drawPath(metric.extractPath(distance, distance + dash), paint);
+        distance += dash + gap;
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) {
-    return oldDelegate.color != color || oldDelegate.isFocused != isFocused;
-  }
+  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.isFocused != isFocused ||
+      oldDelegate.isHovered != isHovered;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -8346,14 +8394,14 @@ class _VendorSidebarState extends State<_VendorSidebar>
                 const SizedBox(height: 8),
                 const Text(
                   'Outstanding Payables',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                  style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '₹0.00',
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -8375,14 +8423,14 @@ class _VendorSidebarState extends State<_VendorSidebar>
                 const SizedBox(height: 8),
                 const Text(
                   'Unused Credits',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                  style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '₹0.00',
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -9557,13 +9605,18 @@ class _HoverableMenuItemState extends State<_HoverableMenuItem> {
       onExit: (_) => setState(() => _hover = false),
       child: Container(
         width: double.infinity,
-        color: _hover ? const Color(0xFF0088FF) : Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: _hover ? const Color(0xFF2563EB) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Text(
           widget.label,
           style: TextStyle(
             fontSize: 13,
-            color: _hover ? Colors.white : const Color(0xFF333333),
+            fontWeight: _hover ? FontWeight.w600 : FontWeight.w500,
+            color: _hover ? Colors.white : const Color(0xFF374151),
           ),
         ),
       ),
@@ -9591,30 +9644,19 @@ class _HoverableToggleMenuItemState extends State<_HoverableToggleMenuItem> {
       onExit: (_) => setState(() => _hover = false),
       child: Container(
         width: double.infinity,
-        color: _hover ? const Color(0xFF0088FF) : Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            Icon(
-              widget.value ? Icons.check_box : Icons.check_box_outline_blank,
-              size: 18,
-              color: _hover
-                  ? Colors.white
-                  : (widget.value
-                        ? const Color(0xFF2563EB)
-                        : const Color(0xFF8E8E93)),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: _hover ? Colors.white : const Color(0xFF333333),
-                ),
-              ),
-            ),
-          ],
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: _hover ? const Color(0xFF2563EB) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Text(
+          widget.label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: _hover ? FontWeight.w600 : FontWeight.w500,
+            color: _hover ? Colors.white : const Color(0xFF374151),
+          ),
         ),
       ),
     );

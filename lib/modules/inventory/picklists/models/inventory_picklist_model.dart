@@ -118,8 +118,16 @@ class PicklistItem {
   double get yetToPick => (qtyToPick - qtyPicked).clamp(0, double.infinity);
 
   String get itemStatus {
+    // Priority 1: Honor specific status if it's On Hold or terminal
+    final s = status.toUpperCase().replaceAll(' ', '_');
+    if (s == 'ON_HOLD') return 'On Hold';
+    if (s == 'FORCE_COMPLETE') return 'Force Complete';
+    if (s == 'APPROVED') return 'Approved';
+    if (s == 'CANCELLED') return 'Cancelled';
+
+    // Priority 2: Calculate based on quantities
     if (qtyPicked <= 0) return 'Yet to Start';
-    if (qtyPicked < qtyOrdered) return 'In Progress';
+    if (qtyPicked < qtyToPick) return 'In Progress';
     return 'Completed';
   }
 

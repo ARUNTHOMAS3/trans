@@ -8,7 +8,7 @@ export class PicklistsService {
 
   constructor(
     private readonly supabaseService: SupabaseService,
-  ) {}
+  ) { }
 
   async findAll(
     tenant: TenantContext,
@@ -309,6 +309,7 @@ export class PicklistsService {
             qty_ordered: item.qty_ordered || 0,
             qty_to_pick: item.qty_to_pick || 0,
             qty_picked: item.qty_picked || 0,
+            status: item.status || 'YET_TO_START',
           })
           .select()
           .single();
@@ -360,7 +361,16 @@ export class PicklistsService {
     if (headerData.warehouse_id !== undefined) updatePayload.warehouse_id = headerData.warehouse_id;
     if (headerData.assignee_id !== undefined) updatePayload.assignee_id = headerData.assignee_id;
     if (headerData.picklist_date !== undefined) updatePayload.picklist_date = headerData.picklist_date;
-    if (headerData.status !== undefined) updatePayload.status = headerData.status;
+    if (headerData.status !== undefined) {
+      updatePayload.status = headerData.status;
+      // Cascade ON_HOLD status to all items
+      if (headerData.status === 'ON_HOLD') {
+        await client
+          .from('picklist_items')
+          .update({ status: 'ON_HOLD' })
+          .eq('picklist_id', id);
+      }
+    }
     if (headerData.notes !== undefined) updatePayload.notes = headerData.notes;
 
     const { data: picklist, error: picklistError } = await client
@@ -409,6 +419,7 @@ export class PicklistsService {
             qty_ordered: item.qty_ordered || 0,
             qty_to_pick: item.qty_to_pick || 0,
             qty_picked: item.qty_picked || 0,
+            status: item.status || 'YET_TO_START',
           })
           .select()
           .single();
@@ -590,7 +601,9 @@ export class PicklistsService {
 
       const ascending = (sortOrder ?? 'desc') === 'asc';
       if (sortBy === 'salesOrder') {
-        query = query.order('sale_number', { referencedTable: 'sales_orders', ascending });
+        // Sort by sale_number on main query — referenced-table ordering alone
+        // does NOT control the primary row order in PostgREST.
+        // We'll sort in-memory after fetch instead.
       } else {
         query = query.order('created_at', { referencedTable: 'sales_orders', ascending: false });
       }
@@ -605,8 +618,20 @@ export class PicklistsService {
         throw error;
       }
 
-      const items = orderItems ?? [];
+      let items = orderItems ?? [];
       this.logger.log(`Loaded ${items.length} sales_order_items rows for warehouse ${warehouseId}`);
+
+      // In-memory sort by sale_number when requested, since PostgREST
+      // referenced-table ordering doesn't control the primary row order.
+      if (sortBy === 'salesOrder') {
+        items = [...items].sort((a: any, b: any) => {
+          const aNum = a.sales_orders?.sale_number || '';
+          const bNum = b.sales_orders?.sale_number || '';
+          return ascending
+            ? aNum.localeCompare(bNum, undefined, { numeric: true })
+            : bNum.localeCompare(aNum, undefined, { numeric: true });
+        });
+      }
 
       return {
         data: items.map((item: any) => ({
@@ -621,11 +646,11 @@ export class PicklistsService {
           currentStock: 0,
           quantityOnHand: 0,
           availableQuantity:
-              (Number(item.quantity) || 0),
+            (Number(item.quantity) || 0),
           quantityToPick:
-              (Number(item.quantity) || 0),
+            (Number(item.quantity) || 0),
           quantityOrdered:
-              (Number(item.quantity) || 0),
+            (Number(item.quantity) || 0),
           orderNumber: item.sales_orders?.sale_number || '',
           customerName: item.sales_orders?.customers?.display_name || 'Walk-in Customer',
           preferredBin: item.products?.storage_conditions?.location_name || 'N/A',
@@ -660,39 +685,98 @@ export class PicklistsService {
   /**
    * Returns bin_code values from bin_master for a given warehouse.
    * Used by the batch popup dropdown.
+   * If productId is provided, it filters by bins that actually have stock for that product.
    */
   async getWarehouseBins(
     warehouseId: string,
     tenant: TenantContext,
     search?: string,
+    productId?: string,
   ) {
     try {
+      this.logger.log(`Fetching bins for warehouse: ${warehouseId}, product: ${productId}, entity: ${tenant.entityId}`);
       const client = this.supabaseService.getClient();
 
+      let binIds: string[] = [];
+      
+      if (productId) {        const { data: stockLayers, error: stockError } = await client
+          .from('batch_stock_layers')
+          .select('bin_id')
+          .eq('product_id', productId)
+          .eq('warehouse_id', warehouseId)
+          .eq('entity_id', tenant.entityId);
+
+        if (stockError) {
+          this.logger.error(`batch_stock_layers query error: ${stockError.message}`);
+        } else if (stockLayers && stockLayers.length > 0) {
+          // Deduplicate bin IDs and remove nulls
+          const set = new Set(
+            stockLayers
+              .map((sl: any) => sl.bin_id)
+              .filter((id: any) => id !== null && id !== '')
+          );
+          binIds = Array.from(set);
+          this.logger.log(`Found ${binIds.length} unique bins associated with product ${productId}`);
+        } else {
+          this.logger.warn(`No associations found in batch_stock_layers for product ${productId}. Falling back to all warehouse bins.`);
+        }
+      }
+
+      // Step 2: Query bin_master
       let query = client
         .from('bin_master')
         .select('id, bin_code, is_active')
         .eq('warehouse_id', warehouseId)
         .eq('entity_id', tenant.entityId)
-        .eq('is_active', true)
-        .order('bin_code', { ascending: true });
+        .eq('is_active', true);
+
+      // Apply product filter ONLY if we found bins
+      if (binIds.length > 0) {
+        query = query.in('id', binIds);
+      }
+
+      query = query.order('bin_code', { ascending: true });
 
       if (search) {
         query = query.ilike('bin_code', `%${search}%`);
       }
 
-      const { data, error } = await query.limit(200);
+      let { data, error } = await query.limit(1000);
+
+      // FALLBACK: If we filtered by product and got ZERO results, try again without the filter
+      if (!error && productId && (data == null || data.length === 0)) {
+        this.logger.warn(`No bins found for product ${productId} in warehouse ${warehouseId}. Falling back to ALL warehouse bins.`);
+        const fallbackQuery = client
+          .from('bin_master')
+          .select('id, bin_code, is_active')
+          .eq('warehouse_id', warehouseId)
+          .eq('entity_id', tenant.entityId)
+          .eq('is_active', true)
+          .order('bin_code', { ascending: true });
+          
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery.limit(1000);
+        if (!fallbackError) {
+          data = fallbackData;
+        }
+      }
 
       if (error) {
         this.logger.error(`bin_master query error: ${error.message}`);
         throw error;
       }
 
+      const uniqueBins = new Map();
+      (data ?? []).forEach((bin: any) => {
+        if (!uniqueBins.has(bin.id)) {
+          uniqueBins.set(bin.id, {
+            id: bin.id,
+            binCode: bin.bin_code,
+          });
+        }
+      });
+
       return {
-        data: (data ?? []).map((bin: any) => ({
-          id: bin.id,
-          binCode: bin.bin_code,
-        })),
+        data: Array.from(uniqueBins.values()),
         success: true,
       };
     } catch (error) {

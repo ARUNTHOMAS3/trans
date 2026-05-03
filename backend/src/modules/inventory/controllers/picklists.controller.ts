@@ -14,7 +14,7 @@ import { PicklistsService } from "../services/picklists.service";
 
 @Controller("picklists")
 export class PicklistsController {
-  constructor(private readonly picklistsService: PicklistsService) {}
+  constructor(private readonly picklistsService: PicklistsService) { }
 
   @Get()
   findAll(
@@ -71,8 +71,14 @@ export class PicklistsController {
     @Tenant() tenant: TenantContext,
     @Param("warehouseId") warehouseId: string,
     @Query("search") search?: string,
+    @Query("productId") productId?: string,
   ) {
-    return this.picklistsService.getWarehouseBins(warehouseId, tenant, search);
+    return this.picklistsService.getWarehouseBins(
+      warehouseId,
+      tenant,
+      search,
+      productId,
+    );
   }
 
   @Get(":id")

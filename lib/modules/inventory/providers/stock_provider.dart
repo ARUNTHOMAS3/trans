@@ -51,6 +51,7 @@ class WarehouseStockData {
   });
 
   WarehouseStockData copyWith({
+    String? id,
     String? warehouseId,
     String? productId,
     String? productCode,
@@ -74,6 +75,7 @@ class WarehouseStockData {
     double? quantityPacked,
   }) {
     return WarehouseStockData(
+      id: id ?? this.id,
       warehouseId: warehouseId ?? this.warehouseId,
       productId: productId ?? this.productId,
       productCode: productCode ?? this.productCode,
