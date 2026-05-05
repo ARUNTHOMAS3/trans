@@ -29,6 +29,9 @@ class ApiEndpoints {
   static const String assemblies = 'assemblies';
   static const String stockMovements = 'stock-movements';
   static const String picklists = 'picklists';
+  static const String inventoryPackages = 'inventory-packages';
+  static const String inventoryPackagesNextNumber = 'inventory-packages/next-number';
+  static const String sequences = 'sequences';
 
   // Accounts endpoints
   static const String chartOfAccounts = 'accountant';

@@ -5,12 +5,14 @@ class Picklist {
   final String? id;
   final String picklistNumber;
   final DateTime? date;
-  final String status; // 'YET_TO_PICK' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'FORCE_COMPLETE' | 'APPROVED'
+  final String
+  status; // 'YET_TO_PICK' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'FORCE_COMPLETE' | 'APPROVED'
   final String? assignee;
   final String? location;
   final String? notes;
   final String? customerName;
   final String? salesOrderNumber;
+  final bool isEntrypass;
   final List<PicklistItem> items;
 
   Picklist({
@@ -23,6 +25,7 @@ class Picklist {
     this.notes,
     this.customerName,
     this.salesOrderNumber,
+    this.isEntrypass = false,
     this.items = const [],
   });
 
@@ -36,6 +39,7 @@ class Picklist {
     String? notes,
     String? customerName,
     String? salesOrderNumber,
+    bool? isEntrypass,
     List<PicklistItem>? items,
   }) {
     return Picklist(
@@ -48,39 +52,54 @@ class Picklist {
       notes: notes ?? this.notes,
       customerName: customerName ?? this.customerName,
       salesOrderNumber: salesOrderNumber ?? this.salesOrderNumber,
+      isEntrypass: isEntrypass ?? this.isEntrypass,
       items: items ?? this.items,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'picklist_number': picklistNumber,
-        'date': date?.toIso8601String(),
-        'status': status,
-        'assignee': assignee,
-        'location': location,
-        'notes': notes,
-        'customer_name': customerName,
-        'sales_order_number': salesOrderNumber,
-      };
+    'id': id,
+    'picklist_number': picklistNumber,
+    'date': date?.toIso8601String(),
+    'status': status,
+    'assignee': assignee,
+    'location': location,
+    'notes': notes,
+    'customer_name': customerName,
+    'sales_order_number': salesOrderNumber,
+    'is_entrypass': isEntrypass,
+  };
 
   factory Picklist.fromJson(Map<String, dynamic> json) {
     final rawItems = json['items'] as List<dynamic>?;
     return Picklist(
       id: json['id'] as String?,
       picklistNumber: json['picklist_number'] as String? ?? '',
-      date: json['date'] != null ? DateTime.parse(json['date'] as String) : null,
+      date: json['date'] != null
+          ? DateTime.parse(json['date'] as String)
+          : null,
       status: json['status'] as String? ?? 'YET_TO_PICK',
       assignee: json['assignee'] as String?,
       location: json['location'] as String?,
       notes: json['notes'] as String?,
       customerName: json['customer_name'] as String?,
       salesOrderNumber: json['sales_order_number'] as String?,
+      isEntrypass: json['is_entrypass'] as bool? ?? false,
       items: rawItems != null
-          ? rawItems.map((e) => PicklistItem.fromJson(e as Map<String, dynamic>)).toList()
+          ? rawItems
+                .map((e) => PicklistItem.fromJson(e as Map<String, dynamic>))
+                .toList()
           : [],
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Picklist && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 /// Individual line item within a picklist.
@@ -142,10 +161,15 @@ class PicklistItem {
       customerName: json['customer_name'] as String?,
       qtyOrdered: (json['qty_ordered'] as num?)?.toDouble() ?? 0,
       qtyToPick: (json['qty_to_pick'] as num?)?.toDouble() ?? 0,
-      qtyPicked: json['qty_picked'] != null ? double.parse(json['qty_picked'].toString()) : 0,
+      qtyPicked: json['qty_picked'] != null
+          ? double.parse(json['qty_picked'].toString())
+          : 0,
       status: json['status']?.toString() ?? 'Yet To Start',
-      qtyPacked: json['qty_packed'] != null ? double.parse(json['qty_packed'].toString()) : 0,
-      batchAllocations: (json['batch_allocations'] as List<dynamic>?)
+      qtyPacked: json['qty_packed'] != null
+          ? double.parse(json['qty_packed'].toString())
+          : 0,
+      batchAllocations:
+          (json['batch_allocations'] as List<dynamic>?)
               ?.map((e) => e as Map<String, dynamic>)
               .toList() ??
           [],

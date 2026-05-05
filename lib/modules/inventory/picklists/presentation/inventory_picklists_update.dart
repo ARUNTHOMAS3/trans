@@ -53,6 +53,7 @@ class _InventoryPicklistsUpdateScreenState
   Warehouse? _selectedWarehouse;
 
   bool _isSaving = false;
+  bool _hasChanges = false;
 
   List<WarehouseStockData> _selectedItems = [];
   final Set<String> _qtyPickedOverrideKeys = <String>{};
@@ -289,6 +290,7 @@ class _InventoryPicklistsUpdateScreenState
       } else {
         _qtyPickedOverrideKeys.remove(rowKey);
       }
+      _hasChanges = true;
     });
   }
 
@@ -595,6 +597,7 @@ class _InventoryPicklistsUpdateScreenState
                     );
                   }
                   _qtyPickedOverrideKeys.add(rowKey);
+                  _hasChanges = true;
                 });
               },
               onClose: () => Navigator.pop(context),
@@ -1108,6 +1111,7 @@ class _InventoryPicklistsUpdateScreenState
                                     status: 'COMPLETED',
                                   );
                                 }
+                                _hasChanges = true;
                               });
                             },
                             child: const Text(
@@ -1311,6 +1315,7 @@ class _InventoryPicklistsUpdateScreenState
                                     status: newStatus,
                                   );
                                 }
+                                _hasChanges = true;
                               });
                             },
                           ),
@@ -1426,6 +1431,7 @@ class _InventoryPicklistsUpdateScreenState
                                           quantityPicked: newQtyPicked,
                                         );
                                       }
+                                      _hasChanges = true;
                                     });
                                   }
                                 },
@@ -1524,7 +1530,7 @@ class _InventoryPicklistsUpdateScreenState
         children: [
           ElevatedButton(
             onPressed:
-                (_isSaving || _selectedItems.isEmpty || !_allBatchesAdded)
+                (_isSaving || _selectedItems.isEmpty || !_allBatchesAdded || !_hasChanges)
                 ? null
                 : _savePicklist,
             style: ElevatedButton.styleFrom(
@@ -1665,8 +1671,8 @@ class _PicklistSelectBatchesDialogState
   bool _overwriteLineItem = false;
   bool _showMfgDetails = false;
   bool _showFocColumn = false;
-  String? _dialogErrorMessage;
   static const String _quantityMismatchMessage =
+
       'There\'s a mismatch between the quantity entered in the line item and the total quantity across all batches. Click the checkbox to overwrite the quantity in the line item.';
 
   String _normalizeDateForUi(String raw) {
@@ -1878,9 +1884,8 @@ class _PicklistSelectBatchesDialogState
               color: readOnly ? _textSecondary : _textPrimary,
               fontFamily: 'Inter',
             ),
-            onChanged: (_) => setState(() {
-              _dialogErrorMessage = null;
-            }),
+            onChanged: (_) => setState(() {}),
+
             decoration: InputDecoration(
               isDense: false,
               hintText: hint,
@@ -2056,9 +2061,8 @@ class _PicklistSelectBatchesDialogState
                   borderSide: BorderSide.none,
                 ),
               ),
-              onChanged: (_) => setState(() {
-                _dialogErrorMessage = null;
-              }),
+              onChanged: (_) => setState(() {}),
+
             ),
           ),
         ),
@@ -2229,7 +2233,6 @@ class _PicklistSelectBatchesDialogState
                       value: _overwriteLineItem,
                       onChanged: (val) => setState(() {
                         _overwriteLineItem = val ?? false;
-                        _dialogErrorMessage = null;
                       }),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
@@ -2436,10 +2439,72 @@ class _PicklistSelectBatchesDialogState
                                           items: batches,
                                           hint: 'Select Batch',
                                           showSearch: true,
-                                          displayStringForValue: (v) =>
-                                              v['batch_no']?.toString() ?? '',
+                                          displayStringForValue: (v) {
+                                            final batchNo =
+                                                v['batch_no']?.toString() ?? '';
+                                            final balance =
+                                                v['balance']?.toString() ?? '0';
+                                            return '$batchNo (Bal: $balance)';
+                                          },
                                           searchStringForValue: (v) =>
                                               v['batch_no']?.toString() ?? '',
+                                          itemBuilder:
+                                              (
+                                                item,
+                                                isSelected,
+                                                isHovered,
+                                              ) {
+                                                final batchNo =
+                                                    item['batch_no']
+                                                        ?.toString() ??
+                                                    '-';
+                                                final balance =
+                                                    item['balance']
+                                                        ?.toString() ??
+                                                    '0';
+                                                final expDate =
+                                                    item['expiry_date']
+                                                        ?.toString() ??
+                                                    '-';
+                                                final mrp =
+                                                    item['mrp']?.toString() ??
+                                                    '0.00';
+                                                final ptr =
+                                                    item['ptr']?.toString() ??
+                                                    '0.00';
+
+                                                final displayText =
+                                                    '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | PTR: $ptr';
+
+                                                return Container(
+                                                  width: double.infinity,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 8,
+                                                      ),
+                                                  color: isHovered
+                                                      ? const Color(0xFF3B82F6)
+                                                      : (isSelected
+                                                            ? const Color(
+                                                                0xFFF3F4F6,
+                                                              )
+                                                            : Colors
+                                                                  .transparent),
+                                                  child: Text(
+                                                    displayText,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: isHovered
+                                                          ? Colors.white
+                                                          : const Color(
+                                                              0xFF1F2937,
+                                                            ),
+                                                      fontFamily: 'Inter',
+                                                    ),
+                                                  ),
+                                                );
+                                              },
                                           onChanged: (v) {
                                             setState(() {
                                               if (v != null) {

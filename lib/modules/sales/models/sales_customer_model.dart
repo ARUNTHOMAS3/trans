@@ -597,6 +597,16 @@ class SalesCustomer {
       r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
     ).hasMatch(trimmed);
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SalesCustomer &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class CustomerContact {

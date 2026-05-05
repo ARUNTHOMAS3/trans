@@ -2,17 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 
+enum ZTooltipDirection { right, bottom }
+
 class ZTooltip extends StatefulWidget {
   final String message;
   final Widget? child;
+
   /// Max width of the tooltip bubble. Defaults to 220 for compact wrapping.
   final double maxWidth;
+  final ZTooltipDirection direction;
 
   const ZTooltip({
     super.key,
     required this.message,
     this.child,
     this.maxWidth = 220,
+    this.direction = ZTooltipDirection.right,
   });
 
   @override
@@ -53,15 +58,18 @@ class _ZTooltipState extends State<ZTooltip> {
         return Stack(
           children: [
             Positioned(
-              width: widget.maxWidth,
               child: CompositedTransformFollower(
                 link: _layerLink,
                 showWhenUnlinked: false,
-                // Anchor to the top-right of the target
-                targetAnchor: Alignment.topRight,
-                followerAnchor: Alignment.topLeft,
-                // Offset to the right and center vertically relative to the target's top-right
-                offset: const Offset(12, -4),
+                targetAnchor: widget.direction == ZTooltipDirection.right
+                    ? Alignment.topRight
+                    : Alignment.bottomCenter,
+                followerAnchor: widget.direction == ZTooltipDirection.right
+                    ? Alignment.topLeft
+                    : Alignment.topCenter,
+                offset: widget.direction == ZTooltipDirection.right
+                    ? const Offset(12, -4)
+                    : const Offset(0, 8),
                 child: MouseRegion(
                   onEnter: (_) => _isTooltipHovering = true,
                   onExit: (_) {
@@ -75,6 +83,7 @@ class _ZTooltipState extends State<ZTooltip> {
                       children: [
                         // Tooltip Box
                         Container(
+                          constraints: BoxConstraints(maxWidth: widget.maxWidth),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
@@ -100,15 +109,28 @@ class _ZTooltipState extends State<ZTooltip> {
                             ),
                           ),
                         ),
-                        // Arrow pointing left
-                        Positioned(
-                          left: -6,
-                          top: 10,
-                          child: CustomPaint(
-                            size: const Size(6, 10),
-                            painter: _TooltipArrowPainter(),
+                        // Arrow
+                        if (widget.direction == ZTooltipDirection.right)
+                          Positioned(
+                            left: -6,
+                            top: 10,
+                            child: CustomPaint(
+                              size: const Size(6, 10),
+                              painter: _TooltipArrowPainter(widget.direction),
+                            ),
+                          )
+                        else
+                          Positioned(
+                            top: -6,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: CustomPaint(
+                                size: const Size(10, 6),
+                                painter: _TooltipArrowPainter(widget.direction),
+                              ),
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -150,17 +172,29 @@ class _ZTooltipState extends State<ZTooltip> {
 }
 
 class _TooltipArrowPainter extends CustomPainter {
+  final ZTooltipDirection direction;
+  _TooltipArrowPainter(this.direction);
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = AppTheme.textPrimary
       ..style = PaintingStyle.fill;
 
-    final path = Path()
-      ..moveTo(size.width, 0)
-      ..lineTo(0, size.height / 2)
-      ..lineTo(size.width, size.height)
-      ..close();
+    final path = Path();
+    if (direction == ZTooltipDirection.right) {
+      path
+        ..moveTo(size.width, 0)
+        ..lineTo(0, size.height / 2)
+        ..lineTo(size.width, size.height)
+        ..close();
+    } else {
+      path
+        ..moveTo(0, size.height)
+        ..lineTo(size.width / 2, 0)
+        ..lineTo(size.width, size.height)
+        ..close();
+    }
 
     canvas.drawPath(path, paint);
   }

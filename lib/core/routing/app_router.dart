@@ -1,17 +1,13 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-
-// Items Module
 import 'package:zerpai_erp/modules/items/items/presentation/items_item_create.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/items_item_detail.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/report/items_report_overview.dart';
 import 'package:zerpai_erp/modules/items/composite_items/presentation/items_composite_items_composite_creation.dart';
 import 'package:zerpai_erp/modules/items/composite_items/presentation/items_composite_items_composite_listview.dart';
-
 import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_customer_create.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_generic_list.dart';
@@ -30,7 +26,6 @@ import 'package:zerpai_erp/modules/sales/presentation/sales_document_detail.dart
 import 'package:zerpai_erp/modules/sales/presentation/sales_customer_overview.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_payment_link_create.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_recurring_invoice_create.dart';
-
 import 'package:zerpai_erp/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_creation.dart';
 import 'package:zerpai_erp/modules/inventory/assemblies/presentation/inventory_assemblies_assembly_overview.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/manual_journals_overview_screen.dart';
@@ -82,8 +77,6 @@ import 'package:zerpai_erp/modules/auth/presentation/auth_auth_forgot_password.d
 import 'package:zerpai_erp/modules/auth/presentation/auth_auth_reset_password.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/modules/auth/services/permission_service.dart';
-
-// Purchasing Module
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_list.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_order_overview.dart';
@@ -92,25 +85,21 @@ import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purc
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_list.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/purchases_bills_create.dart';
-
-// Shared
 import 'package:zerpai_erp/shared/widgets/placeholder_screen.dart';
 import 'package:zerpai_erp/core/layout/zerpai_shell.dart';
 import 'package:zerpai_erp/core/pages/error_page.dart';
 import 'package:zerpai_erp/core/pages/maintenance_page.dart';
 import 'package:zerpai_erp/core/pages/not_found_page.dart';
 import 'package:zerpai_erp/core/pages/unauthorized_page.dart';
-
-// Inventory Module
 import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_list.dart';
 import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_create.dart';
 import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_edit.dart';
 import 'package:zerpai_erp/modules/inventory/picklists/presentation/inventory_picklists_update.dart';
 import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_list.dart';
 import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_create.dart';
+import 'package:zerpai_erp/modules/inventory/packages/presentation/inventory_packages_edit.dart';
 import 'package:zerpai_erp/modules/inventory/shipments/presentation/inventory_shipments_list.dart';
 import 'package:zerpai_erp/modules/inventory/shipments/presentation/inventory_shipments_create.dart';
-
 import 'app_routes.dart';
 export 'app_routes.dart';
 
@@ -1384,8 +1373,21 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'inventory/packages/create',
               name: AppRoutes.packagesCreate,
-              builder: (context, state) =>
-                  const InventoryPackagesCreateScreen(),
+              builder: (context, state) => const InventoryPackagesCreateScreen(),
+            ),
+            GoRoute(
+              path: 'inventory/packages/edit/:id',
+              name: AppRoutes.packagesEdit,
+              builder: (context, state) => InventoryPackagesEditScreen(
+                id: state.pathParameters['id'],
+              ),
+            ),
+            GoRoute(
+              path: 'inventory/packages/:id',
+              name: AppRoutes.packagesDetail,
+              builder: (context, state) => InventoryPackagesListScreen(
+                id: state.pathParameters['id'],
+              ),
             ),
             GoRoute(
               path: 'inventory/shipments',

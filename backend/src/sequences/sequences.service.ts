@@ -25,6 +25,7 @@ export class SequencesService {
       customer: { prefix: "CUS-", next_number: 1, padding: 5 },
       sale:     { prefix: "SO-",  next_number: 1, padding: 5 },
       purchase: { prefix: "PO-",  next_number: 1, padding: 5 },
+      inventory_packages: { prefix: "PKG-", next_number: 1, padding: 5 },
     };
 
     const config = defaults[module] ?? {
@@ -88,22 +89,43 @@ export class SequencesService {
   ) {
     const settings = await this.getSequence(module, tenant, branchId);
 
-    if (usedNumber) {
-      const currentFormatted = this.formatSequence(
-        settings.prefix,
-        settings.next_number,
-        settings.padding,
-        settings.suffix,
-      );
-      if (usedNumber !== currentFormatted) {
-        return settings;
+    const currentFormatted = this.formatSequence(
+      settings.prefix,
+      settings.next_number,
+      settings.padding,
+      settings.suffix,
+    );
+
+    let nextNumber = settings.next_number;
+
+    if (!usedNumber || usedNumber === currentFormatted) {
+      // Used the suggested number or no number provided: increment by 1
+      nextNumber = settings.next_number + 1;
+    } else if (usedNumber.startsWith(settings.prefix)) {
+      // Used a manual number with SAME prefix: check if we should jump ahead
+      try {
+        const numPart = usedNumber
+          .substring(settings.prefix.length)
+          .replace(settings.suffix || "", "");
+        const parsed = parseInt(numPart, 10);
+        if (!isNaN(parsed) && parsed >= settings.next_number) {
+          nextNumber = parsed + 1;
+        } else {
+          // Manually entered an OLD number with same prefix: don't increment next_number
+          return settings;
+        }
+      } catch (e) {
+        nextNumber = settings.next_number + 1;
       }
+    } else {
+      // Used a manual number with DIFFERENT prefix: do not advance the sequence
+      return settings;
     }
 
     const { data, error } = await this.supabaseService
       .getClient()
       .from("transactional_sequences")
-      .update({ next_number: settings.next_number + 1, updated_at: new Date() })
+      .update({ next_number: nextNumber, updated_at: new Date() })
       .eq("id", settings.id)
       .select()
       .single();

@@ -10,7 +10,6 @@ import 'dart:convert';
 import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/shared/widgets/z_data_table_shell.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_search_field.dart';
@@ -18,10 +17,11 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/shared/services/api_client.dart';
-// 
+//
 import '../models/inventory_picklist_model.dart';
 import '../providers/inventory_picklists_provider.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
+import '../../packages/presentation/inventory_packages_list.dart';
 
 class _ClearPicklistSelectionIntent extends Intent {
   const _ClearPicklistSelectionIntent();
@@ -54,15 +54,17 @@ class _InventoryPicklistsListScreenState
     'sales_order_number',
   ];
 
-  bool _showSearchSalesOrder = false;
-  bool _showSearchCustomer = false;
-  String _salesOrderSearchQuery = '';
-  String _customerSearchQuery = '';
-  final TextEditingController _salesOrderSearchCtrl = TextEditingController();
-  final TextEditingController _customerSearchCtrl = TextEditingController();
-
   bool _shouldWrapText = false;
+
   Map<String, double>? _customColumnWidths;
+
+  final ScrollController _horizontalScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
 
   final Map<String, String> _columnLabels = {
     'date': 'DATE',
@@ -279,7 +281,9 @@ class _InventoryPicklistsListScreenState
             pageTitle: '',
             enableBodyScroll: false,
             useHorizontalPadding: false,
+            horizontalPaddingValue: 0,
             useTopPadding: false,
+            titlePadding: const EdgeInsets.only(left: 20, right: 20),
             child: picklistsAsync.when(
               data: (picklists) => Stack(
                 children: [
@@ -1139,16 +1143,6 @@ class _InventoryPicklistsListScreenState
         if (!matchesView) return false;
       }
 
-      // Search Filters
-      if (_salesOrderSearchQuery.isNotEmpty) {
-        final so = p.salesOrderNumber?.toLowerCase() ?? '';
-        if (!so.contains(_salesOrderSearchQuery.toLowerCase())) return false;
-      }
-      if (_customerSearchQuery.isNotEmpty) {
-        final cust = p.customerName?.toLowerCase() ?? '';
-        if (!cust.contains(_customerSearchQuery.toLowerCase())) return false;
-      }
-
       return true;
     }).toList();
     if (picklists.isEmpty) return _buildEmptyState();
@@ -1160,28 +1154,44 @@ class _InventoryPicklistsListScreenState
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Calculate dynamic widths based on available width
-        final screenWidth = math.max(constraints.maxWidth, 1000.0);
         final columnWidths =
-            _customColumnWidths ?? _calculateColumnWidths(screenWidth);
+            _customColumnWidths ?? _calculateColumnWidths(constraints.maxWidth);
+        // Actual prefix: SizedBox(8) + HeaderMenuButton(28) + SizedBox(12) + checkbox(18) + SizedBox(12) = 78
+        const double actualPrefixWidth = 78.0;
+        final double totalColumnsWidth = columnWidths.values.fold(
+          0.0,
+          (sum, w) => sum + w,
+        );
+        // screenWidth = always enough to hold all columns + prefix + safety margin
+        final screenWidth = math.max(
+          constraints.maxWidth,
+          totalColumnsWidth + actualPrefixWidth + 40,
+        );
 
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: screenWidth,
-            child: ZDataTableShell(
-              header: _buildTableHeader(columnWidths, picklists),
-              body: ListView.builder(
-                padding: EdgeInsets.zero,
-                itemCount: picklists.length,
-                itemExtent: 40, // High density Zoho style
-                itemBuilder: (context, index) {
-                  return _buildVirtualRow(
-                    picklists[index],
-                    columnWidths,
-                    screenWidth,
-                  );
-                },
+        return Scrollbar(
+          controller: _horizontalScrollController,
+          thumbVisibility: screenWidth > constraints.maxWidth,
+          trackVisibility: screenWidth > constraints.maxWidth,
+          child: SingleChildScrollView(
+            controller: _horizontalScrollController,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: screenWidth,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildTableHeader(columnWidths, picklists),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      itemCount: picklists.length,
+                      itemExtent: 40, // High density Zoho style
+                      itemBuilder: (context, index) {
+                        return _buildVirtualRow(picklists[index], columnWidths);
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1201,6 +1211,14 @@ class _InventoryPicklistsListScreenState
 
         return InkWell(
           onTap: () {
+            if (picklist.status.toUpperCase() == 'APPROVED') {
+              showDialog(
+                context: context,
+                builder: (context) =>
+                    DispatchEntrypassDialog(initialPicklist: picklist),
+              );
+              return;
+            }
             final orgId = GoRouterState.of(
               context,
             ).pathParameters['orgSystemId']!;
@@ -1314,11 +1332,14 @@ class _InventoryPicklistsListScreenState
 
   void _resizeColumn(String key, double dx) {
     setState(() {
-      _customColumnWidths ??= _calculateColumnWidths(
-        MediaQuery.of(context).size.width - 64,
-      );
+      if (_customColumnWidths == null) {
+        // Initialize with current constraints to avoid jump
+        _customColumnWidths = _calculateColumnWidths(
+          context.size?.width ?? 1200,
+        );
+      }
       final current = _customColumnWidths![key] ?? 120.0;
-      _customColumnWidths![key] = (current + dx).clamp(80.0, 600.0);
+      _customColumnWidths![key] = (current + dx).clamp(50.0, 2000.0);
     });
   }
 
@@ -1367,6 +1388,7 @@ class _InventoryPicklistsListScreenState
         border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(width: 8),
           _buildHeaderMenuButton(),
@@ -1376,44 +1398,10 @@ class _InventoryPicklistsListScreenState
           ..._visibleColumns.map((colId) {
             final width = columnWidths[colId]!;
 
-            Widget headerCell;
-            if (colId == 'sales_order_number') {
-              headerCell = _buildHeaderSearchField(
-                label: 'SALES ORDER#',
-                controller: _salesOrderSearchCtrl,
-                hintText: 'Search SO...',
-                onChanged: (val) =>
-                    setState(() => _salesOrderSearchQuery = val),
-                isSearchVisible: _showSearchSalesOrder,
-                onToggle: () => setState(() {
-                  _showSearchSalesOrder = !_showSearchSalesOrder;
-                  if (!_showSearchSalesOrder) {
-                    _salesOrderSearchCtrl.clear();
-                    _salesOrderSearchQuery = '';
-                  }
-                }),
-              );
-            } else if (colId == 'customer_name') {
-              headerCell = _buildHeaderSearchField(
-                label: 'CUSTOMER NAME',
-                controller: _customerSearchCtrl,
-                hintText: 'Search Customer...',
-                onChanged: (val) => setState(() => _customerSearchQuery = val),
-                isSearchVisible: _showSearchCustomer,
-                onToggle: () => setState(() {
-                  _showSearchCustomer = !_showSearchCustomer;
-                  if (!_showSearchCustomer) {
-                    _customerSearchCtrl.clear();
-                    _customerSearchQuery = '';
-                  }
-                }),
-              );
-            } else {
-              headerCell = _buildHeaderCell(
-                _columnLabels[colId]!,
-                width: width,
-              );
-            }
+            Widget headerCell = _buildHeaderCell(
+              _columnLabels[colId]!,
+              width: width,
+            );
 
             return _ResizableHeaderCell(
               width: width,
@@ -1434,11 +1422,7 @@ class _InventoryPicklistsListScreenState
     );
   }
 
-  Widget _buildVirtualRow(
-    Picklist picklist,
-    Map<String, double> columnWidths,
-    double minWidth,
-  ) {
+  Widget _buildVirtualRow(Picklist picklist, Map<String, double> columnWidths) {
     final isSelected = _selectedPicklistIds.contains(picklist.id);
     final isActive = widget.id == picklist.id;
 
@@ -1456,9 +1440,12 @@ class _InventoryPicklistsListScreenState
           border: const Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(width: 8),
-            const SizedBox(width: 28), // Slider placeholder to match HeaderMenuButton
+            const SizedBox(
+              width: 28,
+            ), // Slider placeholder to match HeaderMenuButton
             const SizedBox(width: 12),
             InkWell(
               onTap: () => _toggleSelection(picklist.id ?? ''),
@@ -1668,87 +1655,6 @@ class _InventoryPicklistsListScreenState
               fontSize: 14,
               color: AppTheme.textSecondary,
               fontFamily: 'Inter',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderSearchField({
-    required String label,
-    required TextEditingController controller,
-    required String hintText,
-    required ValueChanged<String> onChanged,
-    required bool isSearchVisible,
-    required VoidCallback onToggle,
-    TextAlign textAlign = TextAlign.start,
-  }) {
-    if (!isSearchVisible) {
-      return Row(
-        mainAxisAlignment: textAlign == TextAlign.center
-            ? MainAxisAlignment.center
-            : MainAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildHeaderCell(label, width: 0),
-          const SizedBox(width: 8),
-          InkWell(
-            onTap: onToggle,
-            child: const Icon(
-              LucideIcons.search,
-              size: 13,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Container(
-      height: 28,
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppTheme.borderColor),
-      ),
-      child: Row(
-        children: [
-          const Icon(LucideIcons.search, size: 12, color: Color(0xFF9CA3AF)),
-          const SizedBox(width: 6),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              autofocus: true,
-              style: const TextStyle(fontSize: 11, color: AppTheme.textPrimary),
-              textAlign: textAlign,
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: hintText,
-                hintStyle: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF9CA3AF),
-                ),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-            ),
-          ),
-          InkWell(
-            onTap: () {
-              controller.clear();
-              onChanged('');
-              onToggle();
-            },
-            child: const Icon(
-              LucideIcons.x,
-              size: 12,
-              color: AppTheme.textSecondary,
             ),
           ),
         ],
@@ -2559,6 +2465,10 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
   }
 
   Widget _buildStatusDropdown(BuildContext context) {
+    final picklistAsync = ref.watch(picklistByIdProvider(widget.id));
+    final currentStatus =
+        picklistAsync.value?.status.toUpperCase().replaceAll(' ', '_') ?? '';
+
     return PopupMenuButton<String>(
       offset: const Offset(0, 32),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -2578,18 +2488,37 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
               );
             });
       },
-      itemBuilder: (context) => [
-        _buildPopupItem(
-          value: 'ON_HOLD',
-          icon: LucideIcons.pauseCircle,
-          label: 'On Hold',
-        ),
-        _buildPopupItem(
-          value: 'COMPLETED',
-          icon: LucideIcons.checkCircle,
-          label: 'Completed',
-        ),
-      ],
+      itemBuilder: (context) {
+        final items = [
+          _buildPopupItem(
+            value: 'ON_HOLD',
+            icon: LucideIcons.pauseCircle,
+            label: 'On Hold',
+          ),
+          _buildPopupItem(
+            value: 'COMPLETED',
+            icon: LucideIcons.checkCircle,
+            label: 'Completed',
+          ),
+          _buildPopupItem(
+            value: 'FORCE_COMPLETE',
+            icon: LucideIcons.checkSquare,
+            label: 'Force Complete',
+          ),
+        ];
+
+        if (currentStatus == 'COMPLETED' || currentStatus == 'FORCE_COMPLETE') {
+          items.add(
+            _buildPopupItem(
+              value: 'APPROVED',
+              icon: LucideIcons.checkCircle2,
+              label: 'Approve',
+            ),
+          );
+        }
+
+        return items;
+      },
       child: _buildToolbarButton(
         LucideIcons.settings,
         'Set status',
@@ -3959,7 +3888,7 @@ class _MenuActionTile extends StatelessWidget {
         : AppTheme.textSecondary;
 
     return Container(
-      height: 42,
+      height: 40,
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(10),
@@ -3998,35 +3927,39 @@ class _ResizableHeaderCell extends StatefulWidget {
 }
 
 class _ResizableHeaderCellState extends State<_ResizableHeaderCell> {
-  bool _hover = false;
-  static const double _resizeSensitivity = 8.0;
+  bool _isHovering = false;
 
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      cursor: SystemMouseCursors.resizeColumn,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: Stack(
-        alignment: Alignment.centerLeft,
-        children: [
-          SizedBox(width: widget.width, height: 36, child: widget.child),
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onHorizontalDragUpdate: (d) =>
-                  widget.onResize(d.delta.dx * _resizeSensitivity),
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 120),
-                opacity: _hover ? 1.0 : 0.0,
-                child: Container(width: 4, color: AppTheme.primaryBlue),
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: Container(
+        width: widget.width,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            widget.child,
+            Positioned(
+              right: -5,
+              top: 0,
+              bottom: 0,
+              width: 10,
+              child: GestureDetector(
+                onHorizontalDragUpdate: (details) =>
+                    widget.onResize(details.delta.dx),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.resizeLeftRight,
+                  child: Container(
+                    color: _isHovering
+                        ? AppTheme.primaryBlue.withValues(alpha: 0.2)
+                        : Colors.transparent,
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

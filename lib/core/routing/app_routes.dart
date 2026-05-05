@@ -138,6 +138,8 @@ class AppRoutes {
   static const String picklistsEdit = '/inventory/picklists/edit/:id';
   static const String packages = '/inventory/packages';
   static const String packagesCreate = '/inventory/packages/create';
+  static const String packagesEdit = '/inventory/packages/edit/:id';
+  static const String packagesDetail = '/inventory/packages/:id';
   static const String shipments = '/inventory/shipments';
   static const String shipmentsCreate = '/inventory/shipments/create';
   static const String transferOrders = '/inventory/transfer-orders';

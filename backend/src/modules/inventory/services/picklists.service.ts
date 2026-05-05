@@ -21,7 +21,8 @@ export class PicklistsService {
     let query = client
       .from('picklist_master')
       .select('*', { count: 'exact' })
-      .eq('entity_id', tenant.entityId);
+      .eq('entity_id', tenant.entityId)
+      .or('is_delete.is.null,is_delete.eq.false');
 
     if (status) {
       query = query.eq('status', status);
@@ -107,6 +108,7 @@ export class PicklistsService {
           notes: row.notes,
           customer_name: itemInfo?.customer_name || null,
           sales_order_number: itemInfo?.sales_order_number || null,
+          is_entrypass: row.is_entrypass || false,
         };
       }),
       total: count || 0,
@@ -122,6 +124,7 @@ export class PicklistsService {
       .select('*')
       .eq('id', id)
       .eq('entity_id', tenant.entityId)
+      .or('is_delete.is.null,is_delete.eq.false')
       .single();
 
     if (picklistError || !picklist) throw new NotFoundException('Picklist not found');
@@ -268,6 +271,7 @@ export class PicklistsService {
       notes: picklist.notes,
       customer_name: firstItemWithSO?.customer_name || null,
       sales_order_number: firstItemWithSO?.sales_order_number || null,
+      is_entrypass: picklist.is_entrypass || false,
       items: itemsWithBatches,
     };
   }
@@ -287,6 +291,8 @@ export class PicklistsService {
         picklist_date: headerData.picklist_date,
         status: headerData.status || 'DRAFT',
         notes: headerData.notes || null,
+        is_delete: false,
+        is_entrypass: headerData.is_entrypass || false,
       })
       .select()
       .single();
@@ -372,6 +378,7 @@ export class PicklistsService {
       }
     }
     if (headerData.notes !== undefined) updatePayload.notes = headerData.notes;
+    if (headerData.is_entrypass !== undefined) updatePayload.is_entrypass = headerData.is_entrypass;
 
     const { data: picklist, error: picklistError } = await client
       .from('picklist_master')
@@ -457,32 +464,10 @@ export class PicklistsService {
   async remove(id: string, tenant: TenantContext) {
     const client = this.supabaseService.getClient();
 
-    // Fetch item ids
-    const { data: items } = await client
-      .from('picklist_items')
-      .select('id')
-      .eq('picklist_id', id);
-
-    const itemIds = (items || []).map((i: any) => i.id);
-
-    // Delete batch allocations
-    if (itemIds.length > 0) {
-      await client
-        .from('picklist_batch_allocation')
-        .delete()
-        .in('picklist_item_id', itemIds);
-    }
-
-    // Delete items
-    await client
-      .from('picklist_items')
-      .delete()
-      .eq('picklist_id', id);
-
-    // Delete master
+    // Soft-delete: set is_delete = true instead of removing from DB
     const { data, error } = await client
       .from('picklist_master')
-      .delete()
+      .update({ is_delete: true })
       .eq('id', id)
       .eq('entity_id', tenant.entityId)
       .select()
@@ -698,8 +683,9 @@ export class PicklistsService {
       const client = this.supabaseService.getClient();
 
       let binIds: string[] = [];
-      
-      if (productId) {        const { data: stockLayers, error: stockError } = await client
+
+      if (productId) {
+        const { data: stockLayers, error: stockError } = await client
           .from('batch_stock_layers')
           .select('bin_id')
           .eq('product_id', productId)
@@ -753,7 +739,7 @@ export class PicklistsService {
           .eq('entity_id', tenant.entityId)
           .eq('is_active', true)
           .order('bin_code', { ascending: true });
-          
+
         const { data: fallbackData, error: fallbackError } = await fallbackQuery.limit(1000);
         if (!fallbackError) {
           data = fallbackData;

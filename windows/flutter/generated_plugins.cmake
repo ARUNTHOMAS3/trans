@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   connectivity_plus
   desktop_drop
+  printing
   sentry_flutter
   url_launcher_windows
 )

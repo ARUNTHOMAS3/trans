@@ -806,10 +806,10 @@ export const inventoryAdjustmentAccountEntries = pgTable("inventory_adjustment_a
 export const priceLists = pgTable("price_lists", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 255 }).notNull(),
-	description: text().default(''),
+	description: text().default('),
 	currency: varchar({ length: 20 }).default('INR'),
 	pricingScheme: varchar("pricing_scheme", { length: 50 }).notNull(),
-	details: text().default(''),
+	details: text().default('),
 	roundOffPreference: varchar("round_off_preference", { length: 50 }).default('never_mind'),
 	status: varchar({ length: 20 }).default('active'),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
@@ -1029,6 +1029,8 @@ export const picklistMaster = pgTable("picklist_master", {
 	status: text(),
 	notes: text(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	isDelete: boolean("is_delete").notNull(),
+	isEntrypass: boolean("is_entrypass").notNull(),
 }, (table) => [
 	unique("picklist_master_picklist_no_key").on(table.picklistNo),
 ]);
@@ -2092,6 +2094,38 @@ export const storageConditions = pgTable("storage_conditions", {
 	unique("storage_locations_location_name_unique").on(table.locationName),
 ]);
 
+export const inventoryPackages = pgTable("inventory_packages", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	entityId: uuid("entity_id").notNull(),
+	customerId: uuid("customer_id").notNull(),
+	packageNumber: varchar("package_number").notNull(),
+	packageDate: date("package_date").default(sql`CURRENT_DATE`).notNull(),
+	dimensionLength: numeric("dimension_length", { precision: 15, scale:  2 }).default('0'),
+	dimensionWidth: numeric("dimension_width", { precision: 15, scale:  2 }).default('0'),
+	dimensionHeight: numeric("dimension_height", { precision: 15, scale:  2 }).default('0'),
+	dimensionUnit: varchar("dimension_unit", { length: 10 }).default('cm'),
+	weight: numeric({ precision: 15, scale:  2 }).default('0'),
+	weightUnit: varchar("weight_unit", { length: 10 }).default('kg'),
+	isManualMode: boolean("is_manual_mode").default(false),
+	notes: text(),
+	status: varchar({ length: 50 }).default('Not Shipped'),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	createdBy: uuid("created_by"),
+}, (table) => [
+	foreignKey({
+			columns: [table.customerId],
+			foreignColumns: [customers.id],
+			name: "inventory_packages_customer_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.entityId],
+			foreignColumns: [organisationBranchMaster.id],
+			name: "inventory_packages_entity_fkey"
+		}),
+	unique("inventory_packages_package_number_key").on(table.packageNumber),
+]);
+
 export const compositeItems = pgTable("composite_items", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	type: compositeType().notNull(),
@@ -2551,13 +2585,50 @@ export const businessTypes = pgTable("business_types", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	code: varchar().notNull(),
 	label: varchar().notNull(),
-	description: text().default('').notNull(),
+	description: text().default(').notNull(),
 	sortOrder: integer("sort_order").default(0).notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	unique("settings_business_types_code_key").on(table.code),
+]);
+
+export const inventoryPackageItems = pgTable("inventory_package_items", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	packageId: uuid("package_id").notNull(),
+	entityId: uuid("entity_id").notNull(),
+	productId: uuid("product_id").notNull(),
+	quantity: numeric({ precision: 15, scale:  3 }).default('0').notNull(),
+	salesOrderId: uuid("sales_order_id"),
+	picklistId: uuid("picklist_id"),
+	itemName: varchar("item_name", { length: 255 }),
+}, (table) => [
+	foreignKey({
+			columns: [table.entityId],
+			foreignColumns: [organisationBranchMaster.id],
+			name: "inventory_package_items_entity_fkey"
+		}),
+	foreignKey({
+			columns: [table.packageId],
+			foreignColumns: [inventoryPackages.id],
+			name: "inventory_package_items_package_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.picklistId],
+			foreignColumns: [picklistMaster.id],
+			name: "inventory_package_items_picklist_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.productId],
+			foreignColumns: [products.id],
+			name: "inventory_package_items_product_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.salesOrderId],
+			foreignColumns: [salesOrders.id],
+			name: "inventory_package_items_sales_order_id_fkey"
+		}),
 ]);
 
 export const users = pgTable("users", {
@@ -2629,8 +2700,8 @@ export const lsgdLocalBodies = pgTable("lsgd_local_bodies", {
 export const transactionalSequences = pgTable("transactional_sequences", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	module: varchar().notNull(),
-	prefix: varchar().default('').notNull(),
-	suffix: varchar().default(''),
+	prefix: varchar().default(').notNull(),
+	suffix: varchar().default('),
 	nextNumber: integer("next_number").default(1).notNull(),
 	padding: integer().default(5).notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
@@ -2651,7 +2722,7 @@ export const transactionalSequences = pgTable("transactional_sequences", {
 export const roles = pgTable("roles", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	label: varchar({ length: 100 }).notNull(),
-	description: text().default('').notNull(),
+	description: text().default(').notNull(),
 	permissions: jsonb().default({}).notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -2887,11 +2958,11 @@ export const organization = pgTable("organization", {
 	companyIdValue: varchar("company_id_value", { length: 100 }),
 	paymentStubAddress: text("payment_stub_address"),
 	hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false).notNull(),
-	systemId: varchar("system_id", { length: 20 }).default(sql`nextval('organization_system_id_seq')`).notNull(),
+	systemId: varchar("system_id", { length: 20 }).default((nextval(\'organization_system_id_seq').notNull(),
 	baseCurrencyDecimals: smallint("base_currency_decimals"),
 	baseCurrencyFormat: varchar("base_currency_format", { length: 50 }),
 	organizationLanguage: varchar("organization_language", { length: 50 }).default('English'),
-	communicationLanguages: text("communication_languages").array().default(["English"]).notNull(),
+	communicationLanguages: text("communication_languages").array().default(["RAY['English'::tex"]).notNull(),
 	paymentStubDistrictId: uuid("payment_stub_district_id"),
 	paymentStubLocalBodyId: uuid("payment_stub_local_body_id"),
 	paymentStubWardId: uuid("payment_stub_ward_id"),
@@ -3023,7 +3094,7 @@ export const branches = pgTable("branches", {
 	districtId: uuid("district_id"),
 	localBodyId: uuid("local_body_id"),
 	wardId: uuid("ward_id"),
-	systemId: varchar("system_id", { length: 20 }).default(sql`nextval('branches_system_id_seq')`).notNull(),
+	systemId: varchar("system_id", { length: 20 }).default((nextval(\'branches_system_id_seq').notNull(),
 	pan: varchar(),
 	industry: varchar(),
 	gstTreatment: varchar("gst_treatment"),
@@ -3359,6 +3430,24 @@ export const manualJournalTagMappings = pgTable("manual_journal_tag_mappings", {
 			name: "accounts_manual_journal_tag_mappings_reporting_tag_id_fkey"
 		}).onDelete("cascade"),
 	primaryKey({ columns: [table.manualJournalItemId, table.reportingTagId], name: "accounts_manual_journal_tag_mappings_pkey"}),
+]);
+
+export const inventoryPackageSalesOrders = pgTable("inventory_package_sales_orders", {
+	packageId: uuid("package_id").notNull(),
+	salesOrderId: uuid("sales_order_id").notNull(),
+	entityId: uuid("entity_id").notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.packageId],
+			foreignColumns: [inventoryPackages.id],
+			name: "inventory_package_sales_orders_package_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.salesOrderId],
+			foreignColumns: [salesOrders.id],
+			name: "inventory_package_sales_orders_sales_order_id_fkey"
+		}),
+	primaryKey({ columns: [table.packageId, table.salesOrderId], name: "inventory_package_sales_orders_pkey"}),
 ]);
 export const auditLogsAll = pgView("audit_logs_all", {	id: uuid(),
 	tableName: varchar("table_name", { length: 100 }),

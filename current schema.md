@@ -138,9 +138,12 @@ CREATE TABLE public.batch_stock_layers (
   ref_type character varying NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  reserved_qty numeric NOT NULL DEFAULT 0,
   CONSTRAINT batch_stock_layers_pkey PRIMARY KEY (id),
   CONSTRAINT fk_batch FOREIGN KEY (batch_id) REFERENCES public.batch_master(id),
-  CONSTRAINT batch_stock_layers_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+  CONSTRAINT batch_stock_layers_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT batch_stock_layers_vendor_id_fkey FOREIGN KEY (vendor_id) REFERENCES public.vendors(id),
+  CONSTRAINT batch_stock_layers_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id)
 );
 CREATE TABLE public.batch_transactions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -585,6 +588,7 @@ CREATE TABLE public.customers (
   billing_address_country_id uuid,
   shipping_address_country_id uuid,
   entity_id uuid NOT NULL,
+  associated_branch_id uuid,
   CONSTRAINT customers_pkey PRIMARY KEY (id),
   CONSTRAINT customers_currency_id_fkey FOREIGN KEY (currency_id) REFERENCES public.currencies(id),
   CONSTRAINT customers_price_list_id_fkey FOREIGN KEY (price_list_id) REFERENCES public.price_lists(id),
@@ -593,7 +597,8 @@ CREATE TABLE public.customers (
   CONSTRAINT customers_shipping_address_state_id_states_id_fk FOREIGN KEY (shipping_address_state_id) REFERENCES public.states(id),
   CONSTRAINT customers_billing_address_country_id_fkey FOREIGN KEY (billing_address_country_id) REFERENCES public.countries(id),
   CONSTRAINT customers_shipping_address_country_id_fkey FOREIGN KEY (shipping_address_country_id) REFERENCES public.countries(id),
-  CONSTRAINT customers_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+  CONSTRAINT customers_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT customers_associated_branch_id_fkey FOREIGN KEY (associated_branch_id) REFERENCES public.branches(id)
 );
 CREATE TABLE public.date_format (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -707,6 +712,202 @@ CREATE TABLE public.industries (
   is_active boolean NOT NULL DEFAULT true,
   sort_order smallint NOT NULL DEFAULT 0,
   CONSTRAINT industries_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.inventory_adjustment_account_entries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  adjustment_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  account_id uuid NOT NULL,
+  debit numeric NOT NULL DEFAULT 0,
+  credit numeric NOT NULL DEFAULT 0,
+  description text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_adjustment_account_entries_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_account_entries_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
+  CONSTRAINT inventory_adjustment_account_entries_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_adjustment_account_entries_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.inventory_adjustment_attachments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  adjustment_id uuid NOT NULL,
+  file_name text NOT NULL,
+  file_url text,
+  storage_bucket text,
+  storage_path text,
+  mime_type text,
+  file_size_bytes bigint CHECK (file_size_bytes IS NULL OR file_size_bytes >= 0),
+  file_hash text,
+  uploaded_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_adjustment_attachments_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_attachments_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_adjustment_attachments_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
+  CONSTRAINT inventory_adjustment_attachments_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.inventory_adjustment_item_batches (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  adjustment_id uuid NOT NULL,
+  adjustment_item_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  warehouse_id uuid,
+  bin_id uuid,
+  batch_id uuid,
+  batch_reference character varying,
+  quantity_in numeric NOT NULL DEFAULT 0,
+  quantity_out numeric NOT NULL DEFAULT 0,
+  rate numeric,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  batch_stock_layer_id uuid,
+  CONSTRAINT inventory_adjustment_item_batches_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_item_batches_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
+  CONSTRAINT inventory_adjustment_item_batches_adjustment_item_id_fkey FOREIGN KEY (adjustment_item_id) REFERENCES public.inventory_adjustment_items(id),
+  CONSTRAINT inventory_adjustment_item_batches_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_adjustment_item_batches_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT inventory_adjustment_item_batches_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT inventory_adjustment_item_batches_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id),
+  CONSTRAINT inventory_adjustment_item_batches_bin_id_fkey FOREIGN KEY (bin_id) REFERENCES public.bin_master(id),
+  CONSTRAINT inventory_adjustment_item_batches_batch_stock_layer_id_fkey FOREIGN KEY (batch_stock_layer_id) REFERENCES public.batch_stock_layers(id)
+);
+CREATE TABLE public.inventory_adjustment_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  adjustment_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  quantity_before numeric NOT NULL DEFAULT 0,
+  quantity_adjusted numeric NOT NULL DEFAULT 0,
+  quantity_after numeric NOT NULL DEFAULT 0,
+  cost_price numeric,
+  purchase_rate numeric,
+  mrp numeric,
+  adjustment_value numeric NOT NULL DEFAULT 0,
+  batch_id uuid,
+  batch_reference character varying,
+  batch_allocations jsonb NOT NULL DEFAULT '[]'::jsonb,
+  reporting_tags jsonb NOT NULL DEFAULT '{}'::jsonb,
+  mfd_month_year character varying CHECK (mfd_month_year IS NULL OR mfd_month_year::text ~ '^(0[1-9]|1[0-2])/[0-9]{4}$'::text),
+  expiry_month_year character varying CHECK (expiry_month_year IS NULL OR expiry_month_year::text ~ '^(0[1-9]|1[0-2])/[0-9]{4}$'::text),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_adjustment_items_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_items_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
+  CONSTRAINT inventory_adjustment_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_adjustment_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT inventory_adjustment_items_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id)
+);
+CREATE TABLE public.inventory_adjustment_reasons (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid,
+  name character varying NOT NULL,
+  code character varying,
+  reason_type character varying DEFAULT 'both'::character varying,
+  is_active boolean NOT NULL DEFAULT true,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_adjustment_reasons_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_reasons_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.inventory_adjustment_value_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  adjustment_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  batch_id uuid,
+  batch_stock_layer_id uuid,
+  current_value numeric NOT NULL DEFAULT 0,
+  changed_value numeric NOT NULL DEFAULT 0,
+  adjusted_value numeric NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_adjustment_value_items_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustment_value_items_adjustment_id_fkey FOREIGN KEY (adjustment_id) REFERENCES public.inventory_adjustments(id),
+  CONSTRAINT inventory_adjustment_value_items_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_adjustment_value_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT inventory_adjustment_value_items_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id)
+);
+CREATE TABLE public.inventory_adjustments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  product_id uuid,
+  warehouse_id uuid,
+  adjustment_number character varying UNIQUE,
+  adjustment_date timestamp with time zone NOT NULL DEFAULT now(),
+  adjustment_type USER-DEFINED NOT NULL DEFAULT 'quantity'::inventory_adjustment_type,
+  reason_id uuid,
+  reason character varying,
+  reference_number character varying,
+  notes text,
+  account_id uuid,
+  status USER-DEFINED NOT NULL DEFAULT 'draft'::inventory_adjustment_status,
+  quantity_before numeric,
+  quantity_adjusted numeric,
+  quantity_after numeric,
+  cost_price numeric,
+  adjustment_value numeric,
+  adjusted_by uuid,
+  approved_by uuid,
+  approved_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_adjustments_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_adjustments_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id),
+  CONSTRAINT inventory_adjustments_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT inventory_adjustments_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT inventory_adjustments_adjusted_by_fkey FOREIGN KEY (adjusted_by) REFERENCES public.users(id),
+  CONSTRAINT inventory_adjustments_approved_by_fkey FOREIGN KEY (approved_by) REFERENCES public.users(id),
+  CONSTRAINT fk_inventory_adjustments_reason_id FOREIGN KEY (reason_id) REFERENCES public.inventory_adjustment_reasons(id),
+  CONSTRAINT inventory_adjustments_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id)
+);
+CREATE TABLE public.inventory_package_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  package_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  quantity numeric NOT NULL DEFAULT 0,
+  sales_order_id uuid,
+  picklist_id uuid,
+  item_name character varying,
+  CONSTRAINT inventory_package_items_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_package_items_package_id_fkey FOREIGN KEY (package_id) REFERENCES public.inventory_packages(id),
+  CONSTRAINT inventory_package_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT inventory_package_items_sales_order_id_fkey FOREIGN KEY (sales_order_id) REFERENCES public.sales_orders(id),
+  CONSTRAINT inventory_package_items_picklist_id_fkey FOREIGN KEY (picklist_id) REFERENCES public.picklist_master(id),
+  CONSTRAINT inventory_package_items_entity_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
+);
+CREATE TABLE public.inventory_package_sales_orders (
+  package_id uuid NOT NULL,
+  sales_order_id uuid NOT NULL,
+  entity_id uuid NOT NULL,
+  CONSTRAINT inventory_package_sales_orders_pkey PRIMARY KEY (package_id, sales_order_id),
+  CONSTRAINT inventory_package_sales_orders_package_id_fkey FOREIGN KEY (package_id) REFERENCES public.inventory_packages(id),
+  CONSTRAINT inventory_package_sales_orders_sales_order_id_fkey FOREIGN KEY (sales_order_id) REFERENCES public.sales_orders(id)
+);
+CREATE TABLE public.inventory_packages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL,
+  customer_id uuid NOT NULL,
+  package_number character varying NOT NULL UNIQUE,
+  package_date date NOT NULL DEFAULT CURRENT_DATE,
+  dimension_length numeric DEFAULT 0,
+  dimension_width numeric DEFAULT 0,
+  dimension_height numeric DEFAULT 0,
+  dimension_unit character varying DEFAULT 'cm'::character varying,
+  weight numeric DEFAULT 0,
+  weight_unit character varying DEFAULT 'kg'::character varying,
+  is_manual_mode boolean DEFAULT false,
+  notes text,
+  status character varying DEFAULT 'Not Shipped'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  created_by uuid,
+  CONSTRAINT inventory_packages_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_packages_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT inventory_packages_entity_fkey FOREIGN KEY (entity_id) REFERENCES public.organisation_branch_master(id)
 );
 CREATE TABLE public.journal_number_settings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -942,6 +1143,50 @@ CREATE TABLE public.payment_terms (
   is_active boolean DEFAULT true,
   created_at timestamp without time zone DEFAULT now(),
   CONSTRAINT payment_terms_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.picklist_batch_allocation (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  picklist_item_id uuid NOT NULL,
+  batch_id uuid NOT NULL,
+  layer_id character varying NOT NULL,
+  warehouse_id uuid NOT NULL,
+  bin_id uuid NOT NULL,
+  qty numeric NOT NULL,
+  foc_qty numeric DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT picklist_batch_allocation_pkey PRIMARY KEY (id),
+  CONSTRAINT picklist_batch_allocation_picklist_item_id_fkey FOREIGN KEY (picklist_item_id) REFERENCES public.picklist_items(id),
+  CONSTRAINT picklist_batch_allocation_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batch_master(id),
+  CONSTRAINT picklist_batch_allocation_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES public.warehouses(id),
+  CONSTRAINT picklist_batch_allocation_bin_id_fkey FOREIGN KEY (bin_id) REFERENCES public.bin_master(id)
+);
+CREATE TABLE public.picklist_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  picklist_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  sales_order_id uuid,
+  sales_order_line_id uuid,
+  qty_ordered numeric,
+  qty_to_pick numeric,
+  qty_picked numeric DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  status text,
+  CONSTRAINT picklist_items_pkey PRIMARY KEY (id),
+  CONSTRAINT picklist_items_picklist_id_fkey FOREIGN KEY (picklist_id) REFERENCES public.picklist_master(id)
+);
+CREATE TABLE public.picklist_master (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  picklist_no character varying NOT NULL UNIQUE,
+  entity_id uuid NOT NULL,
+  warehouse_id uuid NOT NULL,
+  assignee_id uuid,
+  picklist_date date NOT NULL,
+  status text,
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  is_delete boolean NOT NULL,
+  is_entrypass boolean NOT NULL,
+  CONSTRAINT picklist_master_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.price_list_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

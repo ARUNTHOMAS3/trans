@@ -134,6 +134,9 @@ class _InventoryPicklistsCreateScreenState
       _selectedGroup != null &&
       _selectedWarehouse != null;
 
+  int _currentPage = 0;
+  static const int _itemsPerPage = 30;
+
   bool get _hasMandatoryFieldsForItemSelection =>
       _picklistNumberCtrl.text.trim().isNotEmpty &&
       _selectedGroup != null &&
@@ -1126,7 +1129,7 @@ class _InventoryPicklistsCreateScreenState
             label,
             style: const TextStyle(
               fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.normal,
               color: _textSecondary,
               fontFamily: 'Inter',
             ),
@@ -1227,6 +1230,12 @@ class _InventoryPicklistsCreateScreenState
   }
 
   Widget _buildTableNoGrouping() {
+    final totalItems = _filteredSelectedItems.length;
+    final paginatedItems = _filteredSelectedItems
+        .skip(_currentPage * _itemsPerPage)
+        .take(_itemsPerPage)
+        .toList();
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1263,8 +1272,10 @@ class _InventoryPicklistsCreateScreenState
                           () => _isItemSearchVisible = !_isItemSearchVisible,
                         ),
                         sortAscending: _salesOrderSortAscending,
-                        onChanged: (val) =>
-                            setState(() => _itemNameSearchQuery = val),
+                        onChanged: (val) => setState(() {
+                          _itemNameSearchQuery = val;
+                          _currentPage = 0;
+                        }),
                       ),
                     ),
                   ),
@@ -1292,8 +1303,10 @@ class _InventoryPicklistsCreateScreenState
                           if (!_salesOrderSortAscending) return;
                           setState(() => _salesOrderSortAscending = false);
                         },
-                        onChanged: (val) =>
-                            setState(() => _salesOrderSearchQuery = val),
+                        onChanged: (val) => setState(() {
+                          _salesOrderSearchQuery = val;
+                          _currentPage = 0;
+                        }),
                       ),
                     ),
                   ),
@@ -1304,7 +1317,7 @@ class _InventoryPicklistsCreateScreenState
                       'QUANTITY ORDERED',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.normal,
                         color: _textSecondary,
                       ),
                       textAlign: TextAlign.center,
@@ -1317,7 +1330,7 @@ class _InventoryPicklistsCreateScreenState
                       'QUANTITY PACKED',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.normal,
                         color: _textSecondary,
                       ),
                       textAlign: TextAlign.center,
@@ -1396,9 +1409,9 @@ class _InventoryPicklistsCreateScreenState
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _filteredSelectedItems.length,
+            itemCount: paginatedItems.length,
             itemBuilder: (context, index) {
-              final item = _filteredSelectedItems[index];
+              final item = paginatedItems[index];
               final rowKey = _buildRowKey(item);
               final available = item.availableQuantity;
 
@@ -1649,6 +1662,7 @@ class _InventoryPicklistsCreateScreenState
               );
             },
           ),
+          _buildPaginationFooter(totalItems),
         ],
       ),
     );
@@ -1662,13 +1676,20 @@ class _InventoryPicklistsCreateScreenState
           .add(item);
     }
 
+    final groupKeys = grouped.keys.toList();
+    final totalGroups = groupKeys.length;
+    final paginatedKeys = groupKeys
+        .skip(_currentPage * _itemsPerPage)
+        .take(_itemsPerPage)
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
-            'Total Items: ${grouped.length}',
+            'Total Items: $totalGroups',
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ),
@@ -1705,7 +1726,10 @@ class _InventoryPicklistsCreateScreenState
                           showSortControls: false,
                           sortAscending: _salesOrderSortAscending,
                           onChanged: (val) =>
-                              setState(() => _itemNameSearchQuery = val),
+                              setState(() {
+                                _itemNameSearchQuery = val;
+                                _currentPage = 0;
+                              }),
                         ),
                       ),
                     ),
@@ -1724,7 +1748,10 @@ class _InventoryPicklistsCreateScreenState
                           ),
                           sortAscending: _salesOrderSortAscending,
                           onChanged: (val) =>
-                              setState(() => _salesOrderSearchQuery = val),
+                              setState(() {
+                                _salesOrderSearchQuery = val;
+                                _currentPage = 0;
+                              }),
                         ),
                       ),
                     ),
@@ -1736,7 +1763,7 @@ class _InventoryPicklistsCreateScreenState
                           'QTY ORDERED',
                           style: const TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.normal,
                             color: _textSecondary,
                           ),
                           textAlign: TextAlign.center,
@@ -1751,7 +1778,7 @@ class _InventoryPicklistsCreateScreenState
                           'PREFERRED BIN',
                           style: const TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.normal,
                             color: _textSecondary,
                           ),
                           textAlign: TextAlign.center,
@@ -1766,7 +1793,7 @@ class _InventoryPicklistsCreateScreenState
                           'QTY TO PICK',
                           style: const TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.normal,
                             color: _textSecondary,
                           ),
                           textAlign: TextAlign.center,
@@ -1781,7 +1808,7 @@ class _InventoryPicklistsCreateScreenState
                           'QTY PICKED',
                           style: const TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.normal,
                             color: _textSecondary,
                           ),
                           textAlign: TextAlign.center,
@@ -1797,11 +1824,11 @@ class _InventoryPicklistsCreateScreenState
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: grouped.length,
+                itemCount: paginatedKeys.length,
                 itemBuilder: (context, groupIdx) {
-                  final entry = grouped.entries.elementAt(groupIdx);
-                  final itemsInGroup = entry.value;
-                  final isLastGroup = groupIdx == grouped.length - 1;
+                  final productId = paginatedKeys[groupIdx];
+                  final itemsInGroup = grouped[productId]!;
+                  final isLastGroup = groupIdx == paginatedKeys.length - 1;
 
                   return Column(
                     children: [
@@ -2140,6 +2167,7 @@ class _InventoryPicklistsCreateScreenState
                   );
                 },
               ),
+              _buildPaginationFooter(totalGroups),
             ],
           ),
         ),
@@ -2154,13 +2182,20 @@ class _InventoryPicklistsCreateScreenState
       grouped.putIfAbsent(so, () => <WarehouseStockData>[]).add(item);
     }
 
+    final groupKeys = grouped.keys.toList();
+    final totalGroups = groupKeys.length;
+    final paginatedKeys = groupKeys
+        .skip(_currentPage * _itemsPerPage)
+        .take(_itemsPerPage)
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
-            'Total Sales Orders: ${grouped.length}',
+            'Total Sales Orders: $totalGroups',
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ),
@@ -2197,7 +2232,10 @@ class _InventoryPicklistsCreateScreenState
                           showSortControls: false,
                           sortAscending: _salesOrderSortAscending,
                           onChanged: (val) =>
-                              setState(() => _salesOrderSearchQuery = val),
+                              setState(() {
+                                _salesOrderSearchQuery = val;
+                                _currentPage = 0;
+                              }),
                         ),
                       ),
                     ),
@@ -2216,7 +2254,10 @@ class _InventoryPicklistsCreateScreenState
                           ),
                           sortAscending: _salesOrderSortAscending,
                           onChanged: (val) =>
-                              setState(() => _itemNameSearchQuery = val),
+                              setState(() {
+                                _itemNameSearchQuery = val;
+                                _currentPage = 0;
+                              }),
                         ),
                       ),
                     ),
@@ -2228,7 +2269,7 @@ class _InventoryPicklistsCreateScreenState
                           'QTY ORDERED',
                           style: const TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.normal,
                             color: _textSecondary,
                           ),
                           textAlign: TextAlign.center,
@@ -2243,7 +2284,7 @@ class _InventoryPicklistsCreateScreenState
                           'PREFERRED BIN',
                           style: const TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.normal,
                             color: _textSecondary,
                           ),
                           textAlign: TextAlign.center,
@@ -2258,7 +2299,7 @@ class _InventoryPicklistsCreateScreenState
                           'QTY TO PICK',
                           style: const TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.normal,
                             color: _textSecondary,
                           ),
                           textAlign: TextAlign.center,
@@ -2273,7 +2314,7 @@ class _InventoryPicklistsCreateScreenState
                           'QTY PICKED',
                           style: const TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.normal,
                             color: _textSecondary,
                           ),
                           textAlign: TextAlign.center,
@@ -2289,12 +2330,11 @@ class _InventoryPicklistsCreateScreenState
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: grouped.length,
+                itemCount: paginatedKeys.length,
                 itemBuilder: (context, groupIdx) {
-                  final entry = grouped.entries.elementAt(groupIdx);
-                  final soNum = entry.key;
-                  final itemsInGroup = entry.value;
-                  final isLastGroup = groupIdx == grouped.length - 1;
+                  final soNum = paginatedKeys[groupIdx];
+                  final itemsInGroup = grouped[soNum]!;
+                  final isLastGroup = groupIdx == paginatedKeys.length - 1;
 
                   return Column(
                     children: [
@@ -2645,6 +2685,7 @@ class _InventoryPicklistsCreateScreenState
                   );
                 },
               ),
+              _buildPaginationFooter(totalGroups),
             ],
           ),
         ),
@@ -2835,6 +2876,66 @@ class _InventoryPicklistsCreateScreenState
           },
         );
       },
+    );
+  }
+
+  Widget _buildPaginationFooter(int totalItems) {
+    final totalPages = (totalItems / _itemsPerPage).ceil();
+    if (totalPages <= 1) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF9FAFB),
+        border: Border(top: BorderSide(color: _borderCol)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Showing ${(_currentPage * _itemsPerPage) + 1} - ${((_currentPage + 1) * _itemsPerPage).clamp(0, totalItems)} of $totalItems items',
+            style: const TextStyle(fontSize: 12, color: _textSecondary),
+          ),
+          Row(
+            children: [
+              _buildPageButton(
+                icon: LucideIcons.chevronLeft,
+                isEnabled: _currentPage > 0,
+                onTap: () => setState(() => _currentPage--),
+              ),
+              const SizedBox(width: 8),
+              _buildPageButton(
+                icon: LucideIcons.chevronRight,
+                isEnabled: _currentPage < totalPages - 1,
+                onTap: () => setState(() => _currentPage++),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPageButton({
+    required IconData icon,
+    required bool isEnabled,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: isEnabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isEnabled ? Colors.white : const Color(0xFFF3F4F6),
+          border: Border.all(color: _borderCol),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: isEnabled ? _textPrimary : const Color(0xFF9CA3AF),
+        ),
+      ),
     );
   }
 }
@@ -3193,6 +3294,7 @@ class _AddItemsDialogContentState
       return _buildSalesOrderFallbackOptions();
     }
   }
+
 
   Border _buildFilterFieldBorder({
     required bool isHovered,
@@ -4521,8 +4623,8 @@ class _PicklistSelectBatchesDialogState
   bool _overwriteLineItem = false;
   bool _showMfgDetails = false;
   bool _showFocColumn = false;
-  String? _dialogErrorMessage;
   static const String _quantityMismatchMessage =
+
       'There\'s a mismatch between the quantity entered in the line item and the total quantity across all batches. Click the checkbox to overwrite the quantity in the line item.';
 
   @override
@@ -4715,9 +4817,8 @@ class _PicklistSelectBatchesDialogState
               color: readOnly ? _textSecondary : _textPrimary,
               fontFamily: 'Inter',
             ),
-            onChanged: (_) => setState(() {
-              _dialogErrorMessage = null;
-            }),
+            onChanged: (_) => setState(() {}),
+
             decoration: InputDecoration(
               isDense: false,
               hintText: hint,
@@ -4893,9 +4994,8 @@ class _PicklistSelectBatchesDialogState
                   borderSide: BorderSide.none,
                 ),
               ),
-              onChanged: (_) => setState(() {
-                _dialogErrorMessage = null;
-              }),
+              onChanged: (_) => setState(() {}),
+
             ),
           ),
         ),
@@ -5066,7 +5166,6 @@ class _PicklistSelectBatchesDialogState
                       value: _overwriteLineItem,
                       onChanged: (val) => setState(() {
                         _overwriteLineItem = val ?? false;
-                        _dialogErrorMessage = null;
                       }),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
