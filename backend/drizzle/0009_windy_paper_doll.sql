@@ -1,0 +1,4 @@
+ALTER TABLE "customers" ADD COLUMN "entity_id" uuid;--> statement-breakpoint
+ALTER TABLE "reorder_terms" ADD COLUMN "entity_id" uuid;--> statement-breakpoint
+ALTER TABLE "customers" ADD CONSTRAINT "customers_entity_id_organisation_branch_master_id_fk" FOREIGN KEY ("entity_id") REFERENCES "public"."organisation_branch_master"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "reorder_terms" ADD CONSTRAINT "reorder_terms_entity_id_organisation_branch_master_id_fk" FOREIGN KEY ("entity_id") REFERENCES "public"."organisation_branch_master"("id") ON DELETE no action ON UPDATE no action;

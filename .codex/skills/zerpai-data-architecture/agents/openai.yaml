@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zerpai Data Architecture"
+  short_description: "Schema and workflow constraints for Zerpai"
+  default_prompt: "Use $zerpai-data-architecture to keep Zerpai schema, tenancy, and transaction workflow rules aligned with the PRD."

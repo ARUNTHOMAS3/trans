@@ -1,0 +1,10 @@
+﻿  void _handleBulkAction(String label) {
+    if (_selectedSaleIds.isEmpty) {
+      ZerpaiToast.info(context, 'Select at least one sales order');
+      return;
+    }
+    ZerpaiToast.success(
+      context,
+      '$label applied to ${_selectedSaleIds.length} sales order(s)',
+    );
+  }
