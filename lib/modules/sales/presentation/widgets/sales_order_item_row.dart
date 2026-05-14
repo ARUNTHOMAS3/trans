@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 
 class SalesOrderItemRow {
@@ -18,11 +18,14 @@ class SalesOrderItemRow {
   String? hsnCode;
   String? accountId;
   String? accountName;
+  String? warehouseId;
   final LayerLink hsnLink = LayerLink();
   final LayerLink discountLink = LayerLink();
   final LayerLink warehouseLink = LayerLink();
   final LayerLink moreActionsLink = LayerLink();
   final LayerLink reportingTagsLink = LayerLink();
+  final LayerLink accountsLink = LayerLink();
+  final LayerLink priceListLink = LayerLink();
   double profit = 0;
   bool isHeader;
 
@@ -41,6 +44,7 @@ class SalesOrderItemRow {
     this.priceListId,
     this.accountId,
     this.accountName,
+    this.warehouseId,
     this.profit = 0,
     this.isHeader = false,
   }) : fQtyCtrl = fQtyCtrl ?? TextEditingController(text: '0'),

@@ -22,6 +22,7 @@ import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_ve
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
+import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 
 const _bgWhite = Color(0xFFFFFFFF);
 const _borderCol = Color(0xFFE8E8E8);
@@ -146,7 +147,7 @@ class _PRCreateState
   bool _isSaving = false;
   bool _isReceiveAutoGenerate = true;
   String _receiveNumberPrefix = 'PR-';
-  int _receiveNextNumber = 35;
+  int _receiveNextNumber = 1;
   bool _isManualMode = false;
   bool _isDamageEnabled = false;
   final List<String?> _preferredBins = [];
@@ -217,14 +218,33 @@ class _PRCreateState
     _receiveNumberCtrl.text = _generateReceiveNumber();
     _receivedDateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
 
-    // Load vendors when screen opens
+    // Load vendors and next number when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(vendorProvider.notifier).loadVendors();
+      _fetchNextNumber();
     });
   }
 
   String _generateReceiveNumber() {
     return '$_receiveNumberPrefix${_receiveNextNumber.toString().padLeft(5, '0')}';
+  }
+
+  Future<void> _fetchNextNumber() async {
+    try {
+      final repo = ref.read(purchaseReceiveRepositoryProvider);
+      final data = await repo.getNextPurchaseReceiveNumber(prefix: _receiveNumberPrefix);
+      if (mounted) {
+        setState(() {
+          _receiveNextNumber = data['nextNumber'] as int? ?? 1;
+          _receiveNumberPrefix = data['prefix'] as String? ?? 'PR-';
+          if (_isReceiveAutoGenerate) {
+            _receiveNumberCtrl.text = data['formatted'] as String? ?? '';
+          }
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Failed to fetch next receive number', error: e, module: 'purchases');
+    }
   }
 
   void _showTopError(String message) {
@@ -313,6 +333,85 @@ class _PRCreateState
     _topErrorOverlayEntry = null;
   }
 
+  void _showTopSuccess(String message) {
+    _dismissTopError();
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _topErrorOverlayEntry = OverlayEntry(
+      builder: (context) {
+        return Positioned(
+          top: 14,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            child: Center(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE6F4EA),
+                    border: Border.all(color: const Color(0xFFCEEAD6)),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x1F000000),
+                        blurRadius: 10,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF22A95E),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(
+                          LucideIcons.check,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          message,
+                          style: const TextStyle(
+                            color: Color(0xFF137333),
+                            fontSize: 13,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: _dismissTopError,
+                        child: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Color(0xFF137333),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    overlay.insert(_topErrorOverlayEntry!);
+    _topErrorTimer = Timer(const Duration(seconds: 4), _dismissTopError);
+  }
+
   void _showPurchaseReceivePreferencesDialog() {
     showDialog(
       context: context,
@@ -328,6 +427,8 @@ class _PRCreateState
             _receiveNextNumber = nextNum;
             if (_isReceiveAutoGenerate) {
               _receiveNumberCtrl.text = _generateReceiveNumber();
+            } else {
+              _receiveNumberCtrl.clear();
             }
           });
         },
@@ -743,7 +844,7 @@ class _PRCreateState
           ),
           const Spacer(),
           InkWell(
-            onTap: () => context.pop(),
+            onTap: () => context.go('/purchases/purchase-receives'),
             borderRadius: BorderRadius.circular(4),
             child: const Padding(
               padding: EdgeInsets.all(4),
@@ -2344,43 +2445,61 @@ class _PRCreateState
                       }),
                       child: SizedBox(
                         height: 44,
-                        child: FormDropdown<String>(
-                          value: selectedBin,
-                          items: _manualBinList,
-                          hint: "Select Bin",
-                          showSearch: true,
-                          border: Border.all(
-                            color:
-                                (_hoveredBinFields.contains(
-                                      "manual-bin-$index",
-                                    ) ||
-                                    _focusedBinFields.contains(
-                                      "manual-bin-$index",
-                                    ))
-                                ? _focusBorder
-                                : Colors.transparent,
-                            width:
-                                (_hoveredBinFields.contains(
-                                      "manual-bin-$index",
-                                    ) ||
-                                    _focusedBinFields.contains(
-                                      "manual-bin-$index",
-                                    ))
-                                ? 1.2
-                                : 1,
-                          ),
-                          itemBuilder: (item, isSelected, isHovered) =>
-                              _buildDropdownOverlayItem(
-                                item,
-                                isSelected,
-                                isHovered,
+                        child: Consumer(
+                          builder: (context, ref, child) {
+                            final warehousesAsync = ref.watch(allWarehousesProvider);
+                            final warehouses = warehousesAsync.asData?.value ?? [];
+                            final warehouseName = _rowSelectedWarehouses[index] ?? 'ZABNIX PVT/LTD';
+                            final warehouse = warehouses.firstWhere(
+                              (w) => w['name'] == warehouseName,
+                              orElse: () => <String, dynamic>{},
+                            );
+                            final warehouseId = warehouse['id']?.toString();
+                            final targetWarehouseId = _selectedPO?.warehouseId?.trim() ?? _selectedPO?.deliveryWarehouseId?.trim() ?? warehouseId;
+                            
+                            final binsAsync = ref.watch(binsLookupProvider(targetWarehouseId));
+                            final bins = binsAsync.asData?.value ?? [];
+                            final binItems = bins.map((b) => b['bin_code']!.toString()).toList();
+
+                            return FormDropdown<String>(
+                              value: selectedBin,
+                              items: binItems,
+                              hint: "Select Bin",
+                              showSearch: true,
+                              border: Border.all(
+                                color:
+                                    (_hoveredBinFields.contains("manual-bin-$index") ||
+                                        _focusedBinFields.contains("manual-bin-$index"))
+                                    ? _focusBorder
+                                    : Colors.transparent,
+                                width:
+                                    (_hoveredBinFields.contains("manual-bin-$index") ||
+                                        _focusedBinFields.contains("manual-bin-$index"))
+                                    ? 1.2
+                                    : 1,
                               ),
-                          onChanged: (bin) {
-                            if (index >= _preferredBins.length) return;
-                            setState(() {
-                              _preferredBins[index] = bin;
-                              _focusedBinFields.remove("manual-bin-$index");
-                            });
+                              itemBuilder: (item, isSelected, isHovered) =>
+                                  _buildDropdownOverlayItem(
+                                    item,
+                                    isSelected,
+                                    isHovered,
+                                  ),
+                              onChanged: (bin) {
+                                if (index >= _preferredBins.length) return;
+                                setState(() {
+                                  _preferredBins[index] = bin;
+                                  _focusedBinFields.remove("manual-bin-$index");
+                                  
+                                  final selectedBinObj = bins.firstWhere(
+                                    (b) => b['bin_code'] == bin,
+                                    orElse: () => <String, String>{},
+                                  );
+                                  if (selectedBinObj.isNotEmpty) {
+                                    _items[index] = _items[index].copyWith(binId: selectedBinObj['id']);
+                                  }
+                                });
+                              },
+                            );
                           },
                         ),
                       ),
@@ -2656,37 +2775,63 @@ class _PRCreateState
                       }),
                       child: SizedBox(
                         height: 44,
-                        child: FormDropdown<String>(
-                          value: index < _preferredBins.length
-                              ? _preferredBins[index]
-                              : null,
-                          items: _manualBinList,
-                          hint: "Select Bin",
-                          showSearch: true,
-                          border: Border.all(
-                            color:
-                                (_hoveredBinFields.contains("po-bin-$index") ||
-                                    _focusedBinFields.contains("po-bin-$index"))
-                                ? _focusBorder
-                                : Colors.transparent,
-                            width:
-                                (_hoveredBinFields.contains("po-bin-$index") ||
-                                    _focusedBinFields.contains("po-bin-$index"))
-                                ? 1.2
-                                : 1,
-                          ),
-                          itemBuilder: (item, isSelected, isHovered) =>
-                              _buildDropdownOverlayItem(
-                                item,
-                                isSelected,
-                                isHovered,
+                        child: Consumer(
+                          builder: (context, ref, child) {
+                            final warehousesAsync = ref.watch(allWarehousesProvider);
+                            final warehouses = warehousesAsync.asData?.value ?? [];
+                            final warehouseName = _rowSelectedWarehouses[index] ?? 'ZABNIX PVT/LTD';
+                            final warehouse = warehouses.firstWhere(
+                              (w) => w['name'] == warehouseName,
+                              orElse: () => <String, dynamic>{},
+                            );
+                            final warehouseId = warehouse['id']?.toString();
+                            final targetWarehouseId = _selectedPO?.warehouseId?.trim() ?? _selectedPO?.deliveryWarehouseId?.trim() ?? warehouseId;
+                            
+                            final binsAsync = ref.watch(binsLookupProvider(targetWarehouseId));
+                            final bins = binsAsync.asData?.value ?? [];
+                            final binItems = bins.map((b) => b['bin_code']!.toString()).toList();
+
+                            return FormDropdown<String>(
+                              value: index < _preferredBins.length
+                                  ? _preferredBins[index]
+                                  : null,
+                              items: binItems,
+                              hint: "Select Bin",
+                              showSearch: true,
+                              border: Border.all(
+                                color:
+                                    (_hoveredBinFields.contains("po-bin-$index") ||
+                                        _focusedBinFields.contains("po-bin-$index"))
+                                    ? _focusBorder
+                                    : Colors.transparent,
+                                width:
+                                    (_hoveredBinFields.contains("po-bin-$index") ||
+                                        _focusedBinFields.contains("po-bin-$index"))
+                                    ? 1.2
+                                    : 1,
                               ),
-                          onChanged: (bin) {
-                            if (index >= _preferredBins.length) return;
-                            setState(() {
-                              _preferredBins[index] = bin;
-                              _focusedBinFields.remove("po-bin-$index");
-                            });
+                              itemBuilder: (item, isSelected, isHovered) =>
+                                  _buildDropdownOverlayItem(
+                                    item,
+                                    isSelected,
+                                    isHovered,
+                                  ),
+                              onChanged: (bin) {
+                                if (index >= _preferredBins.length) return;
+                                setState(() {
+                                  _preferredBins[index] = bin;
+                                  _focusedBinFields.remove("po-bin-$index");
+                                  
+                                  final selectedBinObj = bins.firstWhere(
+                                    (b) => b['bin_code'] == bin,
+                                    orElse: () => <String, String>{},
+                                  );
+                                  if (selectedBinObj.isNotEmpty) {
+                                    _items[index] = _items[index].copyWith(binId: selectedBinObj['id']);
+                                  }
+                                });
+                              },
+                            );
                           },
                         ),
                       ),
@@ -3186,17 +3331,12 @@ class _PRCreateState
     setState(() => _isSaving = false);
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            status == 'received'
-                ? 'Purchase receive saved successfully'
-                : 'Purchase receive saved as draft',
-          ),
-          backgroundColor: _greenBtn,
-        ),
+      _showTopSuccess(
+        status == 'received'
+            ? 'Purchase receive saved successfully'
+            : 'Purchase receive saved as draft',
       );
-      context.pop();
+      context.go('/purchases/purchase-receives');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -3214,12 +3354,15 @@ class _PRCreateState
     };
 
     final itemId = item.itemId?.trim();
+    final batchDetails = <Map<String, dynamic>>[];
     if (itemId != null && itemId.isNotEmpty) {
       try {
-        final dbBatchNumbers = await ref.refresh(
-          itemBatchNumbersProvider(itemId).future,
+        final dbBatches = await ref.read(
+          batchLookupProvider(itemId).future,
         );
+        final dbBatchNumbers = dbBatches.map((b) => b['batch_no']?.toString() ?? '').where((s) => s.isNotEmpty).toList();
         batchOptions.addAll(dbBatchNumbers);
+        batchDetails.addAll(dbBatches);
       } catch (_) {
         // keep existing local options if remote lookup fails
       }
@@ -3231,6 +3374,7 @@ class _PRCreateState
       builder: (context) => _SelectBatchDialog(
         itemName: item.itemName,
         batchOptions: batchOptions.toList()..sort(),
+        batchDetails: batchDetails,
         initialBatches: item.batches,
         // Total in batch dialog must follow Ordered quantity in line item.
         ordered: item.ordered,
@@ -3289,6 +3433,7 @@ class _SelectBatchDialog extends StatefulWidget {
   final String warehouseName;
   final double ordered;
   final List<String> batchOptions;
+  final List<Map<String, dynamic>> batchDetails;
   final List<BatchInfo> initialBatches;
   final bool initialDamageEnabled;
   final ValueChanged<bool>? onDamageChanged;
@@ -3300,6 +3445,7 @@ class _SelectBatchDialog extends StatefulWidget {
     required this.warehouseName,
     required this.ordered,
     required this.batchOptions,
+    required this.batchDetails,
     required this.initialBatches,
     this.initialDamageEnabled = false,
     this.onDamageChanged,
@@ -3946,6 +4092,36 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
             },
             onSelected: (selection) {
               row.batchNoCtrl.text = selection;
+              // Autofill other fields if details available
+              final details = widget.batchDetails.firstWhere(
+                (b) => (b['batch_no'] ?? b['batchNo']) == selection,
+                orElse: () => <String, dynamic>{},
+              );
+              if (details.isNotEmpty) {
+                row.mrpCtrl.text = details['mrp']?.toString() ?? '';
+                row.ptrCtrl.text = details['ptr']?.toString() ?? '';
+                
+                final expDateStr = details['expiry_date']?.toString() ?? details['expiryDate']?.toString();
+                if (expDateStr != null && expDateStr.isNotEmpty) {
+                  final expDate = DateTime.tryParse(expDateStr);
+                  if (expDate != null) {
+                    row.expDate = expDate;
+                    row.expDateCtrl.text = DateFormat('dd-MM-yyyy').format(expDate);
+                  }
+                }
+                
+                final mfgDateStr = details['manufacture_date']?.toString() ?? details['manufactureDate']?.toString();
+                if (mfgDateStr != null && mfgDateStr.isNotEmpty) {
+                  final mfgDate = DateTime.tryParse(mfgDateStr);
+                  if (mfgDate != null) {
+                    row.mfgDate = mfgDate;
+                    row.mfgDateCtrl.text = DateFormat('dd-MM-yyyy').format(mfgDate);
+                  }
+                }
+                
+                row.mfgBatchCtrl.text = details['manufacture_batch']?.toString() ?? details['manufactureBatch']?.toString() ?? '';
+                row.unitPackCtrl.text = details['unit_pack']?.toString() ?? details['unitPack']?.toString() ?? '';
+              }
             },
             fieldViewBuilder:
                 (
@@ -4429,10 +4605,11 @@ class _SelectBatchDialogState extends State<_SelectBatchDialog> {
             ),
             ConstrainedBox(
               constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height * 0.4,
                 maxHeight: MediaQuery.of(context).size.height * 0.4,
               ),
               child: ListView.builder(
-                shrinkWrap: true,
+                shrinkWrap: false,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 8,

@@ -292,6 +292,8 @@ export class SalesService {
         tax_amount: lineTaxAmount,
         amount: lineAmount,
         hsn_code: item.hsnCode || null,
+        accounts: item.accounts || null,
+        pricelist: item.pricelist || null,
       };
     });
 
@@ -468,6 +470,8 @@ export class SalesService {
         tax_amount: lineTaxAmount,
         amount: lineAmount,
         hsn_code: item.hsnCode || null,
+        accounts: item.accounts || null,
+        pricelist: item.pricelist || null,
       };
     });
 

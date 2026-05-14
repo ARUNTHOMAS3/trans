@@ -1,4 +1,4 @@
-﻿import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
+import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 
 class SalesOrderItem {
   final String? id;
@@ -15,6 +15,8 @@ class SalesOrderItem {
   final String? hsnCode;
   final String? warehouseId;
   final Item? item;
+  final String? accountId;
+  final String? priceListId;
 
   SalesOrderItem({
     this.id,
@@ -31,6 +33,8 @@ class SalesOrderItem {
     this.hsnCode,
     this.warehouseId,
     this.item,
+    this.accountId,
+    this.priceListId,
   });
 
   factory SalesOrderItem.fromJson(Map<String, dynamic> json) {
@@ -56,6 +60,8 @@ class SalesOrderItem {
       item: (json['item'] ?? json['product']) != null
           ? Item.fromJson(json['item'] ?? json['product'])
           : null,
+      accountId: json['accounts'] ?? json['account_id'] ?? json['accountId'],
+      priceListId: json['pricelist'] ?? json['price_list_id'] ?? json['priceListId'],
     );
   }
 
@@ -72,6 +78,8 @@ class SalesOrderItem {
       'taxId': taxId,
       'hsnCode': hsnCode,
       if (warehouseId != null) 'warehouseId': warehouseId,
+      if (accountId != null) 'accounts': accountId,
+      if (priceListId != null) 'pricelist': priceListId,
     };
   }
 }

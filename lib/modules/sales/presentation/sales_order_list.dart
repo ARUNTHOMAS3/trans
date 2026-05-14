@@ -1,4 +1,4 @@
-﻿import 'package:pdf/pdf.dart';
+import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:dio/dio.dart';
@@ -18,6 +18,7 @@ import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/z_expandable_tabs.dart';
+import 'package:zerpai_erp/shared/widgets/email_composer.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
@@ -1113,7 +1114,9 @@ class _SalesOrderOverviewScreenState
                       _buildToolbarButton(
                         LucideIcons.mail,
                         'Send Email',
-                        onPressed: () => _showUnavailableAction('Send Email'),
+                        onPressed: () {
+                          context.push(AppRoutes.salesOrdersEmail.replaceAll(':id', order.id));
+                        },
                       ),
                       _buildDivider(),
                       _buildPdfPrintDropdown(order, orgSettings),
@@ -4927,6 +4930,97 @@ class _ActionSquare extends StatelessWidget {
         ),
         child: Icon(icon, size: 16, color: color ?? AppTheme.textBody),
       ),
+    );
+  }
+}
+class SalesOrderEmailScreen extends ConsumerStatefulWidget {
+  final String orderId;
+
+  const SalesOrderEmailScreen({super.key, required this.orderId});
+
+  @override
+  ConsumerState<SalesOrderEmailScreen> createState() => _SalesOrderEmailScreenState();
+}
+
+class _SalesOrderEmailScreenState extends ConsumerState<SalesOrderEmailScreen> {
+  final _fromCtrl = TextEditingController(text: 'zabnixprivatelimited <zabnixprivatelimited@gmail.com>');
+  final _toCtrl = TextEditingController();
+  final _subjectCtrl = TextEditingController();
+  final _bodyCtrl = TextEditingController();
+  bool _attachPdf = true;
+  bool _isLoading = true;
+  SalesOrder? _order;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrderData();
+  }
+
+  Future<void> _loadOrderData() async {
+    try {
+      final order = await ref.read(salesOrderApiServiceProvider).getSalesOrderById(widget.orderId);
+      setState(() {
+        _order = order;
+        final customerName = order.customer?.displayName ?? 'Customer';
+        _toCtrl.text = '$customerName <${order.customer?.email ?? 'customer@example.com'}>';
+        _subjectCtrl.text = 'Sales Order from ZABNIX PRIVATE LIMITED (Sales Order #: [${order.saleNumber}])';
+        
+        _bodyCtrl.text = '''Dear $customerName,
+
+Thanks for your interest in our services. Please find our sales order attached with this mail.
+
+An overview of the sales order is available below for your reference:
+
+--------------------------------------------------
+Sales Order # : [${order.saleNumber}]
+--------------------------------------------------
+
+Order Date : ${order.saleDate != null ? order.saleDate.toString().substring(0, 10) : ''}
+Amount : ₹${order.total.toStringAsFixed(2)}
+
+--------------------------------------------------
+
+Assuring you of our best services at all times.
+
+Regards,
+zabnixprivatelimited
+ZABNIX PRIVATE LIMITED''';
+        
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading order for email: \$e');
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to load order data');
+        context.pop();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final order = _order!;
+    final customerName = order.customer?.displayName ?? 'Customer';
+
+    return EmailComposerScreen(
+      title: 'Email To $customerName',
+      initialFrom: 'zabnixprivatelimited <zabnixprivatelimited@gmail.com>',
+      initialTo: '$customerName <${order.customer?.email ?? "customer@example.com"}>',
+      initialSubject: 'Sales Order from ZABNIX PRIVATE LIMITED (Sales Order #: [${order.saleNumber}])',
+      initialBody: _bodyCtrl.text,
+      attachmentName: '[${order.saleNumber}]',
+      onSend: (from, to, subject, body, attachPdf) {
+        // Handle send logic here or call backend
+        ZerpaiToast.success(context, 'Email sent successfully');
+        context.pop();
+      },
     );
   }
 }

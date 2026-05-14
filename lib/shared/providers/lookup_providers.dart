@@ -94,8 +94,8 @@ final batchLookupProvider =
       'batch_no': batchNo,
       'batchNo': batchNo,
       'layer_id': fallbackPrice?['layer_id'],
-      'mrp': fallbackPrice?['mrp'],
-      'ptr': fallbackPrice?['ptr'],
+      'mrp': fallbackPrice?['mrp'] ?? batchMap['mrp'],
+      'ptr': fallbackPrice?['ptr'] ?? batchMap['ptr'],
       'balance': balance,
       'prices': fallbackPrice != null ? [fallbackPrice] : [],
     };

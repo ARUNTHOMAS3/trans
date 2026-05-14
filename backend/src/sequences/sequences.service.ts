@@ -1,4 +1,4 @@
-﻿import { Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { SupabaseService } from "../modules/supabase/supabase.service";
 import { TenantContext } from "../common/middleware/tenant.middleware";
 
@@ -17,7 +17,32 @@ export class SequencesService {
       .eq("is_active", true)
       .maybeSingle();
 
-    if (!error && data) return data;
+    if (!error && data) {
+      const tableMapping: Record<string, { table: string; column: string; prefix: string }> = {
+        vendor: { table: "vendors", column: "vendor_number", prefix: "VEN-" },
+        customer: { table: "customers", column: "customer_number", prefix: "CUS-" },
+        sale: { table: "sales_orders", column: "sale_number", prefix: "SO-" },
+        purchase: { table: "purchase_orders", column: "purchase_number", prefix: "PO-" },
+        inventory_packages: { table: "inventory_packages", column: "package_number", prefix: "PKG-" },
+      };
+
+      if (tableMapping[module]) {
+        const { table } = tableMapping[module];
+        const { count, error: countError } = await client
+          .from(table)
+          .select("*", { count: "exact", head: true })
+          .eq("entity_id", tenant.entityId);
+
+        if (!countError && count === 0) {
+          data.next_number = 1;
+          await client
+            .from("transactional_sequences")
+            .update({ next_number: 1 })
+            .eq("id", data.id);
+        }
+      }
+      return data;
+    }
 
     // Auto-initialize if sequence is missing for this entity
     const defaults: Record<string, { prefix: string; next_number: number; padding: number }> = {

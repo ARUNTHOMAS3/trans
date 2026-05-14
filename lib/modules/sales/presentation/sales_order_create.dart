@@ -7,6 +7,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'dart:convert';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
@@ -16,9 +18,11 @@ import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
 
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
+import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
 import '../controllers/sales_order_controller.dart';
 import '../models/sales_order_model.dart';
 import '../models/sales_order_item_model.dart';
@@ -136,10 +140,10 @@ class _SalesOrderCreateScreenState
   OverlayEntry? _settingsOverlay;
 
   String _saleType = 'Retail'; // Default
-  bool _showAdditionalInfo = false;
-  bool _showAvailableStock = false;
-  bool _showRecentTransactions = false;
-  bool _showPriceList = false;
+  bool _showAdditionalInfo = true;
+  bool _showAvailableStock = true;
+  bool _showRecentTransactions = true;
+  bool _showPriceList = true;
   OverlayEntry? _rowActionsOverlay;
   OverlayEntry? _hsnOverlay;
   OverlayEntry? _itemDetailsSidebarOverlay;
@@ -247,10 +251,34 @@ class _SalesOrderCreateScreenState
       final order = await ref
           .read(salesOrderApiServiceProvider)
           .getSalesOrderById(orderId);
+          
+      // Load attachments
+      final supabase = Supabase.instance.client;
+      final attachmentsData = await supabase
+          .from('sales_order_attachments')
+          .select()
+          .eq('sales_order_id', orderId);
+          
       if (!mounted) return;
+      
       setState(() {
         rows.clear();
         _hydrateFromInitialOrder(order);
+        
+        _attachedFiles = (attachmentsData as List).map<PlatformFile>((row) {
+          final sizeVal = row['file_size'];
+          int parsedSize = 0;
+          if (sizeVal is int) {
+            parsedSize = sizeVal;
+          } else if (sizeVal is String) {
+            parsedSize = int.tryParse(sizeVal) ?? 0;
+          }
+          return PlatformFile(
+            name: row['file_name'] ?? '',
+            size: parsedSize,
+          );
+        }).toList();
+        
         _isHydratingInitialOrder = false;
       });
     } catch (e) {
@@ -441,7 +469,7 @@ class _SalesOrderCreateScreenState
         );
         final priceLists =
             ref.read(filteredPriceListsProvider).asData?.value ?? [];
-        _updateRowRate(row, customer, priceLists);
+        _updateRowRate(row, customer.priceList, priceLists);
       }
       _calculateTotals();
     }
@@ -810,24 +838,37 @@ class _SalesOrderCreateScreenState
 
   void _updateRowRate(
     SalesOrderItemRow row,
-    SalesCustomer? customer,
+    String? appliedPriceListId,
     List<PriceList> priceLists,
   ) {
-    if (customer == null || row.item == null) return;
+    if (row.item == null) return;
 
-    final priceListId = customer.priceList;
+    final priceListId = appliedPriceListId;
     if (priceListId == null || priceListId == 'Select') {
+      final fallbackMrp = (row.item!.mrp ?? 0).toDouble();
+      row.rateCtrl.text = fallbackMrp == 0 ? '0' : fallbackMrp.toStringAsFixed(2);
       return;
     }
 
     final matchingPls = priceLists.where((p) => p.id == priceListId);
-    if (matchingPls.isEmpty) return;
+    if (matchingPls.isEmpty) {
+      final fallbackMrp = (row.item!.mrp ?? 0).toDouble();
+      row.rateCtrl.text = fallbackMrp == 0 ? '0' : fallbackMrp.toStringAsFixed(2);
+      return;
+    }
     final pl = matchingPls.first;
+    final itemIncluded = pl.priceListType != 'individual_items' ||
+        (pl.itemRates?.any((r) => r.itemId == row.itemId) ?? false);
+    if (!itemIncluded) {
+      final fallbackMrp = (row.item!.mrp ?? 0).toDouble();
+      row.rateCtrl.text = fallbackMrp == 0 ? '0' : fallbackMrp.toStringAsFixed(2);
+      return;
+    }
 
     final qty = double.tryParse(row.quantityCtrl.text) ?? 1;
     final newRate = pl.calculatePrice(
       row.itemId,
-      (row.item!.sellingPrice ?? 0).toDouble(),
+      (row.item!.mrp ?? 0).toDouble(),
       quantity: qty,
     );
 
@@ -903,6 +944,19 @@ class _SalesOrderCreateScreenState
     final itemsState = ref.watch(itemsControllerProvider);
     final priceListsAsync = ref.watch(filteredPriceListsProvider);
     final currenciesAsync = ref.watch(currenciesProvider(null));
+    
+    ref.listen<AsyncValue<List<Warehouse>>>(warehousesProvider, (previous, next) {
+      next.whenData((warehouses) {
+        final defaultWh = warehouses.isEmpty 
+            ? null 
+            : warehouses.firstWhere((w) => w.isDefaultForBranch, orElse: () => warehouses.first);
+        if (defaultWh != null && warehouse == 'Main Warehouse') {
+          setState(() {
+            warehouse = defaultWh.name;
+          });
+        }
+      });
+    });
     
     final accountsState = ref.watch(chartOfAccountsProvider);
     final List<AccountNode> availableAccounts = [];
@@ -1034,6 +1088,18 @@ class _SalesOrderCreateScreenState
     AsyncValue<List<CurrencyOption>> currenciesAsync,
   ) {
     final warehouseList = ref.watch(warehousesProvider).value ?? <Warehouse>[];
+    final defaultWh = warehouseList.isEmpty 
+        ? null 
+        : warehouseList.firstWhere((w) => w.isDefaultForBranch, orElse: () => warehouseList.first);
+    if (defaultWh != null && warehouse == 'Main Warehouse') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && warehouse == 'Main Warehouse') {
+          setState(() {
+            warehouse = defaultWh.name;
+          });
+        }
+      });
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1106,7 +1172,7 @@ class _SalesOrderCreateScreenState
                                     for (var row in rows) {
                                       if (row.itemId.isNotEmpty &&
                                           row.item != null) {
-                                        _updateRowRate(row, val, priceLists);
+                                        _updateRowRate(row, val.priceList, priceLists);
                                       }
                                     }
                                   });
@@ -1559,26 +1625,23 @@ class _SalesOrderCreateScreenState
                           height: _kDropdownHeight,
                           items: priceLists.map((p) => p.id).toList(),
                           displayStringForValue: (id) =>
-                              priceLists.firstWhere((p) => p.id == id).name,
+                              priceLists.where((p) => p.id == id).firstOrNull?.name ??
+                              'Select Price List',
                           hint: 'Select Price List',
                           itemBuilder: (id, isSelected, isHovered) =>
                               _dropdownItemBuilder(
-                                priceLists.firstWhere((p) => p.id == id).name,
+                                priceLists.where((p) => p.id == id).firstOrNull?.name ??
+                                    'Select Price List',
                                 isSelected,
                                 isHovered,
                               ),
                           onChanged: (v) {
                             setState(() {
                               priceListId = v;
-                              final customers =
-                                  customersAsync.asData?.value ?? [];
-                              final customer = customers.firstWhere(
-                                (c) => c.id == _selectedCustomerId,
-                                orElse: () => _selectedCustomer!,
-                              );
                               for (var row in rows) {
                                 if (row.itemId.isNotEmpty && row.item != null) {
-                                  _updateRowRate(row, customer, priceLists);
+                                  row.priceListId = v;
+                                  _updateRowRate(row, v, priceLists);
                                 }
                               }
                             });
@@ -2296,6 +2359,7 @@ class _SalesOrderCreateScreenState
                 customersAsync,
                 priceListsAsync,
                 taxRates,
+                availableAccounts,
                 key: ValueKey(row),
               );
             },
@@ -2309,7 +2373,7 @@ class _SalesOrderCreateScreenState
               child: Container(
                 height: 8,
                 decoration: const BoxDecoration(
-                  color: _kWhite,
+                  color: Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(6),
                     bottomRight: Radius.circular(6),
@@ -2343,10 +2407,31 @@ class _SalesOrderCreateScreenState
     List<Item> products,
     AsyncValue<List<SalesCustomer>> customersAsync,
     AsyncValue<List<PriceList>> priceListsAsync,
-    List<TaxRate> taxRates, {
+    List<TaxRate> taxRates,
+    List<AccountNode> availableAccounts, {
     Key? key,
   }) {
     final row = rows[idx];
+    final priceLists = priceListsAsync.value ?? [];
+    final applicablePriceLists = priceLists.where((pl) {
+      if (pl.id == row.priceListId) return true;
+      if (pl.priceListType == 'all_items') return true;
+      if (pl.priceListType == 'individual_items') {
+        return pl.itemRates?.any((r) => r.itemId == row.itemId) ?? false;
+      }
+      return false;
+    }).toList();
+
+    final currentPriceListId = row.priceListId ?? priceListId;
+    final currentPriceList = priceLists.where((pl) => pl.id == currentPriceListId).firstOrNull;
+    bool notIncluded = false;
+    if (currentPriceList != null && row.itemId.isNotEmpty) {
+      if (currentPriceList.priceListType == 'individual_items') {
+        notIncluded = !(currentPriceList.itemRates?.any((r) => r.itemId == row.itemId) ?? false);
+      }
+    } else if (currentPriceListId != null && row.itemId.isNotEmpty) {
+      notIncluded = true;
+    }
     final q = double.tryParse(row.quantityCtrl.text) ?? 0;
     final r = double.tryParse(row.rateCtrl.text) ?? 0;
     final d = double.tryParse(row.discountCtrl.text) ?? 0;
@@ -2487,41 +2572,39 @@ class _SalesOrderCreateScreenState
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
-                                        child: FormDropdown<String>(
+                                        child: FormDropdown<Item>(
                                           value: null,
                                           height: 32,
-                                          hint:
-                                              'Type or click to select an item.',
+                                          hint: 'Type or click to select an item.',
                                           hideBorderDefault: true,
                                           items: products
                                               .where((p) => !rows.any((r) => r.itemId == p.id))
-                                              .map((p) => p.id!)
+                                              .take(20)
                                               .toList(),
-                                          displayStringForValue: (id) =>
-                                              products
-                                                  .firstWhere((p) => p.id == id)
-                                                  .productName,
-                                          itemBuilder: (id, isSelected, isHovered) =>
+                                          displayStringForValue: (item) => item.productName,
+                                          itemBuilder: (item, isSelected, isHovered) =>
                                               _dropdownItemBuilder(
-                                                products
-                                                    .firstWhere(
-                                                      (p) => p.id == id,
-                                                    )
-                                                    .productName,
+                                                item.productName,
                                                 isSelected,
                                                 isHovered,
                                               ),
-                                          onChanged: (v) {
-                                            if (v == null) return;
-                                            final p = products.firstWhere(
-                                              (e) => e.id == v,
-                                            );
+                                          onSearch: (query) async {
+                                            if (query.length < 3) return [];
+                                            return await ref.read(itemsControllerProvider.notifier).searchProductsNoState(query);
+                                          },
+                                          onChanged: (p) {
+                                            if (p == null) return;
                                             setState(() {
-                                              row.itemId = v;
+                                              row.itemId = p.id!;
                                               row.item = p;
                                               row.hsnCode = p.hsnCode;
-                                              final r = p.sellingPrice ?? 0;
-                                              row.rateCtrl.text = r == 0 ? '' : r.toString();
+                                              row.accountId = p.salesAccountId;
+                                              row.accountName = p.salesAccountName;
+                                              final defaultRate =
+                                                  (p.mrp ?? 0).toDouble();
+                                              row.rateCtrl.text = defaultRate == 0
+                                                  ? '0'
+                                                  : defaultRate.toStringAsFixed(2);
                                               if (row.mrpCtrl.text == '0' ||
                                                   row.mrpCtrl.text.isEmpty) {
                                                 row.mrpCtrl.text = (p.mrp ?? 0)
@@ -2531,6 +2614,15 @@ class _SalesOrderCreateScreenState
                                                   p.intraStateTaxId ??
                                                   p.interStateTaxId;
                                             });
+                                            final activePriceListId =
+                                                row.priceListId ?? priceListId;
+                                            final lists =
+                                                priceListsAsync.value ?? const <PriceList>[];
+                                            _updateRowRate(
+                                              row,
+                                              activePriceListId,
+                                              lists,
+                                            );
                                             _calculateTotals();
                                           },
                                         ),
@@ -2538,7 +2630,6 @@ class _SalesOrderCreateScreenState
                                     ],
                                   )
                                 : _buildSelectedItemView(row, products),
-                            if (_showAdditionalInfo) _buildReportingTags(row),
                           ],
                         ),
                       ),
@@ -2584,37 +2675,48 @@ class _SalesOrderCreateScreenState
                                 textAlign: TextAlign.right,
                               ),
                               const Text(
-                                '-10 pcs',
+                                '0 pcs',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: Color(0xFFEF4444),
+                                  color: Color(0xFF4B5563),
                                   fontWeight: FontWeight.bold,
                                 ),
                                 textAlign: TextAlign.right,
                               ),
                               const SizedBox(height: 2),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  const Icon(
-                                    LucideIcons.home,
-                                    size: 11,
-                                    color: Color(0xFF2563EB),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Flexible(
-                                    child: Text(
-                                      warehouse ?? 'ZABNIX PRIVATE LIMITED',
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Color(0xFF2563EB),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      textAlign: TextAlign.right,
-                                      overflow: TextOverflow.ellipsis,
+                              WarehouseHoverPopover(
+                                warehouseName: warehouse ?? 'hbnm',
+                                selectedView: 'Available for Sale',
+                                onViewChanged: (v) {},
+                                onWarehouseChanged: (newName) {
+                                  setState(() {
+                                    // Update warehouse name if needed
+                                  });
+                                },
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.home,
+                                      size: 11,
+                                      color: Color(0xFF2563EB),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        warehouse ?? 'hbnm',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF2563EB),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        textAlign: TextAlign.right,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ],
@@ -2679,23 +2781,62 @@ class _SalesOrderCreateScreenState
                             if (row.itemId.isNotEmpty) ...[
                               if (_showPriceList) ...[
                                 const SizedBox(height: 4),
-                                SizedBox(
-                                  height: 32,
-                                  child: FormDropdown<String>(
-                                    value: null,
-                                    height: 32,
-                                    hint: 'Apply Price List',
-                                    items: const [],
-                                    itemBuilder:
-                                        (item, isSelected, isHovered) =>
-                                            _dropdownItemBuilder(
-                                              item,
-                                              isSelected,
-                                              isHovered,
-                                            ),
-                                    onChanged: (v) {},
-                                  ),
-                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (notIncluded) ...[
+                                      ZTooltip(
+                                        message: "This item has not been included in the selected price list. So, the item's default rate has been used.",
+                                        child: const Icon(LucideIcons.alertCircle, size: 16, color: Colors.orange),
+                                      ),
+                                      const SizedBox(width: 4),
+                                    ],
+                                    CompositedTransformTarget(
+                                      link: row.priceListLink,
+                                      child: SizedBox(
+                                        width: 90,
+                                        height: 32,
+                                        child: MouseRegion(
+                                          onEnter: (_) {
+                                            final pl = applicablePriceLists.where((pl) => pl.id == row.priceListId).firstOrNull;
+                                            if (pl != null) {
+                                              _showValueTooltip(context, pl.name, row.priceListLink);
+                                            }
+                                          },
+                                          onExit: (_) {
+                                            _hideValueTooltip();
+                                          },
+                                          child: FormDropdown<PriceList>(
+                                            value: applicablePriceLists.where((pl) => pl.id == row.priceListId).firstOrNull,
+                                            height: 32,
+                                            hint: 'Apply Price List',
+                                            items: applicablePriceLists,
+                                            displayStringForValue: (v) => v.name,
+                                            preferDown: true,
+                                            itemBuilder:
+                                                (item, isSelected, isHovered) =>
+                                                    _dropdownItemBuilder(
+                                                      item.name,
+                                                      isSelected,
+                                                      isHovered,
+                                                    ),
+                                            onChanged: (v) {
+                                              if (v != null) {
+                                                final baseRate = row.item?.sellingPrice ?? 0;
+                                                final rate = v.calculatePrice(row.itemId, baseRate);
+                                                setState(() {
+                                                  row.priceListId = v.id;
+                                                  row.rateCtrl.text = rate.toStringAsFixed(2);
+                                                  _calculateTotals();
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                              ],
+                            ),
                               ],
                               if (_showRecentTransactions) ...[
                                 const SizedBox(height: 2),
@@ -2853,8 +2994,19 @@ class _SalesOrderCreateScreenState
         ),
       ],
     ),
-    if (idx < rows.length - 1)
-      Row(
+      if (_showAdditionalInfo)
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(right: 60), // Align with columns
+          constraints: const BoxConstraints(minHeight: 36),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF3F4F6),
+          ),
+          child: _buildReportingTags(row, availableAccounts),
+        ),
+      if (idx < rows.length - 1 && !_showAdditionalInfo)
+        Row(
         children: [
           const Expanded(child: Divider(height: 1, color: _kBorder)),
           const SizedBox(width: 60),
@@ -3043,6 +3195,8 @@ class _SalesOrderCreateScreenState
   }
 
   OverlayEntry? _reportingTagsOverlay;
+  OverlayEntry? _accountsOverlay;
+  OverlayEntry? _valueTooltipOverlay;
   // ignore: unused_field
   final LayerLink _reportingTagsLink = LayerLink();
 
@@ -3265,48 +3419,267 @@ class _SalesOrderCreateScreenState
     setState(() {});
   }
 
-  Widget _buildReportingTags(SalesOrderItemRow row) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildReportingTags(SalesOrderItemRow row, List<AccountNode> availableAccounts) {
+    String? accountName = row.accountName;
+    if (accountName == null && row.accountId != null) {
+      final acc = availableAccounts.where((a) => a.id == row.accountId).firstOrNull;
+      if (acc != null) {
+        accountName = acc.name;
+        row.accountName = acc.name; // Cache it
+      }
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            CompositedTransformTarget(
-              link: row.reportingTagsLink,
-              child: InkWell(
-                onTap: () => _toggleReportingTagsOverlay(row),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SvgPicture.string(
-                      '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z"/><path d="M2 7v6.172a2 2 0 0 0 .586 1.414l6.71 6.71a2.4 2.4 0 0 0 3.191.193"/><circle cx="10.5" cy="6.5" r=".5" fill="#22C55E"/></svg>',
-                      width: 14,
-                      height: 14,
+        CompositedTransformTarget(
+          link: row.accountsLink,
+          child: InkWell(
+            onTap: () => _toggleAccountsOverlay(row, availableAccounts),
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(LucideIcons.building, size: 14, color: Color(0xFF6B7280)),
+                  const SizedBox(width: 6),
+                  Text(
+                    accountName ?? 'Select an account',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                      fontWeight: FontWeight.w500,
                     ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Reporting Tags',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF374151),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.keyboard_arrow_down,
-                      size: 14,
-                      color: Color(0xFF9CA3AF),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF6B7280)),
+                ],
               ),
             ),
-          ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Text('|', style: TextStyle(color: Color(0xFFD1D5DB))),
+        const SizedBox(width: 8),
+        CompositedTransformTarget(
+          link: row.reportingTagsLink,
+          child: InkWell(
+            onTap: () => _toggleReportingTagsOverlay(row),
+            borderRadius: BorderRadius.circular(4),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(LucideIcons.tag, size: 14, color: Color(0xFF22C55E)),
+                  SizedBox(width: 6),
+                  Text(
+                    'Reporting Tags',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF374151),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF9CA3AF)),
+                ],
+              ),
+            ),
+          ),
         ),
       ],
     );
+  }
+
+  void _toggleAccountsOverlay(
+    SalesOrderItemRow row,
+    List<AccountNode> availableAccounts,
+  ) {
+    if (_accountsOverlay != null) {
+      _accountsOverlay?.remove();
+      _accountsOverlay = null;
+      setState(() {});
+      return;
+    }
+
+    String accountsSearchQuery = '';
+
+    _accountsOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                _accountsOverlay?.remove();
+                _accountsOverlay = null;
+                setState(() {});
+              },
+              behavior: HitTestBehavior.translucent,
+            ),
+          ),
+          Positioned(
+            width: 280,
+            child: CompositedTransformFollower(
+              link: row.accountsLink,
+              showWhenUnlinked: false,
+              offset: const Offset(0, 30),
+              child: Material(
+                color: Colors.white,
+                elevation: 8,
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: StatefulBuilder(
+                    builder: (context, setOverlayState) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: TextField(
+                              decoration: const InputDecoration(
+                                hintText: 'Search...',
+                                hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                                prefixIcon: Icon(Icons.search, size: 16, color: Colors.grey),
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(Radius.circular(4)),
+                                  borderSide: BorderSide(color: Color(0xFFE5E7EB)),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(Radius.circular(4)),
+                                  borderSide: BorderSide(color: Color(0xFFE5E7EB)),
+                                ),
+                              ),
+                              style: const TextStyle(fontSize: 12),
+                              onChanged: (v) {
+                                setOverlayState(() {
+                                  accountsSearchQuery = v;
+                                });
+                              },
+                            ),
+                          ),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 220),
+                            child: ListView(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              shrinkWrap: true,
+                              children: availableAccounts
+                                  .where((a) => a.name.toLowerCase().contains(accountsSearchQuery.toLowerCase()))
+                                  .map((account) {
+                        final isSelected = account.id == row.accountId;
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              row.accountId = account.id;
+                              row.accountName = account.name;
+                            });
+                            _accountsOverlay?.remove();
+                            _accountsOverlay = null;
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            color: isSelected
+                                ? const Color(0xFFE8F0FE)
+                                : Colors.white,
+                            child: Text(
+                              account.name,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isSelected
+                                    ? const Color(0xFF2563EB)
+                                    : const Color(0xFF111827),
+                              ),
+                            ),
+                          ),
+                        );
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_accountsOverlay!);
+    setState(() {});
+  }
+
+  void _showValueTooltip(BuildContext context, String message, LayerLink link) {
+    if (_valueTooltipOverlay != null) {
+      _valueTooltipOverlay?.remove();
+      _valueTooltipOverlay = null;
+    }
+
+    _valueTooltipOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned(
+            child: CompositedTransformFollower(
+              link: link,
+              showWhenUnlinked: false,
+              targetAnchor: Alignment.bottomCenter,
+              followerAnchor: Alignment.topCenter,
+              offset: const Offset(0, 4),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: Color(0xFF374151),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_valueTooltipOverlay!);
+    setState(() {});
+  }
+
+  void _hideValueTooltip() {
+    if (_valueTooltipOverlay != null) {
+      _valueTooltipOverlay?.remove();
+      _valueTooltipOverlay = null;
+      setState(() {});
+    }
   }
 
   Widget _buildBulkButton(String label, {required VoidCallback onTap}) {
@@ -3962,9 +4335,14 @@ class _SalesOrderCreateScreenState
                   ],
                   border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: _attachedFiles.map((file) => _buildAttachmentListItem(file)).toList(),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: _attachedFiles.map((file) => _buildAttachmentListItem(file)).toList(),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -4045,11 +4423,20 @@ class _SalesOrderCreateScreenState
       if (!mounted || result == null) return;
       
       setState(() {
-        _attachedFiles = [..._attachedFiles, ...result.files];
-        if (_attachedFiles.length > 10) {
-          _attachedFiles = _attachedFiles.sublist(0, 10);
-          ZerpaiToast.info(context, 'Maximum 10 files allowed');
+        final totalFiles = _attachedFiles.length + result.files.length;
+        if (totalFiles > 10) {
+          ZerpaiToast.error(context, 'You can only attach a maximum of 10 files');
+          return;
         }
+        
+        // Check file size (5MB = 5 * 1024 * 1024 bytes)
+        final oversizedFiles = result.files.where((f) => f.size > 5 * 1024 * 1024).toList();
+        if (oversizedFiles.isNotEmpty) {
+          ZerpaiToast.error(context, 'File size should be less than or equal to 5MB');
+          return;
+        }
+        
+        _attachedFiles = [..._attachedFiles, ...result.files];
       });
       
       final count = _attachedFiles.length;
@@ -4666,6 +5053,7 @@ class _SalesOrderCreateScreenState
     // Check items
     bool itemsValid = true;
     bool hsnValid = true;
+    bool accountValid = true;
     bool hasItems = false;
 
     for (var row in rows) {
@@ -4678,6 +5066,9 @@ class _SalesOrderCreateScreenState
         }
         if (row.hsnCode == null || row.hsnCode!.isEmpty) {
           hsnValid = false;
+        }
+        if (row.accountId == null || row.accountId!.isEmpty) {
+          accountValid = false;
         }
       }
     }
@@ -4694,6 +5085,10 @@ class _SalesOrderCreateScreenState
       ZerpaiToast.error(context, 'Please select HSN code for all items');
       return;
     }
+    if (!accountValid) {
+      ZerpaiToast.error(context, 'Please select an account for all items');
+      return;
+    }
 
     final items = rows
         .where((r) => r.itemId.isNotEmpty)
@@ -4706,6 +5101,8 @@ class _SalesOrderCreateScreenState
             discountType: r.discountType == 'Value' ? 'value' : '%',
             taxId: r.taxId,
             hsnCode: r.hsnCode,
+            accountId: r.accountId,
+            priceListId: r.priceListId,
           ),
         )
         .toList();
@@ -4785,6 +5182,7 @@ class _SalesOrderCreateScreenState
   Future<void> _saveAttachments(String salesOrderId) async {
     try {
       final supabase = Supabase.instance.client;
+      final apiClient = ApiClient();
       var entityId = ref.read(entityProvider).entityId;
       if (entityId == null) {
         final user = ref.read(authUserProvider);
@@ -4793,10 +5191,27 @@ class _SalesOrderCreateScreenState
       if (entityId == null) return;
 
       for (var file in _attachedFiles) {
+        if (file.bytes == null) {
+          debugPrint('Skipping file ${file.name} because bytes are null');
+          continue;
+        }
+        
+        final base64Data = base64Encode(file.bytes!);
+        
+        // Upload to Cloudflare R2 via backend
+        final response = await apiClient.post('/lookups/uploads', data: {
+          'fileName': file.name,
+          'fileData': base64Data,
+          'mimeType': 'application/octet-stream',
+          'prefix': 'sales_orders',
+        });
+        
+        final fileKey = response.data['fileKey'] ?? 'sales_orders/${file.name}';
+
         await supabase.from('sales_order_attachments').insert({
           'sales_order_id': salesOrderId,
           'file_name': file.name,
-          'file_path': 'uploads/sales_orders/${file.name}', // Mock path
+          'file_path': fileKey,
           'file_size': file.size,
           'file_type': file.extension,
           'source': 'upload',
@@ -6023,7 +6438,7 @@ class _SalesOrderCreateScreenState
                 ref.read(filteredPriceListsProvider).asData?.value ?? [];
             for (var row in rows) {
               if (row.itemId.isNotEmpty && row.item != null) {
-                _updateRowRate(row, c, priceLists);
+                _updateRowRate(row, c.priceList, priceLists);
               }
             }
           });
@@ -8305,7 +8720,7 @@ class _CustomerDetailsSidebarState extends State<_CustomerDetailsSidebar> {
   }
 }
 
-class _ItemDetailsSidebar extends StatefulWidget {
+class _ItemDetailsSidebar extends ConsumerStatefulWidget {
   final SalesOrderItemRow row;
   final VoidCallback onClose;
   final String? customerName;
@@ -8317,11 +8732,11 @@ class _ItemDetailsSidebar extends StatefulWidget {
   });
 
   @override
-  State<_ItemDetailsSidebar> createState() => _ItemDetailsSidebarState();
+  ConsumerState<_ItemDetailsSidebar> createState() => _ItemDetailsSidebarState();
 }
 
-class _ItemDetailsSidebarState extends State<_ItemDetailsSidebar> {
-  int _activeTabIndex = 2; // Default to TRANSACTIONS as per screenshot
+class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
+  int _activeTabIndex = 0; // Default to ITEM DETAILS as per screenshot
 
   @override
   Widget build(BuildContext context) {
@@ -8412,9 +8827,9 @@ class _ItemDetailsSidebarState extends State<_ItemDetailsSidebar> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Text(
-                              'BATCH TRACK 2',
-                              style: TextStyle(
+                            Text(
+                              widget.row.item?.productName ?? 'Select Item',
+                              style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF111827),
@@ -8429,11 +8844,11 @@ class _ItemDetailsSidebarState extends State<_ItemDetailsSidebar> {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'pcs • OTHER BRANDS',
-                          style: TextStyle(
+                        Text(
+                          '${widget.row.item?.unitName ?? 'pcs'} • ${widget.row.item?.brandName ?? 'OTHER BRANDS'}',
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF9CA3AF),
+                            color: Color(0xFF6B7280),
                           ),
                         ),
                       ],
@@ -8492,7 +8907,11 @@ class _ItemDetailsSidebarState extends State<_ItemDetailsSidebar> {
   }
 
   Widget _buildTabContent() {
-    if (_activeTabIndex != 2) return const SizedBox();
+    if (_activeTabIndex == 0) {
+      return _buildItemDetailsTab();
+    } else if (_activeTabIndex == 1) {
+      return _buildStockLocationsTab();
+    }
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -8561,6 +8980,165 @@ class _ItemDetailsSidebarState extends State<_ItemDetailsSidebar> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildItemDetailsTab() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _infoBox('To Be Shipped', '0.00', Icons.local_shipping_outlined),
+              _infoBox('To Be Received', '11.00', Icons.arrow_downward),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Sales Information',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+          ),
+          const SizedBox(height: 12),
+          _detailRow('Price', '₹${widget.row.item?.sellingPrice?.toStringAsFixed(2) ?? '0.00'}'),
+          _detailRow('Account', widget.row.item?.salesAccountName ?? 'Sales'),
+          const SizedBox(height: 24),
+          const Text(
+            'Purchase Information',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+          ),
+          const SizedBox(height: 12),
+          _detailRow('Price', '₹${widget.row.item?.costPrice?.toStringAsFixed(2) ?? '0.00'}'),
+          _detailRow('Account', widget.row.item?.purchaseAccountName ?? 'Cost of Goods Sold'),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoBox(String title, String value, IconData icon) {
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: const Color(0xFF2563EB)),
+              const SizedBox(width: 8),
+              Text(title, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF111827))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStockLocationsTab() {
+    final stockAsync = ref.watch(itemWarehouseStocksProvider(widget.row.itemId));
+    return stockAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (stocks) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Physical Stock',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+              ),
+              const SizedBox(height: 12),
+              Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(2),
+                  1: FlexColumnWidth(1),
+                  2: FlexColumnWidth(1),
+                  3: FlexColumnWidth(1),
+                },
+                children: [
+                  TableRow(
+                    decoration: const BoxDecoration(color: Color(0xFFF9FAFB)),
+                    children: [
+                      _tableHeaderCell('LOCATION NAME'),
+                      _tableHeaderCell('STOCK ON HAND'),
+                      _tableHeaderCell('COMMITTED STOCK'),
+                      _tableHeaderCell('AVAILABLE FOR SALE'),
+                    ],
+                  ),
+                  ...stocks.map((wh) {
+                    final isSelected = wh.id == widget.row.warehouseId;
+                    return TableRow(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(wh.name, style: const TextStyle(fontSize: 12)),
+                              ),
+                              if (isSelected) ...[
+                                const SizedBox(width: 4),
+                                const Icon(Icons.star, size: 14, color: Colors.amber),
+                              ],
+                            ],
+                          ),
+                        ),
+                        _tableCell(wh.physical.onHand.toStringAsFixed(2)),
+                        _tableCell(wh.physical.committed.toStringAsFixed(2)),
+                        _tableCell(wh.physical.available.toStringAsFixed(2)),
+                      ],
+                    );
+                  }).toList(),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _tableHeaderCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)),
+      ),
+    );
+  }
+
+  Widget _tableCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
       ),
     );
   }

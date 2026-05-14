@@ -1,4 +1,4 @@
-﻿# REUSABLES.md — Zerpai ERP Shared Component Catalog
+# REUSABLES.md — Zerpai ERP Shared Component Catalog
 
 > **For agents**: Before writing new shared UI, services, utilities, or logic, search this file first.
 > If a suitable reusable already exists, use it. If you create something new and reusable, add it here.
@@ -23,6 +23,7 @@
 | `UnsavedChangesGuard` | `unsaved_changes_guard.dart` | PopScope wrapper that prompts before leaving dirty forms |
 | `ShortcutHandler` | `shortcut_handler.dart` | Keyboard shortcuts: Ctrl+S (save), Ctrl+Enter (publish), Esc (cancel), / (search focus) |
 | `ZerpaiReportShell` | `reports/zerpai_report_shell.dart` | Report frame with sticky toolbar (date range, basis toggle, actions) and org/report header |
+| `EmailComposerScreen` | `email_composer.dart` | Reusable email composer screen with fields, toolbar, and attachment footer |
 | `ZExpandableTabs` | `z_expandable_tabs.dart` | Collapsible section with tabs and content area |
 
 ### Inputs

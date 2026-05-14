@@ -7,6 +7,7 @@ class Warehouse {
   final String? code;
   final bool isActive;
   final String? address;
+  final bool isDefaultForBranch;
 
   Warehouse({
     required this.id,
@@ -15,6 +16,7 @@ class Warehouse {
     this.code,
     this.isActive = true,
     this.address,
+    this.isDefaultForBranch = true,
   });
 
   factory Warehouse.fromJson(Map<String, dynamic> json) {
@@ -25,6 +27,7 @@ class Warehouse {
       code: json['code']?.toString(),
       isActive: json['is_active'] ?? json['isActive'] ?? true,
       address: json['address']?.toString(),
+      isDefaultForBranch: json['is_default_for_branch'] as bool? ?? true,
     );
   }
 
@@ -36,6 +39,7 @@ class Warehouse {
       'code': code,
       'is_active': isActive,
       'address': address,
+      'is_default_for_branch': isDefaultForBranch,
     };
   }
 

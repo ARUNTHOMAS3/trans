@@ -216,6 +216,21 @@ export class PurchaseReceivesService {
         }
 
         // 2. Insert into batch_stock_layers
+        let resolvedBinId = batch.bin_id ?? item.bin_id;
+        if (!resolvedBinId) {
+          const warehouseId = batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId;
+          if (warehouseId) {
+            const { data: firstBin } = await this.supabaseService
+              .getClient()
+              .from("bin_master")
+              .select("id")
+              .eq("warehouse_id", warehouseId)
+              .limit(1)
+              .maybeSingle();
+            resolvedBinId = firstBin?.id;
+          }
+        }
+
         const { data: layer, error: layerError } = await this.supabaseService
           .getClient()
           .from("batch_stock_layers")
@@ -224,7 +239,7 @@ export class PurchaseReceivesService {
             product_id: item.item_id,
             entity_id: tenant.entityId,
             warehouse_id: batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId,
-            bin_id: batch.bin_id ?? item.bin_id,
+            bin_id: resolvedBinId,
             qty: batch.quantity,
             foc_qty: batch.foc ?? 0,
             purchase_rate: batch.ptr ?? 0,
@@ -249,7 +264,7 @@ export class PurchaseReceivesService {
             product_id: item.item_id,
             entity_id: tenant.entityId,
             warehouse_id: batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId,
-            bin_id: batch.bin_id ?? item.bin_id,
+            bin_id: resolvedBinId,
             trans_type: 'PURCHASE_RECEIVE',
             qty_in: batch.quantity,
             rate: batch.ptr ?? 0,

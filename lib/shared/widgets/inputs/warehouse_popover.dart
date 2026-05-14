@@ -323,11 +323,12 @@ class _WarehousePopoverContentState extends ConsumerState<_WarehousePopoverConte
                       // Mock values for now (keeping existing logic style)
                       String wHand, wComm, wAvail;
                       if (selectedStockType == 'Accounting') {
-                        wHand = isSelected ? (name.contains('ZABNIX') ? '5.00' : '0.00') : '0.00';
+                        // Show branch-default flag in first quantity column as requested.
+                        wHand = w.isDefaultForBranch ? 'true' : 'false';
                         wComm = isSelected ? (name.contains('ZABNIX') ? '5.00' : '0.00') : '0.00';
                         wAvail = '0.00';
                       } else {
-                        wHand = isSelected ? (name.contains('ZABNIX') ? '10.00' : '0.00') : '0.00';
+                        wHand = w.isDefaultForBranch ? 'true' : 'false';
                         wComm = isSelected ? (name.contains('ZABNIX') ? '10.00' : '0.00') : '0.00';
                         wAvail = '0.00';
                       }

@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -985,6 +985,14 @@ final GoRouter appRouter = GoRouter(
                     initialSearchQuery: state.uri.queryParameters['q'],
                     initialSelectedId: state.pathParameters['id']!,
                   ),
+                ),
+                GoRoute(
+                  path: ':id/email',
+                  name: AppRoutes.salesOrdersEmail,
+                  builder: (context, state) {
+                    final id = state.pathParameters['id']!;
+                    return SalesOrderEmailScreen(orderId: id);
+                  },
                 ),
               ],
             ),

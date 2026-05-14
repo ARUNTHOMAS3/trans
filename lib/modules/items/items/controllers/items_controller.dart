@@ -199,6 +199,20 @@ class ItemsController extends StateNotifier<ItemsState> {
     }
   }
 
+  Future<List<Item>> searchProductsNoState(String query) async {
+    if (query.trim().isEmpty) return [];
+    try {
+      final items = (await repo.searchProducts(
+        query.trim(),
+        limit: 30,
+      )).map(_mergeWithExistingItem).toList();
+      return items;
+    } catch (e) {
+      AppLogger.error('Failed to search products without state', error: e, module: 'items');
+      return [];
+    }
+  }
+
   void selectItem(String? id) {
     state = state.copyWith(selectedItemId: id);
     if (id != null) {

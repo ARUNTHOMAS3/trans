@@ -1,4 +1,4 @@
-﻿class AppRoutes {
+class AppRoutes {
   AppRoutes._();
 
   static const String authLogin = '/login';
@@ -73,6 +73,7 @@
   static const String salesOrdersCreate = '/sales/orders/create';
   static const String salesOrdersEdit = '/sales/orders/:id/edit';
   static const String salesOrdersDetail = '/sales/orders/:id';
+  static const String salesOrdersEmail = '/sales/orders/:id/email';
 
   // Sales — Invoices
   static const String salesInvoices = '/sales/invoices';
