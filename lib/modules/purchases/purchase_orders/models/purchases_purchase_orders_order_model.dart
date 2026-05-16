@@ -1,4 +1,4 @@
-﻿// FILE: lib/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart
+// FILE: lib/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart
 
 class PurchaseOrderItem {
   final String? id;
@@ -24,6 +24,7 @@ class PurchaseOrderItem {
   final double? availableStock; // Available for Sale in selected warehouse
   final double? stockOnHand; // Stock on Hand in selected warehouse
   final String? priceListId; // Selected price list ID
+  final String? pricelist;
   final bool isHeader;
   final String? headerText;
 
@@ -51,6 +52,7 @@ class PurchaseOrderItem {
     this.availableStock,
     this.stockOnHand,
     this.priceListId,
+    this.pricelist,
     this.isHeader = false,
     this.headerText,
   });
@@ -82,22 +84,24 @@ class PurchaseOrderItem {
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       isHeader: json['is_header'] as bool? ?? false,
       headerText: json['header_text'] as String?,
+      pricelist: json['pricelist'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'productId': productId,
+      'product_id': productId,
       if (description != null) 'description': description,
-      if (accountId != null) 'accountId': accountId,
+      if (accountId != null) 'account_id': accountId,
       'quantity': quantity,
       'rate': rate,
-      if (taxId != null) 'taxId': taxId,
-      'itemTaxRate': taxRate,
-      'taxAmount': taxAmount,
+      if (taxId != null) 'tax_id': taxId,
+      'item_tax_rate': taxRate,
+      'tax_amount': taxAmount,
       'discount': discount,
-      'discountType': discountType,
+      'discount_type': discountType,
       'amount': amount,
+      if (pricelist != null) 'pricelist': pricelist,
     };
   }
 
@@ -124,6 +128,7 @@ class PurchaseOrderItem {
     double? availableStock,
     double? stockOnHand,
     String? priceListId,
+    String? pricelist,
     bool? isHeader,
     String? headerText,
   }) {
@@ -151,8 +156,39 @@ class PurchaseOrderItem {
       availableStock: availableStock ?? this.availableStock,
       stockOnHand: stockOnHand ?? this.stockOnHand,
       priceListId: priceListId ?? this.priceListId,
+      pricelist: pricelist ?? this.pricelist,
       isHeader: isHeader ?? this.isHeader,
       headerText: headerText ?? this.headerText,
+    );
+  }
+
+  PurchaseOrderItem clearTax() {
+    return PurchaseOrderItem(
+      id: id,
+      productId: productId,
+      productName: productName,
+      hsnCode: hsnCode,
+      itemCode: itemCode,
+      description: description,
+      accountId: accountId,
+      accountName: accountName,
+      discountAccountId: discountAccountId,
+      discountAccountName: discountAccountName,
+      quantity: quantity,
+      rate: rate,
+      taxId: null,
+      taxName: null,
+      taxRate: 0.0,
+      taxAmount: 0.0,
+      discount: discount,
+      discountType: discountType,
+      amount: amount,
+      productType: productType,
+      availableStock: availableStock,
+      stockOnHand: stockOnHand,
+      priceListId: priceListId,
+      isHeader: isHeader,
+      headerText: headerText,
     );
   }
 }
@@ -189,6 +225,10 @@ class PurchaseOrder {
   final String? discountAccountId;
   final String? discountAccountName;
   final List<PurchaseOrderItem> items;
+  final double totalQuantity;
+  final String currency;
+  final String taxType;
+  final double tdsTcsAmount;
   final bool isReverseCharge;
   final bool isDelete;
   final DateTime? createdAt;
@@ -226,6 +266,10 @@ class PurchaseOrder {
     this.discountAccountId,
     this.discountAccountName,
     this.items = const [],
+    this.totalQuantity = 0.0,
+    this.currency = 'INR',
+    this.taxType = 'exclusive',
+    this.tdsTcsAmount = 0.0,
     this.isReverseCharge = false,
     this.isDelete = false,
     this.createdAt,
@@ -280,6 +324,10 @@ class PurchaseOrder {
       termsAndConditions: json['terms_and_conditions'] as String?,
       discountLevel: json['discount_level'] as String? ?? 'transaction',
       discountAccountId: json['discount_account_id'] as String?,
+      totalQuantity: (json['total_quantity'] as num?)?.toDouble() ?? 0.0,
+      currency: json['currency'] as String? ?? 'INR',
+      taxType: json['tax_type'] as String? ?? 'exclusive',
+      tdsTcsAmount: (json['tds_tcs_amount'] as num?)?.toDouble() ?? 0.0,
       isReverseCharge: json['is_reverse_charge'] as bool? ?? false,
       isDelete: json['is_delete'] as bool? ?? false,
       items: rawItems
@@ -330,8 +378,10 @@ class PurchaseOrder {
         'terms_and_conditions': termsAndConditions,
       'discount_level': discountLevel,
       if (discountAccountId != null) 'discount_account_id': discountAccountId,
-      'is_reverse_charge': isReverseCharge,
-      'is_delete': isDelete,
+      'total_quantity': totalQuantity,
+      'currency': currency,
+      'tax_type': taxType,
+      'tds_tcs_amount': tdsTcsAmount,
       'items': items.map((i) => i.toJson()).toList(),
     };
   }
@@ -367,6 +417,10 @@ class PurchaseOrder {
     String? discountAccountId,
     String? discountAccountName,
     List<PurchaseOrderItem>? items,
+    double? totalQuantity,
+    String? currency,
+    String? taxType,
+    double? tdsTcsAmount,
     bool? isDelete,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -402,6 +456,10 @@ class PurchaseOrder {
       discountAccountId: discountAccountId ?? this.discountAccountId,
       discountAccountName: discountAccountName ?? this.discountAccountName,
       items: items ?? this.items,
+      totalQuantity: totalQuantity ?? this.totalQuantity,
+      currency: currency ?? this.currency,
+      taxType: taxType ?? this.taxType,
+      tdsTcsAmount: tdsTcsAmount ?? this.tdsTcsAmount,
       isDelete: isDelete ?? this.isDelete,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

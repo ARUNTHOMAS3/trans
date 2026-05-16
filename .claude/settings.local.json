@@ -40,7 +40,8 @@
       "Bash(Get-Content \"c:\\\\Users\\\\User\\\\Documents\\\\work\\\\zerpai\\\\lib\\\\modules\\\\purchases\\\\purchase_receives\\\\models\\\\purchases_purchase_receives_model.dart\")",
       "Bash(Select-Object -First 100)",
       "PowerShell(\\(Get-Content \"c:\\\\Users\\\\User\\\\Documents\\\\work\\\\zerpai\\\\lib\\\\modules\\\\purchases\\\\purchase_receives\\\\presentation\\\\purchases_purchase_receives_create.dart\"\\).Count)",
-      "PowerShell(@\\(Get-Content \"c:\\\\Users\\\\User\\\\Documents\\\\work\\\\zerpai\\\\lib\\\\modules\\\\inventory\\\\packages\\\\presentation\\\\inventory_packages_list.dart\" -ErrorAction Stop\\).Count)"
+      "PowerShell(@\\(Get-Content \"c:\\\\Users\\\\User\\\\Documents\\\\work\\\\zerpai\\\\lib\\\\modules\\\\inventory\\\\packages\\\\presentation\\\\inventory_packages_list.dart\" -ErrorAction Stop\\).Count)",
+      "PowerShell(\\(Get-Content \"c:\\\\Users\\\\User\\\\Documents\\\\work\\\\zerpai\\\\lib\\\\modules\\\\purchases\\\\purchase_orders\\\\presentation\\\\purchases_purchase_orders_create.dart\"\\).Count; \\(Get-Content \"c:\\\\Users\\\\User\\\\Documents\\\\work\\\\zerpai\\\\lib\\\\modules\\\\sales\\\\presentation\\\\sales_order_create.dart\"\\).Count)"
     ]
   }
 }

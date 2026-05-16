@@ -21,7 +21,6 @@ class PurchaseOrderOverviewScreen extends ConsumerStatefulWidget {
 }
 
 class _PurchaseOrderOverviewScreenState extends ConsumerState<PurchaseOrderOverviewScreen> {
-  String? _activePurchaseOrderId;
   final Set<String> _selectedIds = {};
   String _sortField = 'order_date';
   bool _sortAscending = false;
@@ -436,11 +435,7 @@ class _PurchaseOrderOverviewScreenState extends ConsumerState<PurchaseOrderOverv
     final isSelected = _selectedIds.contains(order.id);
 
     return InkWell(
-      onTap: () {
-        setState(() {
-          _activePurchaseOrderId = order.id;
-        });
-      },
+      onTap: () {},
       child: Container(
         height: 40,
         decoration: BoxDecoration(

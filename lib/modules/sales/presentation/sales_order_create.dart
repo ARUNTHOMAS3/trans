@@ -92,6 +92,8 @@ class _SalesOrderCreateScreenState
     extends ConsumerState<SalesOrderCreateScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  OverlayEntry? _taxOverlay;
+
   String? _selectedCustomerId;
   SalesCustomer? _selectedCustomer;
   AccountNode? _selectedPopupAccount;
@@ -797,7 +799,7 @@ class _SalesOrderCreateScreenState
     }
   }
 
-  void _showItemDetailsSidebar(SalesOrderItemRow row) {
+  void _showItemDetailsSidebar(SalesOrderItemRow row, {int initialTabIndex = 0}) {
     if (_itemDetailsSidebarOverlay != null) {
       _itemDetailsSidebarOverlay!.remove();
       _itemDetailsSidebarOverlay = null;
@@ -822,6 +824,7 @@ class _SalesOrderCreateScreenState
               child: _ItemDetailsSidebar(
                 row: row,
                 customerName: _selectedCustomer?.displayName ?? 'CUS-1',
+                initialTabIndex: initialTabIndex,
                 onClose: () {
                   _itemDetailsSidebarOverlay?.remove();
                   _itemDetailsSidebarOverlay = null;
@@ -936,6 +939,52 @@ class _SalesOrderCreateScreenState
       _roundOff = ro;
       total = roundedTotal;
     });
+  }
+
+  void _closeTaxOverlay() {
+    _taxOverlay?.remove();
+    _taxOverlay = null;
+  }
+
+  void _showTaxPopover(
+    BuildContext context,
+    int index,
+    SalesOrderItemRow row,
+  ) {
+    _closeTaxOverlay();
+    
+    _taxOverlay = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          GestureDetector(
+            onTap: _closeTaxOverlay,
+            child: Container(color: Colors.transparent),
+          ),
+          CompositedTransformFollower(
+            link: row.taxLink,
+            showWhenUnlinked: false,
+            offset: const Offset(0, 42),
+            child: Material(
+              color: Colors.transparent,
+              child: TapRegion(
+                onTapOutside: (_) => _closeTaxOverlay(),
+                child: _TaxSelectionPopover(
+                  selectedTaxId: row.taxId,
+                  onTaxSelected: (tax) {
+                    setState(() {
+                      row.taxId = tax.id;
+                    });
+                    _calculateTotals();
+                    _closeTaxOverlay();
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_taxOverlay!);
   }
 
   @override
@@ -2225,7 +2274,7 @@ class _SalesOrderCreateScreenState
                       ),
                       _vLine(),
                       Expanded(
-                        flex: 4,
+                        flex: 5,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -2249,7 +2298,7 @@ class _SalesOrderCreateScreenState
                       ],
                       _vLine(),
                       Expanded(
-                        flex: 4,
+                        flex: 5,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -2637,7 +2686,7 @@ class _SalesOrderCreateScreenState
                     _vLine(),
                     // QUANTITY
                     Expanded(
-                      flex: 4,
+                      flex: 5,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -2684,35 +2733,40 @@ class _SalesOrderCreateScreenState
                                 textAlign: TextAlign.right,
                               ),
                               const SizedBox(height: 2),
-                              WarehouseHoverPopover(
-                                warehouseName: warehouse ?? 'hbnm',
-                                selectedView: 'Available for Sale',
-                                onViewChanged: (v) {},
-                                onWarehouseChanged: (newName) {
-                                  setState(() {
-                                    // Update warehouse name if needed
-                                  });
-                                },
+                              Align(
+                                alignment: Alignment.centerRight,
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Icon(
                                       LucideIcons.home,
-                                      size: 11,
+                                      size: 12,
                                       color: Color(0xFF2563EB),
                                     ),
                                     const SizedBox(width: 4),
                                     Flexible(
-                                      child: Text(
-                                        warehouse ?? 'hbnm',
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          color: Color(0xFF2563EB),
-                                          fontWeight: FontWeight.w600,
+                                      child: WarehouseHoverPopover(
+                                        warehouseName: warehouse ?? 'hbnm',
+                                        selectedView: 'Available for Sale',
+                                        onViewChanged: (v) {},
+                                        onWarehouseChanged: (newName) {
+                                          setState(() {
+                                            // Update warehouse name if needed
+                                          });
+                                        },
+                                        child: Text(
+                                          (warehouse ?? 'hbnm').toUpperCase(),
+                                          textAlign: TextAlign.right,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF2563EB),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 2,
                                         ),
-                                        textAlign: TextAlign.right,
-                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
@@ -2749,7 +2803,7 @@ class _SalesOrderCreateScreenState
                     _vLine(),
                     // RATE
                     Expanded(
-                      flex: 4,
+                      flex: 5,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -2781,68 +2835,75 @@ class _SalesOrderCreateScreenState
                             if (row.itemId.isNotEmpty) ...[
                               if (_showPriceList) ...[
                                 const SizedBox(height: 4),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (notIncluded) ...[
-                                      ZTooltip(
-                                        message: "This item has not been included in the selected price list. So, the item's default rate has been used.",
-                                        child: const Icon(LucideIcons.alertCircle, size: 16, color: Colors.orange),
-                                      ),
-                                      const SizedBox(width: 4),
-                                    ],
-                                    CompositedTransformTarget(
-                                      link: row.priceListLink,
-                                      child: SizedBox(
-                                        width: 90,
-                                        height: 32,
-                                        child: MouseRegion(
-                                          onEnter: (_) {
-                                            final pl = applicablePriceLists.where((pl) => pl.id == row.priceListId).firstOrNull;
-                                            if (pl != null) {
-                                              _showValueTooltip(context, pl.name, row.priceListLink);
-                                            }
-                                          },
-                                          onExit: (_) {
-                                            _hideValueTooltip();
-                                          },
-                                          child: FormDropdown<PriceList>(
-                                            value: applicablePriceLists.where((pl) => pl.id == row.priceListId).firstOrNull,
-                                            height: 32,
-                                            hint: 'Apply Price List',
-                                            items: applicablePriceLists,
-                                            displayStringForValue: (v) => v.name,
-                                            preferDown: true,
-                                            itemBuilder:
-                                                (item, isSelected, isHovered) =>
-                                                    _dropdownItemBuilder(
-                                                      item.name,
-                                                      isSelected,
-                                                      isHovered,
-                                                    ),
-                                            onChanged: (v) {
-                                              if (v != null) {
-                                                final baseRate = row.item?.sellingPrice ?? 0;
-                                                final rate = v.calculatePrice(row.itemId, baseRate);
-                                                setState(() {
-                                                  row.priceListId = v.id;
-                                                  row.rateCtrl.text = rate.toStringAsFixed(2);
-                                                  _calculateTotals();
-                                                });
+                                Transform.translate(
+                                  offset: Offset(notIncluded ? -4 : 0, 0),
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    alignment: Alignment.centerLeft,
+                                    children: [
+                                      if (notIncluded)
+                                        Transform.translate(
+                                          offset: const Offset(-22, 0),
+                                          child: ZTooltip(
+                                            message: "This item has not been included in the selected price list. So, the item's default rate has been used.",
+                                            child: const Icon(LucideIcons.alertCircle, size: 14, color: Colors.orange),
+                                          ),
+                                        ),
+                                      CompositedTransformTarget(
+                                        link: row.priceListLink,
+                                        child: SizedBox(
+                                          width: 120,
+                                          height: 32,
+                                          child: MouseRegion(
+                                            onEnter: (_) {
+                                              final pl = applicablePriceLists.where((pl) => pl.id == row.priceListId).firstOrNull;
+                                              if (pl != null) {
+                                                _showValueTooltip(context, pl.name, row.priceListLink);
                                               }
                                             },
+                                            onExit: (_) {
+                                              _hideValueTooltip();
+                                            },
+                                            child: FormDropdown<PriceList>(
+                                              value: applicablePriceLists.where((pl) => pl.id == row.priceListId).firstOrNull,
+                                              height: 32,
+                                              hint: 'Apply Price List',
+                                              padding: const EdgeInsets.only(right: 10),
+                                              menuWidth: 250,
+                                              items: applicablePriceLists,
+                                              displayStringForValue: (v) => v.name,
+                                              preferDown: true,
+                                              itemBuilder:
+                                                  (item, isSelected, isHovered) =>
+                                                      _dropdownItemBuilder(
+                                                        item.name,
+                                                        isSelected,
+                                                        isHovered,
+                                                      ),
+                                              onChanged: (v) {
+                                                if (v != null) {
+                                                  final baseRate = row.item?.sellingPrice ?? 0;
+                                                  final rate = v.calculatePrice(row.itemId, baseRate);
+                                                  setState(() {
+                                                    row.priceListId = v.id;
+                                                    row.rateCtrl.text = rate.toStringAsFixed(2);
+                                                    _calculateTotals();
+                                                  });
+                                                }
+                                              },
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                              ],
-                            ),
+                                    ],
+                                  ),
+                                ),
                               ],
                               if (_showRecentTransactions) ...[
                                 const SizedBox(height: 2),
                                 GestureDetector(
                                   onTap: () {
-                                    _showItemDetailsSidebar(row);
+                                    _showItemDetailsSidebar(row, initialTabIndex: 2);
                                   },
                                   child: const Text(
                                     'Recent Transactions',
@@ -2893,37 +2954,56 @@ class _SalesOrderCreateScreenState
                     // TAX
                     Expanded(
                       flex: 4,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        child: FormDropdown<String>(
-                          value: row.taxId,
-                          height: 32,
-                          hideBorderDefault: true,
-                          hint: 'Tax',
-                          items: taxRates.map((t) => t.id).toList(),
-                          displayStringForValue: (id) =>
-                              taxRates
-                                  .where((t) => t.id == id)
-                                  .firstOrNull
-                                  ?.taxName ??
-                              'Select Tax',
-                          itemBuilder: (id, isSelected, isHovered) =>
-                              _dropdownItemBuilder(
-                                taxRates
-                                        .where((t) => t.id == id)
-                                        .firstOrNull
-                                        ?.taxName ??
-                                    'Select Tax',
-                                isSelected,
-                                isHovered,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: CompositedTransformTarget(
+                            link: row.taxLink,
+                            child: GestureDetector(
+                              onTap: () {
+                                _showTaxPopover(context, idx, row);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: _kBorder),
+                                  borderRadius: BorderRadius.circular(4),
+                                  color: Colors.white,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        row.taxId == null
+                                            ? 'Select Tax'
+                                            : (row.taxId == 'non_taxable'
+                                                ? 'Non-Taxable'
+                                                : (row.taxId == 'out_of_scope'
+                                                    ? 'Out of Scope'
+                                                    : (row.taxId == 'non_gst'
+                                                        ? 'Non-GST Supply'
+                                                        : taxRates
+                                                            .where((t) => t.id == row.taxId)
+                                                            .firstOrNull
+                                                            ?.taxName ??
+                                                        'Select Tax'))),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: row.taxId == null ? _kLabelGrey : _kBodyText,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.arrow_drop_down,
+                                      color: _kLabelGrey,
+                                      size: 18,
+                                    ),
+                                  ],
+                                ),
                               ),
-                          onChanged: (v) {
-                            setState(() => row.taxId = v);
-                            _calculateTotals();
-                          },
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -3087,6 +3167,8 @@ class _SalesOrderCreateScreenState
                               },
                             ),
                           );
+                        } else if (v == 'details') {
+                          _showItemDetailsSidebar(row, initialTabIndex: 0);
                         }
                       },
                       itemBuilder: (ctx) => [
@@ -8724,11 +8806,13 @@ class _ItemDetailsSidebar extends ConsumerStatefulWidget {
   final SalesOrderItemRow row;
   final VoidCallback onClose;
   final String? customerName;
+  final int initialTabIndex;
 
   const _ItemDetailsSidebar({
     required this.row,
     required this.onClose,
     this.customerName,
+    this.initialTabIndex = 0,
   });
 
   @override
@@ -8736,7 +8820,13 @@ class _ItemDetailsSidebar extends ConsumerStatefulWidget {
 }
 
 class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
-  int _activeTabIndex = 0; // Default to ITEM DETAILS as per screenshot
+  late int _activeTabIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeTabIndex = widget.initialTabIndex;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -8827,14 +8917,7 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Text(
-                              widget.row.item?.productName ?? 'Select Item',
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF111827),
-                              ),
-                            ),
+                            Flexible(child: Text(widget.row.item?.productName ?? "Select Item", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF111827)))),
                             const SizedBox(width: 4),
                             const Icon(
                               Icons.open_in_new,
@@ -9049,9 +9132,17 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF111827))),
+          const SizedBox(width: 16),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF111827)),
+            ),
+          ),
         ],
       ),
     );
@@ -9308,5 +9399,222 @@ class _MathParser {
       );
     }
     return x;
+  }
+}
+
+class _TaxSelectionPopover extends ConsumerWidget {
+  final String? selectedTaxId;
+  final ValueChanged<TaxRate> onTaxSelected;
+
+  const _TaxSelectionPopover({
+    this.selectedTaxId,
+    required this.onTaxSelected,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final itemsState = ref.watch(itemsControllerProvider);
+    final taxes = itemsState.taxGroups;
+
+    // Create dummy objects for special options
+    final nonTaxable = TaxRate(id: 'non_taxable', taxName: 'Non-Taxable', taxRate: 0);
+    final outOfScope = TaxRate(id: 'out_of_scope', taxName: 'Out of Scope', taxRate: 0);
+    final nonGst = TaxRate(id: 'non_gst', taxName: 'Non-GST Supply', taxRate: 0);
+
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 300),
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: [
+                  _SpecialPopoverListItem(
+                    title: "Non-Taxable",
+                    isSelected: selectedTaxId == 'non_taxable',
+                    onTap: () => onTaxSelected(nonTaxable),
+                  ),
+                  _SpecialPopoverListItem(
+                    title: "Out of Scope",
+                    description: "Supplies on which you don't charge any GST or include them in the returns.",
+                    isSelected: selectedTaxId == 'out_of_scope',
+                    onTap: () => onTaxSelected(outOfScope),
+                  ),
+                  _SpecialPopoverListItem(
+                    title: "Non-GST Supply",
+                    description: "Supplies which do not come under GST such as petroleum products and liquor.",
+                    isSelected: selectedTaxId == 'non_gst',
+                    onTap: () => onTaxSelected(nonGst),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text(
+                      'Tax Group',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ),
+                  ...taxes.map((tax) {
+                    final isSelected = tax.id == selectedTaxId;
+                    final displayLabel = '${tax.taxName} [${tax.taxRate}%]';
+
+                    return _PopoverListItem(
+                      label: displayLabel,
+                      isSelected: isSelected,
+                      onTap: () => onTaxSelected(tax),
+                    );
+                  }).toList(),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+        ],
+      ),
+    );
+  }
+}
+
+class _SpecialPopoverListItem extends StatefulWidget {
+  final String title;
+  final String? description;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SpecialPopoverListItem({
+    required this.title,
+    this.description,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_SpecialPopoverListItem> createState() => _SpecialPopoverListItemState();
+}
+
+class _SpecialPopoverListItemState extends State<_SpecialPopoverListItem> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = widget.isSelected || _hover
+        ? const Color(0xFF3B82F6)
+        : Colors.transparent;
+    final text = widget.isSelected || _hover
+        ? Colors.white
+        : const Color(0xFF333333);
+    final descColor = widget.isSelected || _hover
+        ? Colors.white.withValues(alpha: 0.8)
+        : const Color(0xFF666666);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        child: Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.title,
+                style: TextStyle(fontSize: 13, color: text, fontWeight: FontWeight.w500),
+              ),
+              if (widget.description != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  widget.description!,
+                  style: TextStyle(fontSize: 11, color: descColor),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PopoverListItem extends StatefulWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _PopoverListItem({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_PopoverListItem> createState() => _PopoverListItemState();
+}
+
+class _PopoverListItemState extends State<_PopoverListItem> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = widget.isSelected || _hover
+        ? const Color(0xFF3B82F6)
+        : Colors.transparent;
+    final text = widget.isSelected || _hover
+        ? Colors.white
+        : const Color(0xFF333333);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        child: Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(fontSize: 13, color: text),
+                ),
+              ),
+              if (widget.isSelected) Icon(Icons.check, size: 14, color: text),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

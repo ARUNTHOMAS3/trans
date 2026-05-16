@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { SupabaseService } from "../../../supabase/supabase.service";
 import { CreatePurchaseOrderDto } from "../dto/create-purchase-order.dto";
 import { UpdatePurchaseOrderDto } from "../dto/update-purchase-order.dto";
@@ -7,6 +7,39 @@ import { TenantContext } from "../../../../common/middleware/tenant.middleware";
 @Injectable()
 export class PurchaseOrdersService {
   constructor(private readonly supabaseService: SupabaseService) {}
+
+  private async resolveDiscountAccountId(
+    tenant: TenantContext,
+    dto: { discount_level?: string; discount_account_id?: string },
+  ) {
+    if (dto.discount_account_id) {
+      return dto.discount_account_id;
+    }
+    
+    let { data } = await this.supabaseService
+      .getClient()
+      .from("accounts")
+      .select("id,user_account_name,system_account_name")
+      .eq("entity_id", tenant.entityId)
+      .or(
+        "user_account_name.ilike.%Purchase Discount%,system_account_name.ilike.%Purchase Discount%,user_account_name.ilike.%Discount%",
+      )
+      .limit(1)
+      .maybeSingle();
+      
+    if (!data) {
+      const fallback = await this.supabaseService
+        .getClient()
+        .from("accounts")
+        .select("id")
+        .eq("entity_id", tenant.entityId)
+        .limit(1)
+        .maybeSingle();
+      return fallback.data?.id ?? null;
+    }
+    return data?.id ?? null;
+  }
+
 
   private async getNextPurchaseOrderNumber(tenant: TenantContext) {
     const regexPattern = "^PO-[0-9]+$";
@@ -128,8 +161,14 @@ export class PurchaseOrdersService {
 
   async create(createPurchaseOrderDto: CreatePurchaseOrderDto, tenant: TenantContext) {
     const { items, ...poData } = createPurchaseOrderDto;
+    const resolvedDiscountAccountId = await this.resolveDiscountAccountId(
+      tenant,
+      createPurchaseOrderDto,
+    );
     const payload = {
       ...(poData as any),
+      discount_account_id: resolvedDiscountAccountId,
+      is_delete: false,
       entity_id: tenant.entityId,
     };
     const { data, error } = await this.supabaseService
@@ -170,10 +209,18 @@ export class PurchaseOrdersService {
     tenant: TenantContext,
     updatePurchaseOrderDto: UpdatePurchaseOrderDto,
   ) {
+    const resolvedDiscountAccountId = await this.resolveDiscountAccountId(
+      tenant,
+      updatePurchaseOrderDto,
+    );
+    const payload = {
+      ...(updatePurchaseOrderDto as any),
+      discount_account_id: resolvedDiscountAccountId,
+    };
     const { data, error } = await this.supabaseService
       .getClient()
       .from("purchase_orders")
-      .update(updatePurchaseOrderDto)
+      .update(payload)
       .eq("id", id)
       .eq("entity_id", tenant.entityId)
       .select()

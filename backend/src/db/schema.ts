@@ -223,7 +223,7 @@ export const organizations = pgTable("organization", {
   city: varchar("city", { length: 100 }),
   pincode: varchar("pincode", { length: 20 }),
   phone: varchar("phone", { length: 50 }),
-  
+
   // Compliance Fields
   isDrugRegistered: boolean("is_drug_registered").default(false),
   drugLicenceType: varchar("drug_licence_type", { length: 255 }),
@@ -1097,6 +1097,7 @@ export const purchaseOrders = pgTable("purchase_orders", {
   currency: varchar("currency", { length: 20 }).default("INR"),
   vendorNotes: text("vendor_notes"),
   termsAndConditions: text("terms_and_conditions"),
+  isDelete: boolean("is_delete").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   entityId: uuid("entity_id")
@@ -1355,7 +1356,7 @@ export const settingsBranches = pgTable("branches", {
   isChildLocation: boolean("is_child_location").default(false),
   parentBranchId: uuid("parent_branch_id"), // Not referencing self yet for simplicity in migrations if circular, but typically allowed
   primaryContactId: uuid("primary_contact_id").references(() => users.id),
-  
+
   // Enterprise & GST
   industry: varchar("industry", { length: 255 }),
   pan: varchar("pan", { length: 10 }),

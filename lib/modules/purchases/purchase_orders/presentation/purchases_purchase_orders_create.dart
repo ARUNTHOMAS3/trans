@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -12,8 +12,11 @@ import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.d
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart';
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
-import 'package:zerpai_erp/modules/items/items/controllers/items_state.dart';
+
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
+import 'package:zerpai_erp/shared/widgets/hsn_sac_search_modal.dart';
+import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
+import 'package:zerpai_erp/modules/sales/presentation/widgets/sales_item_quick_edit_dialog.dart';
 import 'package:zerpai_erp/modules/items/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/items/pricelist/providers/pricelist_provider.dart';
 import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
@@ -25,17 +28,24 @@ import 'package:zerpai_erp/modules/accountant/providers/accountant_chart_of_acco
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
-import 'package:zerpai_erp/modules/items/items/presentation/widgets/item_details_sidebar.dart';
+
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import '../notifiers/purchase_order_notifier.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
+import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/shared/widgets/hsn_sac_search_modal.dart';
-import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
+import 'dart:convert';
+
+import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zerpai_erp/modules/sales/presentation/widgets/bulk_items_dialog.dart';
 
 // ── Zoho-style Colors ────────────────────────────────────────────────────────
 const _bgWhite = Color(0xFFFFFFFF);
@@ -69,6 +79,7 @@ class _ItemRowController {
   final LayerLink hsnLink = LayerLink();
   final LayerLink itemDetailsMenuLink = LayerLink();
   final LayerLink rowActionsMenuLink = LayerLink();
+  final LayerLink priceListLink = LayerLink();
 
   void dispose() {
     nameCtrl.dispose();
@@ -121,11 +132,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   OverlayEntry? _gstOverlay;
   OverlayEntry? _poOverlay;
   OverlayEntry? _vendorSidebarOverlay;
+  OverlayEntry? _itemDetailsSidebarOverlay;
   OverlayEntry? _deliveryOverlay; // "Change destination" popover
   OverlayEntry? _taxOverlay;
   OverlayEntry? _accountOverlay;
   OverlayEntry? _discountOverlay;
-  OverlayEntry? _warehouseOverlay;
   OverlayEntry? _hsnOverlay;
   OverlayEntry? _addRowDropdownOverlay;
   final LayerLink _addRowDropdownLink = LayerLink();
@@ -135,6 +146,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   final LayerLink _gstLink = LayerLink();
   final LayerLink _poLink = LayerLink();
   final LayerLink _deliveryChangeLink = LayerLink();
+  final LayerLink _totalTaxAmountLink = LayerLink();
+  final LayerLink _discountTypeLink = LayerLink();
+  final LayerLink _attachmentBadgeLink = LayerLink();
+  OverlayEntry? _taxAmountOverlay;
+  OverlayEntry? _attachmentListOverlay;
+  List<PlatformFile> _attachedFiles = [];
   final List<_ItemRowController> _rowControllers = [];
   final Set<int> _hiddenDetails = {};
   final Map<int, TextEditingController> _headerTextControllers = {};
@@ -144,8 +161,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   bool _showStockInfo = true;
   bool _showRecentTransactions = true;
   bool _showPriceList = true;
+  String? _selectedPriceListId;
   bool _isUploadButtonHovered = false;
+  OverlayEntry? _valueTooltipOverlay;
+  final LayerLink _priceListTooltipLink = LayerLink();
   bool _isAdjustmentLabelHovered = false;
+
+  // Item table search
+  bool _showSearchItemDetails = false;
+  String _itemDetailsSearchQuery = '';
+  final TextEditingController _itemDetailsSearchCtrl = TextEditingController();
 
   AccountNode? _selectedPopupAccount;
 
@@ -373,7 +398,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   List<Map<String, dynamic>> _shipmentPreferencesList = [];
   List<Map<String, dynamic>> _countriesList = [];
   List<String> _sourceOfSupplyList = [];
+  // ignore: unused_field
   List<String> _phoneCodesList = [];
+  // ignore: unused_field
   Map<String, String> _phoneCodeToLabel = {};
 
   Future<void> _loadPaymentTerms() async {
@@ -424,9 +451,23 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       return;
     }
 
-    if (poState.items.every((i) => i.productId.isEmpty)) {
+    final validItems = poState.items.where((i) => i.productId.isNotEmpty).toList();
+    if (validItems.isEmpty) {
       ZerpaiToast.error(context, 'Please add at least one item');
       return;
+    }
+
+    // New validations for HSN Code and Account
+    for (int i = 0; i < validItems.length; i++) {
+      final item = validItems[i];
+      if (item.hsnCode == null || item.hsnCode!.isEmpty) {
+        ZerpaiToast.error(context, 'Please select HSN Code for item ${i + 1}');
+        return;
+      }
+      if (item.accountId == null || item.accountId!.isEmpty) {
+        ZerpaiToast.error(context, 'Please select Account for item ${i + 1}');
+        return;
+      }
     }
 
     if (!poState.isNumberingAuto && poState.orderNumber.trim().isEmpty) {
@@ -435,6 +476,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
 
     notifier.updateField(isSaving: true);
+    
+    // Save to repository and get the saved object with its ID
+    PurchaseOrder? savedPo;
 
     try {
       final lookupsService = LookupsApiService();
@@ -500,16 +544,23 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         termsAndConditions: _termsCtrl.text,
         isReverseCharge: poState.isReverseCharge,
         discountLevel: poState.discountLevel,
+        discountAccountId: poState.discountAccountId,
+        isDelete: false,
         items: poState.items.where((i) => i.productId.isNotEmpty).toList(),
       );
 
       // 3. Save to Backend
       final repository = ref.read(purchaseOrderRepositoryProvider);
-      await repository.createPurchaseOrder(po);
+      savedPo = await repository.createPurchaseOrder(po);
+
+      // 4. Save Attachments if any
+      if (savedPo.id != null && _attachedFiles.isNotEmpty) {
+        await _saveAttachments(savedPo.id!);
+      }
 
       if (mounted) {
         ZerpaiToast.success(context, 'Purchase Order saved successfully');
-        context.pop(); // Go back to list
+        context.go('/purchases/purchase-orders'); // Redirect to list
       }
     } catch (e) {
       AppLogger.error(
@@ -522,6 +573,52 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       }
     } finally {
       notifier.updateField(isSaving: false);
+    }
+  }
+
+  Future<void> _saveAttachments(String poId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final apiClient = ApiClient();
+      var entityId = ref.read(entityProvider).entityId;
+      if (entityId == null) {
+        final user = ref.read(authUserProvider);
+        entityId = user?.orgEntityId;
+      }
+      if (entityId == null) return;
+
+      for (var file in _attachedFiles) {
+        if (file.bytes == null) {
+          AppLogger.warning('Skipping file ${file.name} because bytes are null', module: 'purchases');
+          continue;
+        }
+
+        final base64Data = base64Encode(file.bytes!);
+
+        // Upload to Cloudflare R2 via backend
+        final response = await apiClient.post('/lookups/uploads', data: {
+          'fileName': file.name,
+          'fileData': base64Data,
+          'mimeType': 'application/octet-stream',
+          'prefix': 'purchase_orders',
+        });
+
+        final fileKey = response.data['fileKey'] ?? 'purchase_orders/${file.name}';
+
+        await supabase.from('purchase_order_attachments').insert({
+          'purchase_order_id': poId,
+          'file_name': file.name,
+          'file_path': fileKey,
+          'file_size': file.size,
+          'file_type': file.extension,
+          'entity_id': entityId,
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error saving attachments', error: e, module: 'purchases');
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to save attachments: $e');
+      }
     }
   }
 
@@ -714,6 +811,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     _adjustmentLabelCtrl.dispose();
     _adjustmentLabelFocusNode.dispose();
     _deliveryNameCtrl.dispose();
+    _itemDetailsSearchCtrl.dispose();
     for (var c in _rowControllers) {
       c.dispose();
     }
@@ -810,13 +908,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     int index,
     PurchaseOrderItem item,
     LayerLink link,
+    List<Item> allItems,
   ) {
     _itemMenuOverlay?.remove();
     _itemMenuOverlay = null;
 
     _itemMenuOverlay = OverlayEntry(
-      builder: (ctx) => Stack(
-        children: [
+      builder: (ctx) {
+        String? hoveredItem;
+        return Stack(
+          children: [
           Positioned.fill(
             child: GestureDetector(
               onTap: () {
@@ -850,91 +951,109 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Edit Item — blue outlined button
-                      InkWell(
-                        onTap: () {
-                          _itemMenuOverlay?.remove();
-                          _itemMenuOverlay = null;
-                        },
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
+                  padding: const EdgeInsets.all(8),
+                  child: StatefulBuilder(
+                    builder: (context, setOverlayState) {
+                      final isHidden = _hiddenDetails.contains(index);
+                      final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildSettingsOverlayItem(
+                            label: isHidden ? 'Show Additional Information' : 'Hide Additional Information',
+                            showHighlight: hoveredItem == 'toggle_info',
+                            onHover: (v) => setOverlayState(() => hoveredItem = v ? 'toggle_info' : null),
+                            onTap: () {
+                              setState(() {
+                                if (_hiddenDetails.contains(index)) {
+                                  _hiddenDetails.remove(index);
+                                } else {
+                                  _hiddenDetails.add(index);
+                                }
+                              });
+                              _itemMenuOverlay?.remove();
+                              _itemMenuOverlay = null;
+                            },
                           ),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFF0088FF)),
-                            borderRadius: BorderRadius.circular(6),
+                          const SizedBox(height: 4),
+                          _buildSettingsOverlayItem(
+                            label: 'Clone',
+                            showHighlight: hoveredItem == 'clone',
+                            onHover: (v) => setOverlayState(() => hoveredItem = v ? 'clone' : null),
+                            onTap: () {
+                              notifier.addItemRow(
+                                index: index + 1,
+                                item: item.copyWith(),
+                              );
+                              _itemMenuOverlay?.remove();
+                              _itemMenuOverlay = null;
+                            },
                           ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.edit_outlined,
-                                size: 14,
-                                color: Color(0xFF0088FF),
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Edit Item',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF0088FF),
-                                  fontWeight: FontWeight.w500,
+                          const SizedBox(height: 4),
+                          _buildSettingsOverlayItem(
+                            label: 'Insert New Row',
+                            showHighlight: hoveredItem == 'insert_row',
+                            onHover: (v) => setOverlayState(() => hoveredItem = v ? 'insert_row' : null),
+                            onTap: () {
+                              notifier.addItemRow(index: index + 1);
+                              _itemMenuOverlay?.remove();
+                              _itemMenuOverlay = null;
+                            },
+                          ),
+                          const SizedBox(height: 4),
+                          _buildSettingsOverlayItem(
+                            label: 'Insert Items in Bulk',
+                            showHighlight: hoveredItem == 'bulk',
+                            onHover: (v) => setOverlayState(() => hoveredItem = v ? 'bulk' : null),
+                            onTap: () {
+                              _itemMenuOverlay?.remove();
+                              _itemMenuOverlay = null;
+                              showDialog(
+                                context: context,
+                                builder: (context) => BulkItemsDialog(
+                                  products: allItems,
+                                  onItemsSelected: (selectedItems) {
+                                    final List<PurchaseOrderItem> newItems = [];
+                                    selectedItems.forEach((item, quantity) {
+                                      newItems.add(
+                                        PurchaseOrderItem(
+                                          productId: item.id ?? '',
+                                          productName: item.productName,
+                                          quantity: quantity.toDouble(),
+                                          rate: item.costPrice ?? 0.0,
+                                          amount: (item.costPrice ?? 0.0) * quantity,
+                                        ),
+                                      );
+                                    });
+                                    notifier.addItemsInBulk(newItems);
+                                  },
                                 ),
-                              ),
-                            ],
+                              );
+                            },
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      // View Item Details — plain
-                      InkWell(
-                        onTap: () {
-                          _itemMenuOverlay?.remove();
-                          _itemMenuOverlay = null;
-                        },
-                        borderRadius: BorderRadius.circular(4),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 8,
+                          const SizedBox(height: 4),
+                          _buildSettingsOverlayItem(
+                            label: 'Insert New Header',
+                            showHighlight: hoveredItem == 'insert_header',
+                            onHover: (v) => setOverlayState(() => hoveredItem = v ? 'insert_header' : null),
+                            onTap: () {
+                              notifier.addHeaderRow(index: index + 1);
+                              _itemMenuOverlay?.remove();
+                              _itemMenuOverlay = null;
+                            },
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.store_outlined,
-                                size: 14,
-                                color: _labelColor,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'View Item Details',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: _labelColor,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
             ),
           ),
         ],
-      ),
-    );
+      );
+    });
     Overlay.of(context).insert(_itemMenuOverlay!);
   }
 
@@ -951,6 +1070,44 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   void _closeVendorSidebar() {
     _vendorSidebarOverlay?.remove();
     _vendorSidebarOverlay = null;
+  }
+
+  void _showItemDetailsSidebar(PurchaseOrderItem row, {int initialTabIndex = 0}) {
+    if (_itemDetailsSidebarOverlay != null) {
+      _itemDetailsSidebarOverlay!.remove();
+      _itemDetailsSidebarOverlay = null;
+    }
+
+    _itemDetailsSidebarOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          GestureDetector(
+            onTap: () {
+              _itemDetailsSidebarOverlay?.remove();
+              _itemDetailsSidebarOverlay = null;
+            },
+            child: Container(color: Colors.black.withValues(alpha: 0.3)),
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: Material(
+              color: Colors.transparent,
+              child: _ItemDetailsSidebar(
+                row: row,
+                initialTabIndex: initialTabIndex,
+                onClose: () {
+                  _itemDetailsSidebarOverlay?.remove();
+                  _itemDetailsSidebarOverlay = null;
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_itemDetailsSidebarOverlay!);
   }
 
   void _closeDeliveryOverlay() {
@@ -1062,7 +1219,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           ),
           const Spacer(),
           InkWell(
-            onTap: () => context.pop(),
+            onTap: () => context.go('/purchases/purchase-orders'),
             borderRadius: BorderRadius.circular(4),
             child: const Padding(
               padding: EdgeInsets.all(4),
@@ -1085,6 +1242,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     final warehouses = ref.watch(warehousesProvider).value ?? [];
     final itemsState = ref.watch(itemsControllerProvider);
     final allItems = itemsState.items;
+
+    final activePriceLists = ref.watch(activePriceListsProvider)
+        .where((pl) => pl.transactionType.toLowerCase() == 'purchase')
+        .toList();
 
     final accountsState = ref.watch(chartOfAccountsProvider);
     final List<AccountNode> availableAccounts = [];
@@ -1178,7 +1339,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       useHorizontalPadding: false,
       useTopPadding: false,
       footer: _stickyFooter(poState),
-      endDrawer: const ItemDetailsSidebar(),
+      
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1195,39 +1356,103 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 // ── WAREHOUSE ──
                 _zFormRow(
                   label: 'Warehouse',
-                  child: FormDropdown<String>(
-                    height: 32,
-                    value: poState.warehouseId,
-                    items: warehouses.map((w) => w.id).toList(),
-                    displayStringForValue: (id) => warehouses
-                        .firstWhere(
-                          (w) => w.id == id,
-                          orElse: () => WarehouseModel(
-                            id: '',
-                            name: 'Not selected',
-                            countryRegion: '',
-                          ),
-                        )
-                        .name,
-                    hint: 'Select Warehouse',
-                    onChanged: (id) => notifier.updateField(warehouseId: id),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: _fieldBorder),
-                    itemBuilder: (id, isSelected, isHovered) =>
-                        _buildStandardLookupRow(
-                          warehouses
+                  maxWidth: 1000,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 320,
+                        child: FormDropdown<String>(
+                          height: 32,
+                          value: poState.warehouseId,
+                          items: warehouses.map((w) => w.id).toList(),
+                          displayStringForValue: (id) => warehouses
                               .firstWhere(
                                 (w) => w.id == id,
                                 orElse: () => WarehouseModel(
                                   id: '',
-                                  name: '',
+                                  name: 'Not selected',
                                   countryRegion: '',
                                 ),
                               )
                               .name,
-                          isSelected,
-                          isHovered,
+                          hint: 'Select Warehouse',
+                          onChanged: (id) => notifier.updateField(warehouseId: id),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: _fieldBorder),
+                          itemBuilder: (id, isSelected, isHovered) =>
+                              _buildStandardLookupRow(
+                                warehouses
+                                    .firstWhere(
+                                      (w) => w.id == id,
+                                      orElse: () => WarehouseModel(
+                                        id: '',
+                                        name: '',
+                                        countryRegion: '',
+                                      ),
+                                    )
+                                    .name,
+                                isSelected,
+                                isHovered,
+                              ),
                         ),
+                      ),
+                      const SizedBox(width: 32),
+                      const SizedBox(
+                        width: 100,
+                        child: Text(
+                          'Price List',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                      ),
+                      CompositedTransformTarget(
+                        link: _priceListTooltipLink,
+                        child: MouseRegion(
+                          onEnter: (_) {
+                            final pl = activePriceLists.where((pl) => pl.id == _selectedPriceListId).firstOrNull;
+                            if (pl != null) {
+                              _showValueTooltip(context, pl.name, _priceListTooltipLink);
+                            }
+                          },
+                          onExit: (_) => _hideValueTooltip(),
+                          child: SizedBox(
+                            width: 320,
+                            child: FormDropdown<PriceList>(
+                              height: 32,
+                              hint: 'Select Price List',
+                              value: activePriceLists.where((pl) => pl.id == _selectedPriceListId).firstOrNull,
+                              items: activePriceLists,
+                              displayStringForValue: (pl) => pl.name,
+                              onChanged: (pl) {
+                                if (pl != null) {
+                                  setState(() => _selectedPriceListId = pl.id);
+                                  final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+                                  final state = ref.read(purchaseOrderFormNotifierProvider);
+                                  for (int i = 0; i < state.items.length; i++) {
+                                    final item = state.items[i];
+                                    if (!item.isHeader) {
+                                      final newRate = pl.calculatePrice(item.productId, item.rate, quantity: item.quantity);
+                                      notifier.updateItem(i, item.copyWith(rate: newRate, priceListId: pl.id));
+                                    }
+                                  }
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: _fieldBorder),
+                              itemBuilder: (pl, isSelected, isHovered) =>
+                                  _buildStandardLookupRow(
+                                    pl.name,
+                                    isSelected,
+                                    isHovered,
+                                  ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const Padding(
@@ -1237,6 +1462,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 // ── DISCOUNT TYPE SELECTION ──
                 _zFormRow(
                   label: 'Discount',
+                  maxWidth: 900,
                   child: Row(
                     children: [
                       SizedBox(
@@ -1262,11 +1488,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               ),
                         ),
                       ),
+
                       if (poState.discountLevel == 'item') ...[
                         const SizedBox(width: 12),
                         Container(width: 1, height: 24, color: _borderCol),
                         const SizedBox(width: 12),
-                        Expanded(
+                        SizedBox(
+                          width: 250,
                           child: FormDropdown<AccountNode>(
                             height: 32,
                             value: availableAccounts.firstWhere(
@@ -1283,24 +1511,67 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                 isActive: true,
                               ),
                             ),
-                            items: availableAccounts.where((node) {
-                              final group = node.accountGroup.toLowerCase();
-                              return group.contains('expense') ||
-                                  group.contains('cost of goods sold');
-                            }).toList(),
+                            items: () {
+                              final expenseAccounts = availableAccounts.where((node) {
+                                final group = node.accountGroup.toLowerCase();
+                                return group.contains('expense');
+                              }).toList();
+
+                              // Group by accountType
+                              final Map<String, List<AccountNode>> grouped = {};
+                              for (final acc in expenseAccounts) {
+                                grouped.putIfAbsent(acc.accountType, () => []).add(acc);
+                              }
+
+                              // Flatten with headers
+                              final List<AccountNode> flattened = [];
+                              grouped.forEach((type, list) {
+                                // Add a header dummy node
+                                flattened.add(AccountNode(
+                                  id: 'header_$type',
+                                  systemAccountName: type,
+                                  userAccountName: type,
+                                  name: type,
+                                  accountGroup: 'Expenses',
+                                  accountType: type,
+                                  isSystem: false,
+                                  isDeletable: false,
+                                  isActive: false,
+                                ));
+                                flattened.addAll(list);
+                              });
+                              return flattened;
+                            }(),
                             displayStringForValue: (a) => a.name.isEmpty
                                 ? 'Select Discount Account'
-                                : a.name,
-                            onChanged: (v) =>
-                                notifier.updateField(discountAccountId: v?.id),
+                                : (a.id.startsWith('header_') ? a.accountType : a.name),
+                            onChanged: (v) {
+                              if (v != null && !v.id.startsWith('header_')) {
+                                notifier.updateField(discountAccountId: v.id);
+                              }
+                            },
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: _fieldBorder),
-                            itemBuilder: (account, isSelected, isHovered) =>
-                                _buildStandardLookupRow(
-                                  account.name,
-                                  isSelected,
-                                  isHovered,
-                                ),
+                            itemBuilder: (account, isSelected, isHovered) {
+                              if (account.id.startsWith('header_')) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  child: Text(
+                                    account.accountType,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6B7280), fontSize: 12),
+                                  ),
+                                );
+                              }
+                              final name = account.userAccountName.isNotEmpty
+                                  ? account.userAccountName
+                                  : account.systemAccountName;
+                              return _buildStandardLookupRow(
+                                name,
+                                isSelected,
+                                isHovered,
+                                indentation: 16,
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -1313,7 +1584,19 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 ),
                 const SizedBox(height: 16),
                 // ── ITEM TABLE ──
-                _itemTableSection(allItems, availableAccounts, poState),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1320),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: poState.discountLevel == 'item' ? 1365.0 : 1190.0,
+                        child: _itemTableSection(allItems, availableAccounts, poState),
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
 
                 // ── NOTES & TOTALS (Side-by-side, just above the banner) ──
@@ -2105,7 +2388,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         const SizedBox(height: 16),
         // Indented section for addresses and GST
         Padding(
-          padding: const EdgeInsets.only(left: 32 + 176),
+          padding: const EdgeInsets.only(left: 32 + 180 + 24), // Align with input fields
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2409,10 +2692,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     PurchaseOrderState poState,
   ) {
     final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+    final warehouseAsync = ref.watch(warehousesProvider);
+    final liveWarehouses = warehouseAsync.value ?? warehouses;
 
     if (poState.deliveryType == 'warehouse') {
-      final warehouseAsync = ref.watch(warehousesProvider);
-      final liveWarehouses = warehouseAsync.value ?? warehouses;
       final wh = liveWarehouses.firstWhere(
         (w) => w.id == poState.deliveryWarehouseId,
         orElse: () => WarehouseModel(id: '', name: '', countryRegion: ''),
@@ -2503,7 +2786,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           ),
           if (cust.id.isNotEmpty) ...[
             const SizedBox(height: 10),
-            _customerAddressCard(cust, notifier),
+            _customerAddressCard(cust, notifier, liveWarehouses, poState),
           ],
         ],
       );
@@ -2621,6 +2904,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   Widget _customerAddressCard(
     SalesCustomer cust,
     PurchaseOrderNotifier notifier,
+    List<WarehouseModel> allWarehouses,
+    PurchaseOrderState poState,
   ) {
     const addrColor = Color(0xFF1A73C8);
     const addrDark = Color(0xFF1A3A5C);
@@ -2685,19 +2970,17 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        GestureDetector(
-          onTap: () {
-            notifier.updateField(
-              deliveryType: 'warehouse',
-              deliveryCustomerId: '',
-            );
-          },
-          child: const Text(
-            'Change destination to deliver',
-            style: TextStyle(
-              color: _linkBlue,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+        CompositedTransformTarget(
+          link: _deliveryChangeLink,
+          child: GestureDetector(
+            onTap: () => _showDeliveryPopover(allWarehouses, poState, notifier),
+            child: const Text(
+              'Change destination to deliver',
+              style: TextStyle(
+                color: _linkBlue,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ),
@@ -2726,10 +3009,12 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           child: Stack(
             children: [
               const SizedBox.expand(),
-              CompositedTransformFollower(
-                link: _deliveryChangeLink,
-                showWhenUnlinked: false,
-                offset: const Offset(0, 4),
+          CompositedTransformFollower(
+            link: _deliveryChangeLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomLeft,
+            followerAnchor: Alignment.topLeft,
+            offset: const Offset(0, 4),
                 child: GestureDetector(
                   onTap: () {},
                   child: Material(
@@ -2847,7 +3132,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               vertical: 8,
                             ),
                             child: GestureDetector(
-                              onTap: _closeDeliveryOverlay,
+                              onTap: () {
+                                _closeDeliveryOverlay();
+                                _showAddressModal();
+                              },
                               child: Row(
                                 children: const [
                                   Icon(
@@ -2865,35 +3153,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                     ),
                                   ),
                                 ],
-                              ),
-                            ),
-                          ),
-                          const Divider(height: 1, color: Color(0xFFE0E0E0)),
-                          // Link repeated at bottom
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            child: GestureDetector(
-                              onTap: () {
-                                notifier.updateField(
-                                  deliveryType: 'customer',
-                                  deliveryWarehouseId: '',
-                                  clearDeliveryAddressName: true,
-                                );
-                                _closeDeliveryOverlay();
-                              },
-                              child: const Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  'Change destination to deliver',
-                                  style: TextStyle(
-                                    color: _linkBlue,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
                               ),
                             ),
                           ),
@@ -2917,8 +3176,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     bool isSelected,
     PurchaseOrderNotifier notifier,
   ) {
-    const selBg = Color(0xFF1A73C8);
-    const normBg = Color(0xFFF5F5F5);
     const primaryCol = Color(0xFF111827);
     const secondaryCol = Color(0xFF4B5563);
 
@@ -2962,9 +3219,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? selBg
-                    : (hov ? const Color(0xFFE8F0FE) : normBg),
+                color: hov
+                    ? const Color(0xFF0088FF)
+                    : (isSelected ? const Color(0xFFEEEEEE) : Colors.white),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -2980,9 +3237,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 height: 1.5,
-                                color: isSelected
+                                color: hov
                                     ? Colors.white
-                                    : (line.isBold ? primaryCol : secondaryCol),
+                                    : (isSelected
+                                        ? Colors.black
+                                        : (line.isBold ? primaryCol : secondaryCol)),
                                 fontWeight: line.isBold
                                     ? FontWeight.w700
                                     : FontWeight.normal,
@@ -3077,495 +3336,488 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   ) {
     final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          clipBehavior: Clip.hardEdge,
-          decoration: BoxDecoration(
-            color: _bgWhite,
-            border: Border.all(color: _borderCol),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          constraints: const BoxConstraints(maxWidth: 1150),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        // ── Table Title Row (outside the border) ──
+        if (!_bulkMode)
+          Row(
             children: [
-              // ── Header — Title + Bulk Actions ──
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Item Table',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: _textPrimary,
-                      ),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(6),
+                      topRight: Radius.circular(6),
                     ),
-                    const Spacer(),
-
-                    // (Table settings was here - moved after Bulk Actions)
-                    Theme(
-                      data: Theme.of(context).copyWith(
-                        hoverColor: Colors.transparent,
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                      ),
-                      child: PopupMenuButton<String>(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 250),
-                        offset: const Offset(0, 32),
-                        elevation: 8,
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _borderCol),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Item Table',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: _textPrimary,
                         ),
-                        onSelected: (val) {
-                          if (val == 'bulk_update') {
+                      ),
+                      const Spacer(),
+                      // Bulk Actions button
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _bulkMode = true;
+                            _selectedRows.clear();
+                          });
+                        },
+                        icon: const Icon(
+                          LucideIcons.checkCircle,
+                          size: 16,
+                          color: Color(0xFF2563EB),
+                        ),
+                        label: const Text(
+                          'Bulk Actions',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2563EB),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Settings popup
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          hoverColor: Colors.transparent,
+                          splashColor: Colors.transparent,
+                          highlightColor: Colors.transparent,
+                        ),
+                        child: PopupMenuButton<String>(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 250),
+                          offset: const Offset(0, 32),
+                          elevation: 8,
+                          color: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          onSelected: (val) {
                             setState(() {
-                              _bulkMode = true;
-                              _selectedRows.clear();
-                            });
-                          } else if (val == 'hide_all') {
-                            final poState = ref.read(
-                              purchaseOrderFormNotifierProvider,
-                            );
-                            final allHidden = poState.items.asMap().keys.every(
-                              (i) => _hiddenDetails.contains(i),
-                            );
-                            setState(() {
-                              if (allHidden) {
-                                _hiddenDetails.clear();
-                              } else {
-                                for (int i = 0; i < poState.items.length; i++) {
-                                  _hiddenDetails.add(i);
+                              if (val == 'stock') _showStockInfo = !_showStockInfo;
+                              if (val == 'recent') _showRecentTransactions = !_showRecentTransactions;
+                              if (val == 'pricelist') _showPriceList = !_showPriceList;
+                              if (val == 'hide_all') {
+                                final allHidden = poState.items.asMap().keys.every((i) => _hiddenDetails.contains(i));
+                                if (allHidden) {
+                                  _hiddenDetails.clear();
+                                } else {
+                                  for (int i = 0; i < poState.items.length; i++) {
+                                    _hiddenDetails.add(i);
+                                  }
                                 }
                               }
                             });
-                          }
-                        },
-                        itemBuilder: (_) {
-                          final poState = ref.read(
-                            purchaseOrderFormNotifierProvider,
-                          );
-                          final allHidden = poState.items.asMap().keys.every(
-                            (i) => _hiddenDetails.contains(i),
-                          );
-                          return [
-                            const PopupMenuItem(
-                              value: 'bulk_update',
-                              padding: EdgeInsets.zero,
-                              height: 40,
-                              child: _HoverableMenuItem(
-                                'Bulk Update Line Items',
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'hide_all',
-                              padding: EdgeInsets.zero,
-                              height: 40,
-                              child: _HoverableToggleMenuItem(
-                                allHidden
-                                    ? 'Show All Additional Information'
-                                    : 'Hide All Additional Information',
-                                !allHidden,
-                              ),
-                            ),
-                          ];
-                        },
-                        child: Row(
-                          children: [
-                            const Icon(
-                              LucideIcons.checkCircle,
-                              size: 16,
-                              color: Color(0xFF2563EB),
-                            ),
-                            const SizedBox(width: 4),
-                            const Text(
-                              'Bulk Actions',
-                              style: TextStyle(
-                                color: Color(0xFF2563EB),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // ── TABLE SETTINGS (moved after Bulk Actions) ──
-                    Theme(
-                      data: Theme.of(context).copyWith(
-                        hoverColor: Colors.transparent,
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                      ),
-                      child: PopupMenuButton<String>(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 250),
-                        offset: const Offset(0, 32),
-                        elevation: 8,
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        onSelected: (val) {
-                          setState(() {
-                            if (val == 'stock')
-                              _showStockInfo = !_showStockInfo;
-                            if (val == 'recent')
-                              _showRecentTransactions =
-                                  !_showRecentTransactions;
-                            if (val == 'pricelist')
-                              _showPriceList = !_showPriceList;
-                          });
-                        },
-                        itemBuilder: (_) => [
-                          PopupMenuItem(
-                            value: 'stock',
-                            padding: EdgeInsets.zero,
-                            height: 40,
-                            child: _HoverableToggleMenuItem(
-                              _showStockInfo
-                                  ? 'Hide Available stock for sale'
-                                  : 'Show Available stock for sale',
-                              _showStockInfo,
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'recent',
-                            padding: EdgeInsets.zero,
-                            height: 40,
-                            child: _HoverableToggleMenuItem(
-                              _showRecentTransactions
-                                  ? 'Hide Recent Transaction'
-                                  : 'Show Recent Transaction',
-                              _showRecentTransactions,
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'pricelist',
-                            padding: EdgeInsets.zero,
-                            height: 40,
-                            child: _HoverableToggleMenuItem(
-                              _showPriceList
-                                  ? 'Hide PriceList'
-                                  : 'Show PriceList',
-                              _showPriceList,
-                            ),
-                          ),
-                        ],
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF3F4F6),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: _borderCol),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                LucideIcons.settings,
-                                size: 16,
-                                color: Color(0xFF4B5563),
-                              ),
-                              Icon(
-                                Icons.arrow_drop_down,
-                                size: 16,
-                                color: Color(0xFF4B5563),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // ── Bulk mode banner ──
-              if (_bulkMode)
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50.withValues(alpha: 0.4),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(6),
-                            topRight: Radius.circular(6),
-                          ),
-                          border: Border.all(color: _borderCol),
-                        ),
-                        child: Row(
-                          children: [
-                            _buildBulkButton(
-                              'Update Reporting Tags',
-                              onTap: () {},
-                            ),
-                            const SizedBox(width: 10),
-                            _buildBulkButton(
-                              'Update Account',
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => _buildUpdateAccountDialog(availableAccounts),
-                                );
-                              },
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 18),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              color: Colors.blue.shade600,
-                              onPressed: () {
-                                setState(() {
-                                  _bulkMode = false;
-                                  _selectedRows.clear();
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 60),
-                  ],
-                ),
-              // ── Column headers ──
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
-                  border: Border.symmetric(
-                    horizontal: BorderSide(color: _borderCol),
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                height: 40,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_bulkMode)
-                      SizedBox(
-                        width: 28,
-                        child: Checkbox(
-                          value:
-                              _selectedRows.length ==
-                              ref
-                                  .watch(purchaseOrderFormNotifierProvider)
-                                  .items
-                                  .length,
-                          onChanged: (v) => setState(() {
-                            if (v == true) {
-                              _selectedRows.addAll(
-                                List.generate(
-                                  ref
-                                      .read(purchaseOrderFormNotifierProvider)
-                                      .items
-                                      .length,
-                                  (i) => i,
-                                ),
-                              );
-                            } else {
-                              _selectedRows.clear();
-                            }
-                          }),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      )
-                    else
-                      const SizedBox(width: 28), // Consistent leading space
-                    const Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'ITEM DETAILS',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF4B5563),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    _headerDivider(),
-                    const Expanded(
-                      flex: 1,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Text(
-                            'QUANTITY',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF4B5563),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    _headerDivider(),
-                    Expanded(
-                      flex: 1,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'RATE',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF4B5563),
+                          },
+                          itemBuilder: (_) {
+                            final allHidden = poState.items.asMap().keys.every((i) => _hiddenDetails.contains(i));
+                            return [
+                              PopupMenuItem(
+                                value: 'stock',
+                                padding: EdgeInsets.zero,
+                                height: 40,
+                                child: _HoverableToggleMenuItem(
+                                  _showStockInfo ? 'Hide Available Stock' : 'Show Available Stock',
+                                  _showStockInfo,
                                 ),
                               ),
-                              const SizedBox(width: 4),
-                              ZTooltip(
-                                message:
-                                    'You can perform basic calculations directly in this field using parentheses ( ) and arithmetic operators: + - / *',
-                                child: SvgPicture.string(
-                                  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>',
-                                  width: 14,
-                                  height: 14,
-                                  colorFilter: const ColorFilter.mode(
-                                    Color(0xFF0088FF),
-                                    BlendMode.srcIn,
-                                  ),
+                              PopupMenuItem(
+                                value: 'recent',
+                                padding: EdgeInsets.zero,
+                                height: 40,
+                                child: _HoverableToggleMenuItem(
+                                  _showRecentTransactions ? 'Hide Recent Transactions' : 'Show Recent Transactions',
+                                  _showRecentTransactions,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    if (poState.discountLevel == 'item') ...[
-                      _headerDivider(),
-                      Expanded(
-                        flex: 1,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'DISCOUNT',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF4B5563),
+                              PopupMenuItem(
+                                value: 'pricelist',
+                                padding: EdgeInsets.zero,
+                                height: 40,
+                                child: _HoverableToggleMenuItem(
+                                  _showPriceList ? 'Hide Price List' : 'Show Price List',
+                                  _showPriceList,
                                 ),
                               ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.info_outline,
-                                size: 12,
-                                color: _hintColor.withValues(alpha: 0.7),
+                              PopupMenuItem(
+                                value: 'hide_all',
+                                padding: EdgeInsets.zero,
+                                height: 40,
+                                child: _HoverableToggleMenuItem(
+                                  allHidden ? 'Show All Additional Information' : 'Hide All Additional Information',
+                                  !allHidden,
+                                ),
                               ),
-                            ],
+                            ];
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF3F4F6),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: _borderCol),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(LucideIcons.settings, size: 16, color: Color(0xFF4B5563)),
+                                Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF4B5563)),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ],
-                    _headerDivider(),
-                    Expanded(
-                      flex: 1,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'TAX',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF4B5563),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 60), // Align with action column
+            ],
+          )
+        else
+          // ── Bulk Update Toolbar ──
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50.withValues(alpha: 0.4),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(6),
+                      topRight: Radius.circular(6),
+                    ),
+                    border: Border.all(color: _borderCol),
+                  ),
+                  child: Row(
+                    children: [
+                      _buildBulkButton('Update Reporting Tags', onTap: () {}),
+                      const SizedBox(width: 10),
+                      _buildBulkButton(
+                        'Update Account',
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => _buildUpdateAccountDialog(availableAccounts),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      _buildBulkButton(
+                        'Update Discount',
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => _buildUpdateDiscountDialog(),
+                          );
+                        },
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(LucideIcons.x, size: 18),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        color: Colors.blue.shade600,
+                        onPressed: () {
+                          setState(() {
+                            _bulkMode = false;
+                            _selectedRows.clear();
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 60),
+            ],
+          ),
+
+        // ── Column Headers ──
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    left: BorderSide(color: _borderCol),
+                    right: BorderSide(color: _borderCol),
+                    bottom: BorderSide(color: _borderCol),
+                  ),
+                ),
+                child: IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      if (_bulkMode)
+                        SizedBox(
+                          width: 40,
+                          child: Center(
+                            child: Transform.scale(
+                              scale: 0.85,
+                              child: Checkbox(
+                                value: _selectedRows.length == poState.items.length && poState.items.isNotEmpty,
+                                onChanged: (v) {
+                                  setState(() {
+                                    if (v == true) {
+                                      for (int i = 0; i < poState.items.length; i++) {
+                                        _selectedRows.add(i);
+                                      }
+                                    } else {
+                                      _selectedRows.clear();
+                                    }
+                                  });
+                                },
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                side: const BorderSide(color: Color(0xFFD1D5DB)),
+                                activeColor: const Color(0xFF2563EB),
                               ),
                             ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.info_outline,
-                              size: 12,
-                              color: _hintColor.withValues(alpha: 0.7),
-                            ),
-                          ],
+                          ),
+                        )
+                      else
+                        const SizedBox(width: 40),
+                      Expanded(
+                        flex: 10,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          child: _buildHeaderSearchField(
+                            label: 'ITEM DETAILS',
+                            controller: _itemDetailsSearchCtrl,
+                            hintText: 'Search items...',
+                            onChanged: (val) {
+                              setState(() => _itemDetailsSearchQuery = val);
+                            },
+                            isSearchVisible: _showSearchItemDetails,
+                            onToggle: () {
+                              setState(() {
+                                _showSearchItemDetails = !_showSearchItemDetails;
+                                if (!_showSearchItemDetails) {
+                                  _itemDetailsSearchCtrl.clear();
+                                  _itemDetailsSearchQuery = '';
+                                }
+                              });
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                    _headerDivider(),
-                    const SizedBox(
-                      width: 100,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Text(
-                            'AMOUNT',
+                      _vLine(),
+                      Expanded(
+                        flex: 5,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          child: const Text(
+                            'ACCOUNT',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF4B5563),
+                              color: Color(0xFF6B7280),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 60), // actions space
-                  ],
+                      _vLine(),
+                      Expanded(
+                        flex: 5,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          child: const Text(
+                            'QUANTITY',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
+                      ),
+                      _vLine(),
+                      Expanded(
+                        flex: 5,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              const Text(
+                                'RATE',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF6B7280),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              ZTooltip(
+                                message: 'You can perform basic calculations directly in this field using parentheses ( ) and arithmetic operators: + - / *',
+                                child: SvgPicture.string(
+                                  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>',
+                                  width: 13,
+                                  height: 13,
+                                  colorFilter: const ColorFilter.mode(Color(0xFF0088FF), BlendMode.srcIn),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (poState.discountLevel == 'item') ...[
+                        _vLine(),
+                        Expanded(
+                          flex: 5,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                const Text(
+                                  'DISCOUNT',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(Icons.info_outline, size: 12, color: _hintColor.withValues(alpha: 0.7)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                      _vLine(),
+                      Expanded(
+                        flex: 5,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              const Text(
+                                'TAX',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF6B7280),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              ZTooltip(
+                                message: 'Applicable tax for the items. You can select a tax rate from the list.',
+                                child: const Icon(LucideIcons.helpCircle, size: 14, color: Color(0xFF9CA3AF)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      _vLine(),
+                      Expanded(
+                        flex: 4,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          child: const Text(
+                            'AMOUNT',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              // ── Item rows ──
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: poState.items.length,
-                separatorBuilder: (_, __) =>
-                    Divider(height: 1, color: _borderCol),
-                itemBuilder: (_, i) => _buildItemRow(
-                  i,
-                  allItems,
-                  availableAccounts,
-                  poState,
-                  poState.items[i],
-                ),
-              ),
-            ],
+            ),
+            const SizedBox(width: 60),
+          ],
+        ),
+
+        // ── Item Rows ──
+        Theme(
+          data: Theme.of(context).copyWith(
+            canvasColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+          ),
+          child: ReorderableListView.builder(
+            buildDefaultDragHandles: false,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: poState.items.length,
+            onReorder: (oldIndex, newIndex) {
+              if (newIndex > oldIndex) newIndex -= 1;
+              notifier.reorderItems(oldIndex, newIndex);
+              setState(() {
+                if (oldIndex < _rowControllers.length && newIndex <= _rowControllers.length) {
+                  final ctrl = _rowControllers.removeAt(oldIndex);
+                  _rowControllers.insert(newIndex, ctrl);
+                }
+              });
+            },
+            itemBuilder: (ctx, i) {
+              final rowItem = poState.items[i];
+              if (_itemDetailsSearchQuery.isNotEmpty) {
+                final name = (rowItem.productName ?? '').toLowerCase();
+                if (!name.contains(_itemDetailsSearchQuery.toLowerCase())) {
+                  return SizedBox(key: ValueKey('po_row_$i'));
+                }
+              }
+              return _buildItemRow(
+                i,
+                allItems,
+                availableAccounts,
+                poState,
+                rowItem,
+              );
+            },
           ),
         ),
-        const SizedBox(height: 16),
-        // ── Add Row Buttons (Outside Table) ──
+
+        // ── Table Bottom Border ──
         Row(
           children: [
-            // Split button: left = Add New Row, right chevron = dropdown
+            Expanded(
+              child: Container(
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(6),
+                    bottomRight: Radius.circular(6),
+                  ),
+                  border: Border(
+                    left: BorderSide(color: _borderCol),
+                    right: BorderSide(color: _borderCol),
+                    bottom: BorderSide(color: _borderCol),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 60),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+        // ── Add Row Buttons (Below Table) ──
+        Row(
+          children: [
             CompositedTransformTarget(
               link: _addRowDropdownLink,
               child: Container(
@@ -3578,14 +3830,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Main action
                     GestureDetector(
                       onTap: () {
-                        _addRowController(
-                          initialQty: 1.0,
-                          initialRate: 0.0,
-                          initialDiscount: 0.0,
-                        );
+                        _addRowController(initialQty: 1.0, initialRate: 0.0, initialDiscount: 0.0);
                         notifier.addItemRow();
                       },
                       child: const Padding(
@@ -3593,40 +3840,22 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.add_circle_outline,
-                              size: 14,
-                              color: const Color(0xFF2563EB),
-                            ),
-                            const SizedBox(width: 6),
-                            const Text(
+                            Icon(Icons.add_circle_outline, size: 14, color: Color(0xFF2563EB)),
+                            SizedBox(width: 6),
+                            Text(
                               'Add New Row',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF374151),
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: TextStyle(fontSize: 12, color: Color(0xFF374151), fontWeight: FontWeight.w600),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    // Divider
-                    Container(
-                      width: 1,
-                      height: 20,
-                      color: const Color(0xFFE5E7EB),
-                    ),
-                    // Chevron dropdown trigger
+                    Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
                     GestureDetector(
                       onTap: () => _toggleAddRowDropdown(notifier),
                       child: const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 6),
-                        child: Icon(
-                          Icons.keyboard_arrow_down,
-                          size: 16,
-                          color: Color(0xFF6B7280),
-                        ),
+                        child: Icon(Icons.keyboard_arrow_down, size: 16, color: Color(0xFF6B7280)),
                       ),
                     ),
                   ],
@@ -3645,9 +3874,144 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
-  Widget _headerDivider() {
-    return Container(width: 1, height: double.infinity, color: _borderCol);
+  Widget _buildUpdateDiscountDialog() {
+    String discountType = 'percentage';
+    final controller = TextEditingController();
+
+    return Dialog(
+      backgroundColor: Colors.white,
+      alignment: Alignment.topCenter,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 0),
+      child: StatefulBuilder(
+        builder: (context, setModalState) {
+          return SizedBox(
+            width: 600,
+            height: 320,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Bulk Update Line Items',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111827), fontFamily: 'Inter'),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(LucideIcons.x, size: 16, color: Color(0xFFEF4444)),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => context.pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _zRadio('Percentage (%)', 'percentage', discountType, (v) => setModalState(() => discountType = v)),
+                            ),
+                            Expanded(
+                              child: _zRadio('Flat (₹)', 'fixed', discountType, (v) => setModalState(() => discountType = v)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          height: 32,
+                          decoration: BoxDecoration(border: Border.all(color: const Color(0xFFE5E7EB)), borderRadius: BorderRadius.circular(4)),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: controller,
+                                  textAlign: TextAlign.right,
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                                    hintText: '0',
+                                  ),
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                ),
+                              ),
+                              Container(
+                                width: 40,
+                                height: 32,
+                                alignment: Alignment.center,
+                                decoration: const BoxDecoration(
+                                  border: Border(left: BorderSide(color: Color(0xFFE5E7EB))),
+                                  color: Color(0xFFF9FAFB),
+                                ),
+                                child: Text(discountType == 'percentage' ? '%' : '₹', style: const TextStyle(color: Color(0xFF6B7280))),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+                          final currentState = ref.read(purchaseOrderFormNotifierProvider);
+                          final discVal = double.tryParse(controller.text) ?? 0;
+                          for (int i = 0; i < currentState.items.length; i++) {
+                            final item = currentState.items[i];
+                            if (item.productId.isNotEmpty && !item.isHeader) {
+                              notifier.updateItem(i, item.copyWith(discount: discVal, discountType: discountType));
+                            }
+                          }
+                          setState(() { _bulkMode = false; _selectedRows.clear(); });
+                          context.pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        ),
+                        child: const Text('Update'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: () => context.pop(),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF374151),
+                          side: const BorderSide(color: Color(0xFFD1D5DB)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
+
+
 
   Widget _buildItemRow(
     int index,
@@ -3668,889 +4032,1061 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
     final ctrl = _rowControllers[index];
     final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
-    final activePriceLists = ref.watch(activePriceListsProvider);
+    final activePriceLists = ref.watch(activePriceListsProvider)
+        .where((pl) => pl.transactionType.toLowerCase() == 'purchase')
+        .toList();
 
-    // Header row
+    final currentPriceListId = item.priceListId;
+    final currentPriceList = activePriceLists.where((pl) => pl.id == currentPriceListId).firstOrNull;
+    bool notIncluded = false;
+    if (currentPriceList != null && item.productId.isNotEmpty) {
+      if (currentPriceList.priceListType == 'individual_items') {
+        notIncluded = !(currentPriceList.itemRates?.any((r) => r.itemId == item.productId) ?? false);
+      }
+    } else if (currentPriceListId != null && item.productId.isNotEmpty) {
+      notIncluded = true;
+    }
+
+    // Header row — outside-border pattern with 60px sibling
     if (item.isHeader) {
       _headerTextControllers.putIfAbsent(
         index,
         () => TextEditingController(text: item.headerText ?? ''),
       );
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _headerTextControllers[index],
-                onChanged: (v) => notifier.updateHeaderText(index, v),
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: _textPrimary,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Add New Header',
-                  hintStyle: const TextStyle(color: _hintColor, fontSize: 13),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(3),
-                    borderSide: const BorderSide(color: _fieldBorder),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(3),
-                    borderSide: const BorderSide(color: _fieldBorder),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(3),
-                    borderSide: const BorderSide(color: Color(0xFF0088FF)),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  isDense: true,
+      return Row(
+        key: ValueKey('po_header_$index'),
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFF0F4FF),
+                border: Border(
+                  left: BorderSide(color: _borderCol),
+                  right: BorderSide(color: _borderCol),
+                  bottom: BorderSide(color: _borderCol),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () {
-                _rowControllers[index].dispose();
-                _headerTextControllers.remove(index);
-                setState(() {
-                  _rowControllers.removeAt(index);
-                });
-                notifier.removeItemRow(index);
-              },
-              child: const Icon(Icons.close, size: 16, color: _dangerRed),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        ClipRect(
-          child: Container(
-            constraints: BoxConstraints(
-              minHeight: item.productId.isEmpty ? 54 : 120,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: IntrinsicHeight(
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Bulk checkbox (only in bulk mode)
-                  if (_bulkMode)
-                    SizedBox(
-                      width: 28,
-                      child: Center(
-                        child: Checkbox(
-                          value: _selectedRows.contains(index),
-                          onChanged: (v) => setState(() {
-                            if (v == true) {
-                              _selectedRows.add(index);
-                            } else {
-                              _selectedRows.remove(index);
-                            }
-                          }),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                    )
-                  else
-                    const SizedBox(width: 28), // Consistent leading space
-                  Expanded(
-                    flex: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 8,
-                      ),
-                      child: item.productId.isEmpty
-                          // ── Empty state: search dropdown ──
-                          ? Row(
-                              children: [
-                                Container(
-                                  width: 28,
-                                  height: 28,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF3F4F6),
-                                    border: Border.all(color: _borderCol),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Icon(
-                                    Icons.inventory_2_outlined,
-                                    size: 16,
-                                    color: _hintColor,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: _plainDropdown<Item>(
-                                    value: null,
-                                    items: allItems,
-                                    hint: 'Type or click to select an item.',
-                                    onChanged: (i) {
-                                      if (i == null) return;
-                                      
-                                      int targetIndex = index;
-                                      if (index > 0 && poState.items[index - 1].productId.isEmpty) {
-                                        _rowControllers[index - 1].dispose();
-                                        _rowControllers.removeAt(index - 1);
-                                        notifier.removeItemRow(index - 1);
-                                        targetIndex = index - 1;
-                                      }
-
-                                      final targetCtrl = _rowControllers[targetIndex];
-                                      targetCtrl.nameCtrl.text = i.productName;
-                                      targetCtrl.qtyCtrl.text = '1.00';
-                                      targetCtrl.rateCtrl.text = (i.costPrice ?? 0.0) % 1 == 0
-                                          ? (i.costPrice ?? 0.0).toInt().toString()
-                                          : (i.costPrice ?? 0.0).toStringAsFixed(2);
-                                      targetCtrl.discountCtrl.text = '0.00';
-                                      targetCtrl.descCtrl.text =
-                                          i.purchaseDescription ?? '';
-                                      
-                                      notifier.selectProductForItem(
-                                        targetIndex,
-                                        i,
-                                        poState.warehouseId ?? '',
-                                      );
-                                    },
-                                    displayStringMapper: (i) => i.productName,
-                                  ),
-                                ),
-                              ],
-                            )
-                          // ── Selected state: rich card ──
-                          : Builder(
-                              builder: (context) {
-                                final selectedItem = allItems.firstWhere(
-                                  (i) => i.id == item.productId,
-                                  orElse: () => Item(
-                                    productName: item.productName ?? '',
-                                    itemCode: item.itemCode ?? '',
-                                    type: item.productType ?? 'goods',
-                                    unitId: '',
-                                  ),
-                                );
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Drag handle (inside card)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        top: 10,
-                                        right: 6,
-                                      ),
-                                      child: Icon(
-                                        Icons.drag_indicator,
-                                        size: 16,
-                                        color: _hintColor.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                      ),
-                                    ),
-                                    // Image placeholder
-                                    Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF3F4F6),
-                                        border: Border.all(color: _borderCol),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child:
-                                          selectedItem.primaryImageUrl !=
-                                                  null &&
-                                              selectedItem
-                                                  .primaryImageUrl!
-                                                  .isNotEmpty
-                                          ? ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                              child: Image.network(
-                                                selectedItem.primaryImageUrl!,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) =>
-                                                    const Icon(
-                                                      Icons.image_outlined,
-                                                      size: 20,
-                                                      color: _hintColor,
-                                                    ),
-                                              ),
-                                            )
-                                          : const Icon(
-                                              Icons.image_outlined,
-                                              size: 20,
-                                              color: _hintColor,
-                                            ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          // Name row
-                                          Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  item.productName ?? '',
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: _textPrimary,
-                                                  ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                              // 3-dot menu
-                                              CompositedTransformTarget(
-                                                link: _rowControllers[index]
-                                                    .itemDetailsMenuLink,
-                                                child: GestureDetector(
-                                                  onTap: () => _showItemMenu(
-                                                    context,
-                                                    index,
-                                                    item,
-                                                    _rowControllers[index]
-                                                        .itemDetailsMenuLink,
-                                                  ),
-                                                  child: const Padding(
-                                                    padding: EdgeInsets.all(4),
-                                                    child: Icon(
-                                                      Icons.more_horiz,
-                                                      size: 16,
-                                                      color: _hintColor,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 2),
-                                              // X close
-                                              GestureDetector(
-                                                onTap: () {
-                                                  notifier.removeItemRow(index);
-                                                  if (index <
-                                                      _rowControllers.length) {
-                                                    _rowControllers[index]
-                                                        .dispose();
-                                                    setState(
-                                                      () => _rowControllers
-                                                          .removeAt(index),
-                                                    );
-                                                  }
-                                                },
-                                                child: const Padding(
-                                                  padding: EdgeInsets.all(4),
-                                                  child: Icon(
-                                                    Icons.cancel_outlined,
-                                                    size: 16,
-                                                    color: _hintColor,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          if (!_hiddenDetails.contains(
-                                            index,
-                                          )) ...[
-                                            const SizedBox(height: 4),
-                                            // Description
-                                            Container(
-                                              height: 72,
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                  color: _borderCol,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: TextField(
-                                                controller: ctrl.descCtrl,
-                                                maxLines: null,
-                                                expands: true,
-                                                textAlignVertical:
-                                                    TextAlignVertical.top,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: _textPrimary,
-                                                ),
-                                                decoration: const InputDecoration(
-                                                  isDense: true,
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 6,
-                                                      ),
-                                                  border: InputBorder.none,
-                                                  hintText:
-                                                      'Add a description to your item',
-                                                  hintStyle: TextStyle(
-                                                    fontSize: 12,
-                                                    color: _hintColor,
-                                                  ),
-                                                ),
-                                                onChanged: (v) =>
-                                                    notifier.updateItem(
-                                                      index,
-                                                      item.copyWith(
-                                                        description: v,
-                                                      ),
-                                                    ),
-                                              ),
-                                            ),
-                                          ],
-                                          const SizedBox(height: 6),
-                                          // SKU/HSN info
-                                          Row(
-                                            children: [
-                                              _infoChip(
-                                                (item.productType ?? 'goods')
-                                                    .toUpperCase(),
-                                                item.productType == 'service'
-                                                    ? const Color(0xFF7C3AED)
-                                                    : const Color(0xFF0088FF),
-                                                Colors.white,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                'HSN Code: ',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: _hintColor,
-                                                ),
-                                              ),
-                                              CompositedTransformTarget(
-                                                link: _rowControllers[index]
-                                                    .hsnLink,
-                                                child: GestureDetector(
-                                                  onTap: () =>
-                                                      _showHsnEditDialog(
-                                                        context,
-                                                        index,
-                                                        item,
-                                                        _rowControllers[index]
-                                                            .hsnLink,
-                                                      ),
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      const Icon(
-                                                        Icons.edit_outlined,
-                                                        size: 12,
-                                                        color: Color(
-                                                          0xFF0088FF,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 3),
-                                                      Text(
-                                                        item.hsnCode != null &&
-                                                                item
-                                                                    .hsnCode!
-                                                                    .isNotEmpty
-                                                            ? item.hsnCode!
-                                                            : 'Update',
-                                                        style: const TextStyle(
-                                                          fontSize: 11,
-                                                          color: Color(
-                                                            0xFF0088FF,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                    ),
-                  ),
-                  _cellDivider(),
-                  // Quantity
-                  Expanded(
-                    flex: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 8,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _gridField(
-                            ctrl.qtyCtrl,
-                            hint: '1.00',
-                            textAlign: TextAlign.right,
-                            onChanged: (v) {
-                              final q = double.tryParse(v) ?? 0;
-                              notifier.updateItem(
-                                index,
-                                item.copyWith(quantity: q),
-                              );
-                            },
-                          ),
-                          if (item.productId.isNotEmpty && _showStockInfo) ...[
-                            const SizedBox(height: 4),
-                            Builder(
-                              builder: (context) {
-                                final warehouses =
-                                    ref.watch(warehousesProvider).value ?? [];
-                                final wh = warehouses.firstWhere(
-                                  (w) => w.id == (poState.warehouseId ?? ''),
-                                  orElse: () => warehouses.isNotEmpty
-                                      ? warehouses.first
-                                      : WarehouseModel(
-                                          id: '',
-                                          name: '',
-                                          countryRegion: '',
-                                        ),
-                                );
-                                final isSOH = _stockView == 'stockOnHand';
-                                final stockValue = isSOH
-                                    ? item.stockOnHand
-                                    : item.availableStock;
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      isSOH
-                                          ? 'Stock on Hand:'
-                                          : 'Available for Sale:',
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: _hintColor,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${stockValue?.toStringAsFixed(0) ?? '0'} pcs',
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: _textPrimary,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    if (wh.name.isNotEmpty)
-                                      CompositedTransformTarget(
-                                        link: _rowControllers[index]
-                                            .warehouseSelectionLink,
-                                        child: GestureDetector(
-                                          onTap: () =>
-                                              _showWarehouseStockDialog(
-                                                context,
-                                                item,
-                                                warehouses,
-                                                _rowControllers[index]
-                                                    .warehouseSelectionLink,
-                                              ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.warehouse_outlined,
-                                                size: 11,
-                                                color: Color(0xFF0088FF),
-                                              ),
-                                              const SizedBox(width: 2),
-                                              SizedBox(
-                                                width: 72,
-                                                child: Text(
-                                                  wh.name,
-                                                  style: const TextStyle(
-                                                    fontSize: 10,
-                                                    color: Color(0xFF0088FF),
-                                                  ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  maxLines: 1,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  _cellDivider(),
-                  // Rate
-                  Expanded(
-                    flex: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 8,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _gridField(
-                            ctrl.rateCtrl,
-                            focusNode: ctrl.rateFocus,
-                            onSubmitted: (_) => _handleRateCalculation(ctrl),
-                            hint: '0',
-                            textAlign: TextAlign.right,
-                            onChanged: (v) {
-                              final r = double.tryParse(v) ?? 0;
-                              notifier.updateItem(
-                                index,
-                                item.copyWith(rate: r),
-                              );
-                            },
-                          ),
-                          if (item.productId.isNotEmpty) ...[
-                            if (_showPriceList || _showRecentTransactions)
-                              const SizedBox(height: 4),
-                            if (_showPriceList && activePriceLists.isNotEmpty)
-                              PopupMenuButton<PriceList>(
-                                padding: EdgeInsets.zero,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: _borderCol),
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Text(
-                                        'Apply Price List',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: _textPrimary,
-                                        ),
-                                      ),
-                                      SizedBox(width: 2),
-                                      Icon(
-                                        Icons.arrow_drop_down,
-                                        size: 13,
-                                        color: _hintColor,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                onSelected: (pl) {
-                                  final newRate = pl.calculatePrice(
-                                    item.productId,
-                                    item.rate,
-                                    quantity: item.quantity,
-                                  );
-                                  ctrl.rateCtrl.text = newRate.toStringAsFixed(
-                                    2,
-                                  );
-                                  notifier.updateItem(
-                                    index,
-                                    item.copyWith(
-                                      rate: newRate,
-                                      priceListId: pl.id,
-                                    ),
-                                  );
-                                },
-                                itemBuilder: (context) => activePriceLists
-                                    .where(
-                                      (pl) => pl.transactionType == 'purchase',
-                                    )
-                                    .map(
-                                      (pl) => PopupMenuItem(
-                                        value: pl,
-                                        child: Text(
-                                          pl.name,
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                            if (_showRecentTransactions)
-                              Builder(
-                                builder: (innerContext) => GestureDetector(
-                                  onTap: () {
-                                    // Find the full item object to pass to the sidebar
-                                    final selectedProduct = allItems.firstWhere(
-                                      (p) => p.id == item.productId,
-                                      orElse: () => Item(
-                                        id: item.productId,
-                                        productName: item.productName ?? '',
-                                        type: item.productType ?? 'goods',
-                                        unitId: '',
-                                        itemCode: item.itemCode ?? '',
-                                      ),
-                                    );
-                                    ref
-                                            .read(
-                                              itemDetailsSidebarProvider
-                                                  .notifier,
-                                            )
-                                            .state =
-                                        selectedProduct;
-                                    Scaffold.of(innerContext).openEndDrawer();
-                                  },
-                                  child: const Text(
-                                    'Recent Transactions',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Color(0xFF0088FF),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (poState.discountLevel == 'item') ...[
-                    _cellDivider(),
-                    // Discount
-                    Expanded(
-                      flex: 1,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                          horizontal: 8,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _gridField(
-                                    ctrl.discountCtrl,
-                                    hint: '0',
-                                    textAlign: TextAlign.right,
-                                    onChanged: (v) {
-                                      final d = double.tryParse(v) ?? 0;
-                                      notifier.updateItem(
-                                        index,
-                                        item.copyWith(discount: d),
-                                      );
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Container(
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: _fieldBorder),
-                                    borderRadius: BorderRadius.circular(4),
-                                    color: const Color(0xFFF9FAFB),
-                                  ),
-                                  child: CompositedTransformTarget(
-                                    link: ctrl.discountTypeLink,
-                                    child: GestureDetector(
-                                      onTap: () => _showDiscountMenu(
-                                        context,
-                                        index,
-                                        item,
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              item.discountType == 'percentage'
-                                                  ? '%'
-                                                  : '₹',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: _textPrimary,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 2),
-                                            const Icon(
-                                              Icons.arrow_drop_down,
-                                              size: 14,
-                                              color: _hintColor,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                  _cellDivider(),
-                  // Tax
-                  Expanded(
-                    flex: 1,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: CompositedTransformTarget(
-                          link: ctrl.taxLink,
-                          child: GestureDetector(
-                            onTap: () {
-                              final itemsState = ref.read(itemsControllerProvider);
-                              _showTaxPopover(context, index, item, itemsState.taxGroups);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: _fieldBorder),
-                                borderRadius: BorderRadius.circular(4),
-                                color: Colors.white,
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      item.taxName ?? 'Select Tax',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: item.taxName == null
-                                            ? _hintColor
-                                            : _textPrimary,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.arrow_drop_down,
-                                    size: 16,
-                                    color: _hintColor,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  _cellDivider(),
-                  // Amount
+                  // Drag handle area
                   SizedBox(
-                    width: 100,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(
-                          item.amount.toStringAsFixed(2),
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: _textPrimary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Actions
-                  SizedBox(
-                    width: 60,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CompositedTransformTarget(
-                          link: _rowControllers[index].rowActionsMenuLink,
-                          child: GestureDetector(
-                            onTap: () => _showItemMenu(
-                              context,
-                              index,
-                              item,
-                              _rowControllers[index].rowActionsMenuLink,
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(4),
-                              child: Icon(
-                                Icons.more_vert,
-                                size: 18,
-                                color: _hintColor,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () {
-                            if (poState.items.length > 1) {
-                              _rowControllers[index].dispose();
-                              setState(() {
-                                _rowControllers.removeAt(index);
-                              });
-                              notifier.removeItemRow(index);
-                            }
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.all(4),
+                    width: 40,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 0),
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: ReorderableDragStartListener(
+                          index: index,
+                          child: const MouseRegion(
+                            cursor: SystemMouseCursors.grab,
                             child: Icon(
-                              Icons.close,
+                              LucideIcons.gripVertical,
                               size: 16,
-                              color: _dangerRed,
+                              color: Color(0xFFD1D5DB),
                             ),
                           ),
                         ),
-                      ],
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      child: TextField(
+                        controller: _headerTextControllers[index],
+                        onChanged: (v) => notifier.updateHeaderText(index, v),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _textPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Add New Header',
+                          hintStyle: const TextStyle(color: _hintColor, fontSize: 13),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(3),
+                            borderSide: const BorderSide(color: _fieldBorder),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(3),
+                            borderSide: const BorderSide(color: _fieldBorder),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(3),
+                            borderSide: const BorderSide(color: Color(0xFF0088FF)),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          isDense: true,
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
           ),
+          // 60px actions column — outside border
+          SizedBox(
+            width: 60,
+            child: Center(
+              child: GestureDetector(
+                onTap: () {
+                  _rowControllers[index].dispose();
+                  _headerTextControllers.remove(index);
+                  setState(() {
+                    _rowControllers.removeAt(index);
+                  });
+                  notifier.removeItemRow(index);
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.close, size: 16, color: _dangerRed),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // ── Non-header row — outside-border pattern ──
+    return Column(
+      key: ValueKey('po_item_col_$index'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Bordered content ──
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: _bgWhite,
+                  border: Border(
+                    left: BorderSide(color: _borderCol),
+                    right: BorderSide(color: _borderCol),
+                  ),
+                ),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 40px left: checkbox (bulk mode) or drag handle (normal)
+                      if (_bulkMode)
+                        SizedBox(
+                          width: 40,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Transform.scale(
+                              scale: 0.85,
+                              child: Checkbox(
+                                value: _selectedRows.contains(index),
+                                onChanged: (v) => setState(() {
+                                  if (v == true) {
+                                    _selectedRows.add(index);
+                                  } else {
+                                    _selectedRows.remove(index);
+                                  }
+                                }),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                side: const BorderSide(color: Color(0xFFD1D5DB)),
+                                activeColor: const Color(0xFF2563EB),
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: 40,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 14),
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: ReorderableDragStartListener(
+                                index: index,
+                                child: const MouseRegion(
+                                  cursor: SystemMouseCursors.grab,
+                                  child: Icon(
+                                    LucideIcons.gripVertical,
+                                    size: 16,
+                                    color: Color(0xFFD1D5DB),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // ── ITEM DETAILS (flex:10) ──
+                      Expanded(
+                        flex: 10,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          child: item.productId.isEmpty
+                              // Empty state: search dropdown
+                              ? Row(
+                                  children: [
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF3F4F6),
+                                        border: Border.all(color: _borderCol),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Icon(
+                                        LucideIcons.image,
+                                        size: 20,
+                                        color: _hintColor,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: FormDropdown<Item>(
+                                        value: null,
+                                        height: 32,
+                                        hint: 'Type or click to select an item.',
+                                        hideBorderDefault: true,
+                                        items: allItems.take(20).toList(),
+                                        displayStringForValue: (i) => i.productName,
+                                        onSearch: (query) async {
+                                          if (query.length < 2) return [];
+                                          return await ref
+                                              .read(itemsControllerProvider.notifier)
+                                              .searchProductsNoState(query);
+                                        },
+                                        itemBuilder: (i, isSelected, isHovered) =>
+                                            _buildStandardLookupRow(
+                                              i.productName,
+                                              isSelected,
+                                              isHovered,
+                                              sublabel: i.itemCode.isNotEmpty ? i.itemCode : null,
+                                            ),
+                                        onChanged: (i) async {
+                                          if (i == null) return;
+
+                                          int targetIndex = index;
+                                          if (index > 0 && poState.items[index - 1].productId.isEmpty) {
+                                            _rowControllers[index - 1].dispose();
+                                            _rowControllers.removeAt(index - 1);
+                                            notifier.removeItemRow(index - 1);
+                                            targetIndex = index - 1;
+                                          }
+
+                                          final targetCtrl = _rowControllers[targetIndex];
+                                          targetCtrl.nameCtrl.text = i.productName;
+                                          targetCtrl.qtyCtrl.text = '1.00';
+                                          targetCtrl.rateCtrl.text =
+                                              (i.costPrice ?? 0.0) % 1 == 0
+                                                  ? (i.costPrice ?? 0.0).toInt().toString()
+                                                  : (i.costPrice ?? 0.0).toStringAsFixed(2);
+                                          targetCtrl.discountCtrl.text = '0.00';
+                                          targetCtrl.descCtrl.text = i.purchaseDescription ?? '';
+
+                                          await notifier.selectProductForItem(
+                                            targetIndex,
+                                            i,
+                                            poState.warehouseId ?? '',
+                                          );
+                                          
+                                          if (_selectedPriceListId != null) {
+                                            final currentState = ref.read(purchaseOrderFormNotifierProvider);
+                                            final updatedItem = currentState.items[targetIndex];
+                                            final pl = activePriceLists.where((p) => p.id == _selectedPriceListId).firstOrNull;
+                                            if (pl != null) {
+                                              final newRate = pl.calculatePrice(i.id ?? '', i.costPrice ?? 0.0, quantity: 1.0);
+                                              targetCtrl.rateCtrl.text = newRate.toStringAsFixed(2);
+                                              notifier.updateItem(
+                                                targetIndex,
+                                                updatedItem.copyWith(
+                                                  priceListId: _selectedPriceListId,
+                                                  rate: newRate,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              // Selected state: rich display
+                              : Builder(
+                                  builder: (context) {
+                                    final selectedItem = allItems.firstWhere(
+                                      (i) => i.id == item.productId,
+                                      orElse: () => Item(
+                                        productName: item.productName ?? '',
+                                        itemCode: item.itemCode ?? '',
+                                        type: item.productType ?? 'goods',
+                                        unitId: '',
+                                      ),
+                                    );
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        // Top row: image + name + ⋯ + ×
+                                        Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            // Image thumbnail (32×32)
+                                            Container(
+                                              width: 32,
+                                              height: 32,
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF3F4F6),
+                                                border: Border.all(color: _borderCol),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: selectedItem.primaryImageUrl != null &&
+                                                      selectedItem.primaryImageUrl!.isNotEmpty
+                                                  ? ClipRRect(
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      child: Image.network(
+                                                        selectedItem.primaryImageUrl!,
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder: (_, __, ___) => const Icon(
+                                                          LucideIcons.image,
+                                                          size: 16,
+                                                          color: _hintColor,
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : const Icon(
+                                                      LucideIcons.image,
+                                                      size: 16,
+                                                      color: _hintColor,
+                                                    ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  // Name row
+                                                  Row(
+                                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          item.productName ?? '',
+                                                          style: const TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: _textPrimary,
+                                                          ),
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                      // ⋯ menu
+                                                      Theme(
+                                                        data: Theme.of(context).copyWith(hoverColor: Colors.transparent),
+                                                        child: PopupMenuButton<String>(
+                                                          tooltip: 'Show more actions',
+                                                          padding: EdgeInsets.zero,
+                                                          offset: const Offset(0, 30),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius: BorderRadius.circular(8),
+                                                          ),
+                                                          onSelected: (v) {
+                                                            if (v == 'edit') {
+                                                              final selectedItem = allItems.firstWhere(
+                                                                (i) => i.id == item.productId,
+                                                                orElse: () => Item(
+                                                                  productName: item.productName ?? '',
+                                                                  itemCode: item.itemCode ?? '',
+                                                                  type: item.productType ?? 'goods',
+                                                                  unitId: '',
+                                                                ),
+                                                              );
+                                                              showDialog(
+                                                                context: context,
+                                                                builder: (ctx) => SalesItemQuickEditDialog(
+                                                                  item: selectedItem,
+                                                                  onUpdated: (newItem) {
+                                                                    setState(() {
+                                                                      notifier.selectProductForItem(
+                                                                        index,
+                                                                        newItem,
+                                                                        poState.warehouseId ?? '',
+                                                                      );
+                                                                      ctrl.rateCtrl.text = newItem.costPrice?.toString() ?? '0';
+                                                                    });
+                                                                  },
+                                                                ),
+                                                              );
+                                                            }
+                                                            if (v == 'details') {
+                                                              _showItemDetailsSidebar(item, initialTabIndex: 0);
+                                                            }
+                                                          },
+                                                          itemBuilder: (ctx) {
+                                                            return [
+                                                              PopupMenuItem<String>(
+                                                                value: 'edit',
+                                                                padding: EdgeInsets.zero,
+                                                                height: 40,
+                                                                child: _MenuHoverItem(
+                                                                  icon: LucideIcons.pencil,
+                                                                  label: 'Edit Item',
+                                                                ),
+                                                              ),
+                                                              PopupMenuItem<String>(
+                                                                value: 'details',
+                                                                padding: EdgeInsets.zero,
+                                                                height: 40,
+                                                                child: _MenuHoverItem(
+                                                                  icon: LucideIcons.shoppingBag,
+                                                                  label: 'View Item Details',
+                                                                ),
+                                                              ),
+                                                            ];
+                                                          },
+                                                          child: _buildIconAction(
+                                                            LucideIcons.moreHorizontal,
+                                                            size: 10,
+                                                            onTap: null,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      // × close (clears selection)
+                                                      _buildIconAction(
+                                                        LucideIcons.x,
+                                                        size: 10,
+                                                        onTap: () {
+                                                          notifier.clearItemRow(index);
+                                                          ctrl.nameCtrl.clear();
+                                                          ctrl.qtyCtrl.text = '1.00';
+                                                          ctrl.rateCtrl.text = '0';
+                                                          ctrl.discountCtrl.text = '0';
+                                                          ctrl.descCtrl.clear();
+                                                          setState(() {});
+                                                        },
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  // Description (if not hidden)
+                                                  if (!_hiddenDetails.contains(index)) ...[
+                                                    const SizedBox(height: 4),
+                                                    Container(
+                                                      height: 72,
+                                                      decoration: BoxDecoration(
+                                                        border: Border.all(color: _borderCol),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: TextField(
+                                                        controller: ctrl.descCtrl,
+                                                        maxLines: null,
+                                                        expands: true,
+                                                        textAlignVertical: TextAlignVertical.top,
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color: _textPrimary,
+                                                        ),
+                                                        decoration: const InputDecoration(
+                                                          isDense: true,
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                            horizontal: 8,
+                                                            vertical: 6,
+                                                          ),
+                                                          border: InputBorder.none,
+                                                          hintText: 'Add a description to your item',
+                                                          hintStyle: TextStyle(
+                                                            fontSize: 12,
+                                                            color: _hintColor,
+                                                          ),
+                                                        ),
+                                                        onChanged: (v) => notifier.updateItem(
+                                                          index,
+                                                          item.copyWith(description: v),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                  const SizedBox(height: 6),
+                                                  // Type badge + HSN code
+                                                  Row(
+                                                    children: [
+                                                      _infoChip(
+                                                        (item.productType ?? 'goods').toUpperCase(),
+                                                        item.productType == 'service'
+                                                            ? const Color(0xFF7C3AED)
+                                                            : const Color(0xFF0088FF),
+                                                        Colors.white,
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                        'HSN Code: ',
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: _hintColor,
+                                                        ),
+                                                      ),
+                                                      CompositedTransformTarget(
+                                                        link: _rowControllers[index].hsnLink,
+                                                        child: GestureDetector(
+                                                          onTap: () => _showHsnEditDialog(
+                                                            context,
+                                                            index,
+                                                            item,
+                                                            _rowControllers[index].hsnLink,
+                                                          ),
+                                                          child: Row(
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              const Icon(
+                                                                Icons.edit_outlined,
+                                                                size: 12,
+                                                                color: Color(0xFF0088FF),
+                                                              ),
+                                                              const SizedBox(width: 3),
+                                                              Text(
+                                                                (item.hsnCode != null && item.hsnCode!.isNotEmpty)
+                                                                    ? item.hsnCode!
+                                                                    : 'Update',
+                                                                style: const TextStyle(
+                                                                  fontSize: 11,
+                                                                  color: Color(0xFF0088FF),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                        ),
+                      ),
+
+                      _vLine(),
+
+                      // ── ACCOUNT (flex:5) ──
+                      Expanded(
+                        flex: 5,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: CompositedTransformTarget(
+                              link: ctrl.accountLink,
+                              child: GestureDetector(
+                                onTap: () {
+                                  _showAccountMenu(
+                                    context,
+                                    index,
+                                    item,
+                                    availableAccounts,
+                                    link: ctrl.accountLink,
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.accountName ?? 'Select Account',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: item.accountName == null ? _hintColor : _textPrimary,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const Icon(Icons.arrow_drop_down, size: 16, color: _hintColor),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      _vLine(),
+
+                      // ── QUANTITY (flex:5) ──
+                      Expanded(
+                        flex: 5,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _gridField(
+                                ctrl.qtyCtrl,
+                                hint: '1.00',
+                                textAlign: TextAlign.right,
+                                valueFontWeight: FontWeight.w400,
+                                onChanged: (v) {
+                                  final q = double.tryParse(v) ?? 0;
+                                  notifier.updateItem(
+                                    index,
+                                    item.copyWith(quantity: q),
+                                  );
+                                },
+                              ),
+                              if (item.productId.isNotEmpty && _showStockInfo) ...[
+                                const SizedBox(height: 4),
+                                Builder(
+                                  builder: (context) {
+                                    final warehouses = ref.watch(warehousesProvider).value ?? [];
+                                    final wh = warehouses.firstWhere(
+                                      (w) => w.id == (poState.warehouseId ?? ''),
+                                      orElse: () => warehouses.isNotEmpty
+                                          ? warehouses.first
+                                          : WarehouseModel(
+                                              id: '',
+                                              name: '',
+                                              countryRegion: '',
+                                            ),
+                                    );
+                                    final isSOH = _stockView == 'stockOnHand';
+                                    final stockValue = isSOH ? item.stockOnHand : item.availableStock;
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          '${isSOH ? 'Stock on Hand:' : 'Available for Sale:'} ${stockValue?.toStringAsFixed(0) ?? '0'} pcs',
+                                          textAlign: TextAlign.right,
+                                          style: const TextStyle(fontSize: 10, color: _textPrimary),
+                                        ),
+                                        if (wh.name.isNotEmpty)
+                                          Row(
+                                              mainAxisAlignment: MainAxisAlignment.end,
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                const Icon(
+                                                  LucideIcons.home,
+                                                  size: 12,
+                                                  color: Color(0xFF2563EB),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Flexible(
+                                                  child: WarehouseHoverPopover(
+                                                    warehouseName: wh.name,
+                                                    selectedView: 'Available for Sale',
+                                                    onViewChanged: (v) {},
+                                                    onWarehouseChanged: (newName) {
+                                                      final selectedWh = warehouses.firstWhere((w) => w.name == newName);
+                                                      ref
+                                                          .read(purchaseOrderFormNotifierProvider.notifier)
+                                                          .updateField(warehouseId: selectedWh.id);
+                                                    },
+                                                    child: Text(
+                                                      wh.name.toUpperCase(),
+                                                      textAlign: TextAlign.right,
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color: Color(0xFF2563EB),
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                      maxLines: 2,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      _vLine(),
+
+                      // ── RATE (flex:5) ──
+                      Expanded(
+                        flex: 5,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _gridField(
+                                ctrl.rateCtrl,
+                                focusNode: ctrl.rateFocus,
+                                onSubmitted: (_) => _handleRateCalculation(ctrl),
+                                hint: '0',
+                                textAlign: TextAlign.right,
+                                valueFontWeight: FontWeight.w400,
+                                onChanged: (v) {
+                                  final r = double.tryParse(v) ?? 0;
+                                  notifier.updateItem(
+                                    index,
+                                    item.copyWith(rate: r),
+                                  );
+                                },
+                              ),
+                              if (item.productId.isNotEmpty) ...[
+                                if (_showPriceList || _showRecentTransactions)
+                                  const SizedBox(height: 4),
+                                if (_showPriceList && activePriceLists.isNotEmpty)
+                                  Transform.translate(
+                                    offset: Offset(notIncluded ? 0 : 0, 0),
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      alignment: Alignment.centerLeft,
+                                      children: [
+                                        if (notIncluded)
+                                          Transform.translate(
+                                            offset: const Offset(-24, 0),
+                                            child: ZTooltip(
+                                              message: "This item has not been included in the selected price list. So, the item's default rate has been used.",
+                                              child: const Icon(LucideIcons.alertCircle, size: 16, color: Colors.orange),
+                                            ),
+                                          ),
+                                        CompositedTransformTarget(
+                                          link: ctrl.priceListLink,
+                                          child: MouseRegion(
+                                            onEnter: (_) {
+                                              if (item.priceListId != null) {
+                                                final pl = activePriceLists.where((pl) => pl.id == item.priceListId).firstOrNull;
+                                                if (pl != null) {
+                                                  _showValueTooltip(context, pl.name, ctrl.priceListLink);
+                                                }
+                                              }
+                                            },
+                                            onExit: (_) => _hideValueTooltip(),
+                                            child: SizedBox(
+                                              width: 120,
+                                              child: PopupMenuButton<PriceList>(
+                                                tooltip: '',
+                                                padding: EdgeInsets.zero,
+                                                child: Container(
+                                                  height: 32,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(color: _borderCol),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    color: Colors.white,
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          item.priceListId != null
+                                                              ? activePriceLists.where((pl) => pl.id == item.priceListId).firstOrNull?.name ?? 'Apply Price List'
+                                                              : 'Apply Price List',
+                                                          style: const TextStyle(fontSize: 11, color: _textPrimary, fontFamily: 'Inter'),
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                      const Icon(Icons.arrow_drop_down, size: 16, color: _hintColor),
+                                                    ],
+                                                  ),
+                                                ),
+                                                onSelected: (pl) {
+                                                  setState(() => _selectedPriceListId = pl.id);
+                                                  final newRate = pl.calculatePrice(
+                                                    item.productId,
+                                                    item.rate,
+                                                    quantity: item.quantity,
+                                                  );
+                                                  ctrl.rateCtrl.text = newRate.toStringAsFixed(2);
+                                                  notifier.updateItem(
+                                                    index,
+                                                    item.copyWith(rate: newRate, priceListId: pl.id),
+                                                  );
+                                                },
+                                                itemBuilder: (context) => activePriceLists
+                                                    .where((pl) => pl.transactionType == 'purchase')
+                                                    .map(
+                                                      (pl) => PopupMenuItem(
+                                                        value: pl,
+                                                        child: Text(pl.name, style: const TextStyle(fontSize: 12)),
+                                                      ),
+                                                    )
+                                                    .toList(),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                if (_showRecentTransactions)
+                                  Builder(
+                                    builder: (innerContext) => GestureDetector(
+                                      onTap: () {
+                                        _showItemDetailsSidebar(item, initialTabIndex: 2);
+                                      },
+                                      child: const Text(
+                                        'Recent Transactions',
+                                        style: TextStyle(fontSize: 10, color: Color(0xFF0088FF)),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      if (poState.discountLevel == 'item') ...[
+                        _vLine(),
+                        // ── DISCOUNT (flex:5) ──
+                        Expanded(
+                          flex: 5,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _gridField(
+                                        ctrl.discountCtrl,
+                                        hint: '0',
+                                        textAlign: TextAlign.right,
+                                        onChanged: (v) {
+                                          final d = double.tryParse(v) ?? 0;
+                                          notifier.updateItem(
+                                            index,
+                                            item.copyWith(discount: d),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: _fieldBorder),
+                                        borderRadius: BorderRadius.circular(4),
+                                        color: const Color(0xFFF9FAFB),
+                                      ),
+                                      child: CompositedTransformTarget(
+                                        link: ctrl.discountTypeLink,
+                                        child: GestureDetector(
+                                          onTap: () => _showDiscountMenu(context, index, item),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  item.discountType == 'percentage' ? '%' : '₹',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: _textPrimary,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 2),
+                                                const Icon(Icons.arrow_drop_down, size: 14, color: _hintColor),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      _vLine(),
+
+                      // ── TAX (flex:5) ──
+                      Expanded(
+                        flex: 5,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: CompositedTransformTarget(
+                              link: ctrl.taxLink,
+                              child: GestureDetector(
+                                onTap: () {
+                                  final itemsState = ref.read(itemsControllerProvider);
+                                  _showTaxPopover(context, index, item, itemsState.taxGroups);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.taxId == null
+                                              ? 'Select Tax'
+                                              : '${item.taxName} [${item.taxRate}%]',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: item.taxId == null ? _hintColor : _textPrimary,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (item.taxId != null)
+                                        GestureDetector(
+                                          onTap: () {
+                                            notifier.updateItem(
+                                              index,
+                                              item.clearTax(),
+                                            );
+                                          },
+                                          child: const Padding(
+                                            padding: EdgeInsets.symmetric(horizontal: 4),
+                                            child: Icon(Icons.close, size: 14, color: _dangerRed),
+                                          ),
+                                        ),
+                                      const Icon(Icons.arrow_drop_down, size: 16, color: _hintColor),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      _vLine(),
+
+                      // ── AMOUNT (flex:4) ──
+                      Expanded(
+                        flex: 4,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              item.amount.toStringAsFixed(2),
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: _textPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // ── 60px Actions column (outside border) ──
+            SizedBox(
+              width: 60,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CompositedTransformTarget(
+                      link: _rowControllers[index].rowActionsMenuLink,
+                      child: GestureDetector(
+                        onTap: () => _showItemMenu(
+                          context,
+                          index,
+                          item,
+                          _rowControllers[index].rowActionsMenuLink,
+                          allItems,
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(LucideIcons.moreVertical, size: 16, color: _hintColor),
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        if (poState.items.length > 1) {
+                          _rowControllers[index].dispose();
+                          setState(() {
+                            _rowControllers.removeAt(index);
+                          });
+                          notifier.removeItemRow(index);
+                        }
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(LucideIcons.x, size: 14, color: _dangerRed),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
+
+        // ── Expanded properties grey bar (account + reporting tags) ──
         if (!_hiddenDetails.contains(index))
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              border: Border(top: BorderSide(color: _borderCol)),
-            ),
-            child: _itemExpandedProperties(
-              index,
-              item,
-              availableAccounts,
-              poState,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F4F6),
+                    border: Border(
+                      left: BorderSide(color: _borderCol),
+                      right: BorderSide(color: _borderCol),
+                      top: BorderSide(color: _borderCol),
+                    ),
+                  ),
+                  child: _itemExpandedProperties(
+                    index,
+                    item,
+                    availableAccounts,
+                    poState,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 60),
+            ],
           ),
       ],
     );
@@ -4561,10 +5097,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     _taxOverlay = null;
   }
 
-  void _closeWarehouseOverlay() {
-    _warehouseOverlay?.remove();
-    _warehouseOverlay = null;
-  }
+
 
   void _closeHsnOverlay() {
     _hsnOverlay?.remove();
@@ -4668,67 +5201,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     Overlay.of(context).insert(_taxOverlay!);
   }
 
-  // ── Warehouse Stock Dialog ────────────────────────────────────────────────────
-  void _showWarehouseStockDialog(
-    BuildContext context,
-    PurchaseOrderItem item,
-    List<WarehouseModel> warehouses,
-    LayerLink link,
-  ) {
-    _closeWarehouseOverlay();
-    final poState = ref.read(purchaseOrderFormNotifierProvider);
 
-    // Use RenderBox to get absolute trigger position, then clamp to screen
-    const double popoverWidth = 680;
-    const double margin = 8;
-    final renderBox = context.findRenderObject() as RenderBox?;
-    final triggerGlobal = renderBox?.localToGlobal(Offset.zero) ?? Offset.zero;
-    final triggerSize = renderBox?.size ?? Size.zero;
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    // Right-align with trigger, clamped so it never overflows either edge
-    double left = triggerGlobal.dx + triggerSize.width - popoverWidth;
-    left = left.clamp(margin, screenWidth - popoverWidth - margin);
-    final double top = triggerGlobal.dy + triggerSize.height + 6;
-
-    _warehouseOverlay = OverlayEntry(
-      builder: (ctx) => Stack(
-        children: [
-          GestureDetector(
-            onTap: _closeWarehouseOverlay,
-            child: Container(color: Colors.transparent),
-          ),
-          Positioned(
-            left: left,
-            top: top,
-            width: popoverWidth,
-            child: Material(
-              color: Colors.transparent,
-              child: TapRegion(
-                onTapOutside: (_) => _closeWarehouseOverlay(),
-                child: _WarehouseStockDialog(
-                  item: item,
-                  warehouses: warehouses,
-                  selectedWarehouseId: poState.warehouseId,
-                  initialStockView: _stockView,
-                  onClose: _closeWarehouseOverlay,
-                  onWarehouseSelected: (whId) {
-                    ref
-                        .read(purchaseOrderFormNotifierProvider.notifier)
-                        .updateField(warehouseId: whId);
-                  },
-                  onViewChanged: (view) {
-                    setState(() => _stockView = view);
-                  },
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    Overlay.of(context).insert(_warehouseOverlay!);
-  }
 
   // ── HSN Edit Dialog ──────────────────────────────────────────────────────────
   void _showHsnEditDialog(
@@ -4800,6 +5273,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     TextEditingController ctrl, {
     String hint = '',
     TextAlign textAlign = TextAlign.start,
+    FontWeight valueFontWeight = FontWeight.w600,
     required Function(String) onChanged,
     Function(String)? onSubmitted,
     FocusNode? focusNode,
@@ -4830,7 +5304,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 onChanged: onChanged,
                 onSubmitted: onSubmitted,
                 textAlign: textAlign,
-                style: const TextStyle(fontSize: 13, color: _textPrimary),
+                style: TextStyle(fontSize: 14, fontWeight: valueFontWeight, color: _textPrimary),
                 decoration: InputDecoration(
                   isDense: true,
                   hintText: hint,
@@ -4850,28 +5324,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
-  Widget _plainDropdown<T>({
-    required T? value,
-    required List<T> items,
-    required String hint,
-    required Function(T?) onChanged,
-    required String Function(T) displayStringMapper,
-  }) {
-    return FormDropdown<T>(
-      value: value,
-      items: items,
-      hint: hint,
-      onChanged: onChanged,
-      displayStringForValue: displayStringMapper,
-      border: Border.all(color: Colors.transparent),
-      fillColor: Colors.white,
-      padding: EdgeInsets.zero,
-    );
-  }
 
-  Widget _cellDivider() {
-    return Container(width: 1, color: _borderCol);
-  }
+  Widget _vLine() =>
+      const VerticalDivider(width: 1, color: _borderCol, thickness: 1);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // REPORTING TAGS
@@ -4882,31 +5337,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     List<AccountNode> accounts,
     PurchaseOrderState poState,
   ) {
-    final ctrl = _rowControllers[index];
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Account
-        _propertyButton(
-          link: ctrl.accountLink,
-          iconWidget: SvgPicture.string(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg>',
-            width: 16,
-            height: 16,
-          ),
-          label: item.accountName ?? 'Select an account',
-          onTap: () {
-            _showAccountMenu(
-              context,
-              index,
-              item,
-              accounts,
-              link: ctrl.accountLink,
-            );
-          },
-        ),
-        _propertySeparator(),
         // Reporting Tags
         _propertyButton(
           iconWidget: SvgPicture.string(
@@ -4977,14 +5411,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     return content;
   }
 
-  Widget _propertySeparator() {
-    return Container(
-      width: 1,
-      height: 16,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: _fieldBorder,
-    );
-  }
+
 
   void _showAccountMenu(
     BuildContext context,
@@ -5113,7 +5540,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           // Per-tax breakdown rows
           ..._buildTaxBreakdownRows(poState),
           // Total Tax Amount with editable field + pencil
-          _buildTotalTaxRow(poState),
+          if (poState.items.any((i) => !i.isHeader && i.productId.isNotEmpty))
+            _buildTotalTaxRow(poState),
           if (poState.discountLevel == 'transaction') ...[
             const SizedBox(height: 12),
             _discountRow(poState),
@@ -5220,10 +5648,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             textAlign: TextAlign.right,
             style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 6,
-              ),
+              contentPadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(3),
                 borderSide: const BorderSide(color: _fieldBorder),
@@ -5236,9 +5661,99 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           ),
         ),
         const SizedBox(width: 6),
-        const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF0088FF)),
+        CompositedTransformTarget(
+          link: _totalTaxAmountLink,
+          child: GestureDetector(
+            onTap: () => _showTaxAmountEditPopover(context, poState),
+            child: const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF0088FF)),
+          ),
+        ),
       ],
     );
+  }
+
+  void _showTaxAmountEditPopover(BuildContext context, PurchaseOrderState poState) {
+    _closeTaxAmountOverlay();
+    
+    final Map<String, ({String name, double rate, double amount})> initialTaxes = {};
+    for (final item in poState.items.where((i) => !i.isHeader && i.taxAmount > 0)) {
+      final key = item.taxId ?? item.taxName ?? '';
+      if (key.isEmpty) continue;
+      
+      final half = item.taxRate / 2;
+      final halfAmt = item.taxAmount / 2;
+      final halfStr = half % 1 == 0
+          ? half.toInt().toString()
+          : half.toStringAsFixed(1);
+          
+      // Add CGST
+      final cgstKey = '${key}_CGST';
+      if (initialTaxes.containsKey(cgstKey)) {
+        final e = initialTaxes[cgstKey]!;
+        initialTaxes[cgstKey] = (
+          name: e.name,
+          rate: e.rate,
+          amount: e.amount + halfAmt,
+        );
+      } else {
+        initialTaxes[cgstKey] = (
+          name: 'CGST$halfStr',
+          rate: half,
+          amount: halfAmt,
+        );
+      }
+      
+      // Add SGST
+      final sgstKey = '${key}_SGST';
+      if (initialTaxes.containsKey(sgstKey)) {
+        final e = initialTaxes[sgstKey]!;
+        initialTaxes[sgstKey] = (
+          name: e.name,
+          rate: e.rate,
+          amount: e.amount + halfAmt,
+        );
+      } else {
+        initialTaxes[sgstKey] = (
+          name: 'SGST$halfStr',
+          rate: half,
+          amount: halfAmt,
+        );
+      }
+    }
+
+    _taxAmountOverlay = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          GestureDetector(
+            onTap: _closeTaxAmountOverlay,
+            child: Container(color: Colors.transparent),
+          ),
+          CompositedTransformFollower(
+            link: _totalTaxAmountLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomCenter,
+            followerAnchor: Alignment.topCenter,
+            offset: const Offset(-150, 10),
+            child: Material(
+              color: Colors.transparent,
+              child: _TaxAmountEditPopover(
+                initialTaxes: initialTaxes,
+                onCancel: _closeTaxAmountOverlay,
+                onSave: (editedAmounts) {
+                  _closeTaxAmountOverlay();
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_taxAmountOverlay!);
+  }
+
+  void _closeTaxAmountOverlay() {
+    _taxAmountOverlay?.remove();
+    _taxAmountOverlay = null;
   }
 
   Widget _discountRow(PurchaseOrderState s) {
@@ -5282,16 +5797,25 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 ),
               ),
               Container(width: 1, height: 32, color: _fieldBorder),
-              _toggleBtn(
-                '%',
-                s.discountType == 'percentage',
-                () => notifier.updateField(discountType: 'percentage'),
-              ),
-              Container(width: 1, height: 32, color: _fieldBorder),
-              _toggleBtn(
-                '₹',
-                s.discountType == 'fixed',
-                () => notifier.updateField(discountType: 'fixed'),
+              CompositedTransformTarget(
+                link: _discountTypeLink,
+                child: GestureDetector(
+                  onTap: _showDiscountTypePopover,
+                  child: SizedBox(
+                    width: 45,
+                    height: 32,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          s.discountType == 'percentage' ? '%' : '₹',
+                          style: const TextStyle(fontSize: 13, color: Color(0xFF1F2937)),
+                        ),
+                        const Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF1F2937)),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -5304,6 +5828,77 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         ),
       ],
     );
+  }
+
+  OverlayEntry? _discountTypeOverlay;
+  
+  void _showDiscountTypePopover() {
+    _closeDiscountTypeOverlay();
+    
+    final poState = ref.read(purchaseOrderFormNotifierProvider);
+    final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+
+    _discountTypeOverlay = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          GestureDetector(
+            onTap: _closeDiscountTypeOverlay,
+            child: Container(color: Colors.transparent),
+          ),
+          CompositedTransformFollower(
+            link: _discountTypeLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomCenter,
+            followerAnchor: Alignment.topCenter,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 45,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 4,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _DiscountTypeItem(
+                      text: '%',
+                      isSelected: poState.discountType == 'percentage',
+                      onTap: () {
+                        notifier.updateField(discountType: 'percentage');
+                        _closeDiscountTypeOverlay();
+                      },
+                    ),
+                    _DiscountTypeItem(
+                      text: '₹',
+                      isSelected: poState.discountType == 'fixed',
+                      onTap: () {
+                        notifier.updateField(discountType: 'fixed');
+                        _closeDiscountTypeOverlay();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_discountTypeOverlay!);
+  }
+
+  void _closeDiscountTypeOverlay() {
+    _discountTypeOverlay?.remove();
+    _discountTypeOverlay = null;
   }
 
   Widget _tdsTcsRow(PurchaseOrderState s) {
@@ -5394,10 +5989,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   focusedErrorBorder: InputBorder.none,
                   isDense: true,
                   filled: false,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 9,
-                  ),
+                  contentPadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 ),
               ),
             ),
@@ -5595,95 +6187,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     color: _labelColor,
                   ),
                 ),
-                const SizedBox(height: 8),
-                CompositedTransformTarget(
-                  link: _uploadLink,
-                  child: MouseRegion(
-                    onEnter: (_) =>
-                        setState(() => _isUploadButtonHovered = true),
-                    onExit: (_) =>
-                        setState(() => _isUploadButtonHovered = false),
-                    child: CustomPaint(
-                      foregroundPainter: _DashedBorderPainter(
-                        color:
-                            (_isUploadButtonHovered || _uploadOverlay != null)
-                            ? const Color(0xFF3B82F6)
-                            : const Color(0xFFD1D5DB),
-                      ),
-                      child: Container(
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            InkWell(
-                              onTap: _pickUploadFiles,
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(4),
-                                bottomLeft: Radius.circular(4),
-                              ),
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 12),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      LucideIcons.upload,
-                                      size: 14,
-                                      color: Color(0xFF6B7280),
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Upload File',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: Color(0xFF374151),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const VerticalDivider(
-                              width: 1,
-                              color: Color(0xFFE5E7EB),
-                              thickness: 1,
-                              indent: 6,
-                              endIndent: 6,
-                            ),
-                            InkWell(
-                              onTap: _toggleUploadOverlay,
-                              borderRadius: const BorderRadius.only(
-                                topRight: Radius.circular(4),
-                                bottomRight: Radius.circular(4),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                ),
-                                child: Icon(
-                                  _uploadOverlay != null
-                                      ? LucideIcons.chevronUp
-                                      : LucideIcons.chevronDown,
-                                  size: 16,
-                                  color: const Color(0xFF6B7280),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'You can upload a maximum of 10 files, 10MB each',
-                  style: TextStyle(fontSize: 12, color: _hintColor),
-                ),
+                const SizedBox(height: 12),
+                _buildFileUploadSection(),
               ],
             ),
           ),
@@ -5692,15 +6197,306 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
+  Widget _buildFileUploadSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            CompositedTransformTarget(
+              link: _uploadLink,
+              child: MouseRegion(
+                onEnter: (_) => setState(() => _isUploadButtonHovered = true),
+                onExit: (_) => setState(() => _isUploadButtonHovered = false),
+                child: CustomPaint(
+                  foregroundPainter: _DashedBorderPainter(
+                    color: (_isUploadButtonHovered || _uploadOverlay != null)
+                        ? const Color(0xFF3B82F6)
+                        : const Color(0xFFD1D5DB),
+                  ),
+                  child: Container(
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          onTap: _pickUploadFiles,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  LucideIcons.upload,
+                                  size: 14,
+                                  color: Color(0xFF6B7280),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Upload File',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF374151),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const VerticalDivider(
+                          width: 1,
+                          color: Color(0xFFE5E7EB),
+                          thickness: 1,
+                          indent: 6,
+                          endIndent: 6,
+                        ),
+                        InkWell(
+                          onTap: _toggleUploadOverlay,
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(4),
+                            bottomRight: Radius.circular(4),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(
+                              _uploadOverlay != null
+                                  ? LucideIcons.chevronUp
+                                  : LucideIcons.chevronDown,
+                              size: 16,
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (_attachedFiles.isNotEmpty) _buildAttachmentBadge(),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'You can upload a maximum of 10 files, 5MB each',
+          style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAttachmentBadge() {
+    return CompositedTransformTarget(
+      link: _attachmentBadgeLink,
+      child: InkWell(
+        onTap: _toggleAttachmentListOverlay,
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF3B82F6),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.paperclip, size: 14, color: Colors.white),
+              const SizedBox(width: 4),
+              Text(
+                '${_attachedFiles.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _toggleAttachmentListOverlay() {
+    if (_attachmentListOverlay != null) {
+      _attachmentListOverlay?.remove();
+      _attachmentListOverlay = null;
+      setState(() {});
+      return;
+    }
+
+    _attachmentListOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                _attachmentListOverlay?.remove();
+                _attachmentListOverlay = null;
+                setState(() {});
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _attachmentBadgeLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomLeft,
+            followerAnchor: Alignment.topLeft,
+            offset: const Offset(0, 4),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 300,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: _attachedFiles
+                          .map((file) => _buildAttachmentListItem(file))
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_attachmentListOverlay!);
+    setState(() {});
+  }
+
+  Widget _buildAttachmentListItem(PlatformFile file) {
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setItemState) {
+        return MouseRegion(
+          onEnter: (_) => setItemState(() => isHovered = true),
+          onExit: (_) => setItemState(() => isHovered = false),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isHovered ? const Color(0xFF3B82F6) : Colors.transparent,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.file,
+                  size: 16,
+                  color: isHovered ? Colors.white : const Color(0xFF3B82F6),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        file.name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isHovered ? Colors.white : const Color(0xFF374151),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'File Size: ${(file.size / 1024).toStringAsFixed(2)} KB',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isHovered
+                              ? Colors.white.withValues(alpha: 0.8)
+                              : const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isHovered)
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _attachedFiles.remove(file);
+                        if (_attachedFiles.isEmpty) {
+                          _attachmentListOverlay?.remove();
+                          _attachmentListOverlay = null;
+                        }
+                      });
+                      _attachmentListOverlay?.markNeedsBuild();
+                    },
+                    child: const Icon(LucideIcons.trash, size: 14, color: Colors.white),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _pickUploadFiles() async {
     try {
-      final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: true,
+      );
       if (!mounted || result == null) return;
-      final count = result.files.length;
+
+      setState(() {
+        final totalFiles = _attachedFiles.length + result.files.length;
+        if (totalFiles > 10) {
+          ZerpaiToast.error(
+            context,
+            'You can only attach a maximum of 10 files',
+          );
+          return;
+        }
+
+        // Check file size (5MB = 5 * 1024 * 1024 bytes)
+        final oversizedFiles =
+            result.files.where((f) => f.size > 5 * 1024 * 1024).toList();
+        if (oversizedFiles.isNotEmpty) {
+          ZerpaiToast.error(
+            context,
+            'File size should be less than or equal to 5MB',
+          );
+          return;
+        }
+
+        _attachedFiles = [..._attachedFiles, ...result.files];
+      });
+
+      final count = _attachedFiles.length;
       if (count > 0) {
         ZerpaiToast.success(
           context,
-          '$count file${count == 1 ? '' : 's'} selected',
+          '$count file${count == 1 ? '' : 's'} attached',
         );
       }
     } catch (e) {
@@ -5759,44 +6555,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                     const SizedBox(height: 4),
                     _buildUploadItem('Attach From Desktop', true),
                     _buildUploadItem('Attach From Documents', false),
-                    _buildUploadItem('Attach From Cloud', false),
-                    const Divider(height: 1, color: Color(0xFFF3F4F6)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildCloudIcon(
-                            LucideIcons.folder,
-                            const Color(0xFF6B7280),
-                          ),
-                          _buildCloudIcon(
-                            LucideIcons.folderOpen,
-                            const Color(0xFF10B981),
-                          ),
-                          _buildCloudIcon(
-                            LucideIcons.hardDrive,
-                            const Color(0xFFFBBF24),
-                          ),
-                          _buildCloudIcon(
-                            LucideIcons.box,
-                            const Color(0xFF3B82F6),
-                          ),
-                          _buildCloudIcon(
-                            LucideIcons.database,
-                            const Color(0xFF2563EB),
-                          ),
-                          _buildCloudIcon(
-                            LucideIcons.cloud,
-                            const Color(0xFF0EA5E9),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
@@ -5823,7 +6582,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           },
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
             decoration: BoxDecoration(
               color: isSelected
@@ -5849,16 +6608,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
-  Widget _buildCloudIcon(IconData icon, Color color) {
-    return InkWell(
-      onTap: () {
-        _uploadOverlay?.remove();
-        _uploadOverlay = null;
-        if (mounted) setState(() {});
-      },
-      child: Icon(icon, size: 18, color: color),
-    );
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // STICKY FOOTER (Zoho style)
@@ -6050,7 +6799,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             fetchStates(countryValue!);
           }
 
-          String dialogTitle = 'Edit Address';
+          String dialogTitle = 'New address';
           if (wh != null)
             dialogTitle = 'Edit Warehouse Address';
           else if (cust != null)
@@ -6105,132 +6854,73 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _addressLabel('Attention'),
-                          _zField(attCtrl),
-                          const SizedBox(height: 14),
-
-                          _addressLabel('Country/Region'),
-                          FormDropdown<String>(
-                            value: countryValue,
-                            items: _countriesList
-                                .map((c) => c['name'] as String)
-                                .toList(),
-                            hint: 'Select',
-                            showSearch: true,
-                            showSearchIcon: true,
-                            onChanged: (v) {
-                              if (v == null) return;
-                              setDialogState(() {
-                                countryValue = v;
-                                stateValue = null;
-                                localStates = [];
-                              });
-                              fetchStates(v);
-                            },
-                            itemBuilder: (item, isSelected, isHovered) =>
-                                _buildStandardLookupRow(
-                                  item,
-                                  isSelected,
-                                  isHovered,
-                                ),
-                          ),
-                          const SizedBox(height: 14),
-
-                          _addressLabel('Address'),
-                          _zField(s1Ctrl, hint: 'Street 1'),
-                          const SizedBox(height: 10),
-                          _zField(s2Ctrl, hint: 'Street 2'),
-                          const SizedBox(height: 14),
-
-                          _addressLabel('City'),
-                          _zField(cityCtrl),
-                          const SizedBox(height: 14),
-
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _addressLabel('State'),
-                                    FormDropdown<String>(
-                                      value: stateValue,
-                                      isLoading: isLoadingStates,
-                                      items: localStates
-                                          .map((s) => s['name'] as String)
-                                          .toList(),
-                                      hint: 'Select or type to add',
-                                      allowCustomValue: true,
-                                      showSearch: true,
-                                      onChanged: (v) =>
-                                          setDialogState(() => stateValue = v),
-                                      itemBuilder:
-                                          (item, isSelected, isHovered) =>
-                                              _buildStandardLookupRow(
-                                                item,
-                                                isSelected,
-                                                isHovered,
-                                              ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _addressLabel('Pin Code'),
-                                    _zField(pinCtrl),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _addressLabel('Phone'),
-                                    _buildPhoneRow(
-                                      code: phoneCodeValue,
-                                      onCodeChanged: (v) => setDialogState(
-                                        () => phoneCodeValue = v,
+                          _addressFormRow('Attention', _zField(attCtrl)),
+                          _addressFormRow('Street 1', _zField(s1Ctrl)),
+                          _addressFormRow('Street 2', _zField(s2Ctrl)),
+                          _addressFormRow('City', _zField(cityCtrl)),
+                          _addressFormRow(
+                            'State/Province',
+                            isLoadingStates
+                                ? const SizedBox(
+                                    height: 32,
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
                                       ),
-                                      controller: phoneCtrl,
-                                      onChanged: (v) {},
                                     ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _addressLabel('Fax Number'),
-                                    _zField(faxCtrl),
-                                  ],
-                                ),
-                              ),
-                            ],
+                                  )
+                                : FormDropdown<String>(
+                                    value: stateValue?.isEmpty == true
+                                        ? null
+                                        : stateValue,
+                                    items: localStates
+                                        .map((s) => s['name'] as String)
+                                        .toList(),
+                                    hint: 'Select State',
+                                    showSearch: true,
+                                    onChanged: (v) => setDialogState(
+                                      () => stateValue = v,
+                                    ),
+                                  ),
                           ),
-
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Note: Changes made here will be updated for this customer.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF6B7280),
-                              fontStyle: FontStyle.italic,
+                          _addressFormRow('ZIP/Postal Code', _zField(pinCtrl)),
+                          _addressFormRow(
+                            'Country/Region',
+                            FormDropdown<String>(
+                              value: countryValue,
+                              items: _countriesList
+                                  .map((c) => c['name'] as String)
+                                  .toList(),
+                              hint: 'Select or type to add',
+                              showSearch: true,
+                              showSearchIcon: true,
+                              onChanged: (v) {
+                                if (v == null) return;
+                                setDialogState(() {
+                                  countryValue = v;
+                                  stateValue = null;
+                                  localStates = [];
+                                });
+                                fetchStates(v);
+                              },
                             ),
                           ),
+                          _addressFormRow('Phone', _zField(phoneCtrl)),
+                          if (vendor != null || wh != null || cust != null) ...[
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Note: Changes made here will be updated for this entity.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF6B7280),
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -6245,6 +6935,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       children: [
                         ElevatedButton(
                           onPressed: () {
+                            final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
                             final data = <String, dynamic>{
                               'attention': attCtrl.text.trim(),
                               'street1': s1Ctrl.text.trim(),
@@ -6267,10 +6958,18 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                   .read(vendorProvider.notifier)
                                   .updateVendor(vendor.id, updated);
                             } else if (wh != null) {
-                              // Update warehouse logically in local state if supported
-                              // or trigger warehouse update API
+                              // Update warehouse
                             } else if (cust != null) {
-                              // Update customer logic
+                              // Update customer
+                            } else {
+                              // New Address - Update the current PO state delivery address
+                              notifier.updateField(
+                                deliveryAddressName: attCtrl.text.trim().isNotEmpty
+                                    ? attCtrl.text.trim()
+                                    : 'New Address',
+                                // We can store the rest in a temporary address field or just set the name
+                              );
+                              _deliveryNameCtrl.text = attCtrl.text.trim();
                             }
 
                             Navigator.pop(ctx);
@@ -6322,16 +7021,112 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
-  Widget _addressLabel(String label) {
+  Widget _addressFormRow(String label, Widget field) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.normal,
-          color: Color(0xFF4B5563),
-        ),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF4B5563),
+                ),
+              ),
+            ),
+          ),
+          Expanded(child: field),
+        ],
+      ),
+    );
+  }
+
+
+
+  Widget _buildHeaderSearchField({
+    required String label,
+    required TextEditingController controller,
+    required String hintText,
+    required ValueChanged<String> onChanged,
+    required bool isSearchVisible,
+    required VoidCallback onToggle,
+    TextAlign textAlign = TextAlign.start,
+  }) {
+    if (!isSearchVisible) {
+      return Row(
+        mainAxisAlignment: textAlign == TextAlign.center
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: onToggle,
+            child: const Icon(
+              LucideIcons.search,
+              size: 13,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: _borderCol),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.search, size: 12, color: Color(0xFF9CA3AF)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              autofocus: true,
+              style: const TextStyle(fontSize: 11, color: _textPrimary),
+              textAlign: textAlign,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: hintText,
+                hintStyle: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF9CA3AF),
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () {
+              controller.clear();
+              onChanged('');
+              onToggle();
+            },
+            child: const Icon(LucideIcons.x, size: 12, color: Color(0xFF6B7280)),
+          ),
+        ],
       ),
     );
   }
@@ -6341,6 +7136,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     bool isSelected,
     bool isHovered, {
     String? sublabel,
+    double indentation = 0.0,
   }) {
     Color bg = Colors.transparent;
     Color text = const Color(0xFF111827);
@@ -6360,7 +7156,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.only(left: 12 + indentation, right: 12, top: 8, bottom: 8),
       color: bg,
       child: Row(
         children: [
@@ -6399,85 +7195,64 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
-  Widget _buildPhoneRow({
-    required String code,
-    required ValueChanged<String> onCodeChanged,
-    required TextEditingController controller,
-    required Function(String) onChanged,
-  }) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 75,
-          child: FormDropdown<String>(
-            value: code,
-            items: _phoneCodesList,
-            menuWidth: 240,
-            displayStringForValue: (v) => v,
-            searchStringForValue: (v) => v,
-            showSearch: true,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(4),
-              bottomLeft: Radius.circular(4),
-            ),
-            itemBuilder: (item, isSelected, isHovered) =>
-                _buildPhonePrefixRow(item, isSelected, isHovered),
-            onChanged: (v) => onCodeChanged(v ?? '+91'),
-          ),
-        ),
-        Expanded(
-          child: _zField(
-            controller,
-            onChanged: onChanged,
-            // Custom border to align with prefix
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPhonePrefixRow(String code, bool isSelected, bool isHovered) {
-    String name = _phoneCodeToLabel[code] ?? '';
-    Color bg = Colors.transparent;
-    Color textColor = const Color(0xFF1F2937);
-    Color nameColor = const Color(0xFF6B7280);
-
-    if (isSelected) {
-      bg = const Color(0xFF3B82F6);
-      textColor = Colors.white;
-      nameColor = Colors.white70;
-    } else if (isHovered) {
-      bg = const Color(0xFFF3F4F6);
+  void _showValueTooltip(BuildContext context, String message, LayerLink link) {
+    if (_valueTooltipOverlay != null) {
+      _valueTooltipOverlay?.remove();
+      _valueTooltipOverlay = null;
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: bg,
-      child: Row(
+    _valueTooltipOverlay = OverlayEntry(
+      builder: (context) => Stack(
         children: [
-          SizedBox(
-            width: 45,
-            child: Text(
-              code,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: textColor,
+          Positioned(
+            child: CompositedTransformFollower(
+              link: link,
+              showWhenUnlinked: false,
+              targetAnchor: Alignment.bottomCenter,
+              followerAnchor: Alignment.topCenter,
+              offset: const Offset(0, 4),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: Color(0xFF374151),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, color: nameColor),
             ),
           ),
         ],
       ),
     );
+
+    Overlay.of(context).insert(_valueTooltipOverlay!);
+    setState(() {});
+  }
+
+  void _hideValueTooltip() {
+    if (_valueTooltipOverlay != null) {
+      _valueTooltipOverlay?.remove();
+      _valueTooltipOverlay = null;
+      setState(() {});
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -6612,23 +7387,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
-  List<TaxRate> _purchaseOrderTaxes(ItemsState itemsState) {
-    final seen = <String>{};
-    final merged = <TaxRate>[];
 
-    void addAll(List<TaxRate> taxes) {
-      for (final tax in taxes) {
-        if (tax.id.isEmpty || !seen.add(tax.id)) {
-          continue;
-        }
-        merged.add(tax);
-      }
-    }
-
-    addAll(itemsState.taxGroups);
-    addAll(itemsState.taxRates);
-    return merged;
-  }
 
   Widget _zRadio(
     String label,
@@ -6712,36 +7471,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
-  Widget _toggleBtn(
-    String label,
-    bool isActive,
-    VoidCallback onTap, {
-    bool small = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: small ? 28 : null,
-        height: small ? 24 : 30,
-        padding: small
-            ? EdgeInsets.zero
-            : const EdgeInsets.symmetric(horizontal: 8),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isActive ? _linkBlue : Colors.transparent,
-          borderRadius: BorderRadius.circular(small ? 2 : 0),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isActive ? Colors.white : _labelColor,
-            fontSize: small ? 10 : 12,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
+  // ═══════════════════════════════════════════════════════════════════════════
 
   // ═══════════════════════════════════════════════════════════════════════════
   // WAREHOUSE DROPDOWN HELPER
@@ -8299,7 +9029,7 @@ class _DashedBorderPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, size.width, size.height),
+      Rect.fromLTWH(0.5, 0.5, size.width - 1, size.height - 1),
       const Radius.circular(6),
     );
 
@@ -8971,6 +9701,31 @@ class _MathParser {
   }
 }
 
+class TrianglePainter extends CustomPainter {
+  final Color color;
+  TrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    path.moveTo(0, size.height); // Bottom left
+    path.lineTo(size.width / 2, 0); // Top center
+    path.lineTo(size.width, size.height); // Bottom right
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant TrianglePainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
 // ─── Hover-aware field wrapper ───────────────────────────────────────────────
 // Tracks mouse hover and exposes `isActive` to the builder so fields can
 // switch their border/fill color on hover (in addition to Flutter's native
@@ -9077,44 +9832,26 @@ class _WarehouseStockDialogState extends ConsumerState<_WarehouseStockDialog> {
                   style: TextStyle(fontSize: 12, color: _textGrey),
                 ),
                 // View dropdown
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: _blue),
+                SizedBox(
+                  width: 160,
+                  child: FormDropdown<String>(
+                    height: 32,
+                    value: _stockView,
+                    items: const ['stockOnHand', 'availableForSale'],
+                    displayStringForValue: (v) => v == 'stockOnHand' ? 'Stock on Hand' : 'Available for Sale',
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() => _stockView = v);
+                      widget.onViewChanged(v);
+                    },
                     borderRadius: BorderRadius.circular(6),
-                    color: Colors.white,
-                  ),
-                  height: 32,
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _stockView,
-                      isDense: true,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: _textDark,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      icon: const Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 16,
-                        color: _blue,
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'stockOnHand',
-                          child: Text('Stock on Hand'),
+                    border: Border.all(color: _blue),
+                    itemBuilder: (val, isSelected, isHovered) =>
+                        _buildStandardLookupRow(
+                          val == 'stockOnHand' ? 'Stock on Hand' : 'Available for Sale',
+                          isSelected,
+                          isHovered,
                         ),
-                        DropdownMenuItem(
-                          value: 'availableForSale',
-                          child: Text('Available for Sale'),
-                        ),
-                      ],
-                      onChanged: (v) {
-                        if (v == null) return;
-                        setState(() => _stockView = v);
-                        widget.onViewChanged(v);
-                      },
-                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -9340,6 +10077,75 @@ class _WarehouseStockDialogState extends ConsumerState<_WarehouseStockDialog> {
             style: const TextStyle(color: _blue, fontWeight: FontWeight.w500),
           ),
           TextSpan(text: normal),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStandardLookupRow(
+    String label,
+    bool isSelected,
+    bool isHovered, {
+    String? sublabel,
+  }) {
+    Color bg = Colors.transparent;
+    Color text = const Color(0xFF111827);
+    Color subtext = const Color(0xFF6B7280);
+    Color check = const Color(0xFF2563EB);
+
+    if (isHovered) {
+      bg = const Color(0xFF0088FF);
+      text = Colors.white;
+      subtext = Colors.white70;
+      check = Colors.white;
+    } else if (isSelected) {
+      bg = const Color(0xFFEFF6FF);
+      text = const Color(0xFF2563EB);
+      subtext = const Color(0xFF2563EB).withValues(alpha: 0.7);
+      check = const Color(0xFF2563EB);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: bg,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: text,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (sublabel != null && sublabel.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    sublabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: subtext,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (isSelected)
+            Icon(
+              Icons.check,
+              size: 16,
+              color: check,
+            ),
         ],
       ),
     );
@@ -9583,7 +10389,7 @@ class _SpecialPopoverListItemState extends State<_SpecialPopoverListItem> {
   @override
   Widget build(BuildContext context) {
     final bg = widget.isSelected || _hover
-        ? const Color(0xFF0088FF)
+        ? const Color(0xFF3B82F6)
         : Colors.transparent;
     final text = widget.isSelected || _hover
         ? Colors.white
@@ -9822,7 +10628,7 @@ class _PopoverListItemState extends State<_PopoverListItem> {
   @override
   Widget build(BuildContext context) {
     final bg = widget.isSelected || _hover
-        ? const Color(0xFF0088FF)
+        ? const Color(0xFF3B82F6)
         : Colors.transparent;
     final text = widget.isSelected || _hover
         ? Colors.white
@@ -9951,7 +10757,7 @@ class _HSNCodeEditPopover extends StatefulWidget {
 
 class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
   late TextEditingController _ctrl;
-  static const _blueColor = Color(0xFF0088FF);
+
   static const _hintColor = Color(0xFF8E8E93);
   static const _textPrimary = Color(0xFF1C1C1E);
 
@@ -9980,6 +10786,7 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
     if (result != null) {
       setState(() {
         _ctrl.text = result.code;
+        widget.onSave(result.code);
       });
     }
   }
@@ -10028,53 +10835,43 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _ctrl,
-                        autofocus: true,
-                        decoration: InputDecoration(
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 10,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                            borderSide: const BorderSide(color: _blueColor),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                            borderSide: const BorderSide(color: _blueColor),
-                          ),
-                          hintText: 'Enter HSN code',
-                          hintStyle: const TextStyle(
-                            color: _hintColor,
-                            fontSize: 13,
-                          ),
-                        ),
-                        style: const TextStyle(fontSize: 13),
-                        onSubmitted: (v) => widget.onSave(v.trim()),
-                      ),
+                child: TextField(
+                  controller: _ctrl,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
                     ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.search, color: _blueColor, size: 20),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    hintText: 'Enter HSN Code',
+                    hintStyle: const TextStyle(
+                      color: _hintColor,
+                      fontSize: 13,
+                    ),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.search, color: Color(0xFF6B7280), size: 20),
                       onPressed: _openHsnSearch,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
                       splashRadius: 16,
                     ),
-                  ],
+                  ),
+                  style: const TextStyle(fontSize: 13),
+                  onSubmitted: (v) => widget.onSave(v.trim()),
                 ),
               ),
               const SizedBox(height: 16),
-              const Divider(height: 1, color: Color(0xFFE5E5EA)),
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -10093,12 +10890,20 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
                       child: const Text('Save', style: TextStyle(fontSize: 13)),
                     ),
                     const SizedBox(width: 8),
-                    TextButton(
+                    OutlinedButton(
                       onPressed: widget.onCancel,
-                      child: const Text(
-                        'Close',
-                        style: TextStyle(fontSize: 13, color: _textPrimary),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFD1D5DB)),
+                        foregroundColor: _textPrimary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
+                      child: const Text('Close', style: TextStyle(fontSize: 13)),
                     ),
                   ],
                 ),
@@ -10110,3 +10915,778 @@ class _HSNCodeEditPopoverState extends State<_HSNCodeEditPopover> {
     );
   }
 }
+
+Widget _buildIconAction(
+  IconData icon, {
+  double size = 16,
+  VoidCallback? onTap,
+  Color? color,
+}) {
+  final content = Container(
+    padding: const EdgeInsets.all(2),
+    decoration: BoxDecoration(
+      border: Border.all(
+        color: color?.withValues(alpha: 0.3) ?? const Color(0xFFD3D3D3),
+      ),
+      shape: BoxShape.circle,
+    ),
+    child: Icon(icon, size: size, color: color ?? const Color(0xFF808080)),
+  );
+
+  if (onTap == null) return content;
+
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: content,
+  );
+}
+
+  Widget _buildSettingsOverlayItem({
+    required String label,
+    required bool showHighlight,
+    required ValueChanged<bool> onHover,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onHover: onHover,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: showHighlight ? const Color(0xFF3B82F6) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: showHighlight
+                ? Colors.white
+                : const Color(0xFF1F2937).withValues(alpha: 0.8),
+          ),
+        ),
+      ),
+    );
+  }
+
+class _MenuHoverItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
+
+  const _MenuHoverItem({required this.icon, required this.label});
+
+  @override
+  State<_MenuHoverItem> createState() => _MenuHoverItemState();
+}
+
+class _MenuHoverItemState extends State<_MenuHoverItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: _isHovered ? const Color(0xFF0088FF) : Colors.transparent,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              widget.icon,
+              size: 16,
+              color: _isHovered ? Colors.white : const Color(0xFF6B7280),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              widget.label,
+              style: TextStyle(
+                fontSize: 14,
+                color: _isHovered ? Colors.white : const Color(0xFF1F2937),
+                fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuHoverItemNoIcon extends StatefulWidget {
+  final String label;
+  const _MenuHoverItemNoIcon({required this.label});
+
+  @override
+  State<_MenuHoverItemNoIcon> createState() => _MenuHoverItemNoIconState();
+}
+
+class _MenuHoverItemNoIconState extends State<_MenuHoverItemNoIcon> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: _isHovered ? const Color(0xFF3B82F6) : Colors.transparent,
+        ),
+        child: Text(
+          widget.label,
+          style: TextStyle(
+            fontSize: 13,
+            color: _isHovered ? Colors.white : const Color(0xFF1F2937),
+            fontWeight: _isHovered ? FontWeight.w500 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _TaxAmountEditPopover extends StatefulWidget {
+  final Map<String, ({String name, double rate, double amount})> initialTaxes;
+  final Function(Map<String, double>) onSave;
+  final VoidCallback onCancel;
+
+  const _TaxAmountEditPopover({
+    required this.initialTaxes,
+    required this.onSave,
+    required this.onCancel,
+  });
+
+  @override
+  _TaxAmountEditPopoverState createState() => _TaxAmountEditPopoverState();
+}
+
+class _TaxAmountEditPopoverState extends State<_TaxAmountEditPopover> {
+  late Map<String, double> _editedAmounts;
+  double _total = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _editedAmounts = {};
+    widget.initialTaxes.forEach((key, value) {
+      _editedAmounts[key] = value.amount;
+    });
+    _calculateTotal();
+  }
+
+  void _calculateTotal() {
+    double sum = 0;
+    _editedAmounts.forEach((key, value) {
+      sum += value;
+    });
+    setState(() {
+      _total = sum;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Update Taxes Amount ( in )',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              GestureDetector(
+                onTap: widget.onCancel,
+                child: const Icon(Icons.close, size: 18, color: Colors.red),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          ...widget.initialTaxes.entries.map((entry) {
+            final key = entry.key;
+            final tax = entry.value;
+            final ctrl = TextEditingController(
+              text: _editedAmounts[key]?.toStringAsFixed(2) ?? '0.00',
+            );
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${tax.name} [${tax.rate % 1 == 0 ? tax.rate.toInt().toString() : tax.rate.toStringAsFixed(1)}%]',
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 100,
+                    height: 32,
+                    child: TextFormField(
+                      controller: ctrl,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(fontSize: 13),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (v) {
+                        final amt = double.tryParse(v) ?? 0;
+                        _editedAmounts[key] = amt;
+                        _calculateTotal();
+                      },
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: const BorderSide(color: Color(0xFF0088FF)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          const Divider(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Tax Amount',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                _total.toStringAsFixed(2),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => widget.onSave(_editedAmounts),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text(
+                'Update',
+                style: TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiscountTypeItem extends StatefulWidget {
+  final String text;
+  final bool isSelected;
+  final VoidCallback onTap;
+  const _DiscountTypeItem({required this.text, required this.isSelected, required this.onTap});
+
+  @override
+  _DiscountTypeItemState createState() => _DiscountTypeItemState();
+}
+
+class _DiscountTypeItemState extends State<_DiscountTypeItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Container(
+          alignment: Alignment.center,
+          height: 32,
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? const Color(0xFF0088FF)
+                : Colors.transparent,
+          ),
+          child: Text(
+            widget.text,
+            style: TextStyle(
+              fontSize: 13,
+              color: _isHovered ? Colors.white : const Color(0xFF1F2937),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _ItemDetailsSidebar extends ConsumerStatefulWidget {
+  final PurchaseOrderItem row;
+  final VoidCallback onClose;
+  final String? vendorName;
+  final int initialTabIndex;
+
+  const _ItemDetailsSidebar({
+    required this.row,
+    required this.onClose,
+    this.vendorName,
+    this.initialTabIndex = 0,
+  });
+
+  @override
+  ConsumerState<_ItemDetailsSidebar> createState() => _ItemDetailsSidebarState();
+}
+
+class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
+  late int _activeTabIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeTabIndex = widget.initialTabIndex;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 400,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: const Border(left: BorderSide(color: Color(0xFFE5E7EB))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(-4, 0),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+            child: Row(
+              children: [
+                const Text(
+                  'Item Details',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: widget.onClose,
+                  icon: const Icon(
+                    Icons.close,
+                    size: 20,
+                    color: Color(0xFFEF4444),
+                  ),
+                  splashRadius: 20,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+
+          // Item Info Card
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFF3F4F6)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: const Icon(
+                      Icons.image_outlined,
+                      color: Color(0xFF9CA3AF),
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Inventory Items',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Flexible(child: Text(widget.row.productName ?? "Select Item", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF111827)))),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.open_in_new,
+                              size: 14,
+                              color: Color(0xFF2563EB),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${widget.row.productType ?? 'goods'} • ${widget.row.itemCode ?? 'N/A'}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Tabs
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                _tabItem('ITEM DETAILS', 0),
+                const SizedBox(width: 24),
+                _tabItem('STOCK LOCATIONS', 1),
+                const SizedBox(width: 24),
+                _tabItem('TRANSACTIONS', 2),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+
+          // Tab Content
+          Expanded(child: _buildTabContent()),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabItem(String label, int index) {
+    final bool isActive = _activeTabIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _activeTabIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          border: isActive
+              ? const Border(
+                  bottom: BorderSide(color: Color(0xFF2563EB), width: 2),
+                )
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+            color: isActive ? const Color(0xFF2563EB) : const Color(0xFF6B7280),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabContent() {
+    if (_activeTabIndex == 0) {
+      return _buildItemDetailsTab();
+    } else if (_activeTabIndex == 1) {
+      return _buildStockLocationsTab();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Sales Orders',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const Icon(Icons.arrow_drop_down, size: 20),
+              const Spacer(),
+              const Text(
+                'Status: ',
+                style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              ),
+              const Text(
+                'All',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const Icon(Icons.arrow_drop_down, size: 18),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: Checkbox(
+                  value: true,
+                  onChanged: (v) {},
+                  activeColor: const Color(0xFF2563EB),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Show only ${widget.vendorName ?? 'vendor'}\'s transactions',
+                style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+              ),
+            ],
+          ),
+          const Expanded(
+            child: Center(
+              child: Text(
+                'No Sales Orders recorded yet.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF9CA3AF),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemDetailsTab() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _infoBox('To Be Shipped', '0.00', Icons.local_shipping_outlined),
+              _infoBox('To Be Received', '11.00', Icons.arrow_downward),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Sales Information',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+          ),
+          const SizedBox(height: 12),
+          _detailRow('Price', '₹${widget.row.rate.toStringAsFixed(2)}'),
+          _detailRow('Account', widget.row.accountName ?? 'Sales'),
+          const SizedBox(height: 24),
+          const Text(
+            'Purchase Information',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+          ),
+          const SizedBox(height: 12),
+          _detailRow('Price', '₹${widget.row.rate.toStringAsFixed(2)}'),
+          _detailRow('Account', widget.row.accountName ?? 'Cost of Goods Sold'),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoBox(String title, String value, IconData icon) {
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: const Color(0xFF2563EB)),
+              const SizedBox(width: 8),
+              Text(title, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+          const SizedBox(width: 16),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF111827)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStockLocationsTab() {
+    final stockAsync = ref.watch(itemWarehouseStocksProvider(widget.row.productId));
+    return stockAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (stocks) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Physical Stock',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+              ),
+              const SizedBox(height: 12),
+              Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(2),
+                  1: FlexColumnWidth(1),
+                  2: FlexColumnWidth(1),
+                  3: FlexColumnWidth(1),
+                },
+                children: [
+                  TableRow(
+                    decoration: const BoxDecoration(color: Color(0xFFF9FAFB)),
+                    children: [
+                      _tableHeaderCell('LOCATION NAME'),
+                      _tableHeaderCell('STOCK ON HAND'),
+                      _tableHeaderCell('COMMITTED STOCK'),
+                      _tableHeaderCell('AVAILABLE FOR SALE'),
+                    ],
+                  ),
+                  ...stocks.map((wh) {
+                    final isSelected = false; // PO items don't carry a warehouseId
+                    return TableRow(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(wh.name, style: const TextStyle(fontSize: 12)),
+                              ),
+                              if (isSelected) ...[
+                                const SizedBox(width: 4),
+                                const Icon(Icons.star, size: 14, color: Colors.amber),
+                              ],
+                            ],
+                          ),
+                        ),
+                        _tableCell(wh.physical.onHand.toStringAsFixed(2)),
+                        _tableCell(wh.physical.committed.toStringAsFixed(2)),
+                        _tableCell(wh.physical.available.toStringAsFixed(2)),
+                      ],
+                    );
+                  }).toList(),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _tableHeaderCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)),
+      ),
+    );
+  }
+
+  Widget _tableCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+      ),
+    );
+  }
+}
+

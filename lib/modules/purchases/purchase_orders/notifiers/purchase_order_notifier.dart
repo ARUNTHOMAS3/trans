@@ -274,6 +274,13 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     state = state.copyWith(items: newItems);
   }
 
+  void reorderItems(int oldIndex, int newIndex) {
+    final newItems = List<PurchaseOrderItem>.from(state.items);
+    final item = newItems.removeAt(oldIndex);
+    newItems.insert(newIndex, item);
+    state = state.copyWith(items: newItems);
+  }
+
   void updateItem(int index, PurchaseOrderItem item) {
     final newItems = List<PurchaseOrderItem>.from(state.items);
     newItems[index] = _recalculateItem(item, state.discountLevel);

@@ -1,4 +1,4 @@
-﻿import {
+import {
   IsString,
   IsNumber,
   IsDateString,
@@ -12,7 +12,7 @@ import { Type } from "class-transformer";
 class PurchaseOrderItemDto {
   @IsUUID()
   @IsOptional()
-  productId?: string;
+  product_id?: string;
 
   @IsString()
   @IsOptional()
@@ -20,7 +20,7 @@ class PurchaseOrderItemDto {
 
   @IsUUID()
   @IsOptional()
-  accountId?: string;
+  account_id?: string;
 
   @IsNumber()
   quantity: number;
@@ -30,15 +30,15 @@ class PurchaseOrderItemDto {
 
   @IsUUID()
   @IsOptional()
-  taxId?: string;
+  tax_id?: string;
 
   @IsNumber()
   @IsOptional()
-  itemTaxRate?: number;
+  item_tax_rate?: number;
 
   @IsNumber()
   @IsOptional()
-  taxAmount?: number;
+  tax_amount?: number;
 
   @IsNumber()
   @IsOptional()
@@ -46,7 +46,7 @@ class PurchaseOrderItemDto {
 
   @IsString()
   @IsOptional()
-  discountType?: string;
+  discount_type?: string;
 
   @IsNumber()
   amount: number;
@@ -98,6 +98,10 @@ export class CreatePurchaseOrderDto {
   @IsString()
   @IsOptional()
   discount_level?: string;
+
+  @IsUUID()
+  @IsOptional()
+  discount_account_id?: string;
 
   @IsNumber()
   @IsOptional()
