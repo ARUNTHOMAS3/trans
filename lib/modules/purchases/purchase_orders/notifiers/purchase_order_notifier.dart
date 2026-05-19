@@ -216,6 +216,40 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     }
   }
 
+  void reset() {
+    state = PurchaseOrderState(orderDate: DateTime.now());
+    addItemRow();
+    _loadSettings();
+  }
+
+  void hydrate(PurchaseOrder order) {
+    state = PurchaseOrderState(
+      items: order.items,
+      orderNumber: order.orderNumber,
+      orderDate: order.orderDate,
+      expectedDeliveryDate: order.expectedDeliveryDate,
+      referenceNumber: order.referenceNumber,
+      vendorId: order.vendorId,
+      paymentTerms: order.paymentTerms,
+      shipmentPreference: order.shipmentPreference,
+      deliveryType: order.deliveryType,
+      deliveryWarehouseId: order.deliveryWarehouseId,
+      deliveryCustomerId: order.deliveryCustomerId,
+      warehouseId: order.warehouseId,
+      discount: order.discount,
+      discountType: order.discountType,
+      tdsTcsType: order.tdsTcsType,
+      tdsTcsId: order.tdsTcsId,
+      adjustment: order.adjustment,
+      notes: order.notes,
+      termsAndConditions: order.termsAndConditions,
+      discountLevel: order.discountLevel,
+      discountAccountId: order.discountAccountId,
+      isReverseCharge: order.isReverseCharge,
+      isNumberingAuto: false,
+    );
+  }
+
   void addItemRow({int? index, PurchaseOrderItem? item}) {
     final List<PurchaseOrderItem> newItems = List.from(state.items);
     final newItem = item ??

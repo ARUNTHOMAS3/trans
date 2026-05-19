@@ -23,6 +23,7 @@ import '../../../../shared/models/column_config.dart';
 import '../../../../shared/widgets/tables/table_more_menu.dart';
 import '../../../../shared/widgets/tables/column_customizer.dart';
 import '../../../../shared/widgets/tables/table_header_menu.dart';
+import '../../../../shared/widgets/skeleton.dart';
 import 'dart:convert';
 
 import '../../../../shared/widgets/inputs/z_tooltip.dart';
@@ -341,7 +342,10 @@ class _InventoryPackagesListScreenState
         ),
       ],
       child: ref.watch(inventoryPackagesProvider).isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Padding(
+              padding: EdgeInsets.all(24),
+              child: TableSkeleton(rows: 10, columns: 7),
+            )
           : isDetailOpen
               ? _buildSplitView()
               : Column(
@@ -1098,7 +1102,7 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                         },
                       ),
                       _buildDivider(),
-                      _buildShipDropdown(),
+                      _buildShipDropdown(pkg),
                       _buildDivider(),
                       _buildPdfPrintDropdown(pkg),
                       _buildDivider(),
@@ -1185,8 +1189,16 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
     return Container(width: 1, height: 16, color: const Color(0xFFE5E7EB), margin: const EdgeInsets.symmetric(horizontal: 8));
   }
 
-  Widget _buildShipDropdown() {
-    return _buildToolbarButton(LucideIcons.truck, 'Ship', onPressed: () {});
+  Widget _buildShipDropdown(InventoryPackage pkg) {
+    return _buildToolbarButton(
+      LucideIcons.truck,
+      'Ship',
+      onPressed: () {
+        final packageId = pkg.id;
+        if (packageId == null || packageId.isEmpty) return;
+        context.go('${AppRoutes.shipmentsCreate}?packageId=$packageId');
+      },
+    );
   }
 
   Widget _buildPdfPrintDropdown(InventoryPackage pkg) {

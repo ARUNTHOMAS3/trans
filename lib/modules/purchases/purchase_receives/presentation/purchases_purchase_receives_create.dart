@@ -18,6 +18,7 @@ import '../../vendors/providers/vendor_provider.dart';
 import '../../purchase_orders/providers/purchases_purchase_orders_provider.dart';
 
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
@@ -2060,16 +2061,34 @@ class _PRCreateState
   }
 
   Widget _buildLoadingRow() {
+    final qtyWidth = _dynamicQtyToReceiveColumnWidth();
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: _borderCol)),
       ),
-      child: const SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(strokeWidth: 2, color: _focusBorder),
+      child: SizedBox(
+        height: 180,
+        child: Column(
+          children: List.generate(3, (_) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  const SizedBox(width: 170, child: Skeleton(height: 14)),
+                  const SizedBox(width: 300, child: Skeleton(height: 14)),
+                  const SizedBox(width: 100, child: Skeleton(height: 14)),
+                  const SizedBox(width: 100, child: Skeleton(height: 14)),
+                  const SizedBox(width: 110, child: Skeleton(height: 14)),
+                  if (_binMode == "item")
+                    const SizedBox(width: 160, child: Skeleton(height: 14)),
+                  SizedBox(width: qtyWidth, child: const Skeleton(height: 14)),
+                  const SizedBox(width: 12),
+                ],
+              ),
+            );
+          }),
+        ),
       ),
     );
   }
@@ -2541,7 +2560,10 @@ class _PRCreateState
                                 _adjustRowQuantity(index, delta: -1);
                               },
                             ),
-                            if (!isEphemeral && !hasBatches) ...[
+                            if (!isEphemeral &&
+                                !hasBatches &&
+                                item.quantityToReceive > 0 &&
+                                item.quantityToReceive <= item.ordered) ...[
                               const SizedBox(height: 4),
                               _buildAddBatchesLinkButton(index),
                             ],
@@ -2863,7 +2885,9 @@ class _PRCreateState
                               onChanged: (val) => _onRowQtyChanged(index, val),
                               height: 32,
                             ),
-                            if (!hasBatches) ...[
+                            if (!hasBatches &&
+                                item.quantityToReceive > 0 &&
+                                item.quantityToReceive <= item.ordered) ...[
                               const SizedBox(height: 4),
                               _buildAddBatchesLinkButton(index),
                             ],
@@ -3376,8 +3400,9 @@ class _PRCreateState
         batchOptions: batchOptions.toList()..sort(),
         batchDetails: batchDetails,
         initialBatches: item.batches,
-        // Total in batch dialog must follow Ordered quantity in line item.
-        ordered: item.ordered,
+        // Total in batch dialog must follow Quantity to receive in line item.
+        ordered: double.tryParse(_rowControllers[itemIndex].qtyCtrl.text) ??
+            item.quantityToReceive,
         warehouseName: _rowSelectedWarehouses[itemIndex] ?? _resolveWarehouseName(),
         initialDamageEnabled: _isDamageEnabled,
         onDamageChanged: (enabled) {

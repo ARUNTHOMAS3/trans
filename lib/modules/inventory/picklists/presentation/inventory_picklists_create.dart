@@ -22,6 +22,7 @@ import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 import 'package:zerpai_erp/modules/inventory/picklists/providers/inventory_picklists_provider.dart';
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
@@ -2861,7 +2862,22 @@ class _InventoryPicklistsCreateScreenState
                   Navigator.pop(dialogContext);
                 },
               ),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => Dialog(
+                alignment: Alignment.topCenter,
+                backgroundColor: Colors.white,
+                insetPadding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const SizedBox(
+                  width: 1200,
+                  height: 750,
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: TableSkeleton(rows: 8, columns: 7),
+                  ),
+                ),
+              ),
               error: (err, stack) => AlertDialog(
                 title: const Text('Error'),
                 content: Text('Failed to load storage items: $err'),
@@ -3269,27 +3285,40 @@ class _AddItemsDialogContentState
     }
 
     try {
-      final apiService = ref.read(salesOrderApiServiceProvider);
-      final orders = await apiService.getSalesByType(
-        'order',
-        search: normalizedQuery,
-        limit: 20,
+      final warehouseId = widget.warehouseId.trim();
+      if (warehouseId.isEmpty) return _buildSalesOrderFallbackOptions();
+
+      final response = await ApiClient().get(
+        '/sales-orders',
+        queryParameters: {
+          'warehouseId': warehouseId,
+          'limit': 50,
+          if (normalizedQuery.isNotEmpty) 'search': normalizedQuery,
+        },
       );
 
-      final mapped = orders
-          .map((o) => {'id': o.id, 'number': o.saleNumber})
+      final body = response.data;
+      final List<dynamic> rows = body is List
+          ? body
+          : (body is Map<String, dynamic>
+                ? (body['data'] as List<dynamic>? ?? const <dynamic>[])
+                : const <dynamic>[]);
+
+      final mapped = rows
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .map((row) => {
+                'id': (row['id'] ?? '').toString(),
+                'number': (row['sale_number'] ?? row['saleNumber'] ?? '')
+                    .toString(),
+              })
           .where(
-            (item) =>
-                (item['id'] ?? '').toString().isNotEmpty &&
-                (item['number'] ?? '').toString().isNotEmpty,
+            (row) => (row['id'] ?? '').toString().isNotEmpty &&
+                (row['number'] ?? '').toString().isNotEmpty,
           )
-          .take(20)
           .toList();
 
-      if (mapped.isNotEmpty) {
-        return mapped;
-      }
-      return _buildSalesOrderFallbackOptions();
+      return mapped.isNotEmpty ? mapped : _buildSalesOrderFallbackOptions();
     } catch (_) {
       return _buildSalesOrderFallbackOptions();
     }
@@ -3373,7 +3402,10 @@ class _AddItemsDialogContentState
             // Table
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: TableSkeleton(rows: 8, columns: 7),
+                    )
                   : activeTab == 0
                   ? _buildItemsTable(
                       _items,
@@ -5198,7 +5230,7 @@ class _PicklistSelectBatchesDialogState
                   _headerCell('BATCH NO*', 15),
                   _headerCell('UNIT PACK*', 15),
                   _headerCell('MRP*', 15),
-                  _headerCell('PTR', 15),
+                  _headerCell('PURCHASE RATE*', 15),
                   _headerCell('EXPIRY DATE*', 15),
                   if (_showMfgDetails) ...[
                     _headerCell('MANUFACTURED DATE', 15),
@@ -5269,8 +5301,10 @@ class _PicklistSelectBatchesDialogState
                                         items: _binLocations,
                                         hint: 'Select Bin',
                                         showSearch: true,
-                                        maxVisibleItems: 4,
-                                        menuMaxHeight: 220,
+                                        maxVisibleItems: 8,
+                                        menuMaxHeight: 400,
+                                        menuWidth: 160,
+                                         itemEstimatedHeight: 64,
                                         displayStringForValue: (v) => v,
                                         searchStringForValue: (v) => v,
                                         itemBuilder:
@@ -5293,6 +5327,7 @@ class _PicklistSelectBatchesDialogState
                                                         : Colors.transparent),
                                               child: Text(
                                                 item,
+                                                softWrap: true,
                                                 style: TextStyle(
                                                   fontSize: 13,
                                                   color: isHovered
@@ -5372,6 +5407,9 @@ class _PicklistSelectBatchesDialogState
                                           items: batches,
                                           hint: 'Select Batch',
                                           showSearch: true,
+                                          menuMaxHeight: 400,
+                                          menuWidth: 138,
+                                           itemEstimatedHeight: 100,
                                           itemBuilder:
                                               (item, isSelected, isHovered) {
                                                 final batchNo =
@@ -5390,11 +5428,11 @@ class _PicklistSelectBatchesDialogState
                                                     item['mrp']?.toString() ??
                                                     '0.00';
                                                 final ptr =
-                                                    item['ptr']?.toString() ??
+                                                    item['prate']?.toString() ??
                                                     '0.00';
 
                                                 final displayText =
-                                                    '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | PTR: $ptr';
+                                                    '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr';
 
                                                 return Container(
                                                   width: double.infinity,
@@ -5413,6 +5451,7 @@ class _PicklistSelectBatchesDialogState
                                                                   .transparent),
                                                   child: Text(
                                                     displayText,
+                                                    softWrap: true,
                                                     style: TextStyle(
                                                       fontSize: 12,
                                                       color: isHovered
@@ -5461,7 +5500,7 @@ class _PicklistSelectBatchesDialogState
                                                           .toStringAsFixed(2) ??
                                                       '0.00';
                                                   row.ptrCtrl.text =
-                                                      (p['ptr'] as num?)
+                                                      (p['prate'] as num?)
                                                           ?.toDouble()
                                                           .toStringAsFixed(2) ??
                                                       '0.00';
@@ -5691,7 +5730,7 @@ class _PicklistSelectBatchesDialogState
                               'batchNo': row.batchNoCtrl.text,
                               'unitPack': row.unitPackCtrl.text,
                               'mrp': row.mrpCtrl.text,
-                              'ptr': row.ptrCtrl.text,
+                              'prate': row.ptrCtrl.text,
                               'expDate': row.expDateCtrl.text,
                               'mfgDate': row.mfgDateCtrl.text,
                               'mfgBatch': row.mfgBatchCtrl.text,
@@ -6179,3 +6218,4 @@ class _BinHoverBoxState extends State<_BinHoverBox> {
     );
   }
 }
+

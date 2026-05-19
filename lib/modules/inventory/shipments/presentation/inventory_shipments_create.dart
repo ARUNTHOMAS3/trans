@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/routing/app_routes.dart';
@@ -15,6 +15,7 @@ import '../../../../core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
+import 'package:zerpai_erp/modules/inventory/packages/models/inventory_package_model.dart';
 import 'package:zerpai_erp/modules/inventory/packages/providers/inventory_packages_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/providers/entity_provider.dart';
@@ -84,6 +85,8 @@ class _InventoryShipmentsCreateScreenState
   String? _shipmentOrderError;
   String? _dateError;
   String? _carrierError;
+  String? _initialPackageId;
+  bool _initialPrefillApplied = false;
 
   bool get _isSalesOrderSelected => _selectedSalesOrders.isNotEmpty;
 
@@ -232,8 +235,37 @@ class _InventoryShipmentsCreateScreenState
         '$_shipmentPrefix${_nextNumber.toString().padLeft(5, '0')}';
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initialPackageId = GoRouterState.of(context).uri.queryParameters['packageId'];
       ref.read(inventoryPackagesProvider.notifier).fetchPackages();
       _fetchNextShipmentNumber();
+    });
+  }
+
+  void _tryApplyInitialPackagePrefill(
+    List<InventoryPackage> packages,
+    List<SalesCustomer> customers,
+  ) {
+    if (_initialPrefillApplied) return;
+    final packageId = _initialPackageId;
+    if (packageId == null || packageId.isEmpty) return;
+
+    final selectedPkg = packages.cast<InventoryPackage?>().firstWhere(
+      (p) => p?.id == packageId,
+      orElse: () => null,
+    );
+    if (selectedPkg == null) return;
+
+    final selectedCustomer = customers.cast<SalesCustomer?>().firstWhere(
+      (c) => c?.id == selectedPkg.customerId,
+      orElse: () => null,
+    );
+    if (selectedCustomer == null) return;
+
+    _initialPrefillApplied = true;
+    setState(() {
+      _selectedCustomer = selectedCustomer;
+      _selectedPackages = [selectedPkg.packageNumber];
+      _selectedSalesOrders = selectedPkg.salesOrderNumbers.toSet().toList();
     });
   }
 
@@ -636,8 +668,12 @@ class _InventoryShipmentsCreateScreenState
                               child: ref
                                   .watch(salesCustomersProvider)
                                   .when(
-                                    data: (customers) =>
-                                        FormDropdown<SalesCustomer>(
+                                    data: (customers) {
+                                      _tryApplyInitialPackagePrefill(
+                                        packages,
+                                        customers,
+                                      );
+                                      return FormDropdown<SalesCustomer>(
                                           fillColor: Colors.white,
                                           value: _selectedCustomer,
                                           height: 32,
@@ -663,13 +699,15 @@ class _InventoryShipmentsCreateScreenState
                                               val.displayName,
                                           onChanged: (val) {
                                             setState(() {
+                                              _initialPrefillApplied = true;
                                               _selectedCustomer = val;
                                               _selectedSalesOrders = [];
                                               _selectedSalesOrdersData = [];
                                               _selectedPackages = [];
                                             });
                                           },
-                                        ),
+                                        );
+                                    },
                                     loading: () => const Skeleton(
                                       height: 32,
                                       width: double.infinity,
@@ -714,8 +752,14 @@ class _InventoryShipmentsCreateScreenState
                                           ),
                                         )
                                         .when(
-                                          data: (orders) =>
-                                              FormDropdown<String>(
+                                          data: (orders) {
+                                              if (_selectedSalesOrders.isNotEmpty &&
+                                                  _selectedSalesOrdersData.isEmpty) {
+                                                _selectedSalesOrdersData = orders
+                                                    .where((o) => _selectedSalesOrders.contains(o.saleNumber))
+                                                    .toList();
+                                              }
+                                              return FormDropdown<String>(
                                                 fillColor: Colors.white,
                                                 value: null,
                                                 selectedValues: _selectedSalesOrders,
@@ -754,7 +798,8 @@ class _InventoryShipmentsCreateScreenState
                                                   fontWeight: FontWeight.w400,
                                                   fontFamily: 'Inter',
                                                 ),
-                                              ),
+                                              );
+                                          },
                                           loading: () => const Skeleton(
                                             height: 32,
                                             width: double.infinity,
@@ -967,7 +1012,7 @@ class _InventoryShipmentsCreateScreenState
                                               items: _carriers,
                                               maxVisibleItems: 4,
                                               showSettings: true,
-                                              settingsLabel: '+ New Carrier',
+                                              settingsLabel: 'New Carrier',
                                               settingsIcon: Icons.add,
                                               onSettingsTap: _showNewCarrierDialog,
                                               displayStringForValue: (val) => val,

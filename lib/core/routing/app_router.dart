@@ -81,6 +81,7 @@ import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vend
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/purchases_vendors_vendor_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_list.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_edit.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart';
@@ -1486,12 +1487,51 @@ final GoRouter appRouter = GoRouter(
               name: AppRoutes.purchaseOrders,
               builder: (context, state) => PurchaseOrderOverviewScreen(
                 initialSearchQuery: state.uri.queryParameters['q'],
+                initialFilter: state.uri.queryParameters['filter'] ?? state.uri.queryParameters['status'],
               ),
-            ),
-            GoRoute(
-              path: 'purchases/purchase-orders/create',
-              name: AppRoutes.purchaseOrdersCreate,
-              builder: (context, state) => const PurchaseOrderCreateScreen(),
+              routes: [
+                GoRoute(
+                  path: 'create',
+                  name: AppRoutes.purchaseOrdersCreate,
+                  builder: (context, state) {
+                    final initialOrder = state.extra;
+                    return PurchaseOrderCreateScreen(
+                      initialOrder: initialOrder is PurchaseOrder
+                          ? initialOrder
+                          : null,
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: ':id/edit',
+                  name: AppRoutes.purchaseOrdersEdit,
+                  builder: (context, state) {
+                    final initialOrder = state.extra;
+                    return PurchaseOrderCreateScreen(
+                      initialOrder: initialOrder is PurchaseOrder
+                          ? initialOrder
+                          : null,
+                      initialOrderId: state.pathParameters['id'],
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: ':id',
+                  name: AppRoutes.purchaseOrdersDetail,
+                  builder: (context, state) => PurchaseOrderOverviewScreen(
+                    initialSelectedId: state.pathParameters['id'],
+                    initialSearchQuery: state.uri.queryParameters['q'],
+                    initialFilter: state.uri.queryParameters['filter'] ?? state.uri.queryParameters['status'],
+                  ),
+                ),
+                GoRoute(
+                  path: ':id/email',
+                  name: AppRoutes.purchaseOrdersEmail,
+                  builder: (context, state) => PurchaseOrderEmailScreen(
+                    orderId: state.pathParameters['id']!,
+                  ),
+                ),
+              ],
             ),
             GoRoute(
               path: 'purchases/purchase-receives',

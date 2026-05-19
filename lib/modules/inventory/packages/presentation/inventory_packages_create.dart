@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -2018,8 +2018,11 @@ class _InventoryPackagesCreateScreenState
     if (_isLoadingItems) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 48),
-        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: const SizedBox(
+          height: 280,
+          child: TableSkeleton(rows: 5, columns: 6),
+        ),
       );
     }
 
@@ -2402,8 +2405,11 @@ class _InventoryPackagesCreateScreenState
     if (_isLoadingItems) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 48),
-        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: const SizedBox(
+          height: 280,
+          child: TableSkeleton(rows: 5, columns: 6),
+        ),
       );
     }
 
@@ -4110,6 +4116,9 @@ class _PackageBatchSelectionDialogState
                                                   items: batches,
                                                   hint: 'Select Batch',
                                                   showSearch: true,
+                                                  maxVisibleItems: 4,
+                                                  itemEstimatedHeight: 56,
+                                                  menuMaxHeight: 280,
                                                   itemBuilder: (item, isSelected, isHovered) {
                                                     final batchNo =
                                                         item['batch_no']
@@ -4154,6 +4163,8 @@ class _PackageBatchSelectionDialogState
                                                                       .transparent),
                                                       child: Text(
                                                         displayText,
+                                                        maxLines: 2,
+                                                        overflow: TextOverflow.ellipsis,
                                                         style: TextStyle(
                                                           fontSize: 12,
                                                           color: isHovered

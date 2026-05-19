@@ -25,7 +25,6 @@ final warehouseNameProvider = Provider.family<String, String>((ref, id) {
   return match['name'];
 });
 
-const String _kDevOrgSystemId = '00000000-0000-0000-0000-000000000000';
 
 final batchLookupProvider =
     FutureProvider.family<List<Map<String, dynamic>>, String>((

@@ -1,4 +1,5 @@
 // FILE: lib/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart
+import '../../vendors/models/purchases_vendors_vendor_model.dart';
 
 class PurchaseOrderItem {
   final String? id;
@@ -224,6 +225,7 @@ class PurchaseOrder {
   final String discountLevel; // 'transaction' | 'item'
   final String? discountAccountId;
   final String? discountAccountName;
+  final Vendor? vendor;
   final List<PurchaseOrderItem> items;
   final double totalQuantity;
   final String currency;
@@ -265,6 +267,7 @@ class PurchaseOrder {
     this.discountLevel = 'transaction',
     this.discountAccountId,
     this.discountAccountName,
+    this.vendor,
     this.items = const [],
     this.totalQuantity = 0.0,
     this.currency = 'INR',
@@ -330,6 +333,7 @@ class PurchaseOrder {
       tdsTcsAmount: (json['tds_tcs_amount'] as num?)?.toDouble() ?? 0.0,
       isReverseCharge: json['is_reverse_charge'] as bool? ?? false,
       isDelete: json['is_delete'] as bool? ?? false,
+      vendor: json['vendor'] != null ? Vendor.fromJson(json['vendor'] as Map<String, dynamic>) : null,
       items: rawItems
           .map((e) => PurchaseOrderItem.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -416,6 +420,7 @@ class PurchaseOrder {
     String? termsAndConditions,
     String? discountAccountId,
     String? discountAccountName,
+    Vendor? vendor,
     List<PurchaseOrderItem>? items,
     double? totalQuantity,
     String? currency,
@@ -455,6 +460,7 @@ class PurchaseOrder {
       termsAndConditions: termsAndConditions ?? this.termsAndConditions,
       discountAccountId: discountAccountId ?? this.discountAccountId,
       discountAccountName: discountAccountName ?? this.discountAccountName,
+      vendor: vendor ?? this.vendor,
       items: items ?? this.items,
       totalQuantity: totalQuantity ?? this.totalQuantity,
       currency: currency ?? this.currency,

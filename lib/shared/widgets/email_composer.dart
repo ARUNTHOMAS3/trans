@@ -10,6 +10,8 @@ class EmailComposerScreen extends StatefulWidget {
   final String initialSubject;
   final String initialBody;
   final String attachmentName;
+  final String? attachmentLabel;
+  final VoidCallback? onCancel;
   final Function(String from, String to, String subject, String body, bool attachPdf) onSend;
 
   const EmailComposerScreen({
@@ -20,6 +22,8 @@ class EmailComposerScreen extends StatefulWidget {
     required this.initialSubject,
     required this.initialBody,
     required this.attachmentName,
+    this.attachmentLabel,
+    this.onCancel,
     required this.onSend,
   });
 
@@ -115,7 +119,7 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
                         setState(() => _attachPdf = val ?? false);
                       },
                     ),
-                    const Text('Attach Sales Order PDF'),
+                    Text(widget.attachmentLabel ?? 'Attach Sales Order PDF'),
                     const SizedBox(width: 16),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -167,7 +171,7 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                       ),
-                      onPressed: () => context.pop(),
+                      onPressed: widget.onCancel ?? () => context.pop(),
                       child: const Text('Cancel'),
                     ),
                   ],

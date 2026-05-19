@@ -466,17 +466,12 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
       ancestor: overlayBox,
     );
 
-    final double spaceBelow =
-        overlayBox.size.height - (targetGlobal.dy + fieldSize.height);
-    final double spaceAbove = targetGlobal.dy;
-    final bool showAbove = !widget.preferDown &&
-        (spaceBelow < overlayHeight && spaceAbove > spaceBelow);
     final rightOverflow =
         (targetGlobal.dx + fieldSize.width) - overlayBox.size.width;
 
     return Offset(
       rightOverflow > 0 ? -(rightOverflow + 8) : 0,
-      showAbove ? -(overlayHeight + 4) : fieldSize.height + 4,
+      fieldSize.height + 4,
     );
   }
 
@@ -930,7 +925,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
             Icon(
               Icons.check,
               size: 16,
-              color: isHovered ? Colors.white : AppTheme.primaryBlueDark,
+              color: AppTheme.primaryBlueDark,
             ),
         ],
       ),

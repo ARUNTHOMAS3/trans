@@ -46,10 +46,12 @@ final _salesOrderDetailProvider = FutureProvider.family<SalesOrder, String>((
   final customer = order.customer;
   final hasCustomerName =
       customer != null && customer.displayName.trim().isNotEmpty;
-  final hasBillingAddress = customer != null &&
+  final hasBillingAddress =
+      customer != null &&
       customer.fullBillingAddress.trim().isNotEmpty &&
       customer.fullBillingAddress.trim() != 'N/A';
-  final hasShippingAddress = customer != null &&
+  final hasShippingAddress =
+      customer != null &&
       customer.fullShippingAddress.trim().isNotEmpty &&
       customer.fullShippingAddress.trim() != 'N/A';
 
@@ -241,7 +243,6 @@ class _SalesOrderOverviewScreenState
   List<_SalesOrderColumnConfig> get _visibleColumns =>
       _columnConfigs.where((column) => column.visible).toList();
 
-
   @override
   void initState() {
     super.initState();
@@ -268,7 +269,9 @@ class _SalesOrderOverviewScreenState
       if (widthsJson != null) {
         final Map<String, dynamic> decoded = jsonDecode(widthsJson);
         setState(() {
-          _customColumnWidths = decoded.map((key, value) => MapEntry(key, (value as num).toDouble()));
+          _customColumnWidths = decoded.map(
+            (key, value) => MapEntry(key, (value as num).toDouble()),
+          );
         });
       }
     } catch (e) {
@@ -280,7 +283,10 @@ class _SalesOrderOverviewScreenState
     try {
       if (_customColumnWidths == null) return;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('sales_order_column_widths', jsonEncode(_customColumnWidths));
+      await prefs.setString(
+        'sales_order_column_widths',
+        jsonEncode(_customColumnWidths),
+      );
     } catch (e) {
       debugPrint('Error saving column settings: $e');
     }
@@ -515,78 +521,81 @@ class _SalesOrderOverviewScreenState
             Padding(
               padding: const EdgeInsets.only(left: 20),
               child: MenuAnchor(
-              style: _menuStyle(),
-              builder: (context, controller, child) {
-                return InkWell(
-                  onTap: () =>
-                      controller.isOpen ? controller.close() : controller.open(),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _activeView.label == 'All' ? 'All Sales Orders' : _activeView.label,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
-                            fontFamily: 'Inter',
+                style: _menuStyle(),
+                builder: (context, controller, child) {
+                  return InkWell(
+                    onTap: () => controller.isOpen
+                        ? controller.close()
+                        : controller.open(),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _activeView.label == 'All'
+                                ? 'All Sales Orders'
+                                : _activeView.label,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimary,
+                              fontFamily: 'Inter',
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Icon(
-                          LucideIcons.chevronDown,
-                          size: 16,
-                          color: AppTheme.primaryBlue,
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          const Icon(
+                            LucideIcons.chevronDown,
+                            size: 16,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
-              menuChildren: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                  child: IgnorePointer(
-                    child: SizedBox(
-                      width: 250,
-                      child: TextField(
-                        decoration: _inputDecoration('Search views'),
+                  );
+                },
+                menuChildren: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                    child: IgnorePointer(
+                      child: SizedBox(
+                        width: 250,
+                        child: TextField(
+                          decoration: _inputDecoration('Search views'),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                ..._salesOrderViews.map(
-                  (view) => MenuItemButton(
-                    style: _menuItemStyle(
-                      isActive: _activeView.label == view.label,
+                  ..._salesOrderViews.map(
+                    (view) => MenuItemButton(
+                      style: _menuItemStyle(
+                        isActive: _activeView.label == view.label,
+                      ),
+                      onPressed: () => setState(() => _activeView = view),
+                      trailingIcon: const Icon(
+                        LucideIcons.star,
+                        size: 14,
+                        color: AppTheme.textDisabled,
+                      ),
+                      child: SizedBox(width: 250, child: Text(view.label)),
                     ),
-                    onPressed: () => setState(() => _activeView = view),
-                    trailingIcon: const Icon(
-                      LucideIcons.star,
-                      size: 14,
-                      color: AppTheme.textDisabled,
+                  ),
+                  const Divider(height: 1, color: AppTheme.borderLight),
+                  MenuItemButton(
+                    style: _menuItemStyle(),
+                    onPressed: _showNewCustomViewDialog,
+                    child: const SizedBox(
+                      width: 250,
+                      child: Text('+ New Custom View'),
                     ),
-                    child: SizedBox(width: 250, child: Text(view.label)),
                   ),
-                ),
-                const Divider(height: 1, color: AppTheme.borderLight),
-                MenuItemButton(
-                  style: _menuItemStyle(),
-                  onPressed: _showNewCustomViewDialog,
-                  child: const SizedBox(
-                    width: 250,
-                    child: Text('+ New Custom View'),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
           const Spacer(),
           if (!hasSelection) ...[
@@ -605,11 +614,23 @@ class _SalesOrderOverviewScreenState
                 SubmenuButton(
                   style: ZTableMoreMenu.menuItemButtonStyle(),
                   menuChildren: [
-                    _buildSortMenuItem('Created Time', _SalesOrderSortField.createdTime),
-                    _buildSortMenuItem('Last Modified Time', _SalesOrderSortField.lastModifiedTime),
+                    _buildSortMenuItem(
+                      'Created Time',
+                      _SalesOrderSortField.createdTime,
+                    ),
+                    _buildSortMenuItem(
+                      'Last Modified Time',
+                      _SalesOrderSortField.lastModifiedTime,
+                    ),
                     _buildSortMenuItem('Date', _SalesOrderSortField.date),
-                    _buildSortMenuItem('Sales Order#', _SalesOrderSortField.salesOrderNumber),
-                    _buildSortMenuItem('Reference#', _SalesOrderSortField.reference),
+                    _buildSortMenuItem(
+                      'Sales Order#',
+                      _SalesOrderSortField.salesOrderNumber,
+                    ),
+                    _buildSortMenuItem(
+                      'Reference#',
+                      _SalesOrderSortField.reference,
+                    ),
                   ],
                   child: const Text('Sort by'),
                 ),
@@ -667,13 +688,15 @@ class _SalesOrderOverviewScreenState
           Text(label),
           if (isSelected) ...[
             const SizedBox(width: 4),
-            Icon(_isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown, size: 12),
+            Icon(
+              _isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+              size: 12,
+            ),
           ],
         ],
       ),
     );
   }
-
 
   void _toggleSaleSelection(String saleId, bool selected) {
     setState(() {
@@ -716,7 +739,9 @@ class _SalesOrderOverviewScreenState
     if (label == 'Mark as confirmed') {
       final salesState = ref.read(salesOrderControllerProvider);
       final sales = salesState.valueOrNull ?? const <SalesOrder>[];
-      final selected = sales.where((sale) => _selectedSaleIds.contains(sale.id));
+      final selected = sales.where(
+        (sale) => _selectedSaleIds.contains(sale.id),
+      );
       final hasConfirmed = selected.any(
         (sale) => sale.status.trim().toLowerCase() == 'confirmed',
       );
@@ -746,10 +771,15 @@ class _SalesOrderOverviewScreenState
           .from('sales_orders')
           .update({'is_delete': true})
           .filter('id', 'in', _selectedSaleIds.toList());
-          
-      ZerpaiToast.success(context, 'Deleted ${_selectedSaleIds.length} sales order(s)');
+
+      ZerpaiToast.success(
+        context,
+        'Deleted ${_selectedSaleIds.length} sales order(s)',
+      );
       _clearSelection();
-      ref.read(salesOrderControllerProvider.notifier).deleteOrdersLocally(_selectedSaleIds.toList());
+      ref
+          .read(salesOrderControllerProvider.notifier)
+          .deleteOrdersLocally(_selectedSaleIds.toList());
     } catch (e) {
       ZerpaiToast.error(context, 'Error deleting sales orders: $e');
     }
@@ -778,7 +808,7 @@ class _SalesOrderOverviewScreenState
           .from('sales_orders')
           .update({'is_delete': true})
           .eq('id', id);
-          
+
       ZerpaiToast.success(context, 'Sales order deleted');
       ref.read(salesOrderControllerProvider.notifier).deleteOrdersLocally([id]);
     } catch (e) {
@@ -789,8 +819,9 @@ class _SalesOrderOverviewScreenState
   Future<void> _runBulkPdfExport() async {
     final salesState = ref.read(salesOrderControllerProvider);
     final sales = salesState.valueOrNull ?? const <SalesOrder>[];
-    final selected =
-        sales.where((sale) => _selectedSaleIds.contains(sale.id)).toList();
+    final selected = sales
+        .where((sale) => _selectedSaleIds.contains(sale.id))
+        .toList();
     if (selected.isEmpty) {
       ZerpaiToast.info(context, 'Select at least one sales order');
       return;
@@ -804,8 +835,9 @@ class _SalesOrderOverviewScreenState
   Future<void> _runBulkPrint() async {
     final salesState = ref.read(salesOrderControllerProvider);
     final sales = salesState.valueOrNull ?? const <SalesOrder>[];
-    final selected =
-        sales.where((sale) => _selectedSaleIds.contains(sale.id)).toList();
+    final selected = sales
+        .where((sale) => _selectedSaleIds.contains(sale.id))
+        .toList();
     if (selected.isEmpty) {
       ZerpaiToast.info(context, 'Select at least one sales order');
       return;
@@ -859,8 +891,6 @@ class _SalesOrderOverviewScreenState
       'Custom view "${result.name}" saved for ${result.visibilityLabel}',
     );
   }
-
-
 
   Widget _workspace(
     List<SalesOrder> filteredSales,
@@ -930,11 +960,26 @@ class _SalesOrderOverviewScreenState
                         SubmenuButton(
                           style: ZTableMoreMenu.menuItemButtonStyle(),
                           menuChildren: [
-                            _buildSortMenuItem('Created Time', _SalesOrderSortField.createdTime),
-                            _buildSortMenuItem('Last Modified Time', _SalesOrderSortField.lastModifiedTime),
-                            _buildSortMenuItem('Date', _SalesOrderSortField.date),
-                            _buildSortMenuItem('Sales Order#', _SalesOrderSortField.salesOrderNumber),
-                            _buildSortMenuItem('Reference#', _SalesOrderSortField.reference),
+                            _buildSortMenuItem(
+                              'Created Time',
+                              _SalesOrderSortField.createdTime,
+                            ),
+                            _buildSortMenuItem(
+                              'Last Modified Time',
+                              _SalesOrderSortField.lastModifiedTime,
+                            ),
+                            _buildSortMenuItem(
+                              'Date',
+                              _SalesOrderSortField.date,
+                            ),
+                            _buildSortMenuItem(
+                              'Sales Order#',
+                              _SalesOrderSortField.salesOrderNumber,
+                            ),
+                            _buildSortMenuItem(
+                              'Reference#',
+                              _SalesOrderSortField.reference,
+                            ),
                           ],
                           child: const Text('Sort by'),
                         ),
@@ -990,7 +1035,10 @@ class _SalesOrderOverviewScreenState
                         padding: const EdgeInsets.only(top: 3),
                         child: _buildCheckboxWidget(
                           _selectedSaleIds.contains(sale.id),
-                          onTap: () => _toggleSaleSelection(sale.id, !_selectedSaleIds.contains(sale.id)),
+                          onTap: () => _toggleSaleSelection(
+                            sale.id,
+                            !_selectedSaleIds.contains(sale.id),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1091,18 +1139,17 @@ class _SalesOrderOverviewScreenState
                       const SizedBox(height: 4),
                       Text(
                         order.saleNumber,
-                        style: AppTheme.sectionHeader.copyWith(
-                          fontSize: 22,
-                        ),
+                        style: AppTheme.sectionHeader.copyWith(fontSize: 22),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF8F9FA),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
                   ),
+                  decoration: const BoxDecoration(color: Color(0xFFF8F9FA)),
                   child: Row(
                     children: [
                       _buildToolbarButton(
@@ -1115,7 +1162,12 @@ class _SalesOrderOverviewScreenState
                         LucideIcons.mail,
                         'Send Email',
                         onPressed: () {
-                          context.push(AppRoutes.salesOrdersEmail.replaceAll(':id', order.id));
+                          context.push(
+                            AppRoutes.salesOrdersEmail.replaceAll(
+                              ':id',
+                              order.id,
+                            ),
+                          );
                         },
                       ),
                       _buildDivider(),
@@ -1124,7 +1176,8 @@ class _SalesOrderOverviewScreenState
                       _buildToolbarButton(
                         LucideIcons.fileText,
                         'Convert to Invoice',
-                        onPressed: () => _showUnavailableAction('Convert to Invoice'),
+                        onPressed: () =>
+                            _showUnavailableAction('Convert to Invoice'),
                       ),
                       _buildDivider(),
                       _ActionSplitMenu(
@@ -1138,15 +1191,27 @@ class _SalesOrderOverviewScreenState
                         style: _menuStyle(),
                         builder: (context, controller, child) {
                           return IconButton(
-                            onPressed: () => controller.isOpen ? controller.close() : controller.open(),
-                            icon: const Icon(LucideIcons.moreHorizontal, size: 18, color: AppTheme.textSecondary),
+                            onPressed: () => controller.isOpen
+                                ? controller.close()
+                                : controller.open(),
+                            icon: const Icon(
+                              LucideIcons.moreHorizontal,
+                              size: 18,
+                              color: AppTheme.textSecondary,
+                            ),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                           );
                         },
                         menuChildren: [
-                          _detailActionMenuItem('Convert to Purchase Order', order),
-                          _detailActionMenuItem('Mark shipment as fulfilled', order),
+                          _detailActionMenuItem(
+                            'Convert to Purchase Order',
+                            order,
+                          ),
+                          _detailActionMenuItem(
+                            'Mark shipment as fulfilled',
+                            order,
+                          ),
                           _detailActionMenuItem('Dropship', order),
                           _detailActionMenuItem('Cancel Items', order),
                           _detailActionMenuItem('Void', order),
@@ -1155,11 +1220,6 @@ class _SalesOrderOverviewScreenState
                           _detailActionMenuItem('Delete', order),
                         ],
                       ),
-
-
-
-
-
                     ],
                   ),
                 ),
@@ -1231,11 +1291,13 @@ class _SalesOrderOverviewScreenState
                           children: [
                             _banner(
                               icon: LucideIcons.info,
-                              text: 'Package tracking will appear here when fulfillment data is available from the backend.',
+                              text:
+                                  'Package tracking will appear here when fulfillment data is available from the backend.',
                             ),
                             _banner(
                               icon: LucideIcons.info,
-                              text: 'Picklist tracking will appear here when fulfillment data is available from the backend.',
+                              text:
+                                  'Picklist tracking will appear here when fulfillment data is available from the backend.',
                             ),
                           ],
                         ),
@@ -1284,25 +1346,10 @@ class _SalesOrderOverviewScreenState
                                 },
                                 activeTrackColor: AppTheme.primaryBlue,
                                 activeThumbColor: Colors.white,
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
                               ),
                             ),
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
                           ],
                         ),
                         const SizedBox(height: 14),
@@ -1333,13 +1380,16 @@ class _SalesOrderOverviewScreenState
         elevation: const WidgetStatePropertyAll(8),
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
         ),
       ),
       builder: (context, controller, _) => _buildToolbarButton(
         LucideIcons.printer,
         'PDF/Print',
-        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+        onPressed: () =>
+            controller.isOpen ? controller.close() : controller.open(),
       ),
       menuChildren: [
         MenuItemButton(
@@ -1351,24 +1401,32 @@ class _SalesOrderOverviewScreenState
             );
           },
           style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered)
-                    ? AppTheme.primaryBlue
-                    : Colors.transparent),
-            foregroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered)
-                    ? Colors.white
-                    : AppTheme.textSecondary),
-            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.transparent,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
             minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
             alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
           ),
-          child: const Row(children: [
-            Icon(LucideIcons.fileText, size: 16),
-            SizedBox(width: 12),
-            Text('PDF', style: TextStyle(fontSize: 14)),
-          ]),
+          child: const Row(
+            children: [
+              Icon(LucideIcons.fileText, size: 16),
+              SizedBox(width: 12),
+              Text('PDF', style: TextStyle(fontSize: 14)),
+            ],
+          ),
         ),
         MenuItemButton(
           onPressed: () async {
@@ -1379,34 +1437,50 @@ class _SalesOrderOverviewScreenState
             );
           },
           style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered)
-                    ? AppTheme.primaryBlue
-                    : Colors.transparent),
-            foregroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered)
-                    ? Colors.white
-                    : AppTheme.textSecondary),
-            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.transparent,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
             minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
             alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
           ),
-          child: const Row(children: [
-            Icon(LucideIcons.printer, size: 16),
-            SizedBox(width: 12),
-            Text('Print', style: TextStyle(fontSize: 14)),
-          ]),
+          child: const Row(
+            children: [
+              Icon(LucideIcons.printer, size: 16),
+              SizedBox(width: 12),
+              Text('Print', style: TextStyle(fontSize: 14)),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildToolbarButton(IconData icon, String label, {VoidCallback? onPressed, Color? color}) {
+  Widget _buildToolbarButton(
+    IconData icon,
+    String label, {
+    VoidCallback? onPressed,
+    Color? color,
+  }) {
     return TextButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 14, color: color ?? const Color(0xFF4B5563)),
-      label: Text(label, style: TextStyle(fontSize: 13, color: color ?? const Color(0xFF4B5563))),
+      label: Text(
+        label,
+        style: TextStyle(fontSize: 13, color: color ?? const Color(0xFF4B5563)),
+      ),
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
@@ -1473,7 +1547,8 @@ class _SalesOrderOverviewScreenState
     if (org?.logoUrl != null && org!.logoUrl!.trim().isNotEmpty) {
       try {
         final dio = Dio();
-        final res = await dio.get(org.logoUrl!,
+        final res = await dio.get(
+          org.logoUrl!,
           options: Options(responseType: ResponseType.bytes),
         );
         if (res.data != null) {
@@ -1704,10 +1779,9 @@ class _SalesOrderOverviewScreenState
                     final item = e.value;
                     return pw.TableRow(
                       decoration: pw.BoxDecoration(
-                        color:
-                            e.key % 2 == 0
-                                ? PdfColors.white
-                                : const PdfColor.fromInt(0xFFF9FAFB),
+                        color: e.key % 2 == 0
+                            ? PdfColors.white
+                            : const PdfColor.fromInt(0xFFF9FAFB),
                         border: const pw.Border(
                           bottom: pw.BorderSide(color: PdfColors.grey200),
                         ),
@@ -1715,7 +1789,9 @@ class _SalesOrderOverviewScreenState
                       children: [
                         _pwDataCell('${e.key + 1}'),
                         _pwDataCell(
-                          item.description ?? item.item?.billingName ?? 'Unnamed item',
+                          item.description ??
+                              item.item?.billingName ??
+                              'Unnamed item',
                         ),
                         _pwDataCell((item.hsnCode ?? item.item?.hsnCode) ?? ''),
                         _pwDataCell(
@@ -1751,7 +1827,10 @@ class _SalesOrderOverviewScreenState
                             _currency(order.shippingCharges),
                           ),
                         if (order.adjustment != 0)
-                          _pwTotalRow('Adjustment', _currency(order.adjustment)),
+                          _pwTotalRow(
+                            'Adjustment',
+                            _currency(order.adjustment),
+                          ),
                         pw.Divider(color: PdfColors.grey300),
                         _pwTotalRow(
                           'Total',
@@ -1850,8 +1929,6 @@ class _SalesOrderOverviewScreenState
     );
   }
 
-
-
   Map<String, double> _calculateColumnWidths(double totalWidth) {
     const double staticPrefixWidth = 84.0; // Slider + Checkbox space
 
@@ -1902,7 +1979,9 @@ class _SalesOrderOverviewScreenState
     setState(() {
       if (_customColumnWidths == null) {
         // Use current screen width to initialize if not yet set
-        _customColumnWidths = _calculateColumnWidths(context.size?.width ?? 1200);
+        _customColumnWidths = _calculateColumnWidths(
+          context.size?.width ?? 1200,
+        );
       }
       final current = _customColumnWidths![key] ?? 120.0;
       _customColumnWidths![key] = (current + dx).clamp(50.0, 2000.0);
@@ -1915,47 +1994,59 @@ class _SalesOrderOverviewScreenState
     return Stack(
       children: [
         LayoutBuilder(
-            builder: (context, constraints) {
-              final columnWidths = _customColumnWidths ?? _calculateColumnWidths(constraints.maxWidth);
-              const double actualPrefixWidth = 84.0; // Slider + Checkbox space
-              final double totalColumnsWidth = columnWidths.values.fold(0.0, (sum, w) => sum + w);
-              final screenWidth = math.max(constraints.maxWidth, totalColumnsWidth + actualPrefixWidth + 40);
+          builder: (context, constraints) {
+            final columnWidths =
+                _customColumnWidths ??
+                _calculateColumnWidths(constraints.maxWidth);
+            const double actualPrefixWidth = 84.0; // Slider + Checkbox space
+            final double totalColumnsWidth = columnWidths.values.fold(
+              0.0,
+              (sum, w) => sum + w,
+            );
+            final screenWidth = math.max(
+              constraints.maxWidth,
+              totalColumnsWidth + actualPrefixWidth + 40,
+            );
 
-              return Scrollbar(
+            return Scrollbar(
+              controller: _horizontalScrollController,
+              thumbVisibility: screenWidth > constraints.maxWidth,
+              trackVisibility: screenWidth > constraints.maxWidth,
+              child: SingleChildScrollView(
                 controller: _horizontalScrollController,
-                thumbVisibility: screenWidth > constraints.maxWidth,
-                trackVisibility: screenWidth > constraints.maxWidth,
-                child: SingleChildScrollView(
-                  controller: _horizontalScrollController,
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    width: screenWidth,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildTableHeader(sales, allSelected, columnWidths),
-                        Expanded(
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
-                            itemCount: sales.length,
-                            itemExtent: 40,
-                            itemBuilder: (context, index) {
-                              return _buildVirtualRow(sales[index], columnWidths);
-                            },
-                          ),
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: screenWidth,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildTableHeader(sales, allSelected, columnWidths),
+                      Expanded(
+                        child: ListView.builder(
+                          padding: EdgeInsets.zero,
+                          itemCount: sales.length,
+                          itemExtent: 40,
+                          itemBuilder: (context, index) {
+                            return _buildVirtualRow(sales[index], columnWidths);
+                          },
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
+        ),
       ],
     );
   }
 
-  Widget _buildTableHeader(List<SalesOrder> sales, bool allSelected, Map<String, double> columnWidths) {
+  Widget _buildTableHeader(
+    List<SalesOrder> sales,
+    bool allSelected,
+    Map<String, double> columnWidths,
+  ) {
     return Container(
       height: 36,
       decoration: const BoxDecoration(
@@ -1991,15 +2082,28 @@ class _SalesOrderOverviewScreenState
     );
   }
 
-  Widget _buildCheckboxWidget(bool isSelected, {bool isPartially = false, VoidCallback? onTap}) {
+  Widget _buildCheckboxWidget(
+    bool isSelected, {
+    bool isPartially = false,
+    VoidCallback? onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       child: isSelected || isPartially
           ? Container(
               width: 18,
               height: 18,
-              decoration: BoxDecoration(color: AppTheme.primaryBlue, borderRadius: BorderRadius.circular(3)),
-              child: Center(child: Icon(isPartially ? LucideIcons.minus : LucideIcons.check, size: 14, color: Colors.white)),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryBlue,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Center(
+                child: Icon(
+                  isPartially ? LucideIcons.minus : LucideIcons.check,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
             )
           : Container(
               width: 18,
@@ -2027,7 +2131,9 @@ class _SalesOrderOverviewScreenState
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(width: 8),
-            const SizedBox(width: 28), // Slider placeholder to match HeaderMenuButton
+            const SizedBox(
+              width: 28,
+            ), // Slider placeholder to match HeaderMenuButton
             const SizedBox(width: 12),
             _buildCheckboxWidget(
               isSelected,
@@ -2169,14 +2275,20 @@ class _SalesOrderOverviewScreenState
               const Divider(height: 1, color: AppTheme.borderLight),
               _bulkActionMenuItem('Convert to Invoice', 'Convert to invoice'),
               _bulkActionMenuItem('Mark as Confirmed', 'Mark as confirmed'),
-              _bulkActionMenuItem('Mark shipment as fulfilled', 'Shipment fulfilment'),
+              _bulkActionMenuItem(
+                'Mark shipment as fulfilled',
+                'Shipment fulfilment',
+              ),
               _bulkActionMenuItem('Backorder', 'Backorder'),
               _bulkActionMenuItem('Dropship', 'Dropship'),
               _bulkActionMenuItem('Generate picklist', 'Picklist generation'),
               _bulkActionMenuItem('Create Quick Shipments', 'Quick shipments'),
               _bulkActionMenuItem('Merge Sales Orders', 'Merge sales orders'),
               _bulkActionMenuItem('Bulk Cancel Items', 'Bulk cancel items'),
-              _bulkActionMenuItem('Bulk reopen canceled items', 'Bulk reopen canceled items'),
+              _bulkActionMenuItem(
+                'Bulk reopen canceled items',
+                'Bulk reopen canceled items',
+              ),
               _bulkActionMenuItem('Delete', 'Delete'),
             ],
           ),
@@ -2226,16 +2338,17 @@ class _SalesOrderOverviewScreenState
   Widget _buildHeaderForColumn(_SalesOrderColumnConfig column, double width) {
     final sortField = _sortFieldForColumn(column.key);
     final isSorted = sortField != null && _activeSortField == sortField;
-    final align = (column.key == _SalesOrderColumnKey.invoiced ||
-                   column.key == _SalesOrderColumnKey.payment ||
-                   column.key == _SalesOrderColumnKey.packed ||
-                   column.key == _SalesOrderColumnKey.shipped ||
-                   column.key == _SalesOrderColumnKey.picked ||
-                   column.key == _SalesOrderColumnKey.salesOrderNumber ||
-                   column.key == _SalesOrderColumnKey.orderStatus ||
-                   column.key == _SalesOrderColumnKey.amount ||
-                   column.key == _SalesOrderColumnKey.invoicedAmount ||
-                   column.key == _SalesOrderColumnKey.deliveryMethod)
+    final align =
+        (column.key == _SalesOrderColumnKey.invoiced ||
+            column.key == _SalesOrderColumnKey.payment ||
+            column.key == _SalesOrderColumnKey.packed ||
+            column.key == _SalesOrderColumnKey.shipped ||
+            column.key == _SalesOrderColumnKey.picked ||
+            column.key == _SalesOrderColumnKey.salesOrderNumber ||
+            column.key == _SalesOrderColumnKey.orderStatus ||
+            column.key == _SalesOrderColumnKey.amount ||
+            column.key == _SalesOrderColumnKey.invoicedAmount ||
+            column.key == _SalesOrderColumnKey.deliveryMethod)
         ? TextAlign.center
         : TextAlign.left;
     return SizedBox(
@@ -2250,9 +2363,9 @@ class _SalesOrderOverviewScreenState
             mainAxisAlignment: align == TextAlign.center
                 ? MainAxisAlignment.center
                 : (column.key == _SalesOrderColumnKey.amount ||
-                   column.key == _SalesOrderColumnKey.invoicedAmount)
-                    ? MainAxisAlignment.end
-                    : MainAxisAlignment.start,
+                      column.key == _SalesOrderColumnKey.invoicedAmount)
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
             children: [
               Flexible(
                 child: Text(
@@ -2280,14 +2393,15 @@ class _SalesOrderOverviewScreenState
     );
   }
 
-  Widget _buildCellForColumn(_SalesOrderColumnConfig column, SalesOrder sale, Map<String, double> columnWidths) {
+  Widget _buildCellForColumn(
+    _SalesOrderColumnConfig column,
+    SalesOrder sale,
+    Map<String, double> columnWidths,
+  ) {
     final w = columnWidths[column.key.name] ?? column.width;
     switch (column.key) {
       case _SalesOrderColumnKey.date:
-        return _Cell(
-          width: w,
-          child: _tableText(_date(sale.saleDate)),
-        );
+        return _Cell(width: w, child: _tableText(_date(sale.saleDate)));
       case _SalesOrderColumnKey.salesOrderNumber:
         return _Cell(
           width: w,
@@ -2302,15 +2416,9 @@ class _SalesOrderOverviewScreenState
           alignCenter: true,
         );
       case _SalesOrderColumnKey.reference:
-        return _Cell(
-          width: w,
-          child: _tableText(sale.reference ?? '—'),
-        );
+        return _Cell(width: w, child: _tableText(sale.reference ?? '—'));
       case _SalesOrderColumnKey.customerName:
-        return _Cell(
-          width: w,
-          child: _tableText(_customerName(sale)),
-        );
+        return _Cell(width: w, child: _tableText(_customerName(sale)));
       case _SalesOrderColumnKey.orderStatus:
       case _SalesOrderColumnKey.status:
         return _Cell(
@@ -2384,7 +2492,10 @@ class _SalesOrderOverviewScreenState
         return _Cell(
           width: w,
           alignCenter: true,
-          child: _tableText(sale.deliveryMethod ?? '—', textAlign: TextAlign.center),
+          child: _tableText(
+            sale.deliveryMethod ?? '—',
+            textAlign: TextAlign.center,
+          ),
         );
       case _SalesOrderColumnKey.expectedShipmentDate:
         return _Cell(
@@ -2431,10 +2542,7 @@ class _SalesOrderOverviewScreenState
           activeIcon: LucideIcons.checkSquare,
         );
       case _SalesOrderColumnKey.salesPerson:
-        return _Cell(
-          width: w,
-          child: _tableText(sale.salesperson ?? '—'),
-        );
+        return _Cell(width: w, child: _tableText(sale.salesperson ?? '—'));
     }
   }
 
@@ -2521,7 +2629,10 @@ class _SalesOrderOverviewScreenState
                     const SizedBox(height: 24),
                     _meta('ORDER DATE', _date(order.saleDate)),
                     const SizedBox(height: 12),
-                    _meta('PAYMENT TERMS', order.paymentTerms ?? 'Not specified'),
+                    _meta(
+                      'PAYMENT TERMS',
+                      order.paymentTerms ?? 'Not specified',
+                    ),
                     const SizedBox(height: 12),
                     _meta('SALESPERSON', order.salesperson ?? 'Not assigned'),
                   ],
@@ -2587,7 +2698,7 @@ class _SalesOrderOverviewScreenState
     );
   }
 
-Widget _pdfCard(
+  Widget _pdfCard(
     SalesOrder order,
     List<SalesOrderItem> items,
     OrgSettings? orgSettings,
@@ -2615,94 +2726,63 @@ Widget _pdfCard(
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _pdfLogo(orgSettings),
-                        const SizedBox(height: 16),
-                        Text(
-                          orgSettings?.name.trim().isNotEmpty == true
-                              ? orgSettings!.name.trim()
-                              : 'YOUR COMPANY NAME',
-                          style: AppTheme.bodyText.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        if (orgSettings?.paymentStubAddress
-                                ?.trim()
-                                .isNotEmpty ==
-                            true)
-                          Text(
-                            _formatAddress(orgSettings!.paymentStubAddress!.trim()),
-                            style: AppTheme.bodyText.copyWith(fontSize: 13),
-                          ),
-                        if (orgSettings?.companyIdentityLine?.isNotEmpty ==
-                            true)
-                          Padding(
-                            padding: EdgeInsets.only(
-                              top:
-                                  orgSettings?.paymentStubAddress
-                                          ?.trim()
-                                          .isNotEmpty ==
-                                      true
-                                  ? 6
-                                  : 0,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _pdfLogo(orgSettings),
+                            const SizedBox(height: 16),
+                            Text(
+                              orgSettings?.name.trim().isNotEmpty == true
+                                  ? orgSettings!.name.trim()
+                                  : 'YOUR COMPANY NAME',
+                              style: AppTheme.bodyText.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                            child: Text(
-                              orgSettings!.companyIdentityLine!,
-                              style: AppTheme.bodyText.copyWith(fontSize: 13),
-                            ),
-                          ),
-                        if ((orgSettings?.paymentStubAddress
+                            const SizedBox(height: 6),
+                            if (orgSettings?.paymentStubAddress
                                     ?.trim()
-                                    .isNotEmpty !=
-                                true) &&
-                            (orgSettings?.companyIdentityLine?.isNotEmpty !=
-                                true))
-                          Text(
-                            'Address Line 1\nCity, State PIN',
-                            style: AppTheme.bodyText.copyWith(fontSize: 13),
-                          ),
-                      ],
-                    ),
-                  ),
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                                    .isNotEmpty ==
+                                true)
+                              Text(
+                                _formatAddress(
+                                  orgSettings!.paymentStubAddress!.trim(),
+                                ),
+                                style: AppTheme.bodyText.copyWith(fontSize: 13),
+                              ),
+                            if (orgSettings?.companyIdentityLine?.isNotEmpty ==
+                                true)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  top:
+                                      orgSettings?.paymentStubAddress
+                                              ?.trim()
+                                              .isNotEmpty ==
+                                          true
+                                      ? 6
+                                      : 0,
+                                ),
+                                child: Text(
+                                  orgSettings!.companyIdentityLine!,
+                                  style: AppTheme.bodyText.copyWith(
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            if ((orgSettings?.paymentStubAddress
+                                        ?.trim()
+                                        .isNotEmpty !=
+                                    true) &&
+                                (orgSettings?.companyIdentityLine?.isNotEmpty !=
+                                    true))
+                              Text(
+                                'Address Line 1\nCity, State PIN',
+                                style: AppTheme.bodyText.copyWith(fontSize: 13),
+                              ),
+                          ],
+                        ),
+                      ),
 
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -2775,7 +2855,10 @@ Widget _pdfCard(
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Container(height: 1, color: AppTheme.textPrimary),
+                        child: Container(
+                          height: 1,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
                     ],
                   ),
@@ -2784,7 +2867,10 @@ Widget _pdfCard(
                     spacing: 42,
                     runSpacing: 16,
                     children: [
-                      _infoPair('Salesperson', order.salesperson ?? 'Not assigned'),
+                      _infoPair(
+                        'Salesperson',
+                        order.salesperson ?? 'Not assigned',
+                      ),
                       _infoPair(
                         'Customer Notes',
                         order.customerNotes ?? 'No customer notes',
@@ -3253,8 +3339,6 @@ Widget _pdfCard(
     );
   }
 
-
-
   Widget _infoPair(String label, String value) {
     return SizedBox(
       width: 280,
@@ -3494,8 +3578,6 @@ class _ResizableHeaderCellState extends State<_ResizableHeaderCell> {
   }
 }
 
-
-
 class _Cell extends StatelessWidget {
   final double width;
   final Widget child;
@@ -3566,7 +3648,6 @@ class _StateDot extends StatelessWidget {
   }
 }
 
-
 class _ActionSplitMenu extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -3618,7 +3699,10 @@ class _ActionSplitMenu extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       label,
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF4B5563),
+                      ),
                     ),
                   ],
                 ),
@@ -3641,17 +3725,16 @@ class _ActionSplitMenu extends StatelessWidget {
                   .map(
                     (item) => PopupMenuItem<String>(
                       value: item,
-                      labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>(
-                        (states) {
-                          if (states.contains(WidgetState.hovered)) {
-                            return AppTheme.bodyText.copyWith(
-                              fontSize: 13,
-                              color: Colors.white,
-                            );
-                          }
-                          return AppTheme.bodyText.copyWith(fontSize: 13);
-                        },
-                      ),
+                      labelTextStyle:
+                          WidgetStateProperty.resolveWith<TextStyle>((states) {
+                            if (states.contains(WidgetState.hovered)) {
+                              return AppTheme.bodyText.copyWith(
+                                fontSize: 13,
+                                color: Colors.white,
+                              );
+                            }
+                            return AppTheme.bodyText.copyWith(fontSize: 13);
+                          }),
                       textStyle: AppTheme.bodyText.copyWith(fontSize: 13),
                       child: Text(
                         item,
@@ -3682,7 +3765,6 @@ class _ActionSplitMenu extends StatelessWidget {
     );
   }
 }
-
 
 class _BulkActionButton extends StatelessWidget {
   final String label;
@@ -4610,7 +4692,6 @@ ButtonStyle _menuItemStyle({bool isActive = false}) {
   );
 }
 
-
 InputDecoration _inputDecoration(String hintText) {
   return InputDecoration(
     hintText: hintText,
@@ -4749,23 +4830,18 @@ String _formatAddress(String address) {
             data['attention'].toString().isNotEmpty) {
           parts.add(data['attention'].toString());
         }
-        if (data['street1'] != null &&
-            data['street1'].toString().isNotEmpty) {
+        if (data['street1'] != null && data['street1'].toString().isNotEmpty) {
           parts.add(data['street1'].toString());
         }
-        if (data['street2'] != null &&
-            data['street2'].toString().isNotEmpty) {
+        if (data['street2'] != null && data['street2'].toString().isNotEmpty) {
           parts.add(data['street2'].toString());
         }
 
-        final cityStateZip =
-            [
-                  data['city'],
-                  data['state_name'] ?? data['state'],
-                  data['pincode'] ?? data['zip_code'],
-                ]
-                .where((e) => e != null && e.toString().trim().isNotEmpty)
-                .join(', ');
+        final cityStateZip = [
+          data['city'],
+          data['state_name'] ?? data['state'],
+          data['pincode'] ?? data['zip_code'],
+        ].where((e) => e != null && e.toString().trim().isNotEmpty).join(', ');
 
         if (cityStateZip.isNotEmpty) {
           parts.add(cityStateZip);
@@ -4933,17 +5009,21 @@ class _ActionSquare extends StatelessWidget {
     );
   }
 }
+
 class SalesOrderEmailScreen extends ConsumerStatefulWidget {
   final String orderId;
 
   const SalesOrderEmailScreen({super.key, required this.orderId});
 
   @override
-  ConsumerState<SalesOrderEmailScreen> createState() => _SalesOrderEmailScreenState();
+  ConsumerState<SalesOrderEmailScreen> createState() =>
+      _SalesOrderEmailScreenState();
 }
 
 class _SalesOrderEmailScreenState extends ConsumerState<SalesOrderEmailScreen> {
-  final _fromCtrl = TextEditingController(text: 'zabnixprivatelimited <zabnixprivatelimited@gmail.com>');
+  final _fromCtrl = TextEditingController(
+    text: 'zabnixprivatelimited <zabnixprivatelimited@gmail.com>',
+  );
   final _toCtrl = TextEditingController();
   final _subjectCtrl = TextEditingController();
   final _bodyCtrl = TextEditingController();
@@ -4959,14 +5039,19 @@ class _SalesOrderEmailScreenState extends ConsumerState<SalesOrderEmailScreen> {
 
   Future<void> _loadOrderData() async {
     try {
-      final order = await ref.read(salesOrderApiServiceProvider).getSalesOrderById(widget.orderId);
+      final order = await ref
+          .read(salesOrderApiServiceProvider)
+          .getSalesOrderById(widget.orderId);
       setState(() {
         _order = order;
         final customerName = order.customer?.displayName ?? 'Customer';
-        _toCtrl.text = '$customerName <${order.customer?.email ?? 'customer@example.com'}>';
-        _subjectCtrl.text = 'Sales Order from ZABNIX PRIVATE LIMITED (Sales Order #: [${order.saleNumber}])';
-        
-        _bodyCtrl.text = '''Dear $customerName,
+        _toCtrl.text =
+            '$customerName <${order.customer?.email ?? 'customer@example.com'}>';
+        _subjectCtrl.text =
+            'Sales Order from ZABNIX PRIVATE LIMITED (Sales Order #: [${order.saleNumber}])';
+
+        _bodyCtrl.text =
+            '''Dear $customerName,
 
 Thanks for your interest in our services. Please find our sales order attached with this mail.
 
@@ -4986,7 +5071,7 @@ Assuring you of our best services at all times.
 Regards,
 zabnixprivatelimited
 ZABNIX PRIVATE LIMITED''';
-        
+
         _isLoading = false;
       });
     } catch (e) {
@@ -5001,9 +5086,7 @@ ZABNIX PRIVATE LIMITED''';
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final order = _order!;
@@ -5012,8 +5095,10 @@ ZABNIX PRIVATE LIMITED''';
     return EmailComposerScreen(
       title: 'Email To $customerName',
       initialFrom: 'zabnixprivatelimited <zabnixprivatelimited@gmail.com>',
-      initialTo: '$customerName <${order.customer?.email ?? "customer@example.com"}>',
-      initialSubject: 'Sales Order from ZABNIX PRIVATE LIMITED (Sales Order #: [${order.saleNumber}])',
+      initialTo:
+          '$customerName <${order.customer?.email ?? "customer@example.com"}>',
+      initialSubject:
+          'Sales Order from ZABNIX PRIVATE LIMITED (Sales Order #: [${order.saleNumber}])',
       initialBody: _bodyCtrl.text,
       attachmentName: '[${order.saleNumber}]',
       onSend: (from, to, subject, body, attachPdf) {

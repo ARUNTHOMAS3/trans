@@ -58,7 +58,7 @@ class _PurchasesPurchaseReceivesListScreenState
   String _selectedView = 'All';
   final Set<String> _selectedIds = {};
   String? _activeReceiveId;
-  
+
   List<ColumnConfig> _allColumns = [];
   final List<String> _visibleColumns = [];
   bool _shouldWrapText = false;
@@ -102,17 +102,46 @@ class _PurchasesPurchaseReceivesListScreenState
   void _initializeColumns() {
     _allColumns = [
       ColumnConfig(id: 'date', label: 'DATE', orderIndex: 0, isLocked: true),
-      ColumnConfig(id: 'pr#', label: 'PURCHASE RECEIVE#', orderIndex: 1, isLocked: true),
+      ColumnConfig(
+        id: 'pr#',
+        label: 'PURCHASE RECEIVE#',
+        orderIndex: 1,
+        isLocked: true,
+      ),
       ColumnConfig(id: 'po#', label: 'PURCHASE ORDER#', orderIndex: 2),
       ColumnConfig(id: 'vendor', label: 'VENDOR NAME', orderIndex: 3),
-      ColumnConfig(id: 'status', label: 'STATUS', orderIndex: 4, isLocked: true),
+      ColumnConfig(
+        id: 'status',
+        label: 'STATUS',
+        orderIndex: 4,
+        isLocked: true,
+      ),
       ColumnConfig(id: 'billed', label: 'BILLED', orderIndex: 5),
       ColumnConfig(id: 'qty', label: 'QUANTITY', orderIndex: 6),
-      ColumnConfig(id: 'bill_no', label: 'BILL NO#', orderIndex: 7, isVisible: false),
-      ColumnConfig(id: 'bill_date', label: 'BILL DATE', orderIndex: 8, isVisible: false),
-      ColumnConfig(id: 'invoice_total', label: 'INVOICE TOTAL', orderIndex: 9, isVisible: false),
+      ColumnConfig(
+        id: 'bill_no',
+        label: 'BILL NO#',
+        orderIndex: 7,
+        isVisible: false,
+      ),
+      ColumnConfig(
+        id: 'bill_date',
+        label: 'BILL DATE',
+        orderIndex: 8,
+        isVisible: false,
+      ),
+      ColumnConfig(
+        id: 'invoice_total',
+        label: 'INVOICE TOTAL',
+        orderIndex: 9,
+        isVisible: false,
+      ),
       ColumnConfig(id: 'created_time', label: 'CREATED TIME', orderIndex: 10),
-      ColumnConfig(id: 'modified_time', label: 'LAST MODIFIED TIME', orderIndex: 11),
+      ColumnConfig(
+        id: 'modified_time',
+        label: 'LAST MODIFIED TIME',
+        orderIndex: 11,
+      ),
     ];
     _updateVisibleColumns();
   }
@@ -134,7 +163,10 @@ class _PurchasesPurchaseReceivesListScreenState
       if (jsonStr != null) {
         final List<dynamic> decoded = jsonDecode(jsonStr);
         final Map<String, ColumnConfig> loadedMap = {
-          for (var c in decoded.map((e) => ColumnConfig.fromJson(Map<String, dynamic>.from(e)))) c.id: c
+          for (var c in decoded.map(
+            (e) => ColumnConfig.fromJson(Map<String, dynamic>.from(e)),
+          ))
+            c.id: c,
         };
 
         setState(() {
@@ -211,7 +243,10 @@ class _PurchasesPurchaseReceivesListScreenState
     }
 
     if (anyAlreadyInStatus) {
-      ZerpaiToast.error(context, 'One or more selected items are already in $status status');
+      ZerpaiToast.error(
+        context,
+        'One or more selected items are already in $status status',
+      );
       return;
     }
 
@@ -240,7 +275,8 @@ class _PurchasesPurchaseReceivesListScreenState
     final confirmed = await showZerpaiConfirmationDialog(
       context,
       title: 'Delete Purchase Receives',
-      message: 'Are you sure you want to delete ${ids.length} items? This action cannot be undone.',
+      message:
+          'Are you sure you want to delete ${ids.length} items? This action cannot be undone.',
       confirmLabel: 'Delete',
       variant: ZerpaiConfirmationVariant.danger,
     );
@@ -280,12 +316,22 @@ class _PurchasesPurchaseReceivesListScreenState
           // Close/Deselect all icon
           InkWell(
             onTap: _clearSelection,
-            child: const Icon(LucideIcons.x, size: 20, color: AppTheme.textSecondary),
+            child: const Icon(
+              LucideIcons.x,
+              size: 20,
+              color: AppTheme.textSecondary,
+            ),
           ),
           const SizedBox(width: 16),
-          _buildSelectionButton('Mark as Received', () => _applyBulkStatus('RECEIVED')),
+          _buildSelectionButton(
+            'Mark as Received',
+            () => _applyBulkStatus('RECEIVED'),
+          ),
           const SizedBox(width: 12),
-          _buildSelectionButton('Mark as In Transit', () => _applyBulkStatus('INTRANSIT')),
+          _buildSelectionButton(
+            'Mark as In Transit',
+            () => _applyBulkStatus('INTRANSIT'),
+          ),
           const SizedBox(width: 12),
           _buildSelectionButton('Delete', _deleteSelectedReceives),
           const SizedBox(width: 16),
@@ -371,7 +417,8 @@ class _PurchasesPurchaseReceivesListScreenState
             borderRadius: BorderRadius.circular(4),
           ),
           child: InkWell(
-            onTap: () => controller.isOpen ? controller.close() : controller.open(),
+            onTap: () =>
+                controller.isOpen ? controller.close() : controller.open(),
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -384,7 +431,11 @@ class _PurchasesPurchaseReceivesListScreenState
                   ),
                 ),
                 SizedBox(width: 4),
-                Icon(LucideIcons.chevronDown, size: 14, color: AppTheme.textSecondary),
+                Icon(
+                  LucideIcons.chevronDown,
+                  size: 14,
+                  color: AppTheme.textSecondary,
+                ),
               ],
             ),
           ),
@@ -423,10 +474,7 @@ class _PurchasesPurchaseReceivesListScreenState
         ),
         child: Row(
           children: [
-            InkWell(
-              onTap: _clearSelection,
-              child: _buildCheckboxWidget(true),
-            ),
+            InkWell(onTap: _clearSelection, child: _buildCheckboxWidget(true)),
             const SizedBox(width: 12),
             _buildBulkActionsDropdown(),
             const SizedBox(width: 16),
@@ -443,7 +491,11 @@ class _PurchasesPurchaseReceivesListScreenState
             const Spacer(),
             IconButton(
               onPressed: _clearSelection,
-              icon: const Icon(LucideIcons.x, size: 18, color: AppTheme.errorRed),
+              icon: const Icon(
+                LucideIcons.x,
+                size: 18,
+                color: AppTheme.errorRed,
+              ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
@@ -493,16 +545,18 @@ class _PurchasesPurchaseReceivesListScreenState
 
     return Shortcuts(
       shortcuts: {
-        LogicalKeySet(LogicalKeyboardKey.escape): const _ClearReceiveSelectionIntent(),
+        LogicalKeySet(LogicalKeyboardKey.escape):
+            const _ClearReceiveSelectionIntent(),
       },
       child: Actions(
         actions: {
-          _ClearReceiveSelectionIntent: CallbackAction<_ClearReceiveSelectionIntent>(
-            onInvoke: (intent) {
-              _clearSelection();
-              return null;
-            },
-          ),
+          _ClearReceiveSelectionIntent:
+              CallbackAction<_ClearReceiveSelectionIntent>(
+                onInvoke: (intent) {
+                  _clearSelection();
+                  return null;
+                },
+              ),
         },
         child: Focus(
           autofocus: true,
@@ -522,7 +576,10 @@ class _PurchasesPurchaseReceivesListScreenState
                         ? Column(
                             children: [
                               _buildMainToolbar(),
-                              const Divider(height: 1, color: AppTheme.borderColor),
+                              const Divider(
+                                height: 1,
+                                color: AppTheme.borderColor,
+                              ),
                               Expanded(child: _buildVirtualizedTable(sorted)),
                             ],
                           )
@@ -589,13 +646,17 @@ class _PurchasesPurchaseReceivesListScreenState
       int cmp;
       switch (_sortField) {
         case 'date':
-          cmp = (a.receivedDate ?? DateTime(0)).compareTo(b.receivedDate ?? DateTime(0));
+          cmp = (a.receivedDate ?? DateTime(0)).compareTo(
+            b.receivedDate ?? DateTime(0),
+          );
           break;
         case 'pr#':
           cmp = a.purchaseReceiveNumber.compareTo(b.purchaseReceiveNumber);
           break;
         case 'po#':
-          cmp = (a.purchaseOrderNumber ?? '').compareTo(b.purchaseOrderNumber ?? '');
+          cmp = (a.purchaseOrderNumber ?? '').compareTo(
+            b.purchaseOrderNumber ?? '',
+          );
           break;
         case 'vendor':
           cmp = (a.vendorName ?? '').compareTo(b.vendorName ?? '');
@@ -607,16 +668,22 @@ class _PurchasesPurchaseReceivesListScreenState
           cmp = (a.billNo ?? '').compareTo(b.billNo ?? '');
           break;
         case 'bill_date':
-          cmp = (a.billDate ?? DateTime(0)).compareTo(b.billDate ?? DateTime(0));
+          cmp = (a.billDate ?? DateTime(0)).compareTo(
+            b.billDate ?? DateTime(0),
+          );
           break;
         case 'invoice_total':
           cmp = a.invoiceTotal.compareTo(b.invoiceTotal);
           break;
         case 'created_time':
-          cmp = (a.createdAt ?? DateTime(0)).compareTo(b.createdAt ?? DateTime(0));
+          cmp = (a.createdAt ?? DateTime(0)).compareTo(
+            b.createdAt ?? DateTime(0),
+          );
           break;
         case 'modified_time':
-          cmp = (a.updatedAt ?? DateTime(0)).compareTo(b.updatedAt ?? DateTime(0));
+          cmp = (a.updatedAt ?? DateTime(0)).compareTo(
+            b.updatedAt ?? DateTime(0),
+          );
           break;
         default:
           cmp = 0;
@@ -626,15 +693,17 @@ class _PurchasesPurchaseReceivesListScreenState
     return list;
   }
 
-
-
   Widget _buildMoreMenu() {
     return ZTableMoreMenu(
       menuChildren: [
         SubmenuButton(
           menuStyle: MenuStyle(
-            backgroundColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
-            surfaceTintColor: const WidgetStatePropertyAll(AppTheme.backgroundColor),
+            backgroundColor: const WidgetStatePropertyAll(
+              AppTheme.backgroundColor,
+            ),
+            surfaceTintColor: const WidgetStatePropertyAll(
+              AppTheme.backgroundColor,
+            ),
             padding: const WidgetStatePropertyAll(EdgeInsets.zero),
             elevation: const WidgetStatePropertyAll(8),
           ),
@@ -652,7 +721,10 @@ class _PurchasesPurchaseReceivesListScreenState
             children: const [
               Icon(LucideIcons.arrowUpDown, size: 16),
               SizedBox(width: 12),
-              Text('Sort by', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              Text(
+                'Sort by',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
             ],
           ),
         ),
@@ -664,7 +736,10 @@ class _PurchasesPurchaseReceivesListScreenState
             children: const [
               Icon(LucideIcons.download, size: 16),
               SizedBox(width: 12),
-              const Text('Import Purchase Receives', style: TextStyle(fontSize: 13)),
+              const Text(
+                'Import Purchase Receives',
+                style: TextStyle(fontSize: 13),
+              ),
             ],
           ),
         ),
@@ -675,13 +750,17 @@ class _PurchasesPurchaseReceivesListScreenState
             children: const [
               Icon(LucideIcons.upload, size: 16),
               SizedBox(width: 12),
-              const Text('Export Purchase Receives', style: TextStyle(fontSize: 13)),
+              const Text(
+                'Export Purchase Receives',
+                style: TextStyle(fontSize: 13),
+              ),
             ],
           ),
         ),
         const Divider(height: 1, color: AppTheme.bgDisabled),
         MenuItemButton(
-          onPressed: () => ref.read(purchaseReceivesProvider.notifier).fetchReceives(),
+          onPressed: () =>
+              ref.read(purchaseReceivesProvider.notifier).fetchReceives(),
           style: ZTableMoreMenu.menuItemButtonStyle(),
           child: Row(
             children: const [
@@ -853,8 +932,6 @@ class _PurchasesPurchaseReceivesListScreenState
     );
   }
 
-
-
   Widget _buildNewButton({bool isIconOnly = false}) {
     final orgId =
         GoRouterState.of(context).pathParameters['orgSystemId'] ?? '0000000000';
@@ -910,13 +987,17 @@ class _PurchasesPurchaseReceivesListScreenState
       builder: (context, constraints) {
         final columnWidths =
             _customColumnWidths ?? _calculateColumnWidths(constraints.maxWidth);
-        
+
         const double actualPrefixWidth = 78.0; // Slider + Checkbox space
-        final double totalColumnsWidth =
-            columnWidths.values.fold(0.0, (sum, w) => sum + w);
-        
-        final screenWidth =
-            math.max(constraints.maxWidth, totalColumnsWidth + actualPrefixWidth + 40);
+        final double totalColumnsWidth = columnWidths.values.fold(
+          0.0,
+          (sum, w) => sum + w,
+        );
+
+        final screenWidth = math.max(
+          constraints.maxWidth,
+          totalColumnsWidth + actualPrefixWidth + 40,
+        );
 
         return Scrollbar(
           controller: _horizontalScrollController,
@@ -952,7 +1033,9 @@ class _PurchasesPurchaseReceivesListScreenState
   void _resizeColumn(String key, double dx) {
     setState(() {
       if (_customColumnWidths == null) {
-        _customColumnWidths = _calculateColumnWidths(context.size?.width ?? 1200);
+        _customColumnWidths = _calculateColumnWidths(
+          context.size?.width ?? 1200,
+        );
       }
       final current = _customColumnWidths![key] ?? 120.0;
       _customColumnWidths![key] = (current + dx).clamp(50.0, 2000.0);
@@ -1021,7 +1104,9 @@ class _PurchasesPurchaseReceivesListScreenState
           const SizedBox(width: 12),
           ..._visibleColumns.map((colId) {
             final width = columnWidths[colId]!;
-            final align = colId == 'qty' ? TextAlign.right : (colId == 'billed' ? TextAlign.center : TextAlign.left);
+            final align = colId == 'qty'
+                ? TextAlign.right
+                : (colId == 'billed' ? TextAlign.center : TextAlign.left);
 
             return _ResizableHeaderCell(
               width: width,
@@ -1039,7 +1124,10 @@ class _PurchasesPurchaseReceivesListScreenState
     );
   }
 
-  Widget _buildVirtualRow(PurchaseReceive receive, Map<String, double> columnWidths) {
+  Widget _buildVirtualRow(
+    PurchaseReceive receive,
+    Map<String, double> columnWidths,
+  ) {
     final isSelected = _selectedIds.contains(receive.id);
 
     return InkWell(
@@ -1087,7 +1175,9 @@ class _PurchasesPurchaseReceivesListScreenState
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: isActive ? const Color(0xFFF0F7FF) : Colors.white,
-              border: const Border(bottom: BorderSide(color: AppTheme.borderColor)),
+              border: const Border(
+                bottom: BorderSide(color: AppTheme.borderColor),
+              ),
             ),
             child: Row(
               children: [
@@ -1102,12 +1192,18 @@ class _PurchasesPurchaseReceivesListScreenState
                     children: [
                       Text(
                         receive.vendorName ?? '-',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '${receive.purchaseReceiveNumber}  •  ${receive.purchaseOrderNumber ?? '-'}',
-                        style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlue),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.primaryBlue,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -1123,7 +1219,10 @@ class _PurchasesPurchaseReceivesListScreenState
                 ),
                 Text(
                   receive.quantity.toStringAsFixed(2),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -1155,10 +1254,7 @@ class _PurchasesPurchaseReceivesListScreenState
     );
   }
 
-  Widget _buildCheckboxWidget(
-    bool isSelected, {
-    bool isPartially = false,
-  }) {
+  Widget _buildCheckboxWidget(bool isSelected, {bool isPartially = false}) {
     return isSelected || isPartially
         ? Container(
             width: 18,
@@ -1186,7 +1282,12 @@ class _PurchasesPurchaseReceivesListScreenState
           );
   }
 
-  Widget _buildHeaderCell(String text, String colId, {double? width, TextAlign? align}) {
+  Widget _buildHeaderCell(
+    String text,
+    String colId, {
+    double? width,
+    TextAlign? align,
+  }) {
     return InkWell(
       onTap: () {
         setState(() {
@@ -1203,7 +1304,9 @@ class _PurchasesPurchaseReceivesListScreenState
         padding: const EdgeInsets.symmetric(horizontal: 12),
         alignment: align == TextAlign.right
             ? Alignment.centerRight
-            : (align == TextAlign.center ? Alignment.center : Alignment.centerLeft),
+            : (align == TextAlign.center
+                  ? Alignment.center
+                  : Alignment.centerLeft),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1212,7 +1315,10 @@ class _PurchasesPurchaseReceivesListScreenState
                 text,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTheme.tableHeader.copyWith(fontSize: 11, letterSpacing: 0.5),
+                style: AppTheme.tableHeader.copyWith(
+                  fontSize: 11,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
           ],
@@ -1223,12 +1329,16 @@ class _PurchasesPurchaseReceivesListScreenState
 
   Widget _buildCell(PurchaseReceive receive, String colId, {double? width}) {
     Widget content;
-    TextAlign align = colId == 'billed' ? TextAlign.center : (colId == 'qty' ? TextAlign.right : TextAlign.left);
+    TextAlign align = colId == 'billed'
+        ? TextAlign.center
+        : (colId == 'qty' ? TextAlign.right : TextAlign.left);
 
     switch (colId) {
       case 'date':
         content = Text(
-          DateFormat('dd-MM-yyyy').format(receive.receivedDate ?? DateTime.now()),
+          DateFormat(
+            'dd-MM-yyyy',
+          ).format(receive.receivedDate ?? DateTime.now()),
           style: AppTheme.tableCell,
         );
         break;
@@ -1248,10 +1358,7 @@ class _PurchasesPurchaseReceivesListScreenState
         );
         break;
       case 'vendor':
-        content = Text(
-          receive.vendorName ?? '-',
-          style: AppTheme.tableCell,
-        );
+        content = Text(receive.vendorName ?? '-', style: AppTheme.tableCell);
         break;
       case 'status':
         content = Text(
@@ -1267,20 +1374,16 @@ class _PurchasesPurchaseReceivesListScreenState
         content = const Icon(Icons.circle, size: 8, color: Color(0xFFE5E7EB));
         break;
       case 'qty':
-        content = Text(
-          _getTotalQuantity(receive),
-          style: AppTheme.tableCell,
-        );
+        content = Text(_getTotalQuantity(receive), style: AppTheme.tableCell);
         break;
       case 'bill_no':
-        content = Text(
-          receive.billNo ?? '-',
-          style: AppTheme.tableCell,
-        );
+        content = Text(receive.billNo ?? '-', style: AppTheme.tableCell);
         break;
       case 'bill_date':
         content = Text(
-          receive.billDate != null ? DateFormat('dd-MM-yyyy').format(receive.billDate!) : '-',
+          receive.billDate != null
+              ? DateFormat('dd-MM-yyyy').format(receive.billDate!)
+              : '-',
           style: AppTheme.tableCell,
         );
         break;
@@ -1292,13 +1395,17 @@ class _PurchasesPurchaseReceivesListScreenState
         break;
       case 'created_time':
         content = Text(
-          DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.now()), // Placeholder
+          DateFormat(
+            'dd-MM-yyyy hh:mm a',
+          ).format(DateTime.now()), // Placeholder
           style: AppTheme.tableCell.copyWith(color: AppTheme.textSecondary),
         );
         break;
       case 'modified_time':
         content = Text(
-          DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.now()), // Placeholder
+          DateFormat(
+            'dd-MM-yyyy hh:mm a',
+          ).format(DateTime.now()), // Placeholder
           style: AppTheme.tableCell.copyWith(color: AppTheme.textSecondary),
         );
         break;
@@ -1309,7 +1416,11 @@ class _PurchasesPurchaseReceivesListScreenState
     return Container(
       width: width,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      alignment: align == TextAlign.right ? Alignment.centerRight : (align == TextAlign.center ? Alignment.center : Alignment.centerLeft),
+      alignment: align == TextAlign.right
+          ? Alignment.centerRight
+          : (align == TextAlign.center
+                ? Alignment.center
+                : Alignment.centerLeft),
       child: DefaultTextStyle(
         style: AppTheme.tableCell,
         child: _shouldWrapText
@@ -1362,10 +1473,12 @@ class _PurchaseReceiveDetailPanel extends ConsumerStatefulWidget {
   const _PurchaseReceiveDetailPanel({required this.id, required this.onClose});
 
   @override
-  ConsumerState<_PurchaseReceiveDetailPanel> createState() => _PurchaseReceiveDetailPanelState();
+  ConsumerState<_PurchaseReceiveDetailPanel> createState() =>
+      _PurchaseReceiveDetailPanelState();
 }
 
-class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDetailPanel> {
+class _PurchaseReceiveDetailPanelState
+    extends ConsumerState<_PurchaseReceiveDetailPanel> {
   bool _showPdfView = false;
   int _activeTabIndex = 0;
   String? _localStatus;
@@ -1402,21 +1515,33 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
                       const Spacer(),
                       IconButton(
                         onPressed: () {},
-                        icon: const Icon(LucideIcons.paperclip, size: 18, color: AppTheme.textSecondary),
+                        icon: const Icon(
+                          LucideIcons.paperclip,
+                          size: 18,
+                          color: AppTheme.textSecondary,
+                        ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
                       const SizedBox(width: 20),
                       IconButton(
                         onPressed: () {},
-                        icon: const Icon(LucideIcons.messageSquare, size: 18, color: AppTheme.textSecondary),
+                        icon: const Icon(
+                          LucideIcons.messageSquare,
+                          size: 18,
+                          color: AppTheme.textSecondary,
+                        ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
                       const SizedBox(width: 20),
                       IconButton(
                         onPressed: widget.onClose,
-                        icon: const Icon(LucideIcons.x, size: 20, color: AppTheme.errorRed),
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 20,
+                          color: AppTheme.errorRed,
+                        ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
@@ -1442,7 +1567,9 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
                         LucideIcons.edit,
                         'Edit',
                         onPressed: () {
-                          final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
+                          final orgId = GoRouterState.of(
+                            context,
+                          ).pathParameters['orgSystemId']!;
                           context.pushNamed(
                             AppRoutes.purchaseReceivesEdit,
                             pathParameters: {
@@ -1463,13 +1590,17 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
                         },
                       ),
                       _buildDivider(),
-                      if ((_localStatus ?? receive.status).toLowerCase() == 'draft' || (_localStatus ?? receive.status).toLowerCase() == 'intransit')
+                      if ((_localStatus ?? receive.status).toLowerCase() ==
+                              'draft' ||
+                          (_localStatus ?? receive.status).toLowerCase() ==
+                              'intransit')
                         _buildToolbarButton(
                           LucideIcons.checkCircle,
                           'Mark as Received',
                           onPressed: () => _updateStatus(receive, 'RECEIVED'),
                         ),
-                      if ((_localStatus ?? receive.status).toLowerCase() == 'received')
+                      if ((_localStatus ?? receive.status).toLowerCase() ==
+                          'received')
                         _buildToolbarButton(
                           LucideIcons.truck,
                           'Mark as In Transit',
@@ -1482,7 +1613,6 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
                         color: AppTheme.errorRed,
                         onPressed: () => _deleteReceive(receive.id!),
                       ),
-
                     ],
                   ),
             loading: () => const SizedBox.shrink(),
@@ -1492,14 +1622,17 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
         Expanded(
           child: receiveAsync.when(
             data: (receive) {
-              if (receive == null) return const Center(child: Text('Purchase receive not found'));
+              if (receive == null)
+                return const Center(child: Text('Purchase receive not found'));
               return Column(
                 children: [
                   const SizedBox(height: 16),
                   _buildDetailTabs(receive),
                   _buildToggleRow(),
                   Expanded(
-                    child: _showPdfView ? _PurchaseReceivePdfView(receive: receive) : _buildStandardView(receive),
+                    child: _showPdfView
+                        ? _PurchaseReceivePdfView(receive: receive)
+                        : _buildStandardView(receive),
                   ),
                 ],
               );
@@ -1513,12 +1646,17 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
   }
 
   Future<void> _updateStatus(PurchaseReceive receive, String status) async {
-    final success = await ref.read(purchaseReceivesProvider.notifier).updateReceive(
-      receive.id!,
-      receive.copyWith(status: status.toLowerCase(), items: []),
-    );
+    final success = await ref
+        .read(purchaseReceivesProvider.notifier)
+        .updateReceive(
+          receive.id!,
+          receive.copyWith(status: status.toLowerCase(), items: []),
+        );
     if (success && mounted) {
-      ZerpaiToast.success(context, 'Status updated to ${status.replaceAll('_', ' ')}');
+      ZerpaiToast.success(
+        context,
+        'Status updated to ${status.replaceAll('_', ' ')}',
+      );
       setState(() {
         _localStatus = status.toLowerCase();
       });
@@ -1530,12 +1668,22 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
     }
   }
 
-  Widget _buildToolbarButton(IconData icon, String label, {VoidCallback? onPressed, Color? color}) {
+  Widget _buildToolbarButton(
+    IconData icon,
+    String label, {
+    VoidCallback? onPressed,
+    Color? color,
+  }) {
     return TextButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 14, color: color ?? AppTheme.textSubtle),
-      label: Text(label, style: TextStyle(fontSize: 13, color: color ?? AppTheme.textSubtle)),
-      style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12)),
+      label: Text(
+        label,
+        style: TextStyle(fontSize: 13, color: color ?? AppTheme.textSubtle),
+      ),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+      ),
     );
   }
 
@@ -1543,13 +1691,16 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
     final confirmed = await showZerpaiConfirmationDialog(
       context,
       title: 'Delete Purchase Receive',
-      message: 'Are you sure you want to delete this purchase receive? This action cannot be undone.',
+      message:
+          'Are you sure you want to delete this purchase receive? This action cannot be undone.',
       confirmLabel: 'Delete',
       variant: ZerpaiConfirmationVariant.danger,
     );
 
     if (confirmed == true) {
-      final success = await ref.read(purchaseReceivesProvider.notifier).deleteReceive(id);
+      final success = await ref
+          .read(purchaseReceivesProvider.notifier)
+          .deleteReceive(id);
       if (success && mounted) {
         ZerpaiToast.success(context, 'Purchase receive deleted successfully');
         widget.onClose();
@@ -1596,7 +1747,9 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
         elevation: const WidgetStatePropertyAll(8),
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
         ),
       ),
       menuChildren: [
@@ -1609,22 +1762,37 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
             );
           },
           style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? AppTheme.primaryBlue : Colors.white),
-            foregroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.textPrimary),
-            iconColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.primaryBlue),
-            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.white,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textPrimary,
+            ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.primaryBlue,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
             minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
             alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
           ),
-          child: const Row(children: [
-            Icon(LucideIcons.fileText, size: 16),
-            SizedBox(width: 12),
-            Text('PDF', style: TextStyle(fontSize: 14)),
-          ]),
+          child: const Row(
+            children: [
+              Icon(LucideIcons.fileText, size: 16),
+              SizedBox(width: 12),
+              Text('PDF', style: TextStyle(fontSize: 14)),
+            ],
+          ),
         ),
         MenuItemButton(
           onPressed: () async {
@@ -1635,35 +1803,54 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
             );
           },
           style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? AppTheme.primaryBlue : Colors.white),
-            foregroundColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.textPrimary),
-            iconColor: WidgetStateProperty.resolveWith((s) =>
-                s.contains(WidgetState.hovered) ? Colors.white : AppTheme.primaryBlue),
-            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.white,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textPrimary,
+            ),
+            iconColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.primaryBlue,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
             minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
             alignment: Alignment.centerLeft,
-            shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
           ),
-          child: const Row(children: [
-            Icon(LucideIcons.printer, size: 16),
-            SizedBox(width: 12),
-            Text('Print', style: TextStyle(fontSize: 14)),
-          ]),
+          child: const Row(
+            children: [
+              Icon(LucideIcons.printer, size: 16),
+              SizedBox(width: 12),
+              Text('Print', style: TextStyle(fontSize: 14)),
+            ],
+          ),
         ),
       ],
       builder: (context, controller, _) => _buildToolbarButton(
         LucideIcons.fileText,
         'PDF/Print',
-        onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+        onPressed: () =>
+            controller.isOpen ? controller.close() : controller.open(),
       ),
     );
   }
 
-  Future<Uint8List> _generatePdf(PurchaseReceive receive, OrgSettings? org) async {
+  Future<Uint8List> _generatePdf(
+    PurchaseReceive receive,
+    OrgSettings? org,
+  ) async {
     final doc = pw.Document();
-    
+
     // Attempt to load company logo
     pw.MemoryImage? logoImage;
     if (org?.logoUrl != null && org!.logoUrl!.trim().isNotEmpty) {
@@ -1692,131 +1879,160 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-              // ── Header ──────────────────────────────────────────────────
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Column(
+                  // ── Header ──────────────────────────────────────────────────
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      if (logoImage != null)
-                        pw.Container(
-                          width: 130,
-                          height: 56,
-                          padding: const pw.EdgeInsets.all(6),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          if (logoImage != null)
+                            pw.Container(
+                              width: 130,
+                              height: 56,
+                              padding: const pw.EdgeInsets.all(6),
+                              decoration: pw.BoxDecoration(
+                                border: pw.Border.all(color: PdfColors.grey300),
+                              ),
+                              child: pw.Image(
+                                logoImage,
+                                fit: pw.BoxFit.contain,
+                              ),
+                            )
+                          else
+                            pw.Container(
+                              width: 130,
+                              height: 56,
+                              color: const PdfColor.fromInt(0xFF101820),
+                              child: pw.Center(
+                                child: pw.Text(
+                                  'LOGO',
+                                  style: pw.TextStyle(
+                                    color: PdfColors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          pw.SizedBox(height: 10),
+                          pw.Text(
+                            org?.name.trim().toUpperCase() ?? 'YOUR COMPANY',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          pw.Text(
+                            'PURCHASE RECEIVE',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 24,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                          pw.SizedBox(height: 6),
+                          pw.Text(
+                            'Receive# ${receive.purchaseReceiveNumber}',
+                            style: pw.TextStyle(
+                              fontSize: 13,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 32),
+                  // ── Info row ────────────────────────────────────────────────
+                  pw.Row(
+                    children: [
+                      _pwInfoCell('Receive#', receive.purchaseReceiveNumber),
+                      _pwInfoCell('Receive Date', dateStr),
+                      _pwInfoCell('Vendor', receive.vendorName ?? '-'),
+                      _pwInfoCell(
+                        'Purchase Order#',
+                        receive.purchaseOrderNumber ?? '-',
+                      ),
+                    ],
+                  ),
+                  pw.Divider(color: PdfColors.grey300, height: 24),
+                  pw.SizedBox(height: 16),
+                  // ── Items table ──────────────────────────────────────────────
+                  pw.Table(
+                    columnWidths: const {
+                      0: pw.FixedColumnWidth(32),
+                      1: pw.FlexColumnWidth(5),
+                      2: pw.FixedColumnWidth(80),
+                    },
+                    children: [
+                      pw.TableRow(
+                        decoration: const pw.BoxDecoration(
+                          color: PdfColor.fromInt(0xFF1F2937),
+                        ),
+                        children: [
+                          _pwHeaderCell('#'),
+                          _pwHeaderCell('Item & Description'),
+                          _pwHeaderCell('Qty', align: pw.Alignment.centerRight),
+                        ],
+                      ),
+                      ...receive.items.asMap().entries.map((e) {
+                        return pw.TableRow(
                           decoration: pw.BoxDecoration(
-                            border: pw.Border.all(color: PdfColors.grey300),
+                            color: e.key.isEven
+                                ? PdfColors.white
+                                : const PdfColor.fromInt(0xFFF9FAFB),
+                            border: const pw.Border(
+                              bottom: pw.BorderSide(color: PdfColors.grey200),
+                            ),
                           ),
-                          child: pw.Image(logoImage, fit: pw.BoxFit.contain),
-                        )
-                      else
-                        pw.Container(
-                          width: 130,
-                          height: 56,
-                          color: const PdfColor.fromInt(0xFF101820),
-                          child: pw.Center(
-                            child: pw.Text('LOGO',
-                                style: pw.TextStyle(color: PdfColors.white, fontSize: 12)),
-                          ),
-                        ),
-                      pw.SizedBox(height: 10),
-                      pw.Text(
-                        org?.name.trim().toUpperCase() ?? 'YOUR COMPANY',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
-                      ),
+                          children: [
+                            _pwDataCell('${e.key + 1}'),
+                            _pwDataCell(e.value.itemName),
+                            _pwDataCell(
+                              e.value.batches
+                                  .fold<double>(0, (sum, b) => sum + b.quantity)
+                                  .toStringAsFixed(2),
+                              align: pw.Alignment.centerRight,
+                            ),
+                          ],
+                        );
+                      }),
                     ],
                   ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Text(
-                        'PURCHASE RECEIVE',
+                ],
+              ),
+              if (receive.status.toLowerCase() == 'intransit')
+                pw.Positioned(
+                  top: 20,
+                  left: -20,
+                  child: pw.Transform.rotate(
+                    angle: -math.pi / 4,
+                    child: pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 6,
+                      ),
+                      color: const PdfColor.fromInt(0xFFFF8800), // Orange
+                      child: pw.Text(
+                        'IN TRANSIT',
                         style: pw.TextStyle(
+                          color: PdfColors.white,
                           fontWeight: pw.FontWeight.bold,
-                          fontSize: 24,
-                          letterSpacing: 1.5,
+                          fontSize: 8,
                         ),
                       ),
-                      pw.SizedBox(height: 6),
-                      pw.Text(
-                        'Receive# ${receive.purchaseReceiveNumber}',
-                        style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 32),
-              // ── Info row ────────────────────────────────────────────────
-              pw.Row(
-                children: [
-                  _pwInfoCell('Receive#', receive.purchaseReceiveNumber),
-                  _pwInfoCell('Receive Date', dateStr),
-                  _pwInfoCell('Vendor', receive.vendorName ?? '-'),
-                  _pwInfoCell('Purchase Order#', receive.purchaseOrderNumber ?? '-'),
-                ],
-              ),
-              pw.Divider(color: PdfColors.grey300, height: 24),
-              pw.SizedBox(height: 16),
-              // ── Items table ──────────────────────────────────────────────
-              pw.Table(
-                columnWidths: const {
-                  0: pw.FixedColumnWidth(32),
-                  1: pw.FlexColumnWidth(5),
-                  2: pw.FixedColumnWidth(80),
-                },
-                children: [
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                        color: PdfColor.fromInt(0xFF1F2937)),
-                    children: [
-                      _pwHeaderCell('#'),
-                      _pwHeaderCell('Item & Description'),
-                      _pwHeaderCell('Qty', align: pw.Alignment.centerRight),
-                    ],
-                  ),
-                  ...receive.items.asMap().entries.map((e) {
-                    return pw.TableRow(
-                      decoration: pw.BoxDecoration(
-                        color: e.key.isEven ? PdfColors.white : const PdfColor.fromInt(0xFFF9FAFB),
-                        border: const pw.Border(
-                          bottom: pw.BorderSide(color: PdfColors.grey200),
-                        ),
-                      ),
-                      children: [
-                        _pwDataCell('${e.key + 1}'),
-                        _pwDataCell(e.value.itemName),
-                        _pwDataCell(
-                          e.value.batches.fold<double>(0, (sum, b) => sum + b.quantity).toStringAsFixed(2),
-                          align: pw.Alignment.centerRight,
-                        ),
-                      ],
-                    );
-                  }),
-                ],
-              ),
-            ],
-          ),
-          if (receive.status.toLowerCase() == 'intransit')
-            pw.Positioned(
-              top: 20,
-              left: -20,
-              child: pw.Transform.rotate(
-                angle: -math.pi / 4,
-                child: pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 30, vertical: 6),
-                  color: const PdfColor.fromInt(0xFFFF8800), // Orange
-                  child: pw.Text(
-                    'IN TRANSIT',
-                    style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 8),
+                    ),
                   ),
                 ),
-              ),
-            ),
-        ],
-      );
-    },
+            ],
+          );
+        },
       ),
     );
 
@@ -1828,31 +2044,44 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(label,
-              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+          pw.Text(
+            label,
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+          ),
           pw.SizedBox(height: 3),
-          pw.Text(value,
-              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            value,
+            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+          ),
         ],
       ),
     );
   }
 
-  pw.Widget _pwHeaderCell(String text, {pw.Alignment align = pw.Alignment.centerLeft}) {
+  pw.Widget _pwHeaderCell(
+    String text, {
+    pw.Alignment align = pw.Alignment.centerLeft,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: pw.Align(
         alignment: align,
-        child: pw.Text(text,
-            style: pw.TextStyle(
-                color: PdfColors.white,
-                fontSize: 10,
-                fontWeight: pw.FontWeight.bold)),
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(
+            color: PdfColors.white,
+            fontSize: 10,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
 
-  pw.Widget _pwDataCell(String text, {pw.Alignment align = pw.Alignment.centerLeft}) {
+  pw.Widget _pwDataCell(
+    String text, {
+    pw.Alignment align = pw.Alignment.centerLeft,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: pw.Align(
@@ -1904,7 +2133,9 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
                   Padding(
                     padding: const EdgeInsets.only(right: 16),
                     child: Icon(
-                      _isTabsExpanded ? LucideIcons.chevronDown : LucideIcons.chevronRight,
+                      _isTabsExpanded
+                          ? LucideIcons.chevronDown
+                          : LucideIcons.chevronRight,
                       size: 16,
                       color: const Color(0xFF6B7280),
                     ),
@@ -1915,20 +2146,32 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
           ),
           if (_isTabsExpanded)
             Container(
-              child: _activeTabIndex == 0 
-                ? (hasPurchaseOrder ? _buildPOTable(receive) : _buildEmptyState('No purchase order found')) 
-                : _buildBillsTable(receive),
+              child: _activeTabIndex == 0
+                  ? (hasPurchaseOrder
+                        ? _buildPOTable(receive)
+                        : _buildEmptyState('No purchase order found'))
+                  : _buildBillsTable(receive),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildDropdownOption(String label, int count, bool isActive, VoidCallback onTap) {
+  Widget _buildDropdownOption(
+    String label,
+    int count,
+    bool isActive,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.only(top: 12, bottom: 10, left: 16, right: 16),
+        padding: const EdgeInsets.only(
+          top: 12,
+          bottom: 10,
+          left: 16,
+          right: 16,
+        ),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
@@ -1944,7 +2187,9 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: isActive ? const Color(0xFF111827) : const Color(0xFF6B7280),
+                color: isActive
+                    ? const Color(0xFF111827)
+                    : const Color(0xFF6B7280),
               ),
             ),
             const SizedBox(width: 8),
@@ -1956,7 +2201,11 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
               ),
               child: Text(
                 count.toString(),
-                style: const TextStyle(fontSize: 11, color: Color(0xFF0088FF), fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF0088FF),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -1971,7 +2220,11 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
       alignment: Alignment.center,
       child: Text(
         message,
-        style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280), fontStyle: FontStyle.italic),
+        style: const TextStyle(
+          fontSize: 13,
+          color: Color(0xFF6B7280),
+          fontStyle: FontStyle.italic,
+        ),
       ),
     );
   }
@@ -1985,28 +2238,74 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
           color: const Color(0xFFF9FAFB),
           child: Row(
             children: const [
-              Expanded(flex: 3, child: Text('PO#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(flex: 3, child: Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'PO#',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Date',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Status',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF3F4F6)))),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
+          ),
           child: Row(
             children: [
               Expanded(
                 flex: 3,
                 child: InkWell(
-                  onTap: () => context.go('/$orgId/purchases/orders/${receive.purchaseOrderId}'),
+                  onTap: () => context.go(
+                    '/$orgId/purchases/orders/${receive.purchaseOrderId}',
+                  ),
                   child: Text(
                     receive.purchaseOrderNumber ?? '-',
-                    style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlue, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.primaryBlue,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
-              Expanded(flex: 3, child: Text(DateFormat('dd-MM-yyyy').format(receive.receivedDate ?? DateTime.now()), style: const TextStyle(fontSize: 13))),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  DateFormat(
+                    'dd-MM-yyyy',
+                  ).format(receive.receivedDate ?? DateTime.now()),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
               Expanded(
                 flex: 3,
                 child: Text(
@@ -2044,12 +2343,21 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
                 children: [
                   const Text(
                     'PURCHASE RECEIVE',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF111827), fontFamily: 'Inter'),
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF111827),
+                      fontFamily: 'Inter',
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Receive# ${receive.purchaseReceiveNumber}',
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF374151), fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF374151),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -2057,11 +2365,22 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('VENDOR NAME', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280))),
+                  const Text(
+                    'VENDOR NAME',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     receive.vendorName?.toUpperCase() ?? '-',
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF0088FF), fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF0088FF),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -2071,24 +2390,52 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildInfoSection('STATUS', Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildStatusRow('Receive', (_localStatus ?? receive.status).toUpperCase(), _getStatusColor(_localStatus ?? receive.status)),
-                  const SizedBox(height: 12),
-                  _buildStatusRow('Bill', 'Billed', const Color(0xFF0088FF), isLabelOnly: true),
-                ],
-              )),
+              _buildInfoSection(
+                'STATUS',
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildStatusRow(
+                      'Receive',
+                      (_localStatus ?? receive.status).toUpperCase(),
+                      _getStatusColor(_localStatus ?? receive.status),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildStatusRow(
+                      'Bill',
+                      'Billed',
+                      const Color(0xFF0088FF),
+                      isLabelOnly: true,
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(width: 64),
-              _buildInfoSection('PURCHASE ORDER#', Text(
-                receive.purchaseOrderNumber ?? '-',
-                style: const TextStyle(fontSize: 14, color: Color(0xFF0088FF), fontWeight: FontWeight.w500),
-              )),
+              _buildInfoSection(
+                'PURCHASE ORDER#',
+                Text(
+                  receive.purchaseOrderNumber ?? '-',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF0088FF),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
               const SizedBox(width: 64),
-              _buildInfoSection('DATE', Text(
-                DateFormat('dd-MM-yyyy').format(receive.receivedDate ?? DateTime.now()),
-                style: const TextStyle(fontSize: 14, color: Color(0xFF374151), fontWeight: FontWeight.w500),
-              )),
+              _buildInfoSection(
+                'DATE',
+                Text(
+                  DateFormat(
+                    'dd-MM-yyyy',
+                  ).format(receive.receivedDate ?? DateTime.now()),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF374151),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 48),
@@ -2115,11 +2462,20 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: AppTheme.primaryBlue, width: _isBatchesExpanded ? 2 : 0)),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: AppTheme.primaryBlue,
+                      width: _isBatchesExpanded ? 2 : 0,
+                    ),
+                  ),
                 ),
                 child: const Text(
                   'Batches',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryBlue,
+                  ),
                 ),
               ),
             ],
@@ -2154,12 +2510,28 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
                         border: Border.all(color: const Color(0xFFE5E7EB)),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       child: Row(
                         children: [
-                          Text(itemName.toUpperCase(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryBlue)),
+                          Text(
+                            itemName.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.primaryBlue,
+                            ),
+                          ),
                           const Spacer(),
-                          Text('${batches.length} Batches', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                          Text(
+                            '${batches.length} Batches',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
                           const SizedBox(width: 12),
                           Container(
                             padding: const EdgeInsets.all(2),
@@ -2168,7 +2540,9 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronRight,
+                              isExpanded
+                                  ? LucideIcons.chevronUp
+                                  : LucideIcons.chevronRight,
                               size: 14,
                               color: Colors.white,
                             ),
@@ -2190,13 +2564,30 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
                         children: [
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             color: const Color(0xFFF9FAFB),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: const [
-                                Text('BATCH DETAILS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
-                                Text('QUANTITY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
+                                Text(
+                                  'BATCH DETAILS',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                                Text(
+                                  'QUANTITY',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -2206,28 +2597,64 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
                                 Padding(
                                   padding: const EdgeInsets.all(16),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Text(batch.batchNo, style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlue)),
+                                          Text(
+                                            batch.batchNo,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.primaryBlue,
+                                            ),
+                                          ),
                                           const SizedBox(height: 6),
                                           if (batch.manufactureBatch.isNotEmpty)
-                                            Text('Manufacturer Batch# : ${batch.manufactureBatch}', style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                                            Text(
+                                              'Manufacturer Batch# : ${batch.manufactureBatch}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
                                           if (batch.manufactureDate != null)
-                                            Text('Manufactured date : ${DateFormat('dd-MM-yyyy').format(batch.manufactureDate!)}', style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                                            Text(
+                                              'Manufactured date : ${DateFormat('dd-MM-yyyy').format(batch.manufactureDate!)}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
                                           if (batch.expiryDate != null)
-                                            Text('Expiry Date: ${DateFormat('dd-MM-yyyy').format(batch.expiryDate!)}', style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                                            Text(
+                                              'Expiry Date: ${DateFormat('dd-MM-yyyy').format(batch.expiryDate!)}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
                                         ],
                                       ),
-                                      Text(batch.quantity.toStringAsFixed(2), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                      Text(
+                                        batch.quantity.toStringAsFixed(2),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
                                 if (batch != batches.last)
-                                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                                  const Divider(
+                                    height: 1,
+                                    color: Color(0xFFE5E7EB),
+                                  ),
                               ],
                             );
                           }).toList(),
@@ -2249,34 +2676,62 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280))),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF6B7280),
+          ),
+        ),
         const SizedBox(height: 12),
         content,
       ],
     );
   }
 
-  Widget _buildStatusRow(String label, String status, Color color, {bool isLabelOnly = false}) {
+  Widget _buildStatusRow(
+    String label,
+    String status,
+    Color color, {
+    bool isLabelOnly = false,
+  }) {
     return Row(
       children: [
-        Container(
-          width: 2,
-          height: 16,
-          color: color,
-        ),
+        Container(width: 2, height: 16, color: color),
         const SizedBox(width: 12),
         SizedBox(
           width: 80,
-          child: Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+          ),
         ),
         const SizedBox(width: 24),
         if (isLabelOnly)
-          Text(status, style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w500))
+          Text(
+            status,
+            style: TextStyle(
+              fontSize: 13,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          )
         else
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
-            child: Text(status, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              status,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
       ],
     );
@@ -2289,51 +2744,142 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: const BoxDecoration(
             color: Color(0xFFF3F4F6),
-            border: Border(top: BorderSide(color: Color(0xFFE5E7EB)), bottom: BorderSide(color: Color(0xFFE5E7EB))),
+            border: Border(
+              top: BorderSide(color: Color(0xFFE5E7EB)),
+              bottom: BorderSide(color: Color(0xFFE5E7EB)),
+            ),
           ),
           child: Row(
             children: const [
-              SizedBox(width: 32, child: Text('#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              Expanded(child: Text('ITEMS & DESCRIPTION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              SizedBox(width: 100, child: Text('QUANTITY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
-              SizedBox(width: 100, child: Text('BILL STATUS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6B7280)))),
+              SizedBox(
+                width: 32,
+                child: Text(
+                  '#',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'ITEMS & DESCRIPTION',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 100,
+                child: Text(
+                  'QUANTITY',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 100,
+                child: Text(
+                  'BILL STATUS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
         ...receive.items.asMap().entries.map((e) {
           final i = e.value;
-          final totalQty = i.batches.fold<double>(0, (sum, b) => sum + b.quantity);
+          final totalQty = i.batches.fold<double>(
+            0,
+            (sum, b) => sum + b.quantity,
+          );
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6)))),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6))),
+            ),
             child: Row(
               children: [
-                SizedBox(width: 32, child: Text('${e.key + 1}', style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)))),
+                SizedBox(
+                  width: 32,
+                  child: Text(
+                    '${e.key + 1}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ),
                 Expanded(
                   child: Row(
                     children: [
                       Container(
                         width: 40,
                         height: 40,
-                        decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(4)),
-                        child: const Icon(LucideIcons.image, size: 20, color: Color(0xFF9CA3AF)),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          LucideIcons.image,
+                          size: 20,
+                          color: Color(0xFF9CA3AF),
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      Text(i.itemName, style: const TextStyle(fontSize: 13, color: Color(0xFF0088FF), fontWeight: FontWeight.w500)),
+                      Text(
+                        i.itemName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF0088FF),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 SizedBox(
                   width: 100,
-                  child: Text('${totalQty.toInt()} pcs', style: const TextStyle(fontSize: 13, color: Color(0xFF374151))),
+                  child: Text(
+                    '${totalQty.toInt()} pcs',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF374151),
+                    ),
+                  ),
                 ),
                 SizedBox(
                   width: 100,
                   child: Row(
                     children: [
-                      Text(i.billed ? i.received.toInt().toString() : '0', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+                      Text(
+                        i.billed ? i.received.toInt().toString() : '0',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
                       const SizedBox(width: 4),
-                      Text('Billed', style: TextStyle(fontSize: 13, color: i.billed ? const Color(0xFF22A95E) : const Color(0xFF6B7280))),
+                      Text(
+                        'Billed',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: i.billed
+                              ? const Color(0xFF22A95E)
+                              : const Color(0xFF6B7280),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2353,7 +2899,11 @@ class _PurchaseReceiveDetailPanelState extends ConsumerState<_PurchaseReceiveDet
         children: [
           const Text(
             'Show PDF View',
-            style: TextStyle(fontSize: 12, color: Color(0xFF6B7280), fontFamily: 'Inter'),
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF6B7280),
+              fontFamily: 'Inter',
+            ),
           ),
           const SizedBox(width: 8),
           Transform.scale(
@@ -2377,10 +2927,12 @@ class _PurchaseReceivePdfView extends ConsumerStatefulWidget {
   const _PurchaseReceivePdfView({required this.receive});
 
   @override
-  ConsumerState<_PurchaseReceivePdfView> createState() => _PurchaseReceivePdfViewState();
+  ConsumerState<_PurchaseReceivePdfView> createState() =>
+      _PurchaseReceivePdfViewState();
 }
 
-class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView> {
+class _PurchaseReceivePdfViewState
+    extends ConsumerState<_PurchaseReceivePdfView> {
   final Set<String> _expandedItems = {};
   bool _isBatchesExpanded = true;
 
@@ -2389,10 +2941,11 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
     final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
     final receivesAsync = ref.watch(purchaseReceivesProvider);
     final receiveFromList = receivesAsync.whenOrNull(
-      data: (state) => state.receives.where((r) => r.id == widget.receive.id).firstOrNull,
+      data: (state) =>
+          state.receives.where((r) => r.id == widget.receive.id).firstOrNull,
     );
     final status = receiveFromList?.status ?? widget.receive.status;
-    
+
     return Container(
       color: Colors.white,
       child: SingleChildScrollView(
@@ -2408,15 +2961,37 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
                     Text.rich(
                       TextSpan(
                         children: [
-                          const TextSpan(text: 'Receive Status : ', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                          const TextSpan(
+                            text: 'Receive Status : ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
                           TextSpan(
                             text: status.toUpperCase(),
-                            style: TextStyle(fontSize: 12, color: _getStatusColor(status), fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _getStatusColor(status),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          const TextSpan(text: '  Bill Status : ', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                          const TextSpan(
+                            text: '  Bill Status : ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
                           TextSpan(
-                            text: widget.receive.billed ? 'BILLED' : 'NOT BILLED',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF0088FF), fontWeight: FontWeight.w600),
+                            text: widget.receive.billed
+                                ? 'BILLED'
+                                : 'NOT BILLED',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF0088FF),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
@@ -2429,7 +3004,13 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
                 width: 800,
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 2)],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
                 child: ClipRect(
                   child: Stack(
@@ -2453,26 +3034,47 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
                 ),
               ),
               const SizedBox(height: 32),
-              if (widget.receive.notes != null && widget.receive.notes!.isNotEmpty) ...[
-                  Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('Receive Notes', style: TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
-                          const SizedBox(width: 4),
-                          const Icon(LucideIcons.paperclip, size: 12, color: Color(0xFF6B7280)),
-                        ],
+              if (widget.receive.notes != null &&
+                  widget.receive.notes!.isNotEmpty) ...[
+                Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Receive Notes',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          LucideIcons.paperclip,
+                          size: 12,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.receive.notes!,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF1F2937),
                       ),
-                      const SizedBox(height: 4),
-                      Text(widget.receive.notes!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF1F2937))),
-                    ],
-                  ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 32),
               ],
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 40,
+                  vertical: 24,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(color: const Color(0xFFE5E7EB)),
@@ -2505,16 +3107,33 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
                 orgSettings?.name.trim().isNotEmpty == true
                     ? orgSettings!.name.trim().toUpperCase()
                     : 'YOUR COMPANY NAME',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('PURCHASE RECEIVE', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+              const Text(
+                'PURCHASE RECEIVE',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
               const SizedBox(height: 8),
-              Text('Receive# ${widget.receive.purchaseReceiveNumber}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
+              Text(
+                'Receive# ${widget.receive.purchaseReceiveNumber}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111827),
+                ),
+              ),
             ],
           ),
         ],
@@ -2584,9 +3203,19 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
           Row(
             children: [
               _buildInfo('Receive#', widget.receive.purchaseReceiveNumber),
-              _buildInfo('Receive Date', widget.receive.receivedDate != null ? DateFormat('dd-MM-yyyy').format(widget.receive.receivedDate!) : '-'),
+              _buildInfo(
+                'Receive Date',
+                widget.receive.receivedDate != null
+                    ? DateFormat(
+                        'dd-MM-yyyy',
+                      ).format(widget.receive.receivedDate!)
+                    : '-',
+              ),
               _buildInfo('Vendor', widget.receive.vendorName ?? '-'),
-              _buildInfo('Purchase Order#', widget.receive.purchaseOrderNumber ?? '-'),
+              _buildInfo(
+                'Purchase Order#',
+                widget.receive.purchaseOrderNumber ?? '-',
+              ),
             ],
           ),
           const SizedBox(height: 40),
@@ -2611,11 +3240,20 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: AppTheme.primaryBlue, width: _isBatchesExpanded ? 2 : 0)),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: AppTheme.primaryBlue,
+                      width: _isBatchesExpanded ? 2 : 0,
+                    ),
+                  ),
                 ),
                 child: const Text(
                   'Batches',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryBlue,
+                  ),
                 ),
               ),
             ],
@@ -2650,12 +3288,28 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
                         border: Border.all(color: const Color(0xFFE5E7EB)),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       child: Row(
                         children: [
-                          Text(itemName.toUpperCase(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryBlue)),
+                          Text(
+                            itemName.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.primaryBlue,
+                            ),
+                          ),
                           const Spacer(),
-                          Text('${batches.length} Batches', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                          Text(
+                            '${batches.length} Batches',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
                           const SizedBox(width: 12),
                           Container(
                             padding: const EdgeInsets.all(2),
@@ -2664,7 +3318,9 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronRight,
+                              isExpanded
+                                  ? LucideIcons.chevronUp
+                                  : LucideIcons.chevronRight,
                               size: 14,
                               color: Colors.white,
                             ),
@@ -2686,13 +3342,30 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
                         children: [
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             color: const Color(0xFFF9FAFB),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: const [
-                                Text('BATCH DETAILS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
-                                Text('QUANTITY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
+                                Text(
+                                  'BATCH DETAILS',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                                Text(
+                                  'QUANTITY',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -2702,28 +3375,64 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
                                 Padding(
                                   padding: const EdgeInsets.all(16),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Text(batch.batchNo, style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlue)),
+                                          Text(
+                                            batch.batchNo,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.primaryBlue,
+                                            ),
+                                          ),
                                           const SizedBox(height: 6),
                                           if (batch.manufactureBatch.isNotEmpty)
-                                            Text('Manufacturer Batch# : ${batch.manufactureBatch}', style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                                            Text(
+                                              'Manufacturer Batch# : ${batch.manufactureBatch}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
                                           if (batch.manufactureDate != null)
-                                            Text('Manufactured date : ${DateFormat('dd-MM-yyyy').format(batch.manufactureDate!)}', style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                                            Text(
+                                              'Manufactured date : ${DateFormat('dd-MM-yyyy').format(batch.manufactureDate!)}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
                                           if (batch.expiryDate != null)
-                                            Text('Expiry Date: ${DateFormat('dd-MM-yyyy').format(batch.expiryDate!)}', style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                                            Text(
+                                              'Expiry Date: ${DateFormat('dd-MM-yyyy').format(batch.expiryDate!)}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
                                         ],
                                       ),
-                                      Text(batch.quantity.toStringAsFixed(2), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                      Text(
+                                        batch.quantity.toStringAsFixed(2),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
                                 if (batch != batches.last)
-                                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                                  const Divider(
+                                    height: 1,
+                                    color: Color(0xFFE5E7EB),
+                                  ),
                               ],
                             );
                           }).toList(),
@@ -2746,9 +3455,15 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+          ),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );
@@ -2756,7 +3471,9 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
 
   Widget _buildItemsTable() {
     return Container(
-      decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE5E7EB)))),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+      ),
       child: Column(
         children: [
           Container(
@@ -2765,32 +3482,93 @@ class _PurchaseReceivePdfViewState extends ConsumerState<_PurchaseReceivePdfView
             child: Row(
               children: const [
                 SizedBox(width: 12),
-                Expanded(flex: 1, child: Text('#', style: TextStyle(color: Colors.white, fontSize: 11))),
-                Expanded(flex: 6, child: Text('Item & Description', style: TextStyle(color: Colors.white, fontSize: 11))),
-                Expanded(flex: 2, child: Text('HSN/SAC', style: TextStyle(color: Colors.white, fontSize: 11))),
-                Expanded(flex: 2, child: Text('Received Qty', style: TextStyle(color: Colors.white, fontSize: 11))),
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    '#',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+                Expanded(
+                  flex: 6,
+                  child: Text(
+                    'Item & Description',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'HSN/SAC',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Received Qty',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
               ],
             ),
           ),
           ...List.generate(widget.receive.items.length, (index) {
             final item = widget.receive.items[index];
-            final totalQty = item.batches.fold<double>(0, (sum, b) => sum + b.quantity);
+            final totalQty = item.batches.fold<double>(
+              0,
+              (sum, b) => sum + b.quantity,
+            );
             return Container(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB)))),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+              ),
               child: Row(
                 children: [
                   SizedBox(width: 12),
-                  Expanded(flex: 1, child: Text((index + 1).toString(), style: const TextStyle(fontSize: 12))),
-                  Expanded(flex: 6, child: Text(item.itemName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                  Expanded(flex: 2, child: Text(item.batches.isNotEmpty ? (item.batches.first.hsnCode ?? '30045037') : '30045037', style: const TextStyle(fontSize: 12))),
+                  Expanded(
+                    flex: 1,
+                    child: Text(
+                      (index + 1).toString(),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 6,
+                    child: Text(
+                      item.itemName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      item.batches.isNotEmpty
+                          ? (item.batches.first.hsnCode ?? '30045037')
+                          : '30045037',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
                   Expanded(
                     flex: 2,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(totalQty.toStringAsFixed(2), style: const TextStyle(fontSize: 12)),
-                        const Text('pcs', style: TextStyle(fontSize: 10, color: Color(0xFF6B7280))),
+                        Text(
+                          totalQty.toStringAsFixed(2),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        const Text(
+                          'pcs',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -2857,7 +3635,12 @@ class _PdfCornerRibbon extends StatelessWidget {
                     colors: [
                       color,
                       HSLColor.fromColor(color)
-                          .withLightness((HSLColor.fromColor(color).lightness * 0.85).clamp(0.0, 1.0))
+                          .withLightness(
+                            (HSLColor.fromColor(color).lightness * 0.85).clamp(
+                              0.0,
+                              1.0,
+                            ),
+                          )
                           .toColor(),
                     ],
                   ),
@@ -2873,7 +3656,11 @@ class _PdfCornerRibbon extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.8,
                     shadows: [
-                      Shadow(color: Colors.black45, offset: Offset(0, 1), blurRadius: 2),
+                      Shadow(
+                        color: Colors.black45,
+                        offset: Offset(0, 1),
+                        blurRadius: 2,
+                      ),
                     ],
                   ),
                 ),
@@ -2893,7 +3680,9 @@ class _CornerFoldPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final darkColor = HSLColor.fromColor(color)
-        .withLightness((HSLColor.fromColor(color).lightness * 0.45).clamp(0.0, 1.0))
+        .withLightness(
+          (HSLColor.fromColor(color).lightness * 0.45).clamp(0.0, 1.0),
+        )
         .toColor();
 
     final paint = Paint()..color = darkColor;

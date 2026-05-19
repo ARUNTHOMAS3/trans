@@ -31,8 +31,13 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
       isVisible: c.isVisible,
       orderIndex: c.orderIndex,
       isLocked: c.isLocked,
+      isPinned: c.isPinned,
     )).toList();
-    _items.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    _items.sort((a, b) {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return a.orderIndex.compareTo(b.orderIndex);
+    });
   }
 
   void _onReorder(int oldIndex, int newIndex) {
@@ -180,37 +185,36 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
         ),
-        child: InkWell(
-          onTap: col.isLocked ? null : () => setState(() => col.isVisible = !col.isVisible),
-          borderRadius: BorderRadius.circular(6),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-            child: Row(
-              children: [
-                ReorderableDragStartListener(
-                  index: index,
-                  child: const MouseRegion(
-                    cursor: SystemMouseCursors.grab,
-                    child: Icon(LucideIcons.gripVertical, size: 14, color: AppTheme.textMuted),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          child: Row(
+            children: [
+              ReorderableDragStartListener(
+                index: index,
+                child: const MouseRegion(
+                  cursor: SystemMouseCursors.grab,
+                  child: Icon(LucideIcons.gripVertical, size: 14, color: AppTheme.textMuted),
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (col.isLocked)
+                const Icon(LucideIcons.lock, size: 16, color: AppTheme.textSecondary)
+              else
+                SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: Checkbox(
+                    value: col.isVisible,
+                    onChanged: (v) => setState(() => col.isVisible = v ?? false),
+                    activeColor: AppTheme.primaryBlue,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    side: const BorderSide(color: AppTheme.borderColor, width: 1.5),
                   ),
                 ),
-                const SizedBox(width: 12),
-                if (col.isLocked)
-                  const Icon(LucideIcons.lock, size: 16, color: AppTheme.textSecondary)
-                else
-                  SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: Checkbox(
-                      value: col.isVisible,
-                      onChanged: (v) => setState(() => col.isVisible = v ?? false),
-                      activeColor: AppTheme.primaryBlue,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                      side: const BorderSide(color: AppTheme.borderColor, width: 1.5),
-                    ),
-                  ),
-                const SizedBox(width: 12),
-                Expanded(
+              const SizedBox(width: 12),
+              Expanded(
+                child: InkWell(
+                  onTap: col.isLocked ? null : () => setState(() => col.isVisible = !col.isVisible),
                   child: Text(
                     col.label,
                     style: AppTheme.bodyText.copyWith(
@@ -220,8 +224,32 @@ class _ColumnCustomizerDialogState extends State<ColumnCustomizerDialog> {
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                icon: Icon(
+                  col.isPinned ? LucideIcons.pin : LucideIcons.pin,
+                  size: 14,
+                  color: col.isPinned ? AppTheme.primaryBlue : AppTheme.textMuted,
+                ),
+                onPressed: () {
+                  setState(() {
+                    col.isPinned = !col.isPinned;
+                    _items.sort((a, b) {
+                      if (a.isPinned && !b.isPinned) return -1;
+                      if (!a.isPinned && b.isPinned) return 1;
+                      return a.orderIndex.compareTo(b.orderIndex);
+                    });
+                    for (int i = 0; i < _items.length; i++) {
+                      _items[i].orderIndex = i;
+                    }
+                  });
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                splashRadius: 16,
+              ),
+            ],
           ),
         ),
       ),

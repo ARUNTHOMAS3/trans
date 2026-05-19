@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 
 class SalesOrderPreferencesDialog extends StatefulWidget {
   final String currentPrefix;
   final String currentNextNumber;
   final bool isAutoGenerate;
+  final String? warehouseName;
 
   const SalesOrderPreferencesDialog({
     super.key,
     required this.currentPrefix,
     required this.currentNextNumber,
     required this.isAutoGenerate,
+    this.warehouseName,
   });
 
   @override
@@ -41,7 +44,7 @@ class _SalesOrderPreferencesDialogState extends State<SalesOrderPreferencesDialo
   Widget build(BuildContext context) {
     return Dialog(
       alignment: Alignment.topCenter,
-      insetPadding: const EdgeInsets.only(top: 60, left: 24, right: 24, bottom: 24),
+      insetPadding: const EdgeInsets.only(top: 0, left: 24, right: 24, bottom: 24),
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -74,22 +77,58 @@ class _SalesOrderPreferencesDialogState extends State<SalesOrderPreferencesDialo
             ),
             const SizedBox(height: 24),
 
-            // Associated Series
-            const Text(
-              'Associated Series',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF374151),
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Default Transaction Series',
-              style: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF6B7280),
-              ),
+            // Warehouse & Associated Series side-by-side
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Warehouse',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF374151),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.warehouseName ?? 'Main Warehouse',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Associated Series',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF374151),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Default Transaction Series',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             const Divider(),
@@ -144,7 +183,15 @@ class _SalesOrderPreferencesDialogState extends State<SalesOrderPreferencesDialo
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                Icon(Icons.info_outline, size: 14, color: Colors.blue.shade400),
+                                ZTooltip(
+                                  message:
+                                      'The edited prefix and next number will be updated in the transaction number series associated with your sales order.',
+                                  child: Icon(
+                                    Icons.info_outline,
+                                    size: 14,
+                                    color: Colors.blue.shade400,
+                                  ),
+                                ),
                               ],
                             ),
                             if (_isAutoGenerate) ...[

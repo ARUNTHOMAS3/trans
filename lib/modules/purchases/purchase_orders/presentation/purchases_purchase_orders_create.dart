@@ -24,6 +24,7 @@ import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/accountant/models/accountant_chart_of_accounts_account_model.dart';
 import 'package:zerpai_erp/modules/accountant/providers/accountant_chart_of_accounts_provider.dart';
+import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
@@ -109,7 +110,15 @@ class _AddrLine {
 // MAIN WIDGET
 // ═════════════════════════════════════════════════════════════════════════════
 class PurchaseOrderCreateScreen extends ConsumerStatefulWidget {
-  const PurchaseOrderCreateScreen({super.key});
+  final PurchaseOrder? initialOrder;
+  final String? initialOrderId;
+
+  const PurchaseOrderCreateScreen({
+    super.key,
+    this.initialOrder,
+    this.initialOrderId,
+  });
+
   @override
   ConsumerState<PurchaseOrderCreateScreen> createState() => _POCreateState();
 }
@@ -520,6 +529,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       }
 
       final po = PurchaseOrder(
+        id: _editingOrderId,
         orderNumber: poState.orderNumber,
         orderDate: poState.orderDate,
         expectedDeliveryDate: poState.expectedDeliveryDate,
@@ -551,16 +561,27 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
       // 3. Save to Backend
       final repository = ref.read(purchaseOrderRepositoryProvider);
-      savedPo = await repository.createPurchaseOrder(po);
+      if (_isEditMode && _editingOrderId != null) {
+        savedPo = await repository.updatePurchaseOrder(_editingOrderId!, po);
+      } else {
+        savedPo = await repository.createPurchaseOrder(po);
+      }
 
       // 4. Save Attachments if any
-      if (savedPo.id != null && _attachedFiles.isNotEmpty) {
+      if (savedPo != null && savedPo.id != null && _attachedFiles.isNotEmpty) {
         await _saveAttachments(savedPo.id!);
       }
 
       if (mounted) {
-        ZerpaiToast.success(context, 'Purchase Order saved successfully');
-        context.go('/purchases/purchase-orders'); // Redirect to list
+        ZerpaiToast.success(
+          context,
+          _isEditMode ? 'Purchase Order updated successfully' : 'Purchase Order saved successfully',
+        );
+        if (savedPo != null && savedPo.id != null) {
+          context.go('/purchases/purchase-orders/${savedPo.id}/email');
+        } else {
+          context.go('/purchases/purchase-orders');
+        }
       }
     } catch (e) {
       AppLogger.error(
@@ -605,13 +626,17 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
         final fileKey = response.data['fileKey'] ?? 'purchase_orders/${file.name}';
 
+        final double sizeInKb = file.size / 1024;
+        final String formattedSize = sizeInKb >= 1024
+            ? '${(sizeInKb / 1024).toStringAsFixed(2)} MB'
+            : '${sizeInKb.toStringAsFixed(2)} KB';
+
         await supabase.from('purchase_order_attachments').insert({
           'purchase_order_id': poId,
           'file_name': file.name,
           'file_path': fileKey,
-          'file_size': file.size,
+          'file_size': formattedSize,
           'file_type': file.extension,
-          'entity_id': entityId,
         });
       }
     } catch (e) {
@@ -674,13 +699,125 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
+  bool _isHydratingInitialOrder = false;
+
+  bool get _isEditMode =>
+      widget.initialOrder != null ||
+      (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty);
+
+  String? get _editingOrderId {
+    final directId = widget.initialOrder?.id;
+    if (directId != null && directId.isNotEmpty) {
+      return directId;
+    }
+    final routeId = widget.initialOrderId;
+    if (routeId != null && routeId.isNotEmpty) {
+      return routeId;
+    }
+    return null;
+  }
+
+  void _hydrateFromInitialOrder(PurchaseOrder order) {
+    ref.read(purchaseOrderFormNotifierProvider.notifier).hydrate(order);
+    // Hydrate row controllers
+    _rowControllers.clear();
+    for (final item in order.items) {
+      _addRowController(
+        initialName: item.productName,
+        initialQty: item.quantity,
+        initialRate: item.rate,
+        initialDiscount: item.discount,
+        initialDesc: item.description,
+      );
+    }
+    // Hydrate controllers
+    _poNumberCtrl.text = order.orderNumber;
+    _refCtrl.text = order.referenceNumber ?? '';
+    _orderDateCtrl.text = DateFormat('dd-MM-yyyy').format(order.orderDate);
+    if (order.expectedDeliveryDate != null) {
+      _deliveryDateCtrl.text = DateFormat('dd-MM-yyyy').format(order.expectedDeliveryDate!);
+    }
+    _notesCtrl.text = order.notes ?? '';
+    _termsCtrl.text = order.termsAndConditions ?? '';
+    _discountCtrl.text = order.discount.toStringAsFixed(2);
+    _adjustmentCtrl.text = order.adjustment.toStringAsFixed(2);
+    _adjustmentLabelCtrl.text = 'Adjustment';
+  }
+
+  Future<void> _loadInitialOrder(String orderId) async {
+    setState(() => _isHydratingInitialOrder = true);
+    try {
+      final repository = ref.read(purchaseOrderRepositoryProvider);
+      final order = await repository.getPurchaseOrder(orderId);
+
+      // Load attachments
+      final supabase = Supabase.instance.client;
+      final attachmentsData = await supabase
+          .from('purchase_order_attachments')
+          .select()
+          .eq('purchase_order_id', orderId);
+
+      if (order != null && mounted) {
+        _hydrateFromInitialOrder(order);
+        setState(() {
+          _attachedFiles = (attachmentsData as List).map<PlatformFile>((row) {
+            final sizeVal = row['file_size'];
+            int parsedSize = 0;
+            if (sizeVal is int) {
+              parsedSize = sizeVal;
+            } else if (sizeVal is String) {
+              parsedSize = int.tryParse(sizeVal.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+            }
+            return PlatformFile(
+              name: row['file_name'] ?? '',
+              size: parsedSize,
+            );
+          }).toList();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to load purchase order: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isHydratingInitialOrder = false);
+      }
+    }
+  }
+
+  Future<void> _loadAttachmentsForOrder(String orderId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final attachmentsData = await supabase
+          .from('purchase_order_attachments')
+          .select()
+          .eq('purchase_order_id', orderId);
+      if (mounted) {
+        setState(() {
+          _attachedFiles = (attachmentsData as List).map<PlatformFile>((row) {
+            final sizeVal = row['file_size'];
+            int parsedSize = 0;
+            if (sizeVal is int) {
+              parsedSize = sizeVal;
+            } else if (sizeVal is String) {
+              parsedSize = int.tryParse(sizeVal.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+            }
+            return PlatformFile(
+              name: row['file_name'] ?? '',
+              size: parsedSize,
+            );
+          }).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading attachments: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _orderDateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
-    _discountCtrl.text = '0';
-    _adjustmentCtrl.text = '0';
-    _adjustmentLabelCtrl.text = 'Adjustment';
     _adjustmentLabelFocusNode.addListener(_onAdjustmentLabelFocusChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Load vendors on init
@@ -691,16 +828,32 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       _loadSourceOfSupply();
       _loadPaymentTerms();
       _loadShipmentPreferences();
-      final s = ref.read(purchaseOrderFormNotifierProvider);
-      for (int i = 0; i < s.items.length; i++) {
-        final item = s.items[i];
-        _addRowController(
-          initialName: item.productName,
-          initialQty: item.quantity,
-          initialRate: item.rate,
-          initialDiscount: item.discount,
-          initialDesc: item.description,
-        );
+      
+      if (widget.initialOrder != null) {
+        _hydrateFromInitialOrder(widget.initialOrder!);
+        if (widget.initialOrder!.id != null) {
+          _loadAttachmentsForOrder(widget.initialOrder!.id!);
+        }
+      } else if (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty) {
+        _loadInitialOrder(widget.initialOrderId!);
+      } else {
+        ref.read(purchaseOrderFormNotifierProvider.notifier).reset();
+        final s = ref.read(purchaseOrderFormNotifierProvider);
+        _rowControllers.clear();
+        for (int i = 0; i < s.items.length; i++) {
+          final item = s.items[i];
+          _addRowController(
+            initialName: item.productName,
+            initialQty: item.quantity,
+            initialRate: item.rate,
+            initialDiscount: item.discount,
+            initialDesc: item.description,
+          );
+        }
+        _orderDateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
+        _discountCtrl.text = '0';
+        _adjustmentCtrl.text = '0';
+        _adjustmentLabelCtrl.text = 'Adjustment';
       }
     });
   }
@@ -1078,6 +1231,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       _itemDetailsSidebarOverlay = null;
     }
 
+    final poState = ref.read(purchaseOrderFormNotifierProvider);
+    final vendorState = ref.read(vendorProvider);
+    final selectedVendor = vendorState.vendors.firstWhere(
+      (v) => v.id == poState.vendorId,
+      orElse: () => Vendor(id: '', displayName: ''),
+    );
+
     _itemDetailsSidebarOverlay = OverlayEntry(
       builder: (context) => Stack(
         children: [
@@ -1097,6 +1257,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               child: _ItemDetailsSidebar(
                 row: row,
                 initialTabIndex: initialTabIndex,
+                vendorName: selectedVendor.id.isNotEmpty ? selectedVendor.displayName : null,
                 onClose: () {
                   _itemDetailsSidebarOverlay?.remove();
                   _itemDetailsSidebarOverlay = null;
@@ -1208,9 +1369,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         children: [
           const Icon(LucideIcons.fileText, size: 24, color: _textPrimary),
           const SizedBox(width: 12),
-          const Text(
-            'New Purchase Order',
-            style: TextStyle(
+          Text(
+            _isEditMode ? 'Edit Purchase Order' : 'New Purchase Order',
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,
               color: _textPrimary,
@@ -1219,7 +1380,14 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           ),
           const Spacer(),
           InkWell(
-            onTap: () => context.go('/purchases/purchase-orders'),
+            onTap: () {
+              final orderId = _editingOrderId;
+              if (_isEditMode && orderId != null && orderId.isNotEmpty) {
+                context.go('/purchases/purchase-orders/$orderId');
+                return;
+              }
+              context.go('/purchases/purchase-orders');
+            },
             borderRadius: BorderRadius.circular(4),
             child: const Padding(
               padding: EdgeInsets.all(4),
@@ -1331,6 +1499,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           }
         });
       }
+    }
+
+    if (_isHydratingInitialOrder) {
+      return const Scaffold(backgroundColor: Colors.white, body: FormSkeleton());
     }
 
     return ZerpaiLayout(
@@ -1723,6 +1895,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       flex: 4,
                       child: FormDropdown<String>(
                         height: 32,
+                        enabled: !_isEditMode,
                         value: 'Default Transaction Series',
                         items: const ['Default Transaction Series'],
                         onChanged: (v) {},
@@ -1735,21 +1908,22 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       flex: 3,
                       child: _zField(
                         _poNumberCtrl,
-                        hint: poState.isNumberingAuto ? 'PO-00023' : '',
-                        readOnly: poState.isNumberingAuto,
-                        onChanged: poState.isNumberingAuto
+                        hint: poState.isNumberingAuto ? 'PO-00001' : '',
+                        readOnly: poState.isNumberingAuto || _isEditMode,
+                        onChanged: (poState.isNumberingAuto || _isEditMode)
                             ? null
                             : (value) => notifier.updateField(orderNumber: value),
                         suffixIcon: IconButton(
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.settings_outlined,
                             size: 16,
-                            color: _linkBlue,
+                            color: _isEditMode ? _hintColor : _linkBlue,
                           ),
-                          onPressed: () =>
-                              _showNumberingPreferences(poState, notifier),
+                          onPressed: _isEditMode
+                              ? null
+                              : () => _showNumberingPreferences(poState, notifier),
                         ),
                       ),
                     ),
@@ -2161,15 +2335,16 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   width: 550,
                   child: FormDropdown<Vendor>(
                     height: 32,
+                    enabled: !_isEditMode,
                     value: selectedVendor.id.isEmpty ? null : selectedVendor,
                     items: vendors,
                     hint: 'Select a Vendor',
                     showSearch: true,
-                    allowClear: hasVendor,
+                    allowClear: hasVendor && !_isEditMode,
                     menuWidth: 480,
                     onChanged: (v) =>
                         notifier.updateField(vendorId: v?.id ?? ''),
-                    showSettings: true,
+                    showSettings: !_isEditMode,
                     settingsLabel: 'New Vendor',
                     settingsIcon: LucideIcons.plus,
                     onSettingsTap: _showNewVendorDialog,
@@ -5227,7 +5402,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               showWhenUnlinked: false,
               targetAnchor: Alignment.bottomCenter,
               followerAnchor: Alignment.topCenter,
-              offset: const Offset(-100, 20),
+              offset: const Offset(-100, 2),
               child: Material(
                 color: Colors.transparent,
                 child: TapRegion(
@@ -6630,7 +6805,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           ),
           const SizedBox(width: 8),
           ElevatedButton(
-            onPressed: () => _handleSave(poState, status: 'Confirmed'),
+            onPressed: () => _handleSave(poState, status: 'Draft'),
             style: ElevatedButton.styleFrom(
               backgroundColor: _greenBtn,
               foregroundColor: Colors.white,
@@ -6655,7 +6830,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           ),
           const SizedBox(width: 8),
           TextButton(
-            onPressed: () => context.pop(),
+            onPressed: () => context.go('/purchases/purchase-orders'),
             child: const Text(
               'Cancel',
               style: TextStyle(color: _textPrimary, fontSize: 13),
@@ -11606,7 +11781,10 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
   Widget _buildStockLocationsTab() {
     final stockAsync = ref.watch(itemWarehouseStocksProvider(widget.row.productId));
     return stockAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Padding(
+        padding: EdgeInsets.all(16),
+        child: TableSkeleton(rows: 6, columns: 3, showHeader: false),
+      ),
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (stocks) {
         return Padding(
@@ -11637,7 +11815,6 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
                     ],
                   ),
                   ...stocks.map((wh) {
-                    final isSelected = false; // PO items don't carry a warehouseId
                     return TableRow(
                       children: [
                         Padding(
@@ -11647,10 +11824,6 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
                               Flexible(
                                 child: Text(wh.name, style: const TextStyle(fontSize: 12)),
                               ),
-                              if (isSelected) ...[
-                                const SizedBox(width: 4),
-                                const Icon(Icons.star, size: 14, color: Colors.amber),
-                              ],
                             ],
                           ),
                         ),

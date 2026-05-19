@@ -530,7 +530,22 @@ export class PicklistsService {
 
       const client = this.supabaseService.getClient();
 
-      // Source of truth for popup rows: sales_order_items filtered by selected warehouse.
+      // Source of truth for popup rows: sales_order_items.
+      // Warehouse can live on item row or parent sales order row depending on
+      // historical data import/create flow, so support both.
+      // PostgREST `or(...)` cannot safely mix referenced-table columns, so we
+      // resolve sales-order IDs first and apply OR only on base table columns.
+      const { data: soRows } = await client
+        .from('sales_orders')
+        .select('id')
+        .eq('warehouse_id', warehouseId)
+        .eq('entity_id', tenant.entityId)
+        .eq('is_delete', false);
+
+      const soIds = (soRows ?? [])
+        .map((r: any) => (r?.id ?? '').toString())
+        .filter((id: string) => id.length > 0);
+
       let query = client
         .from('sales_order_items')
         .select(`
@@ -545,6 +560,7 @@ export class PicklistsService {
             sale_number,
             status,
             customer_id,
+            warehouse_id,
             customers!inner(display_name)
           ),
           products!inner(
@@ -556,8 +572,15 @@ export class PicklistsService {
             storage_conditions(location_name)
           )
         `, { count: 'exact' })
-        .eq('warehouse_id', warehouseId)
         .eq('entity_id', tenant.entityId);
+
+      if (soIds.length > 0) {
+        query = query.or(
+          `warehouse_id.eq.${warehouseId},sales_order_id.in.(${soIds.join(',')})`,
+        );
+      } else {
+        query = query.eq('warehouse_id', warehouseId);
+      }
 
       // Apply Filters (support comma-separated IDs for multi-select)
       if (customerId) {

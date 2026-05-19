@@ -27,6 +27,7 @@ import '../../../../shared/widgets/tables/column_customizer.dart';
 import '../../../../shared/widgets/tables/table_more_menu.dart';
 import '../../../../shared/models/column_config.dart';
 import '../../../../shared/widgets/tables/table_header_menu.dart';
+import '../../../../shared/widgets/skeleton.dart';
 
 class _ClearPicklistSelectionIntent extends Intent {
   const _ClearPicklistSelectionIntent();
@@ -246,7 +247,10 @@ class _InventoryPicklistsListScreenState
                     ),
                 ],
               ),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Padding(
+                padding: EdgeInsets.all(24),
+                child: TableSkeleton(rows: 10, columns: 7),
+              ),
               error: (err, stack) => Center(child: Text('Error: $err')),
             ),
           ),

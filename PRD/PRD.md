@@ -20,6 +20,15 @@ The application standard date picker is `ZerpaiDatePicker` from `lib/shared/widg
 
 Before creating any new shared widget, mixin, service, utility, helper, or reusable UI pattern, developers and agents must check `REUSABLES.md` at the project root first. If a suitable reusable already exists, it must be reused instead of duplicated. If no suitable reusable exists and a genuinely reusable abstraction is created, it must be added to `REUSABLES.md` immediately after creation. When a relevant reusable already exists, the developer or agent must explicitly tell the user which reusable can be used. When a new reusable is created, the developer or agent must explicitly tell the user so they can decide whether to promote it further. Reusables that should always be checked first include `FormDropdown<T>`, `CustomTextField`, `ZerpaiDatePicker`, `ZTooltip`, `GstinPrefillBanner`, `LicenceValidationMixin`, `ZerpaiLayout`, `ZButton`, `ZerpaiConfirmationDialog`, and `AppTheme` tokens.
 
+## 🔵 Selection Controls Color Policy
+
+Checkbox, radio, and switch/toggle controls must use a strict blue/white interaction scheme across the product.
+- Checkbox checked state: blue fill with white tick.
+- Radio selected state: blue fill with white center.
+- Switch/toggle active state: blue thumb/track treatment.
+- Branding accent color must not be used for checkbox/radio/switch active states.
+- Branding accent remains reserved for sidebar selected modules and primary/new action buttons.
+
 ## 🌐 Global Settings Policy
 
 The application must prefer real DB-backed runtime data wherever a schema-backed source already exists. When real data is unavailable, the UI must show an explicit empty or error state instead of fabricated business values. Lookup defaults should resolve from DB-backed master rows rather than hardcoded IDs or labels. Reusable control behavior and visual styling should be centralized in shared sources. Warehouse master data, storage/location master data, accounting stock, and physical stock must remain separate concepts across schema, API, and UI. Shared environments must be updated with additive migrations and scoped upserts instead of destructive resets.

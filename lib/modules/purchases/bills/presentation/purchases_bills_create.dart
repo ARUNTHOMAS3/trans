@@ -2894,11 +2894,11 @@ class _PurchasesBillCreateScreenState
         const SizedBox(height: 16),
         _zFormRow(
           label: 'Due Date',
-          maxWidth: 800,
+          maxWidth: 924,
           child: Row(
             children: [
               SizedBox(
-                width: 300,
+                width: 396,
                 child: _zDateField(
                   controller: _dueDateCtrl,
                   targetKey: GlobalKey(),
@@ -2917,7 +2917,10 @@ class _PurchasesBillCreateScreenState
                 ),
               ),
               const SizedBox(width: 12),
-              SizedBox(width: 180, child: _buildPaymentTermsDropdown()),
+              SizedBox(
+                width: 180,
+                child: _buildPaymentTermsDropdown(),
+              ),
             ],
           ),
         ),
@@ -6151,35 +6154,44 @@ class _PurchasesBillCreateScreenState
     TextAlign textAlign = TextAlign.start,
   }) {
     return _HoverableField(
-      builder: (isHovered) => SizedBox(
+      builder: (isHovered) => Container(
         height: 32,
-        child: TextField(
-          controller: ctrl,
-          onChanged: onChanged,
-          onTap: onTap,
-          keyboardType: keyboardType,
-          textAlign: textAlign,
-          readOnly: readOnly || (onTap != null && onChanged == null),
-          style: const TextStyle(fontSize: 13),
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: hint,
-            hintStyle: const TextStyle(color: _hintColor),
-            contentPadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(
-                color: isHovered ? _linkBlue : _fieldBorder,
-              ),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderSide: const BorderSide(color: _linkBlue, width: 1.5),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            suffixIcon: suffixIcon,
-            filled: true,
-            fillColor: _bgWhite,
+        decoration: BoxDecoration(
+          color: _bgWhite,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isHovered ? _linkBlue : _fieldBorder,
+            width: 1.0,
           ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: ctrl,
+                onChanged: onChanged,
+                onTap: onTap,
+                keyboardType: keyboardType,
+                textAlign: textAlign,
+                readOnly: readOnly || (onTap != null && onChanged == null),
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: hint,
+                  hintStyle: const TextStyle(color: _hintColor),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+            if (suffixIcon != null) ...[
+              const SizedBox(width: 8),
+              suffixIcon,
+            ],
+          ],
         ),
       ),
     );
@@ -6212,7 +6224,7 @@ class _PurchasesBillCreateScreenState
           }
         },
         suffixIcon: const Icon(
-          Icons.calendar_today_outlined,
+          LucideIcons.calendar,
           size: 16,
           color: _hintColor,
         ),

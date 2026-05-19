@@ -179,6 +179,11 @@ class AppRoutes {
   static const String purchaseOrders = '/purchases/purchase-orders';
   static const String purchaseOrdersCreate =
       '/purchases/purchase-orders/create';
+  static const String purchaseOrdersEdit =
+      '/purchases/purchase-orders/:id/edit';
+  static const String purchaseOrdersDetail = '/purchases/purchase-orders/:id';
+  static const String purchaseOrdersEmail =
+      '/purchases/purchase-orders/:id/email';
   static const String purchaseReceives = '/purchases/purchase-receives';
   static const String purchaseReceivesCreate =
       '/purchases/purchase-receives/create';

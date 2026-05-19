@@ -4,6 +4,7 @@ class ColumnConfig {
   bool isVisible;
   int orderIndex;
   bool isLocked;
+  bool isPinned;
 
   ColumnConfig({
     required this.id,
@@ -11,6 +12,7 @@ class ColumnConfig {
     this.isVisible = true,
     this.orderIndex = 0,
     this.isLocked = false,
+    this.isPinned = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -19,6 +21,7 @@ class ColumnConfig {
         'isVisible': isVisible,
         'orderIndex': orderIndex,
         'isLocked': isLocked,
+        'isPinned': isPinned,
       };
 
   factory ColumnConfig.fromJson(Map<String, dynamic> json) => ColumnConfig(
@@ -27,5 +30,6 @@ class ColumnConfig {
         isVisible: json['isVisible'] ?? true,
         orderIndex: json['orderIndex'] ?? 0,
         isLocked: json['isLocked'] ?? false,
+        isPinned: json['isPinned'] ?? false,
       );
 }

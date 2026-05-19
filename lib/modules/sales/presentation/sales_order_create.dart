@@ -412,12 +412,29 @@ class _SalesOrderCreateScreenState
   }
 
   void _showSalesOrderPreferencesDialog() async {
+    final warehouseList = ref.read(warehousesProvider).value ?? <Warehouse>[];
+    final selectedWarehouse = warehouseList.isEmpty
+        ? null
+        : warehouseList.firstWhere(
+            (w) => w.name == warehouse,
+            orElse: () => warehouseList.first,
+          );
+    final displayedWarehouseName = selectedWarehouse?.name ?? warehouse ?? 'Main Warehouse';
+
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => SalesOrderPreferencesDialog(
         currentPrefix: _soPrefix,
-        currentNextNumber: _soNextNumber,
+        currentNextNumber: () {
+          String currentText = salesOrderNumberCtrl.text.trim();
+          if (_soPrefix.isNotEmpty && currentText.startsWith(_soPrefix)) {
+            return currentText.substring(_soPrefix.length);
+          }
+          final match = RegExp(r'\d+$').firstMatch(currentText);
+          return match != null ? match.group(0)! : _soNextNumber;
+        }(),
         isAutoGenerate: _isAutoGenerateSO,
+        warehouseName: displayedWarehouseName,
       ),
     );
 
@@ -1669,33 +1686,45 @@ class _SalesOrderCreateScreenState
                     SizedBox(
                       width: 320,
                       child: priceListsAsync.when(
-                        data: (priceLists) => FormDropdown<String>(
-                          value: priceListId,
-                          height: _kDropdownHeight,
-                          items: priceLists.map((p) => p.id).toList(),
-                          displayStringForValue: (id) =>
-                              priceLists.where((p) => p.id == id).firstOrNull?.name ??
-                              'Select Price List',
-                          hint: 'Select Price List',
-                          itemBuilder: (id, isSelected, isHovered) =>
-                              _dropdownItemBuilder(
-                                priceLists.where((p) => p.id == id).firstOrNull?.name ??
-                                    'Select Price List',
-                                isSelected,
-                                isHovered,
-                              ),
-                          onChanged: (v) {
-                            setState(() {
-                              priceListId = v;
-                              for (var row in rows) {
-                                if (row.itemId.isNotEmpty && row.item != null) {
-                                  row.priceListId = v;
-                                  _updateRowRate(row, v, priceLists);
+                        data: (priceLists) {
+                          final salesPriceLists = priceLists
+                              .where((p) =>
+                                  p.transactionType.toLowerCase() == 'sales')
+                              .toList();
+                          return FormDropdown<String>(
+                            value: priceListId,
+                            height: _kDropdownHeight,
+                            items: salesPriceLists.map((p) => p.id).toList(),
+                            displayStringForValue: (id) =>
+                                salesPriceLists
+                                    .where((p) => p.id == id)
+                                    .firstOrNull
+                                    ?.name ??
+                                'Select Price List',
+                            hint: 'Select Price List',
+                            itemBuilder: (id, isSelected, isHovered) =>
+                                _dropdownItemBuilder(
+                                  salesPriceLists
+                                      .where((p) => p.id == id)
+                                      .firstOrNull
+                                      ?.name ??
+                                  'Select Price List',
+                                  isSelected,
+                                  isHovered,
+                                ),
+                            onChanged: (v) {
+                              setState(() {
+                                priceListId = v;
+                                for (var row in rows) {
+                                  if (row.itemId.isNotEmpty && row.item != null) {
+                                    row.priceListId = v;
+                                    _updateRowRate(row, v, priceLists);
+                                  }
                                 }
-                              }
-                            });
-                          },
-                        ),
+                              });
+                            },
+                          );
+                        },
 
                         loading: () => const Skeleton(height: 32, width: 320),
                         error: (_, __) =>
@@ -2463,6 +2492,7 @@ class _SalesOrderCreateScreenState
     final row = rows[idx];
     final priceLists = priceListsAsync.value ?? [];
     final applicablePriceLists = priceLists.where((pl) {
+      if (pl.transactionType.toLowerCase() != 'sales') return false;
       if (pl.id == row.priceListId) return true;
       if (pl.priceListType == 'all_items') return true;
       if (pl.priceListType == 'individual_items') {
