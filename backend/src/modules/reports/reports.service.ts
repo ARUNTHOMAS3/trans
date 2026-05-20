@@ -82,11 +82,9 @@ export class ReportsService {
     if (!missingShape) return false;
 
     return messages.some((m) =>
-      [
-        "branch_inventory",
-        "entity_id",
-        "storage_conditions",
-      ].some((token) => m.includes(token)),
+      ["branch_inventory", "entity_id", "storage_conditions"].some((token) =>
+        m.includes(token),
+      ),
     );
   }
 
@@ -102,7 +100,7 @@ export class ReportsService {
     if (accError) throw accError;
 
     // 2. Get Transaction Balances
-    let txQuery = supabase
+    const txQuery = supabase
       .from("account_transactions")
       .select("account_id, debit, credit")
       .eq("entity_id", tenant.entityId);
@@ -138,7 +136,7 @@ export class ReportsService {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    let salesTrendQuery = supabase
+    const salesTrendQuery = supabase
       .from("account_transactions")
       .select("transaction_date, credit")
       .eq("entity_id", tenant.entityId);
@@ -161,7 +159,7 @@ export class ReportsService {
       .sort((a, b) => a.date.localeCompare(b.date));
 
     // 4. Top Customers
-    let topCustomersQuery = supabase
+    const topCustomersQuery = supabase
       .from("account_transactions")
       .select("contact_id, contact_type, credit")
       .eq("entity_id", tenant.entityId);

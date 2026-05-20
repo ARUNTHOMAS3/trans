@@ -76,14 +76,26 @@ export class TenantMiddleware implements NestMiddleware {
     { prefix: "/api/v1/sales/customers", moduleKey: "customers" },
     { prefix: "/api/v1/sales/quotations", moduleKey: "quotations" },
     { prefix: "/api/v1/sales/invoices", moduleKey: "invoices" },
-    { prefix: "/api/v1/sales/delivery-challans", moduleKey: "delivery_challans" },
-    { prefix: "/api/v1/sales/payments-received", moduleKey: "customer_payments" },
+    {
+      prefix: "/api/v1/sales/delivery-challans",
+      moduleKey: "delivery_challans",
+    },
+    {
+      prefix: "/api/v1/sales/payments-received",
+      moduleKey: "customer_payments",
+    },
     { prefix: "/api/v1/sales/credit-notes", moduleKey: "credit_notes" },
     { prefix: "/api/v1/sales/e-way-bills", moduleKey: "ewaybill_perms" },
     { prefix: "/api/v1/sales/payment-links", moduleKey: "payment_links" },
-    { prefix: "/api/v1/sales/recurring-invoices", moduleKey: "recurring_invoices" },
+    {
+      prefix: "/api/v1/sales/recurring-invoices",
+      moduleKey: "recurring_invoices",
+    },
     { prefix: "/api/v1/sales/returns", moduleKey: "sales_returns" },
-    { prefix: "/api/v1/sales/retainer-invoices", moduleKey: "retainer_invoices" },
+    {
+      prefix: "/api/v1/sales/retainer-invoices",
+      moduleKey: "retainer_invoices",
+    },
     { prefix: "/api/v1/sales", moduleKey: "sales_orders" },
 
     { prefix: "/api/v1/vendors", moduleKey: "vendors" },
@@ -92,12 +104,30 @@ export class TenantMiddleware implements NestMiddleware {
     { prefix: "/api/v1/purchase-receives", moduleKey: "purchase_receives" },
     { prefix: "/api/v1/bills", moduleKey: "bills" },
 
-    { prefix: "/api/v1/accountant/journal-templates", moduleKey: "journal_templates" },
-    { prefix: "/api/v1/accountant/manual-journals", moduleKey: "manual_journals" },
-    { prefix: "/api/v1/accountant/recurring-journals", moduleKey: "recurring_journals" },
-    { prefix: "/api/v1/accountant/transaction-locking", moduleKey: "transaction_locking" },
-    { prefix: "/api/v1/accountant/transactions", moduleKey: "account_transactions" },
-    { prefix: "/api/v1/accountant/opening-balances", moduleKey: "opening_balances" },
+    {
+      prefix: "/api/v1/accountant/journal-templates",
+      moduleKey: "journal_templates",
+    },
+    {
+      prefix: "/api/v1/accountant/manual-journals",
+      moduleKey: "manual_journals",
+    },
+    {
+      prefix: "/api/v1/accountant/recurring-journals",
+      moduleKey: "recurring_journals",
+    },
+    {
+      prefix: "/api/v1/accountant/transaction-locking",
+      moduleKey: "transaction_locking",
+    },
+    {
+      prefix: "/api/v1/accountant/transactions",
+      moduleKey: "account_transactions",
+    },
+    {
+      prefix: "/api/v1/accountant/opening-balances",
+      moduleKey: "opening_balances",
+    },
     { prefix: "/api/v1/accountant", moduleKey: "chart_of_accounts" },
 
     { prefix: "/api/v1/transaction-locking", moduleKey: "transaction_locking" },
@@ -191,9 +221,9 @@ export class TenantMiddleware implements NestMiddleware {
 
         if (data) {
           context.entityId = data.id;
-          context.orgId = data.type === 'ORG' ? data.ref_id : data.parent_id; // Approximation, better to use data correctly
+          context.orgId = data.type === "ORG" ? data.ref_id : data.parent_id; // Approximation, better to use data correctly
           // If it's a branch, we should find the org it belongs to for orgId
-          if (data.type === 'BRANCH') {
+          if (data.type === "BRANCH") {
             const { data: parent } = await this.supabaseService
               .getClient()
               .from("organisation_branch_master")
@@ -350,7 +380,8 @@ export class TenantMiddleware implements NestMiddleware {
 
     const fullPath = (req.originalUrl || req.path).split("?")[0];
     const matchedRule = TenantMiddleware.apiPermissionRules.find(
-      (rule) => fullPath === rule.prefix || fullPath.startsWith(`${rule.prefix}/`),
+      (rule) =>
+        fullPath === rule.prefix || fullPath.startsWith(`${rule.prefix}/`),
     );
 
     const isApiRequest = fullPath.startsWith("/api/v1/");
@@ -464,7 +495,10 @@ export class TenantMiddleware implements NestMiddleware {
       if (error instanceof ForbiddenException) {
         throw error;
       }
-      console.error("[TenantMiddleware] Auth error:", error instanceof Error ? error.message : error);
+      console.error(
+        "[TenantMiddleware] Auth error:",
+        error instanceof Error ? error.message : error,
+      );
       throw new UnauthorizedException("Invalid or expired token");
     }
   }

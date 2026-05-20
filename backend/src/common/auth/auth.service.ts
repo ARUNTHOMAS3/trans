@@ -232,15 +232,22 @@ export class AuthService {
     }
 
     const normalizedRole = this.normalizeRole(userRecord["role"]);
-    const permissions = await this.buildRolePermissions(orgEntityId ?? orgId, normalizedRole);
+    const permissions = await this.buildRolePermissions(
+      orgEntityId ?? orgId,
+      normalizedRole,
+    );
     const accessibleBranchIds = Array.isArray(
       userRecord["accessible_branch_ids"],
     )
-      ? userRecord["accessible_branch_ids"].map((value: unknown) => String(value))
+      ? userRecord["accessible_branch_ids"].map((value: unknown) =>
+          String(value),
+        )
       : [];
     const defaultBusinessBranchId =
       userRecord["default_business_branch_id"]?.toString();
-    const branchSystemId = await this.findBranchSystemId(defaultBusinessBranchId);
+    const branchSystemId = await this.findBranchSystemId(
+      defaultBusinessBranchId,
+    );
     const orgSystemId = organization?.["system_id"]?.toString() ?? "";
     const routeSystemId = branchSystemId ?? orgSystemId;
 

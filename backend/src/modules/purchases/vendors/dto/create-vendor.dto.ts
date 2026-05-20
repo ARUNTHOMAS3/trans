@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsEmail, IsBoolean, Matches } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsEmail,
+  IsBoolean,
+  Matches,
+} from "class-validator";
 
 export enum VendorType {
   MANUFACTURER = "manufacturer",
@@ -45,7 +51,9 @@ export class CreateVendorDto {
 
   @IsOptional()
   @IsString()
-  @Matches(/^[0-9]{10}$/, { message: "Mobile number must be exactly 10 digits" })
+  @Matches(/^[0-9]{10}$/, {
+    message: "Mobile number must be exactly 10 digits",
+  })
   mobilePhone?: string;
 
   @IsOptional()
@@ -182,7 +190,9 @@ export class CreateVendorDto {
 
   @IsOptional()
   @IsString()
-  @Matches(/^[0-9]{10}$/, { message: "WhatsApp number must be exactly 10 digits" })
+  @Matches(/^[0-9]{10}$/, {
+    message: "WhatsApp number must be exactly 10 digits",
+  })
   whatsappNumber?: string;
 
   @IsOptional()

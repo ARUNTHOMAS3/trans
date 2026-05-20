@@ -138,29 +138,33 @@ class _AdvancedCustomerSearchDialogState
                                   padding: EdgeInsets.zero,
                                   onSelected: (v) =>
                                       setState(() => _filterBy = v),
-                                  itemBuilder: (ctx) => [
-                                    'Customer Number',
-                                    'Customer Name',
-                                    'Email',
-                                    'Phone',
-                                  ]
-                                      .map(
-                                        (e) => PopupMenuItem(
-                                          value: e,
-                                          padding: EdgeInsets.zero,
-                                          height: 38,
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                                            child: Text(
-                                              e,
-                                              style: const TextStyle(
-                                                fontSize: 13,
+                                  itemBuilder: (ctx) =>
+                                      [
+                                            'Customer Number',
+                                            'Customer Name',
+                                            'Email',
+                                            'Phone',
+                                          ]
+                                          .map(
+                                            (e) => PopupMenuItem(
+                                              value: e,
+                                              padding: EdgeInsets.zero,
+                                              height: 38,
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                    ),
+                                                child: Text(
+                                                  e,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
+                                          )
+                                          .toList(),
                                   child: Container(
                                     width: 190,
                                     height: 32,

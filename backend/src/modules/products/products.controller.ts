@@ -177,9 +177,7 @@ export class ProductsController {
   }
 
   @Get("lookups/bootstrap")
-  getLookupBootstrap(
-    @Tenant() tenant: TenantContext,
-  ) {
+  getLookupBootstrap(@Tenant() tenant: TenantContext) {
     return this.productsService.getLookupBootstrap(tenant);
   }
 
@@ -262,9 +260,7 @@ export class ProductsController {
   }
 
   @Get("lookups/reorder-terms")
-  getReorderTerms(
-    @Tenant() tenant: TenantContext,
-  ) {
+  getReorderTerms(@Tenant() tenant: TenantContext) {
     return this.productsService.getReorderTerms(tenant);
   }
 
@@ -452,9 +448,7 @@ export class ProductsController {
   }
 
   @Get("composite")
-  async getComposite(
-    @Tenant() tenant: TenantContext,
-  ) {
+  async getComposite(@Tenant() tenant: TenantContext) {
     return this.productsService.getCompositeItems(tenant);
   }
 
@@ -501,10 +495,7 @@ export class ProductsController {
   }
 
   @Get(":id")
-  async findOne(
-    @Param("id") id: string,
-    @Tenant() tenant: TenantContext,
-  ) {
+  async findOne(@Param("id") id: string, @Tenant() tenant: TenantContext) {
     return this.productsService.findOne(id, tenant);
   }
 
@@ -518,19 +509,12 @@ export class ProductsController {
       "📥 Received product data:",
       JSON.stringify(createProductDto, null, 2),
     );
-    return this.productsService.create(
-      createProductDto,
-      tenant.userId,
-      tenant,
-    );
+    return this.productsService.create(createProductDto, tenant.userId, tenant);
   }
 
   @Post("composite")
   @HttpCode(HttpStatus.CREATED)
-  async createComposite(
-    @Body() payload: any,
-    @Tenant() tenant: TenantContext,
-  ) {
+  async createComposite(@Body() payload: any, @Tenant() tenant: TenantContext) {
     console.log("📥 Received composite product data");
     return this.productsService.createComposite(payload, tenant.userId, tenant);
   }
@@ -561,10 +545,7 @@ export class ProductsController {
   }
 
   @Delete(":id")
-  async remove(
-    @Param("id") id: string,
-    @Tenant() tenant: TenantContext,
-  ) {
+  async remove(@Param("id") id: string, @Tenant() tenant: TenantContext) {
     return this.productsService.remove(id, tenant);
   }
 }

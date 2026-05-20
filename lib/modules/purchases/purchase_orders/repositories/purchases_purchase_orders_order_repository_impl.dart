@@ -51,7 +51,10 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
           ? response.data['data']
           : response.data;
       return PurchaseOrder.fromJson(data);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('=== ERROR IN getPurchaseOrder ===');
+      print(e);
+      print(stackTrace);
       return null;
     }
   }
@@ -80,7 +83,10 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
         data: purchaseOrder.toJson(),
       );
       return PurchaseOrder.fromJson(response.data);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('=== ERROR IN updatePurchaseOrder ===');
+      print(e);
+      print(stackTrace);
       return null;
     }
   }

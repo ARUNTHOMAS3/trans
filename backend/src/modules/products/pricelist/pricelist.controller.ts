@@ -12,9 +12,18 @@ import {
 import { SupabaseService } from "../../supabase/supabase.service";
 
 const HEADER_FIELDS = [
-  "name", "description", "currency", "pricing_scheme", "details",
-  "round_off_preference", "status", "price_list_type", "percentage_type",
-  "percentage_value", "discount_enabled", "transaction_type",
+  "name",
+  "description",
+  "currency",
+  "pricing_scheme",
+  "details",
+  "round_off_preference",
+  "status",
+  "price_list_type",
+  "percentage_type",
+  "percentage_value",
+  "discount_enabled",
+  "transaction_type",
 ];
 
 function buildPriceListResponse(header: any, items: any[]): any {
@@ -70,7 +79,9 @@ export class PriceListController {
 
       const { data: items, error: iErr } = await sb
         .from("price_list_items")
-        .select(`*, products(product_name, sku, selling_price), price_list_volume_ranges(*)`)
+        .select(
+          `*, products(product_name, sku, selling_price), price_list_volume_ranges(*)`,
+        )
         .eq("price_list_id", id)
         .eq("is_active", true);
       if (iErr) throw iErr;
@@ -105,7 +116,14 @@ export class PriceListController {
   @Put(":id")
   async update(@Param("id") id: string, @Body() body: any) {
     try {
-      console.log("[PriceList PUT] id:", id, "item_rates count:", (body.item_rates ?? []).length, "sample:", JSON.stringify((body.item_rates ?? []).slice(0, 1)));
+      console.log(
+        "[PriceList PUT] id:",
+        id,
+        "item_rates count:",
+        (body.item_rates ?? []).length,
+        "sample:",
+        JSON.stringify((body.item_rates ?? []).slice(0, 1)),
+      );
       const sb = this.supabaseService.getClient();
 
       // 1. Update header fields only
@@ -165,7 +183,10 @@ export class PriceListController {
 
         // 3. Replace volume ranges
         const volRanges: any[] = rate.volume_ranges ?? [];
-        await sb.from("price_list_volume_ranges").delete().eq("price_list_item_id", pliId);
+        await sb
+          .from("price_list_volume_ranges")
+          .delete()
+          .eq("price_list_item_id", pliId);
         if (volRanges.length > 0) {
           const rangeRows = volRanges.map((r: any) => ({
             price_list_item_id: pliId,
@@ -173,7 +194,9 @@ export class PriceListController {
             end_quantity: r.end_quantity ?? null,
             rate: r.custom_rate ?? 0,
           }));
-          const { error: rErr } = await sb.from("price_list_volume_ranges").insert(rangeRows);
+          const { error: rErr } = await sb
+            .from("price_list_volume_ranges")
+            .insert(rangeRows);
           if (rErr) throw rErr;
         }
       }
@@ -181,7 +204,9 @@ export class PriceListController {
       // 4. Return full enriched response
       const { data: items } = await sb
         .from("price_list_items")
-        .select(`*, products(product_name, sku, selling_price), price_list_volume_ranges(*)`)
+        .select(
+          `*, products(product_name, sku, selling_price), price_list_volume_ranges(*)`,
+        )
         .eq("price_list_id", id)
         .eq("is_active", true);
 

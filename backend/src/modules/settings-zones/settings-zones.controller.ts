@@ -104,7 +104,10 @@ export class SettingsZonesController {
   }
 
   @Post("bins/bulk-action")
-  async bulkAction(@Tenant() tenant: TenantContext, @Body() body: BulkBinActionDto) {
+  async bulkAction(
+    @Tenant() tenant: TenantContext,
+    @Body() body: BulkBinActionDto,
+  ) {
     return this.settingsZonesService.bulkAction(tenant, body);
   }
 

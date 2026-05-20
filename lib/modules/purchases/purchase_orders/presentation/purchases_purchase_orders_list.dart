@@ -112,13 +112,23 @@ class _PurchaseOrderOverviewScreenState
       ColumnConfig(id: 'date', label: 'DATE', orderIndex: 0),
       ColumnConfig(id: 'location', label: 'LOCATION', orderIndex: 1),
       ColumnConfig(id: 'order_number', label: 'ORDER NUMBER', orderIndex: 2),
-      ColumnConfig(id: 'reference_number', label: 'REFERENCE NUMBER', orderIndex: 3, isVisible: false),
+      ColumnConfig(
+        id: 'reference_number',
+        label: 'REFERENCE NUMBER',
+        orderIndex: 3,
+        isVisible: false,
+      ),
       ColumnConfig(id: 'vendor_name', label: 'VENDOR NAME', orderIndex: 4),
       ColumnConfig(id: 'status', label: 'STATUS', orderIndex: 5),
       ColumnConfig(id: 'received', label: 'RECEIVED', orderIndex: 6),
       ColumnConfig(id: 'billed', label: 'BILLED', orderIndex: 7),
       ColumnConfig(id: 'amount', label: 'AMOUNT', orderIndex: 8),
-      ColumnConfig(id: 'delivery_date', label: 'DELIVERY DATE', orderIndex: 9, isVisible: false),
+      ColumnConfig(
+        id: 'delivery_date',
+        label: 'DELIVERY DATE',
+        orderIndex: 9,
+        isVisible: false,
+      ),
     ];
     _updateVisibleColumns();
   }
@@ -222,7 +232,8 @@ class _PurchaseOrderOverviewScreenState
 
     double totalReceived = 0.0;
     for (final r in receives) {
-      final itemsList = r['purchases_purchase_receive_items'] as List<dynamic>? ?? [];
+      final itemsList =
+          r['purchases_purchase_receive_items'] as List<dynamic>? ?? [];
       for (final item in itemsList) {
         totalReceived += (item['received'] as num?)?.toDouble() ?? 0.0;
       }
@@ -1149,15 +1160,19 @@ class _PurchaseOrderOverviewScreenState
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Container(
-                        width: 130,
-                        height: 56,
-                        color: const PdfColor.fromInt(0xFF101820),
+                        width: 140,
+                        height: 48,
+                        decoration: pw.BoxDecoration(
+                          color: const PdfColor.fromInt(0xFF0F172A),
+                          borderRadius: pw.BorderRadius.circular(4),
+                        ),
                         child: pw.Center(
                           child: pw.Text(
-                            'LOGO',
+                            'LOGO / LETTERHEAD',
                             style: pw.TextStyle(
                               color: PdfColors.white,
-                              fontSize: 12,
+                              fontSize: 10,
+                              fontWeight: pw.FontWeight.bold,
                             ),
                           ),
                         ),
@@ -1170,6 +1185,17 @@ class _PurchaseOrderOverviewScreenState
                           fontSize: 11,
                         ),
                       ),
+                      if (org?.paymentStubAddress?.trim().isNotEmpty == true)
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.only(top: 3),
+                          child: pw.Text(
+                            _formatAddress(org!.paymentStubAddress!.trim()),
+                            style: const pw.TextStyle(
+                              fontSize: 9,
+                              lineSpacing: 1.5,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                   pw.Column(
@@ -1197,71 +1223,83 @@ class _PurchaseOrderOverviewScreenState
               ),
               pw.SizedBox(height: 32),
               pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Expanded(
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text(
-                          'PO#',
-                          style: const pw.TextStyle(
-                            fontSize: 9,
-                            color: PdfColors.grey600,
-                          ),
-                        ),
-                        pw.SizedBox(height: 3),
-                        pw.Text(
-                          order.orderNumber,
-                          style: pw.TextStyle(
-                            fontSize: 11,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  pw.Expanded(
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          'Date',
-                          style: const pw.TextStyle(
-                            fontSize: 9,
-                            color: PdfColors.grey600,
-                          ),
-                        ),
-                        pw.SizedBox(height: 3),
-                        pw.Text(
-                          DateFormat('dd-MM-yyyy').format(order.orderDate),
-                          style: pw.TextStyle(
-                            fontSize: 11,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  pw.Expanded(
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
                           'Vendor',
-                          style: const pw.TextStyle(
-                            fontSize: 9,
-                            color: PdfColors.grey600,
+                          style: pw.TextStyle(
+                            fontSize: 10,
+                            fontWeight: pw.FontWeight.bold,
+                            color: const PdfColor.fromInt(0xFF1E3A8A),
                           ),
                         ),
-                        pw.SizedBox(height: 3),
+                        pw.SizedBox(height: 4),
                         pw.Text(
-                          order.vendorName ?? '-',
+                          order.vendorName ?? 'No Vendor',
                           style: pw.TextStyle(
                             fontSize: 11,
                             fontWeight: pw.FontWeight.bold,
                           ),
                         ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          _address(
+                            _formatVendorAddress(order.vendor?.billingAddress),
+                          ),
+                          style: const pw.TextStyle(
+                            fontSize: 9,
+                            lineSpacing: 1.5,
+                          ),
+                        ),
                       ],
+                    ),
+                  ),
+                  pw.SizedBox(width: 30),
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Ship To',
+                          style: pw.TextStyle(
+                            fontSize: 10,
+                            fontWeight: pw.FontWeight.bold,
+                            color: const PdfColor.fromInt(0xFF1E3A8A),
+                          ),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          order.warehouseName ?? 'ZABNIX PRIVATE LIMITED',
+                          style: pw.TextStyle(
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          'Address Line 1\nCity, State PIN',
+                          style: const pw.TextStyle(
+                            fontSize: 9,
+                            lineSpacing: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(width: 30),
+                  pw.Expanded(
+                    child: pw.Align(
+                      alignment: pw.Alignment.topRight,
+                      child: pw.Text(
+                        'Order Date : ${DateFormat('dd-MM-yyyy').format(order.orderDate)}',
+                        style: const pw.TextStyle(
+                          fontSize: 10,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1272,7 +1310,10 @@ class _PurchaseOrderOverviewScreenState
                 columnWidths: const {
                   0: pw.FixedColumnWidth(32),
                   1: pw.FlexColumnWidth(5),
-                  2: pw.FixedColumnWidth(80),
+                  2: pw.FlexColumnWidth(2),
+                  3: pw.FixedColumnWidth(60),
+                  4: pw.FixedColumnWidth(80),
+                  5: pw.FixedColumnWidth(100),
                 },
                 children: [
                   pw.TableRow(
@@ -1313,10 +1354,58 @@ class _PurchaseOrderOverviewScreenState
                           horizontal: 8,
                           vertical: 10,
                         ),
+                        child: pw.Text(
+                          'HSN/SAC',
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 10,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 10,
+                        ),
                         child: pw.Align(
                           alignment: pw.Alignment.centerRight,
                           child: pw.Text(
                             'Qty',
+                            style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 10,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 10,
+                        ),
+                        child: pw.Align(
+                          alignment: pw.Alignment.centerRight,
+                          child: pw.Text(
+                            'Rate',
+                            style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 10,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 10,
+                        ),
+                        child: pw.Align(
+                          alignment: pw.Alignment.centerRight,
+                          child: pw.Text(
+                            'Amount',
                             style: pw.TextStyle(
                               color: PdfColors.white,
                               fontSize: 10,
@@ -1363,10 +1452,46 @@ class _PurchaseOrderOverviewScreenState
                             horizontal: 8,
                             vertical: 10,
                           ),
+                          child: pw.Text(
+                            e.value.hsnCode ?? '—',
+                            style: const pw.TextStyle(fontSize: 11),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 10,
+                          ),
                           child: pw.Align(
                             alignment: pw.Alignment.centerRight,
                             child: pw.Text(
                               e.value.quantity.toStringAsFixed(2),
+                              style: const pw.TextStyle(fontSize: 11),
+                            ),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 10,
+                          ),
+                          child: pw.Align(
+                            alignment: pw.Alignment.centerRight,
+                            child: pw.Text(
+                              e.value.rate.toStringAsFixed(2),
+                              style: const pw.TextStyle(fontSize: 11),
+                            ),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 10,
+                          ),
+                          child: pw.Align(
+                            alignment: pw.Alignment.centerRight,
+                            child: pw.Text(
+                              e.value.amount.toStringAsFixed(2),
                               style: const pw.TextStyle(fontSize: 11),
                             ),
                           ),
@@ -1376,12 +1501,90 @@ class _PurchaseOrderOverviewScreenState
                   }),
                 ],
               ),
+              pw.SizedBox(height: 24),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.end,
+                children: [
+                  pw.Container(
+                    width: 220,
+                    child: pw.Column(
+                      children: [
+                        _pwTotalRow('Sub Total', 'INR ${order.subTotal.toStringAsFixed(2)}'),
+                        if (order.discount > 0)
+                          _pwTotalRow(
+                            'Discount (${order.discountType == 'percentage' ? '${order.discount}%' : 'Fixed'})',
+                            '-INR ${(order.discountType == 'percentage' ? (order.subTotal * order.discount / 100) : order.discount).toStringAsFixed(2)}',
+                          ),
+                        if (order.taxAmount > 0)
+                          _pwTotalRow('Tax', 'INR ${order.taxAmount.toStringAsFixed(2)}'),
+                        if (order.adjustment != 0)
+                          _pwTotalRow(
+                            'Adjustment',
+                            'INR ${order.adjustment.toStringAsFixed(2)}',
+                          ),
+                        pw.Divider(color: PdfColors.grey300),
+                        pw.Container(
+                          color: const PdfColor.fromInt(0xFFF9FAFB),
+                          padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                          child: _pwTotalRow(
+                            'Total',
+                            'INR ${order.total.toStringAsFixed(2)}',
+                            isBold: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 34),
+              pw.Row(
+                children: [
+                  pw.Text(
+                    'Authorized Signature',
+                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                  ),
+                  pw.SizedBox(width: 12),
+                  pw.Expanded(
+                    child: pw.Container(
+                      height: 1,
+                      color: PdfColors.black,
+                    ),
+                  ),
+                  pw.Spacer(),
+                ],
+              ),
             ],
           );
         },
       ),
     );
     return doc.save();
+  }
+
+  pw.Widget _pwTotalRow(String label, String value, {bool isBold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            label,
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            ),
+          ),
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSortMenuItem(String label, String field) {
@@ -1580,7 +1783,8 @@ class _PurchaseOrderOverviewScreenState
               width: width,
               onResize: (dx) => _resizeColumn(colId, dx),
               child: _buildHeaderCell(
-                _columnLabels[colId] ?? colId.toUpperCase().replaceAll('_', ' '),
+                _columnLabels[colId] ??
+                    colId.toUpperCase().replaceAll('_', ' '),
                 colId,
                 width: width,
                 align: align,
@@ -1727,7 +1931,9 @@ class _PurchaseOrderOverviewScreenState
         content = Center(
           child: Icon(
             Icons.circle,
-            color: order.status == 'Closed' || order.status == 'Received' ? Colors.green : Colors.orange,
+            color: order.status == 'Closed' || order.status == 'Received'
+                ? Colors.green
+                : Colors.orange,
             size: 12,
           ),
         );
@@ -2245,7 +2451,10 @@ class _PurchaseOrderOverviewScreenState
                                   summary.receiveStatus,
                                   style: AppTheme.bodyText.copyWith(
                                     fontSize: 12,
-                                    color: summary.receiveStatus == 'In Transit' || summary.receiveStatus == 'Partially Received'
+                                    color:
+                                        summary.receiveStatus == 'In Transit' ||
+                                            summary.receiveStatus ==
+                                                'Partially Received'
                                         ? AppTheme.warningOrange
                                         : summary.receiveStatus == 'Received'
                                         ? AppTheme.successGreen
@@ -2844,7 +3053,9 @@ class _PurchaseOrderOverviewScreenState
             Text(
               summary.receiveStatus,
               style: AppTheme.bodyText.copyWith(
-                color: summary.receiveStatus == 'In Transit' || summary.receiveStatus == 'Partially Received'
+                color:
+                    summary.receiveStatus == 'In Transit' ||
+                        summary.receiveStatus == 'Partially Received'
                     ? AppTheme.warningOrange
                     : summary.receiveStatus == 'Received'
                     ? AppTheme.successGreen
@@ -3016,11 +3227,13 @@ class _PurchaseOrderOverviewScreenState
           ...items.map((item) {
             double itemReceivedQty = 0.0;
             for (final r in summary.receives) {
-              final itemsList = r['purchases_purchase_receive_items'] as List<dynamic>? ?? [];
+              final itemsList =
+                  r['purchases_purchase_receive_items'] as List<dynamic>? ?? [];
               for (final recItem in itemsList) {
                 final recProdId = recItem['product_id']?.toString();
                 if (recProdId == item.productId) {
-                  itemReceivedQty += (recItem['received'] as num?)?.toDouble() ?? 0.0;
+                  itemReceivedQty +=
+                      (recItem['received'] as num?)?.toDouble() ?? 0.0;
                 }
               }
             }
@@ -3345,90 +3558,7 @@ class _ActionSquare extends StatelessWidget {
   }
 }
 
-class _ActionSplitMenu extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onPrimaryTap;
-  final ValueChanged<String> onSelected;
 
-  const _ActionSplitMenu({
-    required this.icon,
-    required this.label,
-    required this.onPrimaryTap,
-    required this.onSelected,
-  });
-
-  static const _menuItems = <String>['Receive', 'Bill'];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: AppTheme.borderLight),
-        borderRadius: BorderRadius.circular(6),
-        color: Colors.white,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          InkWell(
-            onTap: onPrimaryTap,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(6),
-              bottomLeft: Radius.circular(6),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 14, color: AppTheme.textPrimary),
-                  const SizedBox(width: 6),
-                  Text(
-                    label,
-                    style: AppTheme.bodyText.copyWith(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const VerticalDivider(width: 1, color: AppTheme.borderLight),
-          MenuAnchor(
-            style: MenuStyle(
-              padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-              shape: WidgetStatePropertyAll(
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-            builder: (context, controller, child) {
-              return InkWell(
-                onTap: () =>
-                    controller.isOpen ? controller.close() : controller.open(),
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(6),
-                  bottomRight: Radius.circular(6),
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                  child: Icon(LucideIcons.chevronDown, size: 14),
-                ),
-              );
-            },
-            menuChildren: _menuItems.map((item) {
-              return MenuItemButton(
-                onPressed: () => onSelected(item),
-                child: Text(item, style: AppTheme.bodyText),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 extension on _PurchaseOrderOverviewScreenState {
   Widget _pdfCard(
@@ -3691,6 +3821,17 @@ extension on _PurchaseOrderOverviewScreenState {
                 ),
               ),
               Expanded(
+                flex: 2,
+                child: Text(
+                  'HSN/SAC',
+                  style: AppTheme.bodyText.copyWith(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Expanded(
                 child: Text(
                   'QTY',
                   textAlign: TextAlign.right,
@@ -3779,6 +3920,13 @@ extension on _PurchaseOrderOverviewScreenState {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      item.hsnCode ?? '—',
+                      style: AppTheme.bodyText.copyWith(fontSize: 13),
                     ),
                   ),
                   Expanded(
@@ -4337,24 +4485,4 @@ class _BulkDivider extends StatelessWidget {
   }
 }
 
-class _BulkMoreButton extends StatelessWidget {
-  const _BulkMoreButton();
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppTheme.borderLight),
-      ),
-      child: const Icon(
-        LucideIcons.moreHorizontal,
-        size: 16,
-        color: AppTheme.textBody,
-      ),
-    );
-  }
-}

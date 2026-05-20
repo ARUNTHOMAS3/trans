@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/routing/app_routes.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -1705,11 +1704,13 @@ class __ShipmentPreferencesDialogState
                     onTap: () => setState(() => _isAuto = true),
                     child: Row(
                       children: [
-                        Radio<bool>(
-                          value: true,
+                        RadioGroup<bool>(
                           groupValue: _isAuto,
                           onChanged: (val) => setState(() => _isAuto = val!),
-                          activeColor: const Color(0xFF3B82F6),
+                          child: Radio<bool>(
+                            value: true,
+                            activeColor: const Color(0xFF3B82F6),
+                          ),
                         ),
                         const Text(
                           'Continue auto-generating shipment numbers',
@@ -1822,11 +1823,13 @@ class __ShipmentPreferencesDialogState
                     onTap: () => setState(() => _isAuto = false),
                     child: Row(
                       children: [
-                        Radio<bool>(
-                          value: false,
+                        RadioGroup<bool>(
                           groupValue: _isAuto,
                           onChanged: (val) => setState(() => _isAuto = val!),
-                          activeColor: const Color(0xFF3B82F6),
+                          child: Radio<bool>(
+                            value: false,
+                            activeColor: const Color(0xFF3B82F6),
+                          ),
                         ),
                         const Text(
                           'Enter shipment numbers manually',

@@ -314,7 +314,7 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
     }
 
     if (_activeMenu != currentMatchedMenu) {
-      setState(() => _activeMenu = currentMatchedMenu ?? '');
+      _activeMenu = currentMatchedMenu ?? '';
     }
   }
 
@@ -323,6 +323,7 @@ class _ZerpaiSidebarState extends ConsumerState<ZerpaiSidebar> {
     // Call on every build so route changes (driven by parent shell rebuild)
     // are always caught, not just when didChangeDependencies fires.
     _autoCollapseForSettings();
+    _updateActiveMenuFromRoute();
 
     final branding = ref.watch(appBrandingProvider);
     final user = ref.watch(authUserProvider);

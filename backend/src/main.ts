@@ -18,8 +18,8 @@ dotenv.config({ path: ".env.local" });
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(json({ limit: '50mb' }));
-  app.use(urlencoded({ extended: true, limit: '50mb' }));
+  app.use(json({ limit: "50mb" }));
+  app.use(urlencoded({ extended: true, limit: "50mb" }));
 
   if (process.env.ENABLE_HELMET !== "false") {
     // Security headers for API responses. Keep CSP disabled here so
@@ -41,16 +41,16 @@ async function bootstrap() {
   const corsOrigins = process.env.CORS_ORIGINS?.split(",").map((origin) =>
     origin.trim().replace(/\/$/, ""),
   ) || [
-      "http://localhost:3000",
-      "http://localhost:8080",
-      "http://localhost:3001",
-      // Your specific deployment domain
-      "https://zerpai-erp-one.vercel.app",
-      "https://zerpai-erp-git-master-k4nn4ns-projects.vercel.app",
-      "https://zerpai-erp-k4nn4ns-projects.vercel.app",
-      // Wildcard for Vercel deployments
-      "https://*.vercel.app",
-    ];
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "http://localhost:3001",
+    // Your specific deployment domain
+    "https://zerpai-erp-one.vercel.app",
+    "https://zerpai-erp-git-master-k4nn4ns-projects.vercel.app",
+    "https://zerpai-erp-k4nn4ns-projects.vercel.app",
+    // Wildcard for Vercel deployments
+    "https://*.vercel.app",
+  ];
 
   app.enableCors({
     origin: (origin, callback) => {

@@ -20,7 +20,6 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/z_expandable_tabs.dart';
 import 'package:zerpai_erp/shared/widgets/email_composer.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/z_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/unsaved_changes_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/form_row.dart';
@@ -35,6 +34,7 @@ import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
 import '../controllers/sales_order_controller.dart';
 import '../models/sales_order_item_model.dart';
 import '../models/sales_order_model.dart';
+import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 
 final _salesOrderDetailProvider = FutureProvider.family<SalesOrder, String>((
   ref,
@@ -1497,44 +1497,7 @@ class _SalesOrderOverviewScreenState
     );
   }
 
-  Widget _buildDetailTabs(bool showPdf, ValueChanged<bool> onChanged) {
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-      ),
-      child: Row(
-        children: [
-          _buildDetailTab('Detail', !showPdf, () => onChanged(false)),
-          _buildDetailTab('PDF View', showPdf, () => onChanged(true)),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildDetailTab(String label, bool active, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: active ? AppTheme.primaryBlue : Colors.transparent,
-              width: 2,
-            ),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-            color: active ? AppTheme.primaryBlue : AppTheme.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
 
   Future<Uint8List> _generateSalesOrderPdf(
     SalesOrder order,
@@ -1954,7 +1917,7 @@ class _SalesOrderOverviewScreenState
       'status': (min: 100.0, flex: 1.0),
     };
 
-    final visibleKeys = _visibleColumns.map((c) => c.key.name).toList();
+
     double totalMinWidth = staticPrefixWidth;
     double totalFlex = 0;
 
@@ -2447,21 +2410,7 @@ class _SalesOrderOverviewScreenState
           tooltip: _paymentLabel(sale),
           activeIcon: LucideIcons.creditCard,
         );
-      case _SalesOrderColumnKey.packed:
-      case _SalesOrderColumnKey.invoiced:
-        return _StateDot(
-          width: w,
-          active: _isInvoiced(sale),
-          tooltip: _invoiceLabel(sale),
-          activeIcon: LucideIcons.fileText,
-        );
-      case _SalesOrderColumnKey.payment:
-        return _StateDot(
-          width: w,
-          active: _isPaid(sale),
-          tooltip: _paymentLabel(sale),
-          activeIcon: LucideIcons.creditCard,
-        );
+
       case _SalesOrderColumnKey.packed:
         return _StateDot(
           width: w,
@@ -2663,7 +2612,7 @@ class _SalesOrderOverviewScreenState
           ),
           const SizedBox(height: 28),
           const SizedBox(height: 28),
-          _itemsTable(items),
+          _itemsTable(items, order),
           const SizedBox(height: 26),
           Align(
             alignment: Alignment.centerRight,
@@ -3035,7 +2984,7 @@ class _SalesOrderOverviewScreenState
     );
   }
 
-  Widget _itemsTable(List<SalesOrderItem> items) {
+  Widget _itemsTable(List<SalesOrderItem> items, SalesOrder order) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: AppTheme.borderLight),
@@ -3048,12 +2997,88 @@ class _SalesOrderOverviewScreenState
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: const [
-                Expanded(flex: 4, child: Text('ITEMS & DESCRIPTION')),
-                Expanded(child: Text('ORDERED')),
-                Expanded(child: Text('RATE')),
-                Expanded(child: Text('DISCOUNT')),
-                Expanded(child: Text('TAX')),
-                Expanded(child: Text('AMOUNT', textAlign: TextAlign.right)),
+                Expanded(
+                  flex: 4,
+                  child: Text(
+                    'ITEMS & DESCRIPTION',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'ORDERED',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'LOCATION',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'STATUS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'RATE',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'DISCOUNT',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'TAX',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'AMOUNT',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -3100,8 +3125,9 @@ class _SalesOrderOverviewScreenState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  item.description ??
+                                  item.item?.productName ??
                                       item.item?.billingName ??
+                                      item.description ??
                                       item.item?.itemCode ??
                                       'Unnamed item',
                                   style: AppTheme.linkText,
@@ -3124,6 +3150,50 @@ class _SalesOrderOverviewScreenState
                       child: Text(
                         _quantity(item.quantity),
                         style: AppTheme.bodyText,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        () {
+                          final whs = ref.watch(warehousesProvider).value;
+                          if (whs != null && item.warehouseId != null) {
+                            final match = whs.firstWhere(
+                              (w) => w.id == item.warehouseId,
+                              orElse: () => whs.firstWhere(
+                                (w) => w.isDefaultForBranch,
+                                orElse: () => whs.first,
+                              ),
+                            );
+                            return match.name;
+                          }
+                          if (whs != null && order.warehouseId != null) {
+                            final match = whs.firstWhere(
+                              (w) => w.id == order.warehouseId,
+                              orElse: () => whs.firstWhere(
+                                (w) => w.isDefaultForBranch,
+                                orElse: () => whs.first,
+                              ),
+                            );
+                            return match.name;
+                          }
+                          return 'Main Warehouse';
+                        }(),
+                        style: AppTheme.bodyText.copyWith(fontSize: 11),
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _isShipped(order) ? '${item.quantity.toInt()} Shipped' : '0 Shipped',
+                            style: AppTheme.bodyText.copyWith(fontSize: 11),
+                          ),
+                          Text(
+                            order.status.toUpperCase() == 'FULFILLED' ? '${item.quantity.toInt()} Invoiced' : '0 Invoiced',
+                            style: AppTheme.bodyText.copyWith(fontSize: 11),
+                          ),
+                        ],
                       ),
                     ),
                     Expanded(
@@ -3298,12 +3368,13 @@ class _SalesOrderOverviewScreenState
             children: [
               cell('${index + 1}'),
               cell(
-                item.description ??
+                item.item?.productName ??
                     item.item?.billingName ??
+                    item.description ??
                     item.item?.itemCode ??
                     'Item',
               ),
-              cell(item.item?.hsnCode ?? '—'),
+              cell((item.hsnCode ?? item.item?.hsnCode) ?? '—'),
               cell(_quantity(item.quantity)),
               cell(_currency(item.rate)),
               cell(_currency(_lineAmount(item)), align: TextAlign.right),
@@ -3837,27 +3908,7 @@ class _BulkDivider extends StatelessWidget {
   }
 }
 
-class _BulkMoreButton extends StatelessWidget {
-  const _BulkMoreButton();
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppTheme.borderLight),
-      ),
-      child: const Icon(
-        LucideIcons.moreHorizontal,
-        size: 16,
-        color: AppTheme.textBody,
-      ),
-    );
-  }
-}
 
 class _BulkUpdateResult {
   final String field;
@@ -5021,13 +5072,7 @@ class SalesOrderEmailScreen extends ConsumerStatefulWidget {
 }
 
 class _SalesOrderEmailScreenState extends ConsumerState<SalesOrderEmailScreen> {
-  final _fromCtrl = TextEditingController(
-    text: 'zabnixprivatelimited <zabnixprivatelimited@gmail.com>',
-  );
-  final _toCtrl = TextEditingController();
-  final _subjectCtrl = TextEditingController();
   final _bodyCtrl = TextEditingController();
-  bool _attachPdf = true;
   bool _isLoading = true;
   SalesOrder? _order;
 
@@ -5045,10 +5090,6 @@ class _SalesOrderEmailScreenState extends ConsumerState<SalesOrderEmailScreen> {
       setState(() {
         _order = order;
         final customerName = order.customer?.displayName ?? 'Customer';
-        _toCtrl.text =
-            '$customerName <${order.customer?.email ?? 'customer@example.com'}>';
-        _subjectCtrl.text =
-            'Sales Order from ZABNIX PRIVATE LIMITED (Sales Order #: [${order.saleNumber}])';
 
         _bodyCtrl.text =
             '''Dear $customerName,
@@ -5061,7 +5102,7 @@ An overview of the sales order is available below for your reference:
 Sales Order # : [${order.saleNumber}]
 --------------------------------------------------
 
-Order Date : ${order.saleDate != null ? order.saleDate.toString().substring(0, 10) : ''}
+Order Date : ${order.saleDate.toString().substring(0, 10)}
 Amount : ₹${order.total.toStringAsFixed(2)}
 
 --------------------------------------------------
@@ -5081,6 +5122,12 @@ ZABNIX PRIVATE LIMITED''';
         context.pop();
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _bodyCtrl.dispose();
+    super.dispose();
   }
 
   @override

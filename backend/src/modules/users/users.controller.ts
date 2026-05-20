@@ -16,7 +16,7 @@ import { TenantContext } from "../../common/middleware/tenant.middleware";
 
 @Controller("users")
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   /** GET /users */
   @Get()

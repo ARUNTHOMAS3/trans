@@ -134,7 +134,11 @@ export class CustomersService {
       activities: this.buildActivities(auditLogs),
       comments: this.buildComments(),
       mails: this.buildMails(),
-      statementEntries: this.buildStatementEntries(customer, salesOrders, salesPayments),
+      statementEntries: this.buildStatementEntries(
+        customer,
+        salesOrders,
+        salesPayments,
+      ),
     };
   }
 
@@ -221,7 +225,7 @@ export class CustomersService {
         : undefined;
     const resolvedCustomerNumber =
       "customerNumber" in updateCustomerDto
-        ? (updateCustomerDto.customerNumber?.toString().trim() || undefined)
+        ? updateCustomerDto.customerNumber?.toString().trim() || undefined
         : undefined;
 
     const payload = this.buildCustomerWriteModel(updateCustomerDto, tenant, {
@@ -547,10 +551,16 @@ export class CustomersService {
         const items = salesPayments.map((payment: any) => ({
           id: payment.id?.toString() ?? "",
           number: payment.payment_number?.toString() ?? "Payment",
-          title: payment.notes?.toString().trim() || payment.payment_mode?.toString() || "Customer payment",
+          title:
+            payment.notes?.toString().trim() ||
+            payment.payment_mode?.toString() ||
+            "Customer payment",
           status: "Recorded",
           amount: Number(payment.amount ?? 0),
-          date: payment.payment_date?.toString() ?? payment.created_at?.toString() ?? null,
+          date:
+            payment.payment_date?.toString() ??
+            payment.created_at?.toString() ??
+            null,
         }));
 
         return {
@@ -574,11 +584,15 @@ export class CustomersService {
         .filter((order: any) => order.document_type === group.key)
         .map((order: any) => ({
           id: order.id?.toString() ?? "",
-          number: order.sale_number?.toString() ?? order.id?.toString() ?? group.label,
+          number:
+            order.sale_number?.toString() ??
+            order.id?.toString() ??
+            group.label,
           title: this.documentTitleFromType(order.document_type),
           status: order.status?.toString() ?? "Draft",
           amount: Number(order.total ?? 0),
-          date: order.sale_date?.toString() ?? order.created_at?.toString() ?? null,
+          date:
+            order.sale_date?.toString() ?? order.created_at?.toString() ?? null,
         }));
 
       return {
@@ -640,12 +654,18 @@ export class CustomersService {
 
     for (const order of salesOrders) {
       const amount = Number(order.total ?? 0);
-      if (order.document_type === "invoice" || order.document_type === "retainer_invoice" || order.document_type === "recurring_invoice") {
+      if (
+        order.document_type === "invoice" ||
+        order.document_type === "retainer_invoice" ||
+        order.document_type === "recurring_invoice"
+      ) {
         events.push({
           id: order.id?.toString() ?? "",
-          date: order.sale_date?.toString() ?? order.created_at?.toString() ?? null,
+          date:
+            order.sale_date?.toString() ?? order.created_at?.toString() ?? null,
           type: this.documentTitleFromType(order.document_type),
-          number: order.sale_number?.toString() ?? order.id?.toString() ?? "Document",
+          number:
+            order.sale_number?.toString() ?? order.id?.toString() ?? "Document",
           reference: order.reference?.toString() ?? null,
           status: order.status?.toString() ?? null,
           debit: amount,
@@ -654,9 +674,13 @@ export class CustomersService {
       } else if (order.document_type === "credit_note") {
         events.push({
           id: order.id?.toString() ?? "",
-          date: order.sale_date?.toString() ?? order.created_at?.toString() ?? null,
+          date:
+            order.sale_date?.toString() ?? order.created_at?.toString() ?? null,
           type: "Credit Note",
-          number: order.sale_number?.toString() ?? order.id?.toString() ?? "Credit Note",
+          number:
+            order.sale_number?.toString() ??
+            order.id?.toString() ??
+            "Credit Note",
           reference: order.reference?.toString() ?? null,
           status: order.status?.toString() ?? null,
           debit: 0,
@@ -668,7 +692,10 @@ export class CustomersService {
     for (const payment of salesPayments) {
       events.push({
         id: payment.id?.toString() ?? "",
-        date: payment.payment_date?.toString() ?? payment.created_at?.toString() ?? null,
+        date:
+          payment.payment_date?.toString() ??
+          payment.created_at?.toString() ??
+          null,
         type: "Customer Payment",
         number: payment.payment_number?.toString() ?? "Payment",
         reference: payment.reference?.toString() ?? null,
@@ -722,7 +749,9 @@ export class CustomersService {
       table === "customers"
         ? "customer"
         : table === "sales_orders"
-          ? this.documentTitleFromType(log.new_values?.document_type ?? log.old_values?.document_type).toLowerCase()
+          ? this.documentTitleFromType(
+              log.new_values?.document_type ?? log.old_values?.document_type,
+            ).toLowerCase()
           : table === "sales_payments"
             ? "customer payment"
             : "record";

@@ -1543,7 +1543,9 @@ final GoRouter appRouter = GoRouter(
               path: 'purchases/purchase-receives/create',
               name: AppRoutes.purchaseReceivesCreate,
               builder: (context, state) =>
-                  const PurchasesPurchaseReceivesCreateScreen(),
+                  PurchasesPurchaseReceivesCreateScreen(
+                    initialPoId: state.uri.queryParameters['poId'],
+                  ),
             ),
             GoRoute(
               path: 'purchases/purchase-receives/edit/:id',

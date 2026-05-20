@@ -8,7 +8,6 @@ const TABLE = "transaction_series";
 export class TransactionSeriesService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
-
   async findAll(tenant: TenantContext) {
     const { data, error } = await this.supabaseService
       .getClient()

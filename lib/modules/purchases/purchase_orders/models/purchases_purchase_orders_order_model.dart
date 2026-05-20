@@ -71,9 +71,9 @@ class PurchaseOrderItem {
                    json['product_name'] as String? ?? 
                    json['productName'] as String?,
       itemCode: productData?['sku'] as String? ?? json['item_code'] as String?,
-      hsnCode: productData?['hsn_code'] as String? ?? json['hsn_code'] as String?,
+      hsnCode: productData?['hsn_code']?.toString() ?? json['hsn_code']?.toString(),
       description: json['description'] as String?,
-      accountId: json['accountId'] as String? ?? json['account_id'] as String?,
+      accountId: json['accountId'] as String? ?? json['account_id'] as String? ?? json['accounts'] as String?,
       quantity: (json['quantity'] as num?)?.toDouble() ?? 1.0,
       rate: (json['rate'] as num?)?.toDouble() ?? 0.0,
       taxId: json['taxId'] as String? ?? json['tax_id'] as String?,
@@ -94,6 +94,7 @@ class PurchaseOrderItem {
       'product_id': productId,
       if (description != null) 'description': description,
       if (accountId != null) 'account_id': accountId,
+      if (accountId != null) 'accounts': accountId,
       'quantity': quantity,
       'rate': rate,
       if (taxId != null) 'tax_id': taxId,
@@ -103,6 +104,7 @@ class PurchaseOrderItem {
       'discount_type': discountType,
       'amount': amount,
       if (pricelist != null) 'pricelist': pricelist,
+      if (hsnCode != null) 'hsn_code': hsnCode,
     };
   }
 

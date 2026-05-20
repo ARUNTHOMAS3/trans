@@ -106,9 +106,7 @@ export class WarehousesSettingsService {
 
     if (error) return null;
     const [branchNames, customerNames, vendorNames] = await Promise.all([
-      this.fetchNameMap("branches", [
-        data.branch_id?.toString() ?? "",
-      ]),
+      this.fetchNameMap("branches", [data.branch_id?.toString() ?? ""]),
       this.fetchNameMap(
         "customers",
         [data.customer_id?.toString() ?? ""],

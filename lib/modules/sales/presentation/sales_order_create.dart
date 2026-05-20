@@ -1582,10 +1582,6 @@ class _SalesOrderCreateScreenState
                 ),
               ),
 
-              const SizedBox(height: 12),
-
-              const SizedBox(height: 24),
-
               // Delivery Method
               SharedFieldLayout(
                 label: 'Delivery Method',
@@ -1642,8 +1638,6 @@ class _SalesOrderCreateScreenState
                   onChanged: (v) => setState(() => salesperson = v),
                 ),
               ),
-
-              const SizedBox(height: 16),
 
               // Warehouse and Price List Row
               SharedFieldLayout(
@@ -2666,6 +2660,9 @@ class _SalesOrderCreateScreenState
                                                 item.productName,
                                                 isSelected,
                                                 isHovered,
+                                                sublabel: item.sellingPrice != null
+                                                    ? 'Selling Price: ₹${item.sellingPrice!.toStringAsFixed(2)}'
+                                                    : null,
                                               ),
                                           onSearch: (query) async {
                                             if (query.length < 3) return [];
@@ -3616,8 +3613,6 @@ class _SalesOrderCreateScreenState
       return;
     }
 
-    String accountsSearchQuery = '';
-
     _accountsOverlay = OverlayEntry(
       builder: (context) => Stack(
         children: [
@@ -3632,96 +3627,24 @@ class _SalesOrderCreateScreenState
             ),
           ),
           Positioned(
-            width: 280,
+            width: 320,
             child: CompositedTransformFollower(
               link: row.accountsLink,
               showWhenUnlinked: false,
-              offset: const Offset(0, 30),
+              offset: const Offset(0, 32),
               child: Material(
-                color: Colors.white,
-                elevation: 8,
-                borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  child: StatefulBuilder(
-                    builder: (context, setOverlayState) {
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: TextField(
-                              decoration: const InputDecoration(
-                                hintText: 'Search...',
-                                hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
-                                prefixIcon: Icon(Icons.search, size: 16, color: Colors.grey),
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(Radius.circular(4)),
-                                  borderSide: BorderSide(color: Color(0xFFE5E7EB)),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(Radius.circular(4)),
-                                  borderSide: BorderSide(color: Color(0xFFE5E7EB)),
-                                ),
-                              ),
-                              style: const TextStyle(fontSize: 12),
-                              onChanged: (v) {
-                                setOverlayState(() {
-                                  accountsSearchQuery = v;
-                                });
-                              },
-                            ),
-                          ),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 220),
-                            child: ListView(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              shrinkWrap: true,
-                              children: availableAccounts
-                                  .where((a) => a.name.toLowerCase().contains(accountsSearchQuery.toLowerCase()))
-                                  .map((account) {
-                        final isSelected = account.id == row.accountId;
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              row.accountId = account.id;
-                              row.accountName = account.name;
-                            });
-                            _accountsOverlay?.remove();
-                            _accountsOverlay = null;
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            color: isSelected
-                                ? const Color(0xFFE8F0FE)
-                                : Colors.white,
-                            child: Text(
-                              account.name,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isSelected
-                                    ? const Color(0xFF2563EB)
-                                    : const Color(0xFF111827),
-                              ),
-                            ),
-                          ),
-                        );
-                              }).toList(),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                color: Colors.transparent,
+                child: _AccountSelectionPopover(
+                  accounts: availableAccounts,
+                  selectedAccountId: row.accountId,
+                  onSelected: (acc) {
+                    setState(() {
+                      row.accountId = acc.id;
+                      row.accountName = acc.name;
+                    });
+                    _accountsOverlay?.remove();
+                    _accountsOverlay = null;
+                  },
                 ),
               ),
             ),
@@ -6655,9 +6578,14 @@ class _SalesOrderCreateScreenState
   }
 }
 
-Widget _dropdownItemBuilder(String label, bool isSelected, bool isHovered) {
+Widget _dropdownItemBuilder(
+  String label,
+  bool isSelected,
+  bool isHovered, {
+  String? sublabel,
+}) {
   return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     decoration: BoxDecoration(
       color: isHovered
           ? const Color(0xFF3B82F6)
@@ -6668,19 +6596,37 @@ Widget _dropdownItemBuilder(String label, bool isSelected, bool isHovered) {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontFamily: 'Inter',
-              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-              color: isHovered
-                  ? Colors.white
-                  : (isSelected
-                        ? const Color(0xFF1F2937)
-                        : const Color(0xFF1F2937)),
-            ),
-            overflow: TextOverflow.ellipsis,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontFamily: 'Inter',
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                  color: isHovered
+                      ? Colors.white
+                      : (isSelected
+                            ? const Color(0xFF1F2937)
+                            : const Color(0xFF1F2937)),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (sublabel != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  sublabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'Inter',
+                    color: isHovered ? Colors.white70 : const Color(0xFF6B7280),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
           ),
         ),
         if (isSelected)
@@ -9587,6 +9533,136 @@ class _SpecialPopoverListItemState extends State<_SpecialPopoverListItem> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AccountSelectionPopover extends StatefulWidget {
+  final List<AccountNode> accounts;
+  final String? selectedAccountId;
+  final ValueChanged<AccountNode> onSelected;
+
+  const _AccountSelectionPopover({
+    required this.accounts,
+    this.selectedAccountId,
+    required this.onSelected,
+  });
+
+  @override
+  State<_AccountSelectionPopover> createState() =>
+      _AccountSelectionPopoverState();
+}
+
+class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
+  String _search = '';
+  final _searchCtrl = TextEditingController();
+
+  Map<String, List<AccountNode>> get _grouped {
+    final Map<String, List<AccountNode>> grouped = {};
+    for (var acc in widget.accounts) {
+      if (_search.isNotEmpty &&
+          !acc.name.toLowerCase().contains(_search.toLowerCase())) {
+        continue;
+      }
+      final type = acc.accountType;
+      grouped.putIfAbsent(type, () => []).add(acc);
+    }
+    return grouped;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = _grouped;
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    autofocus: true,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      hintText: 'Select an account',
+                      prefixIcon: Icon(
+                        Icons.search,
+                        size: 16,
+                        color: Color(0xFF6B7280),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    onChanged: (v) => setState(() => _search = v),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {}, // Handled by overlay removal usually
+                  child: const Icon(Icons.close, size: 14, color: Color(0xFF6B7280)),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 400),
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: groups.entries.expand((entry) {
+                  return [
+                    // Group Header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Text(
+                        entry.key,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF6B7280),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    // Items
+                    ...entry.value.map((acc) {
+                      final isSelected = acc.id == widget.selectedAccountId;
+                      return _PopoverListItem(
+                        label: acc.name,
+                        isSelected: isSelected,
+                        onTap: () => widget.onSelected(acc),
+                      );
+                    }),
+                  ];
+                }).toList(),
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+        ],
       ),
     );
   }

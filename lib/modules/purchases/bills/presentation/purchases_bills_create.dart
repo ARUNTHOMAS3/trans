@@ -25,12 +25,6 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
-import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
-import 'package:zerpai_erp/shared/constants/currency_constants.dart';
-import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
-import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 // ── Zoho-style Colors ────────────────────────────────────────────────────────
 const Color _bgWhite = Color(0xFFFFFFFF);
@@ -41,9 +35,7 @@ const Color _textMuted = Color(0xFF6B7280);
 const Color _primaryBlue = Color(0xFF2563EB);
 const Color _linkBlue = Color(0xFF3B82F6);
 const Color _primaryGreen = Color(0xFF059669);
-const Color _navy = Color(0xFF1E3A8A);
 const Color _dangerRed = Color(0xFFEF4444);
-const Color _warningOrange = Color(0xFFF59E0B);
 const Color _fieldBorder = Color(0xFFD1D5DB);
 const Color _labelColor = Color(0xFF374151);
 const Color _hintColor = Color(0xFF9CA3AF);
@@ -235,7 +227,7 @@ class _PurchasesBillCreateScreenState
     extends ConsumerState<PurchasesBillCreateScreen>
     with TickerProviderStateMixin {
   static const double _fieldHeight = 32;
-  static const double _labelFixedWidth = 180;
+
   // ─── Form state ────────────────────────────────────────────────────────────
   Vendor? _selectedVendor;
   bool _vendorDropdownOpen = false;
@@ -253,6 +245,8 @@ class _PurchasesBillCreateScreenState
   OverlayEntry? _itemOverlayEntry;
   OverlayEntry? _hsnOverlayEntry;
   OverlayEntry? _sidebarOverlayEntry;
+  OverlayEntry? _addRowDropdownOverlay;
+  final LayerLink _addRowDropdownLink = LayerLink();
   bool _isContactPersonsExpanded = true;
   bool _isAddressExpanded = false;
   String _activeSidebarTab = 'Details';
@@ -333,6 +327,8 @@ class _PurchasesBillCreateScreenState
     _notesCtrl.dispose();
     _sidebarOverlayEntry?.remove();
     _sidebarOverlayEntry = null;
+    _addRowDropdownOverlay?.remove();
+    _addRowDropdownOverlay = null;
     for (var row in _lineItems) {
       row.dispose();
     }
@@ -789,8 +785,6 @@ class _PurchasesBillCreateScreenState
     final vendorState = ref.watch(vendorProvider);
     final itemsState = ref.watch(itemsControllerProvider);
     final accountsRoots = ref.watch(chartOfAccountsProvider).roots;
-    final bodyHorizontalPadding =
-        MediaQuery.sizeOf(context).width < 1000 ? 16.0 : 40.0;
 
     return ZerpaiLayout(
       pageTitle: '',
@@ -810,17 +804,16 @@ class _PurchasesBillCreateScreenState
             _buildFormSection(vendorState),
             // ── Document Fields + Item Table + Totals ────────────────────
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              padding: const EdgeInsets.only(left: 32, right: 32, bottom: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 24),
                   _buildMainFields(),
                   const SizedBox(height: 8),
                   _buildReverseChargeRow(),
                   const SizedBox(height: 16),
                   _buildSubjectRow(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   // ── Warehouse / Discount / Pricing ─────────────────────
                   _zFormRow(
                     label: 'Warehouse',
@@ -945,8 +938,7 @@ class _PurchasesBillCreateScreenState
                 padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: _buildVendorSelectionRow(vendorState),
               ),
-              if (hasVendor)
-                _vendorInfoSection(),
+              if (hasVendor) _vendorInfoSection(),
             ],
           ),
         ),
@@ -1061,21 +1053,14 @@ class _PurchasesBillCreateScreenState
           padding: const EdgeInsets.only(left: 32 + 176),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildVendorAddressSection(),
-              _buildGstTreatmentRow(),
-            ],
+            children: [_buildVendorAddressSection(), _buildGstTreatmentRow()],
           ),
         ),
         const SizedBox(height: 24),
         // Supply Details aligned with general form
         Padding(
           padding: const EdgeInsets.only(left: 32),
-          child: Column(
-            children: [
-              _buildSupplyRows(),
-            ],
-          ),
+          child: Column(children: [_buildSupplyRows()]),
         ),
       ],
     );
@@ -1112,8 +1097,7 @@ class _PurchasesBillCreateScreenState
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
-                      _selectedVendor?.displayName ??
-                          'Select or add a vendor',
+                      _selectedVendor?.displayName ?? 'Select or add a vendor',
                       style: TextStyle(
                         fontSize: 13,
                         color: _selectedVendor != null
@@ -1212,7 +1196,6 @@ class _PurchasesBillCreateScreenState
       ),
     );
   }
-
 
   Widget _buildVendorAddressSection() {
     if (_selectedVendor == null) return const SizedBox.shrink();
@@ -2862,19 +2845,13 @@ class _PurchasesBillCreateScreenState
           label: 'Bill#',
           isRequired: true,
           maxWidth: 600,
-          child: SizedBox(
-            width: 300,
-            child: _zField(_billNumberCtrl),
-          ),
+          child: SizedBox(width: 300, child: _zField(_billNumberCtrl)),
         ),
         const SizedBox(height: 16),
         _zFormRow(
           label: 'Order Number',
           maxWidth: 600,
-          child: SizedBox(
-            width: 300,
-            child: _zField(_orderNumberCtrl),
-          ),
+          child: SizedBox(width: 300, child: _zField(_orderNumberCtrl)),
         ),
         const SizedBox(height: 16),
         _zFormRow(
@@ -2917,10 +2894,7 @@ class _PurchasesBillCreateScreenState
                 ),
               ),
               const SizedBox(width: 12),
-              SizedBox(
-                width: 180,
-                child: _buildPaymentTermsDropdown(),
-              ),
+              SizedBox(width: 180, child: _buildPaymentTermsDropdown()),
             ],
           ),
         ),
@@ -2980,8 +2954,7 @@ class _PurchasesBillCreateScreenState
             height: 16,
             child: Checkbox(
               value: _reverseCharge,
-              onChanged: (val) =>
-                  setState(() => _reverseCharge = val ?? false),
+              onChanged: (val) => setState(() => _reverseCharge = val ?? false),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               activeColor: _primaryBlue,
               shape: RoundedRectangleBorder(
@@ -3006,8 +2979,6 @@ class _PurchasesBillCreateScreenState
   }
 
   // ─────────────────────────────────────────── Items Toolbar ──────────────
-
-
 
   // ─────────────────────────────────────────── Subject ─────────────────────
 
@@ -3047,8 +3018,6 @@ class _PurchasesBillCreateScreenState
       ),
     );
   }
-
-
 
   // ─────────────────────────────────────────── Item Table ──────────────────
 
@@ -3100,7 +3069,11 @@ class _PurchasesBillCreateScreenState
                   ],
                   child: const Row(
                     children: [
-                      Icon(Icons.check_circle_outline, size: 16, color: _primaryBlue),
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 16,
+                        color: _primaryBlue,
+                      ),
                       SizedBox(width: 4),
                       Text(
                         'Bulk Actions',
@@ -3120,26 +3093,40 @@ class _PurchasesBillCreateScreenState
                   onSelected: (val) {
                     setState(() {
                       if (val == 'stock') _showStockInfo = !_showStockInfo;
-                      if (val == 'recent') _showRecentTransactions = !_showRecentTransactions;
+                      if (val == 'recent')
+                        _showRecentTransactions = !_showRecentTransactions;
                       if (val == 'pricelist') _showPriceList = !_showPriceList;
                     });
                   },
                   itemBuilder: (_) => [
                     PopupMenuItem(
                       value: 'stock',
-                      child: Text(_showStockInfo ? 'Hide Available stock for sale' : 'Show Available stock for sale'),
+                      child: Text(
+                        _showStockInfo
+                            ? 'Hide Available stock for sale'
+                            : 'Show Available stock for sale',
+                      ),
                     ),
                     PopupMenuItem(
                       value: 'recent',
-                      child: Text(_showRecentTransactions ? 'Hide Recent Transaction' : 'Show Recent Transaction'),
+                      child: Text(
+                        _showRecentTransactions
+                            ? 'Hide Recent Transaction'
+                            : 'Show Recent Transaction',
+                      ),
                     ),
                     PopupMenuItem(
                       value: 'pricelist',
-                      child: Text(_showPriceList ? 'Hide PriceList' : 'Show PriceList'),
+                      child: Text(
+                        _showPriceList ? 'Hide PriceList' : 'Show PriceList',
+                      ),
                     ),
                   ],
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF3F4F6),
                       borderRadius: BorderRadius.circular(4),
@@ -3148,8 +3135,16 @@ class _PurchasesBillCreateScreenState
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(LucideIcons.settings, size: 16, color: Color(0xFF4B5563)),
-                        Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF4B5563)),
+                        Icon(
+                          LucideIcons.settings,
+                          size: 16,
+                          color: Color(0xFF4B5563),
+                        ),
+                        Icon(
+                          Icons.arrow_drop_down,
+                          size: 16,
+                          color: Color(0xFF4B5563),
+                        ),
                       ],
                     ),
                   ),
@@ -3176,7 +3171,11 @@ class _PurchasesBillCreateScreenState
                       _bulkMode = false;
                       _selectedRows.clear();
                     }),
-                    icon: const Icon(Icons.close, size: 18, color: _primaryBlue),
+                    icon: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: _primaryBlue,
+                    ),
                   ),
                 ],
               ),
@@ -3234,7 +3233,10 @@ class _PurchasesBillCreateScreenState
               style: OutlinedButton.styleFrom(
                 foregroundColor: _textMuted,
                 side: const BorderSide(color: _fieldBorder),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
                 ),
@@ -3263,12 +3265,12 @@ class _PurchasesBillCreateScreenState
       ),
       child: Row(
         children: [
-          _buildHeaderCell('ITEM DETAILS', 400),
-          _buildHeaderCell('ACCOUNT', 200),
-          _buildHeaderCell('QUANTITY', 100, textAlign: TextAlign.right),
+          _buildHeaderCell('ITEM DETAILS', 10),
+          _buildHeaderCell('ACCOUNT', 5),
+          _buildHeaderCell('QUANTITY', 5, textAlign: TextAlign.right),
           _buildHeaderCell(
             'RATE',
-            130,
+            5,
             textAlign: TextAlign.right,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -3289,7 +3291,7 @@ class _PurchasesBillCreateScreenState
           if (_discountType == 'At Line Item Level')
             _buildHeaderCell(
               'DISCOUNT',
-              150,
+              5,
               textAlign: TextAlign.right,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -3307,10 +3309,10 @@ class _PurchasesBillCreateScreenState
                 ],
               ),
             ),
-          _buildHeaderCell('TAX', 150),
+          _buildHeaderCell('TAX', 5),
           _buildHeaderCell(
             'CUSTOMER DETAILS',
-            160,
+            5,
             child: Row(
               children: [
                 const Text(
@@ -3324,7 +3326,7 @@ class _PurchasesBillCreateScreenState
               ],
             ),
           ),
-          _buildHeaderCell('AMOUNT', 120, textAlign: TextAlign.right),
+          _buildHeaderCell('AMOUNT', 4, textAlign: TextAlign.right),
           const SizedBox(width: 50),
         ],
       ),
@@ -3377,12 +3379,12 @@ class _PurchasesBillCreateScreenState
       ),
       child: Row(
         children: [
-          _buildHeaderCell('LANDED COSTS', 400),
-          _buildHeaderCell('ACCOUNT', 200),
-          _buildHeaderCell('QUANTITY', 100, textAlign: TextAlign.right),
+          _buildHeaderCell('LANDED COSTS', 10),
+          _buildHeaderCell('ACCOUNT', 5),
+          _buildHeaderCell('QUANTITY', 5, textAlign: TextAlign.right),
           _buildHeaderCell(
             'RATE',
-            130,
+            5,
             textAlign: TextAlign.right,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -3400,10 +3402,31 @@ class _PurchasesBillCreateScreenState
               ],
             ),
           ),
-          _buildHeaderCell('TAX', 150),
+          if (_discountType == 'At Line Item Level')
+            _buildHeaderCell(
+              'DISCOUNT',
+              5,
+              textAlign: TextAlign.right,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  const Text(
+                    'DISCOUNT',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: _textMuted,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.discount_outlined, size: 14, color: _textMuted),
+                ],
+              ),
+            ),
+          _buildHeaderCell('TAX', 5),
           _buildHeaderCell(
             'CUSTOMER DETAILS',
-            160,
+            5,
             child: const Row(
               children: [
                 Text(
@@ -3417,7 +3440,7 @@ class _PurchasesBillCreateScreenState
               ],
             ),
           ),
-          _buildHeaderCell('AMOUNT', 120, textAlign: TextAlign.right),
+          _buildHeaderCell('AMOUNT', 4, textAlign: TextAlign.right),
           const SizedBox(width: 50),
         ],
       ),
@@ -3521,7 +3544,6 @@ class _PurchasesBillCreateScreenState
       ),
     );
   }
-
 
   void _showItemSearchOverlay(
     _BillLineItemRow row,
@@ -4424,7 +4446,7 @@ class _PurchasesBillCreateScreenState
         children: [
           // Item Details
           _buildGridCell(
-            flex: 400,
+            flex: 10,
             cellHeight: cellHeight,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -4726,7 +4748,7 @@ class _PurchasesBillCreateScreenState
           ),
           // Account
           _buildGridCell(
-            flex: 200,
+            flex: 5,
             cellHeight: cellHeight,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             alignment: isExpanded ? Alignment.topCenter : Alignment.center,
@@ -4754,7 +4776,7 @@ class _PurchasesBillCreateScreenState
           ),
           // Quantity
           _buildGridCell(
-            flex: 100,
+            flex: 5,
             cellHeight: cellHeight,
             padding: const EdgeInsets.all(8),
             child: Column(
@@ -4784,7 +4806,7 @@ class _PurchasesBillCreateScreenState
           ),
           // Rate
           _buildGridCell(
-            flex: 130,
+            flex: 5,
             cellHeight: cellHeight,
             padding: const EdgeInsets.all(8),
             child: Column(
@@ -4809,7 +4831,7 @@ class _PurchasesBillCreateScreenState
           // Discount
           if (_discountType == 'At Line Item Level')
             _buildGridCell(
-              flex: 150,
+              flex: 5,
               cellHeight: cellHeight,
               padding: const EdgeInsets.all(8),
               child: Column(
@@ -4841,7 +4863,7 @@ class _PurchasesBillCreateScreenState
             ),
           // Tax
           _buildGridCell(
-            flex: 150,
+            flex: 5,
             cellHeight: cellHeight,
             padding: const EdgeInsets.all(8),
             child: Column(
@@ -4921,7 +4943,7 @@ class _PurchasesBillCreateScreenState
           ),
           // Customer Details (always visible)
           _buildGridCell(
-            flex: 160,
+            flex: 5,
             cellHeight: cellHeight,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             alignment: isExpanded ? Alignment.topCenter : Alignment.center,
@@ -4933,9 +4955,7 @@ class _PurchasesBillCreateScreenState
                     focusNode: row.customerSearchFocus,
                     child: InkWell(
                       onTap: () {
-                        final customersAsync = ref.read(
-                          salesCustomersProvider,
-                        );
+                        final customersAsync = ref.read(salesCustomersProvider);
                         customersAsync.whenData((customers) {
                           _showCustomerOverlay(
                             link: row.customerLayerLink,
@@ -4995,7 +5015,7 @@ class _PurchasesBillCreateScreenState
           ),
           // Amount
           _buildGridCell(
-            flex: 120,
+            flex: 4,
             cellHeight: cellHeight,
             padding: EdgeInsets.symmetric(
               horizontal: 8,
@@ -5319,20 +5339,7 @@ class _PurchasesBillCreateScreenState
         // Left side: Add buttons
         Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: Row(
-            children: [
-              _buildAddRowButton(),
-              const SizedBox(width: 12),
-              _buildCustomAddButton(
-                label: 'Add Landed Cost',
-                icon: Icons.add_circle,
-                onTap: () => setState(
-                  () => _lineItems.add(_BillLineItemRow(isLandedCost: true)),
-                ),
-                showInfo: true,
-              ),
-            ],
-          ),
+          child: Row(children: [_buildAddRowButton()]),
         ),
         const Spacer(),
         // Right side: Totals box
@@ -5601,7 +5608,11 @@ class _PurchasesBillCreateScreenState
       ),
     );
   }
-  InputDecoration _getInputDecoration(String hintText, [bool hasDropdown = false]) {
+
+  InputDecoration _getInputDecoration(
+    String hintText, [
+    bool hasDropdown = false,
+  ]) {
     return InputDecoration(
       hintText: hintText,
       hintStyle: const TextStyle(fontSize: 13, color: _hintColor),
@@ -5793,7 +5804,6 @@ class _PurchasesBillCreateScreenState
     );
   }
 
-
   Widget _buildFooter() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
@@ -5856,63 +5866,152 @@ class _PurchasesBillCreateScreenState
             style: TextStyle(fontSize: 12, color: _textMuted),
           ),
           const SizedBox(width: 4),
-          const Text('Change', style: TextStyle(fontSize: 12, color: _primaryBlue)),
+          const Text(
+            'Change',
+            style: TextStyle(fontSize: 12, color: _primaryBlue),
+          ),
         ],
       ),
     );
   }
 
+  void _toggleAddRowDropdown() {
+    if (_addRowDropdownOverlay != null) {
+      _addRowDropdownOverlay!.remove();
+      _addRowDropdownOverlay = null;
+      return;
+    }
+    _addRowDropdownOverlay = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                _addRowDropdownOverlay?.remove();
+                _addRowDropdownOverlay = null;
+              },
+              behavior: HitTestBehavior.translucent,
+              child: const ColoredBox(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _addRowDropdownLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomLeft,
+            followerAnchor: Alignment.topLeft,
+            offset: const Offset(0, 4),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: InkWell(
+                  onTap: () {
+                    setState(
+                      () =>
+                          _lineItems.add(_BillLineItemRow(isLandedCost: true)),
+                    );
+                    _addRowDropdownOverlay?.remove();
+                    _addRowDropdownOverlay = null;
+                  },
+                  borderRadius: BorderRadius.circular(4),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_circle_outline,
+                          size: 14,
+                          color: Color(0xFF2563EB),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Add Landed Cost',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF2563EB),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_addRowDropdownOverlay!);
+  }
+
   Widget _buildAddRowButton() {
-    return Row(
-      children: [
-        TextButton.icon(
-          onPressed: () => setState(() => _lineItems.add(_BillLineItemRow())),
-          style: TextButton.styleFrom(
-            backgroundColor: const Color(0xFFF0F5FF),
-            foregroundColor: _primaryBlue,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-          icon: const Icon(Icons.add_circle, size: 16),
-          label: const Text(
-            'Add New Row',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          ),
+    return CompositedTransformTarget(
+      link: _addRowDropdownLink,
+      child: Container(
+        height: 32,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
-        const SizedBox(width: 6),
-        Container(
-          height: 36,
-          width: 32,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0F5FF),
-            border: Border.all(color: _borderColor),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: PopupMenuButton<String>(
-            padding: EdgeInsets.zero,
-            color: Colors.white,
-            onSelected: (value) {
-              if (value == 'new_row') {
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: () {
                 setState(() => _lineItems.add(_BillLineItemRow()));
-              }
-              if (value == 'landed_cost') {
-                setState(() => _lineItems.add(_BillLineItemRow(isLandedCost: true)));
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'new_row', child: Text('Add New Row')),
-              PopupMenuItem(value: 'landed_cost', child: Text('Add Landed Cost')),
-            ],
-            child: const Icon(
-              Icons.keyboard_arrow_down,
-              size: 18,
-              color: _primaryBlue,
+              },
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.add_circle_outline,
+                      size: 14,
+                      color: Color(0xFF2563EB),
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'Add New Row',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF374151),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
+            Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
+            GestureDetector(
+              onTap: _toggleAddRowDropdown,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6),
+                child: Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 16,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -5925,36 +6024,9 @@ class _PurchasesBillCreateScreenState
         side: const BorderSide(color: _primaryBlue),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-    );
-  }
-
-  Widget _buildCustomAddButton({
-    String? label,
-    IconData? icon,
-    VoidCallback? onTap,
-    bool? showInfo,
-  }) {
-    return TextButton.icon(
-      onPressed: onTap,
-      style: TextButton.styleFrom(
-        backgroundColor: const Color(0xFFF0F5FF),
-        foregroundColor: _primaryBlue,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      ),
-      icon: Icon(icon ?? Icons.add_circle_outline, size: 16),
-      label: Row(
-        children: [
-          Text(
-            label ?? '',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          ),
-          if (showInfo == true) ...[
-            const SizedBox(width: 6),
-            const Icon(Icons.info_outline, size: 14, color: _textMuted),
-          ],
-        ],
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -5979,7 +6051,6 @@ class _PurchasesBillCreateScreenState
       ),
     );
   }
-
 
   Widget _buildCompactDateField(
     BuildContext context,
@@ -6060,6 +6131,7 @@ class _PurchasesBillCreateScreenState
       ),
     );
   }
+
   Widget _buildCompactNumberField(
     TextEditingController controller, {
     FocusNode? focusNode,
@@ -6187,10 +6259,7 @@ class _PurchasesBillCreateScreenState
                 ),
               ),
             ),
-            if (suffixIcon != null) ...[
-              const SizedBox(width: 8),
-              suffixIcon,
-            ],
+            if (suffixIcon != null) ...[const SizedBox(width: 8), suffixIcon],
           ],
         ),
       ),
@@ -6231,8 +6300,6 @@ class _PurchasesBillCreateScreenState
       ),
     );
   }
-
-
 }
 
 class _HoverableField extends StatefulWidget {

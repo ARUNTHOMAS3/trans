@@ -126,7 +126,11 @@ export class PurchaseReceivesService {
     for (let index = 0; index < items.length; index += 1) {
       const sourceItem = items[index];
       const createdItem = createdItems?.[index];
-      if (!createdItem || !sourceItem?.batches || sourceItem.batches.length === 0) {
+      if (
+        !createdItem ||
+        !sourceItem?.batches ||
+        sourceItem.batches.length === 0
+      ) {
         continue;
       }
 
@@ -139,8 +143,7 @@ export class PurchaseReceivesService {
             sourceItem.warehouse_id ??
             headerWarehouseId ??
             null,
-          bin_id:
-            batch.bin_id ?? sourceItem.bin_id ?? transactionBinId ?? null,
+          bin_id: batch.bin_id ?? sourceItem.bin_id ?? transactionBinId ?? null,
           bin_label:
             batch.bin_label ??
             sourceItem.bin_label ??
@@ -176,7 +179,13 @@ export class PurchaseReceivesService {
     }
   }
 
-  private async applyStockUpdates(items: any[], tenant: TenantContext, receiveId: string, receiveNumber: string, headerWarehouseId?: string | null) {
+  private async applyStockUpdates(
+    items: any[],
+    tenant: TenantContext,
+    receiveId: string,
+    receiveNumber: string,
+    headerWarehouseId?: string | null,
+  ) {
     for (const item of items) {
       if (!item.batches) continue;
       for (const batch of item.batches) {
@@ -193,24 +202,27 @@ export class PurchaseReceivesService {
 
         if (!batchId) {
           // Create batch if not exists
-          const { data: newBatch, error: batchError } = await this.supabaseService
-            .getClient()
-            .from("batch_master")
-            .insert({
-              batch_no: batch.batch_no,
-              product_id: item.item_id,
-              expiry_date: batch.expiry_date, // not null
-              unit_pack: batch.unit_pack ?? null,
-              manufacture_batch_number: batch.manufacture_batch ?? null,
-              manufacture_exp: batch.manufacture_date ?? null,
-              created_by_entity_id: tenant.entityId,
-              source_type: 'PURCHASE_RECEIVE',
-            })
-            .select()
-            .single();
+          const { data: newBatch, error: batchError } =
+            await this.supabaseService
+              .getClient()
+              .from("batch_master")
+              .insert({
+                batch_no: batch.batch_no,
+                product_id: item.item_id,
+                expiry_date: batch.expiry_date, // not null
+                unit_pack: batch.unit_pack ?? null,
+                manufacture_batch_number: batch.manufacture_batch ?? null,
+                manufacture_exp: batch.manufacture_date ?? null,
+                created_by_entity_id: tenant.entityId,
+                source_type: "PURCHASE_RECEIVE",
+              })
+              .select()
+              .single();
 
           if (batchError) {
-            throw new Error(`Failed to create batch master: ${batchError.message}`);
+            throw new Error(
+              `Failed to create batch master: ${batchError.message}`,
+            );
           }
           batchId = newBatch.id;
         }
@@ -218,7 +230,8 @@ export class PurchaseReceivesService {
         // 2. Insert into batch_stock_layers
         let resolvedBinId = batch.bin_id ?? item.bin_id;
         if (!resolvedBinId) {
-          const warehouseId = batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId;
+          const warehouseId =
+            batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId;
           if (warehouseId) {
             const { data: firstBin } = await this.supabaseService
               .getClient()
@@ -238,20 +251,23 @@ export class PurchaseReceivesService {
             batch_id: batchId,
             product_id: item.item_id,
             entity_id: tenant.entityId,
-            warehouse_id: batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId,
+            warehouse_id:
+              batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId,
             bin_id: resolvedBinId,
             qty: batch.quantity,
             foc_qty: batch.foc ?? 0,
             purchase_rate: batch.ptr ?? 0,
             mrp: batch.mrp ?? 0,
-            ref_type: 'PURCHASE_RECEIVE',
+            ref_type: "PURCHASE_RECEIVE",
             ref_id: receiveId,
           })
           .select()
           .single();
 
         if (layerError) {
-          throw new Error(`Failed to create batch stock layer: ${layerError.message}`);
+          throw new Error(
+            `Failed to create batch stock layer: ${layerError.message}`,
+          );
         }
 
         // 3. Insert into batch_transactions
@@ -263,9 +279,10 @@ export class PurchaseReceivesService {
             layer_id: layer.id,
             product_id: item.item_id,
             entity_id: tenant.entityId,
-            warehouse_id: batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId,
+            warehouse_id:
+              batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId,
             bin_id: resolvedBinId,
-            trans_type: 'PURCHASE_RECEIVE',
+            trans_type: "PURCHASE_RECEIVE",
             qty_in: batch.quantity,
             rate: batch.ptr ?? 0,
             ref_id: receiveId,
@@ -273,7 +290,9 @@ export class PurchaseReceivesService {
           });
 
         if (transError) {
-          throw new Error(`Failed to create batch transaction: ${transError.message}`);
+          throw new Error(
+            `Failed to create batch transaction: ${transError.message}`,
+          );
         }
       }
     }
@@ -436,7 +455,13 @@ export class PurchaseReceivesService {
     );
 
     if (createDto.status?.toLowerCase() === "received") {
-      await this.applyStockUpdates(items, tenant, receive.id, receive.purchase_receive_number, resolvedWarehouseId);
+      await this.applyStockUpdates(
+        items,
+        tenant,
+        receive.id,
+        receive.purchase_receive_number,
+        resolvedWarehouseId,
+      );
     }
 
     return this.findOne(receive.id, tenant);
@@ -448,9 +473,11 @@ export class PurchaseReceivesService {
     tenant: TenantContext,
   ) {
     const existingReceive = await this.findOne(id, tenant);
-    const receiveNumber = updateDto.purchase_receive_number ?? existingReceive.purchase_receive_number;
+    const receiveNumber =
+      updateDto.purchase_receive_number ??
+      existingReceive.purchase_receive_number;
     const { items, billed, invoice_total, ...updateData } = updateDto;
-    
+
     const dbUpdateData: any = { ...updateData };
     if (invoice_total !== undefined) {
       dbUpdateData.bill_invoice_total = invoice_total;
@@ -516,7 +543,13 @@ export class PurchaseReceivesService {
       );
 
       if (updateDto.status?.toLowerCase() === "received") {
-        await this.applyStockUpdates(items, tenant, id, receiveNumber, updateDto.warehouse_id ?? existingReceive.warehouse_id);
+        await this.applyStockUpdates(
+          items,
+          tenant,
+          id,
+          receiveNumber,
+          updateDto.warehouse_id ?? existingReceive.warehouse_id,
+        );
       }
     }
 

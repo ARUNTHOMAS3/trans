@@ -27,7 +27,9 @@ export class UsersService {
   private getEntityId(tenantOrOrgId: TenantContext | string): string {
     const { entityId } = this.resolveTenant(tenantOrOrgId);
     if (!entityId || entityId === "undefined") {
-      throw new Error("entityId is required but was not resolved from tenant context");
+      throw new Error(
+        "entityId is required but was not resolved from tenant context",
+      );
     }
     return entityId;
   }
@@ -36,8 +38,7 @@ export class UsersService {
     {
       id: "admin",
       label: "Admin",
-      description:
-        "Internal platform admin with unrestricted access.",
+      description: "Internal platform admin with unrestricted access.",
     },
     {
       id: "ho_admin",
@@ -142,7 +143,9 @@ export class UsersService {
         .maybeSingle();
 
       if (findError) {
-        throw new Error(`Failed to fetch role '${label}': ${findError.message}`);
+        throw new Error(
+          `Failed to fetch role '${label}': ${findError.message}`,
+        );
       }
 
       if (existing?.id) {
@@ -162,7 +165,9 @@ export class UsersService {
         .single();
 
       if (insertError) {
-        throw new Error(`Failed to create role '${label}': ${insertError.message}`);
+        throw new Error(
+          `Failed to create role '${label}': ${insertError.message}`,
+        );
       }
 
       return inserted.id?.toString() ?? "";
@@ -286,13 +291,15 @@ export class UsersService {
 
     return [
       ...mergedBuiltinRoles,
-      ...customRoles.map((role) => ({
-        id: role.id?.toString() ?? "",
-        label: (role.label ?? "").toString(),
-        description: (role.description ?? "").toString(),
-        is_default: false,
-        permissions: role.permissions ?? {},
-      })).filter((role) => !consumedIds.has(role.id)),
+      ...customRoles
+        .map((role) => ({
+          id: role.id?.toString() ?? "",
+          label: (role.label ?? "").toString(),
+          description: (role.description ?? "").toString(),
+          is_default: false,
+          permissions: role.permissions ?? {},
+        }))
+        .filter((role) => !consumedIds.has(role.id)),
     ];
   }
 
@@ -317,7 +324,10 @@ export class UsersService {
       new Set(
         values
           .map((value) => this.normalizeUuid(value))
-          .filter((value: unknown): value is string => typeof value === 'string' && value.length > 0),
+          .filter(
+            (value: unknown): value is string =>
+              typeof value === "string" && value.length > 0,
+          ),
       ),
     );
   }
@@ -326,7 +336,9 @@ export class UsersService {
     return "Zabnix@2025";
   }
 
-  private async fetchPublicUsers(tenantOrOrgId: TenantContext | string): Promise<Map<string, any>> {
+  private async fetchPublicUsers(
+    tenantOrOrgId: TenantContext | string,
+  ): Promise<Map<string, any>> {
     const { data, error } = await this.supabaseService
       .getClient()
       .from("users")
@@ -371,7 +383,9 @@ export class UsersService {
     }
   }
 
-  private async fetchAllLocations(tenantOrOrgId: TenantContext | string): Promise<any[]> {
+  private async fetchAllLocations(
+    tenantOrOrgId: TenantContext | string,
+  ): Promise<any[]> {
     const locations = await this.branchesService.findAll(tenantOrOrgId);
     return locations.map((location: any) => ({
       id: location.id?.toString() ?? "",
@@ -405,15 +419,16 @@ export class UsersService {
     const { data, error } = await query;
 
     if (error) {
-      throw new Error(
-        `Failed to fetch user_branch_access: ${error.message}`,
-      );
+      throw new Error(`Failed to fetch user_branch_access: ${error.message}`);
     }
 
     return data ?? [];
   }
 
-  private async buildLocationAccess(tenantOrOrgId: TenantContext | string, userId: string) {
+  private async buildLocationAccess(
+    tenantOrOrgId: TenantContext | string,
+    userId: string,
+  ) {
     const [locations, accessRows] = await Promise.all([
       this.fetchAllLocations(tenantOrOrgId),
       this.fetchLocationAccessRows(tenantOrOrgId, userId),
@@ -455,9 +470,16 @@ export class UsersService {
     };
   }
 
-  private async syncLocationAccess(tenant: TenantContext, userId: string, input: any) {
+  private async syncLocationAccess(
+    tenant: TenantContext,
+    userId: string,
+    input: any,
+  ) {
     const branchIds = this.normalizeUuidList(
-      input?.accessible_branch_ids ?? input?.branch_ids ?? input?.accessible_outlet_ids ?? input?.outlet_ids,
+      input?.accessible_branch_ids ??
+        input?.branch_ids ??
+        input?.accessible_outlet_ids ??
+        input?.outlet_ids,
     );
     let defaultBusinessBranchId = this.normalizeUuid(
       input?.default_business_branch_id ?? input?.default_business_outlet_id,
@@ -580,18 +602,25 @@ export class UsersService {
     };
   }
 
-  async findAll(tenantOrOrgId: TenantContext | string, status = "all"): Promise<any[]> {
+  async findAll(
+    tenantOrOrgId: TenantContext | string,
+    status = "all",
+  ): Promise<any[]> {
     const client = this.supabaseService.getClient();
     const [{ data, error }, publicUsers, accessRows, roleMap] =
       await Promise.all([
-      client.auth.admin.listUsers({ perPage: 1000 }),
-      this.fetchPublicUsers(tenantOrOrgId),
-      client
-        .from("user_branch_access")
-        .select("user_id")
-        .eq("entity_id", this.getEntityId(tenantOrOrgId)),
-      this.getRoleMap(typeof tenantOrOrgId === "string" ? { orgId: tenantOrOrgId } as TenantContext : tenantOrOrgId),
-    ]);
+        client.auth.admin.listUsers({ perPage: 1000 }),
+        this.fetchPublicUsers(tenantOrOrgId),
+        client
+          .from("user_branch_access")
+          .select("user_id")
+          .eq("entity_id", this.getEntityId(tenantOrOrgId)),
+        this.getRoleMap(
+          typeof tenantOrOrgId === "string"
+            ? ({ orgId: tenantOrOrgId } as TenantContext)
+            : tenantOrOrgId,
+        ),
+      ]);
 
     if (error) {
       throw new Error(`Failed to list users: ${error.message}`);
@@ -646,14 +675,21 @@ export class UsersService {
       );
   }
 
-  async findOne(id: string, tenantOrOrgId: TenantContext | string): Promise<any | null> {
+  async findOne(
+    id: string,
+    tenantOrOrgId: TenantContext | string,
+  ): Promise<any | null> {
     const client = this.supabaseService.getClient();
     const [{ data, error }, publicUsers, locationAccess, roleMap] =
       await Promise.all([
         client.auth.admin.getUserById(id),
         this.fetchPublicUsers(tenantOrOrgId),
         this.buildLocationAccess(tenantOrOrgId, id),
-        this.getRoleMap(typeof tenantOrOrgId === "string" ? { orgId: tenantOrOrgId } as TenantContext : tenantOrOrgId),
+        this.getRoleMap(
+          typeof tenantOrOrgId === "string"
+            ? ({ orgId: tenantOrOrgId } as TenantContext)
+            : tenantOrOrgId,
+        ),
       ]);
 
     const publicRow = publicUsers.get(id);
@@ -721,36 +757,40 @@ export class UsersService {
     return this.syncLocationAccess(tenant, id, dto);
   }
 
-  async setDefaultBranch(userId: string, branchId: string, tenant: TenantContext) {
+  async setDefaultBranch(
+    userId: string,
+    branchId: string,
+    tenant: TenantContext,
+  ) {
     const client = this.supabaseService.getClient();
-    
+
     const locations = await this.fetchAllLocations(tenant);
-    const location = locations.find(l => l.id === branchId);
+    const location = locations.find((l) => l.id === branchId);
     const isWarehouse = location?.location_type === "warehouse";
-    
+
     // Reset defaults for this user in this tenant
     await client
       .from("user_branch_access")
-      .update({ 
+      .update({
         is_default_business: false,
-        is_default_warehouse: false 
+        is_default_warehouse: false,
       })
       .eq("entity_id", this.getEntityId(tenant))
       .eq("user_id", userId);
-      
+
     // Set new default
     const { data, error } = await client
       .from("user_branch_access")
-      .update({ 
+      .update({
         is_default_business: !isWarehouse,
-        is_default_warehouse: isWarehouse 
+        is_default_warehouse: isWarehouse,
       })
       .eq("entity_id", this.getEntityId(tenant))
       .eq("user_id", userId)
       .eq("outlet_id", branchId)
       .select()
       .single();
-      
+
     if (error) throw error;
     return data;
   }
@@ -814,7 +854,12 @@ export class UsersService {
     return this.findOne(data.user.id, tenant);
   }
 
-  async update(id: string, tenant: TenantContext, dto: any, actorUserId?: string) {
+  async update(
+    id: string,
+    tenant: TenantContext,
+    dto: any,
+    actorUserId?: string,
+  ) {
     const current = await this.findOne(id, tenant);
     if (!current) {
       throw new Error("User not found");
@@ -967,7 +1012,9 @@ export class UsersService {
 
   async getRole(id: string, tenant: TenantContext) {
     const normalizedId = id.toLowerCase().trim();
-    const defaultRole = this.roleCatalog.find((role) => role.id === normalizedId);
+    const defaultRole = this.roleCatalog.find(
+      (role) => role.id === normalizedId,
+    );
     if (defaultRole) {
       if (normalizedId === "admin") {
         return {
@@ -1025,16 +1072,19 @@ export class UsersService {
       );
     }
 
-    const { data: existingRole, error: existingRoleError } = await this.supabaseService
-      .getClient()
-      .from("roles")
-      .select("id")
-      .eq("entity_id", this.getEntityId(tenant))
-      .ilike("label", label)
-      .maybeSingle();
+    const { data: existingRole, error: existingRoleError } =
+      await this.supabaseService
+        .getClient()
+        .from("roles")
+        .select("id")
+        .eq("entity_id", this.getEntityId(tenant))
+        .ilike("label", label)
+        .maybeSingle();
 
     if (existingRoleError) {
-      throw new Error(`Failed to validate role label: ${existingRoleError.message}`);
+      throw new Error(
+        `Failed to validate role label: ${existingRoleError.message}`,
+      );
     }
     if (existingRole?.id) {
       throw new Error("Role label already exists");
@@ -1082,16 +1132,19 @@ export class UsersService {
       );
     }
 
-    const { data: sameLabelRole, error: sameLabelRoleError } = await this.supabaseService
-      .getClient()
-      .from("roles")
-      .select("id")
-      .eq("entity_id", this.getEntityId(tenant))
-      .ilike("label", label)
-      .maybeSingle();
+    const { data: sameLabelRole, error: sameLabelRoleError } =
+      await this.supabaseService
+        .getClient()
+        .from("roles")
+        .select("id")
+        .eq("entity_id", this.getEntityId(tenant))
+        .ilike("label", label)
+        .maybeSingle();
 
     if (sameLabelRoleError) {
-      throw new Error(`Failed to validate role label: ${sameLabelRoleError.message}`);
+      throw new Error(
+        `Failed to validate role label: ${sameLabelRoleError.message}`,
+      );
     }
     if (sameLabelRole?.id && sameLabelRole.id?.toString() !== id) {
       throw new Error("Role label already exists");

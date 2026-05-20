@@ -14,7 +14,7 @@ import { PicklistsService } from "../services/picklists.service";
 
 @Controller("picklists")
 export class PicklistsController {
-  constructor(private readonly picklistsService: PicklistsService) { }
+  constructor(private readonly picklistsService: PicklistsService) {}
 
   @Get()
   findAll(

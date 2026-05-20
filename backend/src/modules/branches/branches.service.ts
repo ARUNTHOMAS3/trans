@@ -24,7 +24,9 @@ export class BranchesService {
   ): Promise<string> {
     const normalizedEmail = email?.toString().trim().toLowerCase();
     if (!normalizedEmail) {
-      throw new Error("Branch email is required to auto-link Branch Admin user");
+      throw new Error(
+        "Branch email is required to auto-link Branch Admin user",
+      );
     }
 
     const client = this.supabaseService.getClient();
@@ -35,7 +37,9 @@ export class BranchesService {
       .maybeSingle();
 
     if (userFindError) {
-      throw new Error(`Failed to fetch users row by email: ${userFindError.message}`);
+      throw new Error(
+        `Failed to fetch users row by email: ${userFindError.message}`,
+      );
     }
 
     if (existingUser?.id) {
@@ -68,7 +72,9 @@ export class BranchesService {
         .eq("id", userId);
 
       if (usersUpdateError) {
-        throw new Error(`Failed to update users row: ${usersUpdateError.message}`);
+        throw new Error(
+          `Failed to update users row: ${usersUpdateError.message}`,
+        );
       }
 
       return userId;
@@ -97,19 +103,17 @@ export class BranchesService {
     }
 
     const userId = authCreate.data.user.id;
-    const { error: usersInsertError } = await client
-      .from("users")
-      .upsert(
-        {
-          id: userId,
-          email: normalizedEmail,
-          full_name: fullName,
-          role: "branch_admin",
-          is_active: true,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id" },
-      );
+    const { error: usersInsertError } = await client.from("users").upsert(
+      {
+        id: userId,
+        email: normalizedEmail,
+        full_name: fullName,
+        role: "branch_admin",
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" },
+    );
 
     if (usersInsertError) {
       throw new Error(
@@ -211,7 +215,9 @@ export class BranchesService {
       .maybeSingle();
 
     if (orgRes.error) {
-      throw new Error(`Failed to fetch organization row: ${orgRes.error.message}`);
+      throw new Error(
+        `Failed to fetch organization row: ${orgRes.error.message}`,
+      );
     }
 
     if (!orgRes.data?.id || !orgRes.data?.name) {
@@ -400,7 +406,9 @@ export class BranchesService {
       .maybeSingle();
 
     if (error) {
-      throw new Error(`Failed to fetch assemblies_constituencies: ${error.message}`);
+      throw new Error(
+        `Failed to fetch assemblies_constituencies: ${error.message}`,
+      );
     }
     if (!data) {
       return rawAddress;
@@ -443,7 +451,7 @@ export class BranchesService {
     for (const role of roleLabels) {
       roleIdMap.set(role, null);
     }
-    
+
     // Add reserved role mappings
     roleIdMap.set("Admin", "admin");
     roleIdMap.set("HO Admin", "ho_admin");
@@ -524,7 +532,7 @@ export class BranchesService {
         locationUsers.map((user) => ({
           entity_id: entityId,
           user_id: user.user_id,
-          role_id: user.role ? roleIdsByLabel.get(user.role) ?? null : null,
+          role_id: user.role ? (roleIdsByLabel.get(user.role) ?? null) : null,
         })),
       );
 
@@ -584,30 +592,45 @@ export class BranchesService {
       .filter((value: unknown): value is string => Boolean(value));
     const assignedRoleIds = (locationUsersRes.data ?? [])
       .map((row: any) => row.role_id?.toString())
-      .filter((value: unknown): value is string => typeof value === 'string' && value.length > 0);
+      .filter(
+        (value: unknown): value is string =>
+          typeof value === "string" && value.length > 0,
+      );
 
-    const usersRes = assignedUserIds.length > 0
-      ? await client.from("users").select("id,role").in("id", assignedUserIds)
-      : { data: [], error: null };
+    const usersRes =
+      assignedUserIds.length > 0
+        ? await client.from("users").select("id,role").in("id", assignedUserIds)
+        : { data: [], error: null };
 
     if (usersRes.error) {
-      throw new Error(`Failed to fetch branch users: ${usersRes.error.message}`);
+      throw new Error(
+        `Failed to fetch branch users: ${usersRes.error.message}`,
+      );
     }
 
     // Also collect role IDs from the users' default roles
     const userDefaultRoleIds = (usersRes.data ?? [])
       .map((row: any) => row.role?.toString())
-      .filter((value: unknown): value is string => typeof value === 'string' && value.length > 0 && 
-        !["admin", "ho_admin", "branch_admin"].includes(value));
+      .filter(
+        (value: unknown): value is string =>
+          typeof value === "string" &&
+          value.length > 0 &&
+          !["admin", "ho_admin", "branch_admin"].includes(value),
+      );
 
-    const allRoleIds = Array.from(new Set([...assignedRoleIds, ...userDefaultRoleIds]));
+    const allRoleIds = Array.from(
+      new Set([...assignedRoleIds, ...userDefaultRoleIds]),
+    );
 
-    const rolesRes = allRoleIds.length > 0
-      ? await client.from("roles").select("id,label").in("id", allRoleIds)
-      : { data: [], error: null };
+    const rolesRes =
+      allRoleIds.length > 0
+        ? await client.from("roles").select("id,label").in("id", allRoleIds)
+        : { data: [], error: null };
 
     if (rolesRes.error) {
-      throw new Error(`Failed to fetch branch roles: ${rolesRes.error.message}`);
+      throw new Error(
+        `Failed to fetch branch roles: ${rolesRes.error.message}`,
+      );
     }
 
     const roleLabelMap = new Map(
@@ -662,9 +685,7 @@ export class BranchesService {
       .order("label", { ascending: true });
 
     if (error) {
-      throw new Error(
-        `Failed to fetch business_types: ${error.message}`,
-      );
+      throw new Error(`Failed to fetch business_types: ${error.message}`);
     }
 
     return (data ?? []).map((row: any) => ({
@@ -730,19 +751,21 @@ export class BranchesService {
     const { data, error } = await this.supabaseService
       .getClient()
       .from("branches")
-      .select(`
+      .select(
+        `
         *,
         entity:organisation_branch_master!ref_id(id)
-      `)
+      `,
+      )
       .eq("org_id", orgId)
       .order("created_at", { ascending: true });
 
     if (error) throw new Error(`Failed to fetch branches: ${error.message}`);
-    
+
     // Flatten the entity id for easier consumption
-    return (data ?? []).map(branch => ({
+    return (data ?? []).map((branch) => ({
       ...branch,
-      entity_id: branch.entity?.[0]?.id || null
+      entity_id: branch.entity?.[0]?.id || null,
     }));
   }
 
@@ -832,10 +855,8 @@ export class BranchesService {
         drug_licence_type: dto.drug_licence_type ?? null,
         drug_licence_20: dto.drug_licence_20 ?? dto.drug_license_20 ?? null,
         drug_licence_21: dto.drug_licence_21 ?? dto.drug_license_21 ?? null,
-        drug_licence_20b:
-          dto.drug_licence_20b ?? dto.drug_license_20b ?? null,
-        drug_licence_21b:
-          dto.drug_licence_21b ?? dto.drug_license_21b ?? null,
+        drug_licence_20b: dto.drug_licence_20b ?? dto.drug_license_20b ?? null,
+        drug_licence_21b: dto.drug_licence_21b ?? dto.drug_license_21b ?? null,
         is_fssai_registered: dto.is_fssai_registered ?? false,
         fssai_number: dto.fssai_number ?? null,
         is_msme_registered: dto.is_msme_registered ?? false,

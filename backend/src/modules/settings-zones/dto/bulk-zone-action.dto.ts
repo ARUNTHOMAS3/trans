@@ -1,4 +1,10 @@
-import { ArrayMinSize, IsArray, IsIn, IsNotEmpty, IsString } from "class-validator";
+import {
+  ArrayMinSize,
+  IsArray,
+  IsIn,
+  IsNotEmpty,
+  IsString,
+} from "class-validator";
 
 export class BulkZoneActionDto {
   @IsString()

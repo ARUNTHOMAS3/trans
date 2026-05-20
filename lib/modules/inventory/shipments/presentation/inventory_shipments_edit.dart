@@ -9,12 +9,9 @@ import '../../../../shared/widgets/inputs/zerpai_date_picker.dart';
 import '../../../../shared/widgets/zerpai_layout.dart';
 import '../../../../shared/widgets/inputs/custom_text_field.dart';
 import '../../../../core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
-import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/inventory/packages/providers/inventory_packages_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
-import 'inventory_shipments_list.dart';
 
 // ignore: constant_identifier_names
 const Color _textPrimary = Color(0xFF1F2937);
@@ -53,12 +50,9 @@ class _InventoryShipmentsEditScreenState
   final TextEditingController _customerNameCtrl = TextEditingController();
   final TextEditingController _salesOrderCtrl = TextEditingController();
 
-  SalesCustomer? _selectedCustomer;
-  List<String> _selectedSalesOrders = []; 
   List<String> _selectedPackages = []; 
   String? _selectedTime;
 
-  List<SalesOrder> _selectedSalesOrdersData = []; 
 
   DateTime? _selectedDate;
   DateTime? _selectedDeliveredDate;
@@ -68,22 +62,15 @@ class _InventoryShipmentsEditScreenState
   bool _isDelivered = false;
   bool _sendStatusNotification = false;
 
-  bool _isAutoGenerate = true;
-  String _shipmentPrefix = 'SHP-';
-  int _nextNumber = 1;
 
-  final List<String> _packages = ['PKG-00015', 'PKG-00016'];
   final List<String> _carriers = ['SPEED AND SAFE', 'DHL', 'FedEx'];
   late final List<String> _times;
 
-  String? _customerError;
-  String? _salesOrderError;
   String? _packageError;
   String? _shipmentOrderError;
   String? _dateError;
   String? _carrierError;
 
-  bool get _isSalesOrderSelected => true; // Always true in edit mode since it's loaded
 
   Map<String, dynamic> _initialData = {};
 

@@ -7,7 +7,7 @@ import { SupabaseService } from "../../supabase/supabase.service";
 
 @Injectable()
 export class SalesService {
-  constructor(private readonly supabaseService: SupabaseService) { }
+  constructor(private readonly supabaseService: SupabaseService) {}
 
   async getSalesOrderById(id: string) {
     const client = this.supabaseService.getClient();

@@ -9,13 +9,16 @@ const mockRedis = {
 
 describe("HealthController", () => {
   it("reports connected when supabase query succeeds", async () => {
-    const controller = new HealthController({
-      getClient: () => ({
-        from: () => ({
-          select: async () => ({ error: null }),
+    const controller = new HealthController(
+      {
+        getClient: () => ({
+          from: () => ({
+            select: async () => ({ error: null }),
+          }),
         }),
-      }),
-    } as any, mockRedis);
+      } as any,
+      mockRedis,
+    );
 
     const result = (await controller.checkHealth()) as any;
 
@@ -24,15 +27,18 @@ describe("HealthController", () => {
   });
 
   it("reports error when supabase returns an error object", async () => {
-    const controller = new HealthController({
-      getClient: () => ({
-        from: () => ({
-          select: async () => ({
-            error: { message: "db failure", code: "DB001" },
+    const controller = new HealthController(
+      {
+        getClient: () => ({
+          from: () => ({
+            select: async () => ({
+              error: { message: "db failure", code: "DB001" },
+            }),
           }),
         }),
-      }),
-    } as any, mockRedis);
+      } as any,
+      mockRedis,
+    );
 
     const result = (await controller.checkHealth()) as any;
 
@@ -42,15 +48,18 @@ describe("HealthController", () => {
   });
 
   it("reports exception when client throws", async () => {
-    const controller = new HealthController({
-      getClient: () => ({
-        from: () => ({
-          select: async () => {
-            throw new Error("boom");
-          },
+    const controller = new HealthController(
+      {
+        getClient: () => ({
+          from: () => ({
+            select: async () => {
+              throw new Error("boom");
+            },
+          }),
         }),
-      }),
-    } as any, mockRedis);
+      } as any,
+      mockRedis,
+    );
 
     const result = (await controller.checkHealth()) as any;
 

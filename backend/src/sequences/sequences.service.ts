@@ -18,12 +18,27 @@ export class SequencesService {
       .maybeSingle();
 
     if (!error && data) {
-      const tableMapping: Record<string, { table: string; column: string; prefix: string }> = {
+      const tableMapping: Record<
+        string,
+        { table: string; column: string; prefix: string }
+      > = {
         vendor: { table: "vendors", column: "vendor_number", prefix: "VEN-" },
-        customer: { table: "customers", column: "customer_number", prefix: "CUS-" },
+        customer: {
+          table: "customers",
+          column: "customer_number",
+          prefix: "CUS-",
+        },
         sale: { table: "sales_orders", column: "sale_number", prefix: "SO-" },
-        purchase: { table: "purchase_orders", column: "purchase_number", prefix: "PO-" },
-        inventory_packages: { table: "inventory_packages", column: "package_number", prefix: "PKG-" },
+        purchase: {
+          table: "purchase_orders",
+          column: "purchase_number",
+          prefix: "PO-",
+        },
+        inventory_packages: {
+          table: "inventory_packages",
+          column: "package_number",
+          prefix: "PKG-",
+        },
       };
 
       if (tableMapping[module]) {
@@ -45,11 +60,14 @@ export class SequencesService {
     }
 
     // Auto-initialize if sequence is missing for this entity
-    const defaults: Record<string, { prefix: string; next_number: number; padding: number }> = {
-      vendor:   { prefix: "VEN-", next_number: 1, padding: 5 },
+    const defaults: Record<
+      string,
+      { prefix: string; next_number: number; padding: number }
+    > = {
+      vendor: { prefix: "VEN-", next_number: 1, padding: 5 },
       customer: { prefix: "CUS-", next_number: 1, padding: 5 },
-      sale:     { prefix: "SO-",  next_number: 1, padding: 5 },
-      purchase: { prefix: "PO-",  next_number: 1, padding: 5 },
+      sale: { prefix: "SO-", next_number: 1, padding: 5 },
+      purchase: { prefix: "PO-", next_number: 1, padding: 5 },
       inventory_packages: { prefix: "PKG-", next_number: 1, padding: 5 },
     };
 
@@ -60,12 +78,27 @@ export class SequencesService {
     };
 
     let nextNum = config.next_number;
-    const tableMapping: Record<string, { table: string; column: string; prefix: string }> = {
+    const tableMapping: Record<
+      string,
+      { table: string; column: string; prefix: string }
+    > = {
       vendor: { table: "vendors", column: "vendor_number", prefix: "VEN-" },
-      customer: { table: "customers", column: "customer_number", prefix: "CUS-" },
+      customer: {
+        table: "customers",
+        column: "customer_number",
+        prefix: "CUS-",
+      },
       sale: { table: "sales_orders", column: "sale_number", prefix: "SO-" },
-      purchase: { table: "purchase_orders", column: "purchase_number", prefix: "PO-" },
-      inventory_packages: { table: "inventory_packages", column: "package_number", prefix: "PKG-" },
+      purchase: {
+        table: "purchase_orders",
+        column: "purchase_number",
+        prefix: "PO-",
+      },
+      inventory_packages: {
+        table: "inventory_packages",
+        column: "package_number",
+        prefix: "PKG-",
+      },
     };
 
     if (tableMapping[module]) {
@@ -101,22 +134,29 @@ export class SequencesService {
 
     const { data: created, error: initError } = await client
       .from("transactional_sequences")
-      .insert([{
-        module,
-        prefix: config.prefix,
-        next_number: nextNum,
-        padding: config.padding,
-        entity_id: tenant.entityId,
-        is_active: true,
-      }])
+      .insert([
+        {
+          module,
+          prefix: config.prefix,
+          next_number: nextNum,
+          padding: config.padding,
+          entity_id: tenant.entityId,
+          is_active: true,
+        },
+      ])
       .select()
       .single();
 
-    if (initError) throw new Error(`Failed to initialize sequence: ${initError.message}`);
+    if (initError)
+      throw new Error(`Failed to initialize sequence: ${initError.message}`);
     return created;
   }
 
-  async getNextNumberFormatted(module: string, tenant: TenantContext, branchId?: string) {
+  async getNextNumberFormatted(
+    module: string,
+    tenant: TenantContext,
+    branchId?: string,
+  ) {
     const settings = await this.getSequence(module, tenant, branchId);
     return this.formatSequence(
       settings.prefix,
@@ -225,7 +265,8 @@ export class SequencesService {
 
     const updateData: any = { updated_at: new Date() };
     if (updateDto.prefix !== undefined) updateData.prefix = updateDto.prefix;
-    if (updateDto.nextNumber !== undefined) updateData.next_number = updateDto.nextNumber;
+    if (updateDto.nextNumber !== undefined)
+      updateData.next_number = updateDto.nextNumber;
     if (updateDto.padding !== undefined) updateData.padding = updateDto.padding;
     if (updateDto.suffix !== undefined) updateData.suffix = updateDto.suffix;
 
@@ -248,7 +289,12 @@ export class SequencesService {
     } else {
       const { data, error } = await client
         .from("transactional_sequences")
-        .insert({ module, entity_id: tenant.entityId, is_active: true, ...updateData })
+        .insert({
+          module,
+          entity_id: tenant.entityId,
+          is_active: true,
+          ...updateData,
+        })
         .select()
         .single();
       if (error) throw error;

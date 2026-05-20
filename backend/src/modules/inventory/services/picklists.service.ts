@@ -1,14 +1,12 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { TenantContext } from '../../../common/middleware/tenant.middleware';
-import { SupabaseService } from '../../supabase/supabase.service';
+import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import { TenantContext } from "../../../common/middleware/tenant.middleware";
+import { SupabaseService } from "../../supabase/supabase.service";
 
 @Injectable()
 export class PicklistsService {
   private readonly logger = new Logger(PicklistsService.name);
 
-  constructor(
-    private readonly supabaseService: SupabaseService,
-  ) { }
+  constructor(private readonly supabaseService: SupabaseService) {}
 
   async findAll(
     tenant: TenantContext,
@@ -19,13 +17,13 @@ export class PicklistsService {
   ) {
     const client = this.supabaseService.getClient();
     let query = client
-      .from('picklist_master')
-      .select('*', { count: 'exact' })
-      .eq('entity_id', tenant.entityId)
-      .or('is_delete.is.null,is_delete.eq.false');
+      .from("picklist_master")
+      .select("*", { count: "exact" })
+      .eq("entity_id", tenant.entityId)
+      .or("is_delete.is.null,is_delete.eq.false");
 
     if (status) {
-      query = query.eq('status', status);
+      query = query.eq("status", status);
     }
 
     if (search) {
@@ -34,61 +32,90 @@ export class PicklistsService {
 
     const { data, count, error } = await query
       .range((page - 1) * limit, page * limit - 1)
-      .order('created_at', { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
 
     const rows = data || [];
 
     // Resolve warehouse names
-    const warehouseIds = [...new Set(rows.map((r: any) => r.warehouse_id).filter(Boolean))];
+    const warehouseIds = [
+      ...new Set(rows.map((r: any) => r.warehouse_id).filter(Boolean)),
+    ];
     let warehouseMap = new Map<string, string>();
     if (warehouseIds.length > 0) {
       const { data: warehouses } = await client
-        .from('warehouses')
-        .select('id, name')
-        .in('id', warehouseIds);
-      warehouseMap = new Map((warehouses || []).map((w: any) => [w.id, w.name]));
+        .from("warehouses")
+        .select("id, name")
+        .in("id", warehouseIds);
+      warehouseMap = new Map(
+        (warehouses || []).map((w: any) => [w.id, w.name]),
+      );
     }
 
     // Resolve customer_name and sales_order_number from picklist_items
     const picklistIds = rows.map((r: any) => r.id);
-    let picklistItemsMap = new Map<string, { customer_name: string | null; sales_order_number: string | null }>();
+    const picklistItemsMap = new Map<
+      string,
+      { customer_name: string | null; sales_order_number: string | null }
+    >();
     if (picklistIds.length > 0) {
       const { data: items } = await client
-        .from('picklist_items')
-        .select('picklist_id, sales_order_id')
-        .in('picklist_id', picklistIds);
+        .from("picklist_items")
+        .select("picklist_id, sales_order_id")
+        .in("picklist_id", picklistIds);
 
       // Get unique sales_order_ids
-      const soIds = [...new Set((items || []).map((i: any) => i.sales_order_id).filter(Boolean))];
-      let soMap = new Map<string, { sale_number: string; customer_id: string | null }>();
+      const soIds = [
+        ...new Set(
+          (items || []).map((i: any) => i.sales_order_id).filter(Boolean),
+        ),
+      ];
+      let soMap = new Map<
+        string,
+        { sale_number: string; customer_id: string | null }
+      >();
       if (soIds.length > 0) {
         const { data: salesOrders } = await client
-          .from('sales_orders')
-          .select('id, sale_number, customer_id')
-          .in('id', soIds);
-        soMap = new Map((salesOrders || []).map((so: any) => [so.id, { sale_number: so.sale_number, customer_id: so.customer_id }]));
+          .from("sales_orders")
+          .select("id, sale_number, customer_id")
+          .in("id", soIds);
+        soMap = new Map(
+          (salesOrders || []).map((so: any) => [
+            so.id,
+            { sale_number: so.sale_number, customer_id: so.customer_id },
+          ]),
+        );
       }
 
       // Get unique customer_ids
-      const customerIds = [...new Set([...soMap.values()].map(so => so.customer_id).filter(Boolean))] as string[];
+      const customerIds = [
+        ...new Set(
+          [...soMap.values()].map((so) => so.customer_id).filter(Boolean),
+        ),
+      ] as string[];
       let customerMap = new Map<string, string>();
       if (customerIds.length > 0) {
         const { data: customers } = await client
-          .from('customers')
-          .select('id, display_name')
-          .in('id', customerIds);
-        customerMap = new Map((customers || []).map((c: any) => [c.id, c.display_name]));
+          .from("customers")
+          .select("id, display_name")
+          .in("id", customerIds);
+        customerMap = new Map(
+          (customers || []).map((c: any) => [c.id, c.display_name]),
+        );
       }
 
       // For each picklist, get first item's SO info
       for (const picklistId of picklistIds) {
-        const firstItem = (items || []).find((i: any) => i.picklist_id === picklistId && i.sales_order_id);
+        const firstItem = (items || []).find(
+          (i: any) => i.picklist_id === picklistId && i.sales_order_id,
+        );
         if (firstItem) {
           const soInfo = soMap.get(firstItem.sales_order_id);
           picklistItemsMap.set(picklistId, {
-            customer_name: soInfo?.customer_id ? customerMap.get(soInfo.customer_id) || null : null,
+            customer_name: soInfo?.customer_id
+              ? customerMap.get(soInfo.customer_id) || null
+              : null,
             sales_order_number: soInfo?.sale_number || null,
           });
         }
@@ -120,66 +147,89 @@ export class PicklistsService {
 
     // Fetch master record
     const { data: picklist, error: picklistError } = await client
-      .from('picklist_master')
-      .select('*')
-      .eq('id', id)
-      .eq('entity_id', tenant.entityId)
-      .or('is_delete.is.null,is_delete.eq.false')
+      .from("picklist_master")
+      .select("*")
+      .eq("id", id)
+      .eq("entity_id", tenant.entityId)
+      .or("is_delete.is.null,is_delete.eq.false")
       .single();
 
-    if (picklistError || !picklist) throw new NotFoundException('Picklist not found');
+    if (picklistError || !picklist)
+      throw new NotFoundException("Picklist not found");
 
     // Resolve warehouse name
     let warehouseName = picklist.warehouse_id;
     if (picklist.warehouse_id) {
       const { data: wh } = await client
-        .from('warehouses')
-        .select('name')
-        .eq('id', picklist.warehouse_id)
+        .from("warehouses")
+        .select("name")
+        .eq("id", picklist.warehouse_id)
         .maybeSingle();
       if (wh) warehouseName = wh.name;
     }
 
     // Fetch items
     const { data: items, error: itemsError } = await client
-      .from('picklist_items')
-      .select('*')
-      .eq('picklist_id', id);
+      .from("picklist_items")
+      .select("*")
+      .eq("picklist_id", id);
 
     if (itemsError) {
       this.logger.error(`Error fetching picklist items: ${itemsError.message}`);
     }
 
     // Resolve product names
-    const productIds = [...new Set((items || []).map((i: any) => i.product_id).filter(Boolean))];
+    const productIds = [
+      ...new Set((items || []).map((i: any) => i.product_id).filter(Boolean)),
+    ];
     let productMap = new Map<string, string>();
     if (productIds.length > 0) {
       const { data: products } = await client
-        .from('products')
-        .select('id, product_name')
-        .in('id', productIds);
-      productMap = new Map((products || []).map((p: any) => [p.id, p.product_name]));
+        .from("products")
+        .select("id, product_name")
+        .in("id", productIds);
+      productMap = new Map(
+        (products || []).map((p: any) => [p.id, p.product_name]),
+      );
     }
 
     // Resolve sales order numbers and customer names
-    const soIds = [...new Set((items || []).map((i: any) => i.sales_order_id).filter(Boolean))];
-    let soMap = new Map<string, { sale_number: string; customer_id: string | null }>();
+    const soIds = [
+      ...new Set(
+        (items || []).map((i: any) => i.sales_order_id).filter(Boolean),
+      ),
+    ];
+    let soMap = new Map<
+      string,
+      { sale_number: string; customer_id: string | null }
+    >();
     if (soIds.length > 0) {
       const { data: salesOrders } = await client
-        .from('sales_orders')
-        .select('id, sale_number, customer_id')
-        .in('id', soIds);
-      soMap = new Map((salesOrders || []).map((so: any) => [so.id, { sale_number: so.sale_number, customer_id: so.customer_id }]));
+        .from("sales_orders")
+        .select("id, sale_number, customer_id")
+        .in("id", soIds);
+      soMap = new Map(
+        (salesOrders || []).map((so: any) => [
+          so.id,
+          { sale_number: so.sale_number, customer_id: so.customer_id },
+        ]),
+      );
     }
 
-    const customerIds = [...new Set([...soMap.values()].map(so => so.customer_id).filter(Boolean))] as string[];
+    const customerIds = [
+      ...new Set(
+        [...soMap.values()].map((so) => so.customer_id).filter(Boolean),
+      ),
+    ] as string[];
     let customerMap = new Map<string, string>();
     if (customerIds.length > 0) {
       const { data: customers } = await client
-        .from('customers')
-        .select('id, display_name')
-        .in('id', customerIds);
-      customerMap = new Map((customers || []).map((c: any) => [c.id, c.display_name]));
+        .from("customers")
+        .select("id, display_name")
+        .in("id", customerIds);
+      customerMap = new Map(
+        (customers || []).map((c: any) => [c.id, c.display_name]),
+      );
     }
 
     // Fetch batch allocations for each item
@@ -187,43 +237,53 @@ export class PicklistsService {
     let batchAllocations: any[] = [];
     if (itemIds.length > 0) {
       const { data: batches, error: batchError } = await client
-        .from('picklist_batch_allocation')
-        .select('*')
-        .in('picklist_item_id', itemIds);
+        .from("picklist_batch_allocation")
+        .select("*")
+        .in("picklist_item_id", itemIds);
 
       if (batchError) {
-        this.logger.error(`Error fetching batch allocations: ${batchError.message}`);
+        this.logger.error(
+          `Error fetching batch allocations: ${batchError.message}`,
+        );
       }
 
       const rawBatches = batches || [];
-      const batchIds = [...new Set(rawBatches.map((b: any) => b.batch_id).filter(Boolean))];
-      const binIds = [...new Set(rawBatches.map((b: any) => b.bin_id).filter(Boolean))];
-      const layerIds = [...new Set(rawBatches.map((b: any) => b.layer_id).filter(Boolean))];
+      const batchIds = [
+        ...new Set(rawBatches.map((b: any) => b.batch_id).filter(Boolean)),
+      ];
+      const binIds = [
+        ...new Set(rawBatches.map((b: any) => b.bin_id).filter(Boolean)),
+      ];
+      const layerIds = [
+        ...new Set(rawBatches.map((b: any) => b.layer_id).filter(Boolean)),
+      ];
 
       let batchMap = new Map<string, any>();
       if (batchIds.length > 0) {
         const { data: batchRows } = await client
-          .from('batch_master')
-          .select('id, batch_no, expiry_date, unit_pack, manufacture_batch_number, manufacture_exp')
-          .in('id', batchIds);
+          .from("batch_master")
+          .select(
+            "id, batch_no, expiry_date, unit_pack, manufacture_batch_number, manufacture_exp",
+          )
+          .in("id", batchIds);
         batchMap = new Map((batchRows || []).map((r: any) => [r.id, r]));
       }
 
       let binMap = new Map<string, any>();
       if (binIds.length > 0) {
         const { data: binRows } = await client
-          .from('bin_master')
-          .select('id, bin_code')
-          .in('id', binIds);
+          .from("bin_master")
+          .select("id, bin_code")
+          .in("id", binIds);
         binMap = new Map((binRows || []).map((r: any) => [r.id, r]));
       }
 
       let layerMap = new Map<string, any>();
       if (layerIds.length > 0) {
         const { data: layerRows } = await client
-          .from('batch_stock_layers')
-          .select('id, mrp, purchase_rate')
-          .in('id', layerIds);
+          .from("batch_stock_layers")
+          .select("id, mrp, purchase_rate")
+          .in("id", layerIds);
         layerMap = new Map((layerRows || []).map((r: any) => [r.id, r]));
       }
 
@@ -253,13 +313,19 @@ export class PicklistsService {
         ...item,
         product_name: productMap.get(item.product_id) || item.product_id,
         sales_order_number: soInfo?.sale_number || null,
-        customer_name: soInfo?.customer_id ? customerMap.get(soInfo.customer_id) || null : null,
-        batch_allocations: batchAllocations.filter((b: any) => b.picklist_item_id === item.id),
+        customer_name: soInfo?.customer_id
+          ? customerMap.get(soInfo.customer_id) || null
+          : null,
+        batch_allocations: batchAllocations.filter(
+          (b: any) => b.picklist_item_id === item.id,
+        ),
       };
     });
 
     // Get first item's customer/SO for header
-    const firstItemWithSO = itemsWithBatches.find((i: any) => i.sales_order_number);
+    const firstItemWithSO = itemsWithBatches.find(
+      (i: any) => i.sales_order_number,
+    );
 
     return {
       id: picklist.id,
@@ -282,14 +348,14 @@ export class PicklistsService {
 
     // Insert into picklist_master
     const { data: picklist, error: picklistError } = await client
-      .from('picklist_master')
+      .from("picklist_master")
       .insert({
         picklist_no: headerData.picklist_no,
         entity_id: tenant.entityId,
         warehouse_id: headerData.warehouse_id,
         assignee_id: headerData.assignee_id || null,
         picklist_date: headerData.picklist_date,
-        status: headerData.status || 'DRAFT',
+        status: headerData.status || "DRAFT",
         notes: headerData.notes || null,
         is_delete: false,
         is_entrypass: headerData.is_entrypass || false,
@@ -298,7 +364,9 @@ export class PicklistsService {
       .single();
 
     if (picklistError) {
-      this.logger.error(`Error creating picklist_master: ${picklistError.message}`);
+      this.logger.error(
+        `Error creating picklist_master: ${picklistError.message}`,
+      );
       throw picklistError;
     }
 
@@ -306,7 +374,7 @@ export class PicklistsService {
     if (items && items.length > 0) {
       for (const item of items) {
         const { data: picklistItem, error: itemError } = await client
-          .from('picklist_items')
+          .from("picklist_items")
           .insert({
             picklist_id: picklist.id,
             product_id: item.product_id,
@@ -315,13 +383,15 @@ export class PicklistsService {
             qty_ordered: item.qty_ordered || 0,
             qty_to_pick: item.qty_to_pick || 0,
             qty_picked: item.qty_picked || 0,
-            status: item.status || 'YET_TO_START',
+            status: item.status || "YET_TO_START",
           })
           .select()
           .single();
 
         if (itemError) {
-          this.logger.error(`Error creating picklist_item: ${itemError.message}`);
+          this.logger.error(
+            `Error creating picklist_item: ${itemError.message}`,
+          );
           throw itemError;
         }
 
@@ -338,11 +408,13 @@ export class PicklistsService {
           }));
 
           const { error: batchError } = await client
-            .from('picklist_batch_allocation')
+            .from("picklist_batch_allocation")
             .insert(batchRows);
 
           if (batchError) {
-            this.logger.error(`Error creating batch allocations: ${batchError.message}`);
+            this.logger.error(
+              `Error creating batch allocations: ${batchError.message}`,
+            );
             throw batchError;
           }
         }
@@ -363,61 +435,63 @@ export class PicklistsService {
 
     // Update picklist_master
     const updatePayload: any = {};
-    if (headerData.picklist_no !== undefined) updatePayload.picklist_no = headerData.picklist_no;
-    if (headerData.warehouse_id !== undefined) updatePayload.warehouse_id = headerData.warehouse_id;
-    if (headerData.assignee_id !== undefined) updatePayload.assignee_id = headerData.assignee_id;
-    if (headerData.picklist_date !== undefined) updatePayload.picklist_date = headerData.picklist_date;
+    if (headerData.picklist_no !== undefined)
+      updatePayload.picklist_no = headerData.picklist_no;
+    if (headerData.warehouse_id !== undefined)
+      updatePayload.warehouse_id = headerData.warehouse_id;
+    if (headerData.assignee_id !== undefined)
+      updatePayload.assignee_id = headerData.assignee_id;
+    if (headerData.picklist_date !== undefined)
+      updatePayload.picklist_date = headerData.picklist_date;
     if (headerData.status !== undefined) {
       updatePayload.status = headerData.status;
       // Cascade ON_HOLD status to all items
-      if (headerData.status === 'ON_HOLD') {
+      if (headerData.status === "ON_HOLD") {
         await client
-          .from('picklist_items')
-          .update({ status: 'ON_HOLD' })
-          .eq('picklist_id', id);
+          .from("picklist_items")
+          .update({ status: "ON_HOLD" })
+          .eq("picklist_id", id);
       }
     }
     if (headerData.notes !== undefined) updatePayload.notes = headerData.notes;
-    if (headerData.is_entrypass !== undefined) updatePayload.is_entrypass = headerData.is_entrypass;
+    if (headerData.is_entrypass !== undefined)
+      updatePayload.is_entrypass = headerData.is_entrypass;
 
     const { data: picklist, error: picklistError } = await client
-      .from('picklist_master')
+      .from("picklist_master")
       .update(updatePayload)
-      .eq('id', id)
-      .eq('entity_id', tenant.entityId)
+      .eq("id", id)
+      .eq("entity_id", tenant.entityId)
       .select()
       .single();
 
-    if (picklistError) throw new NotFoundException('Picklist not found');
+    if (picklistError) throw new NotFoundException("Picklist not found");
 
     // If items are provided, delete old and recreate
     if (items) {
       // Fetch old item ids
       const { data: oldItems } = await client
-        .from('picklist_items')
-        .select('id')
-        .eq('picklist_id', id);
+        .from("picklist_items")
+        .select("id")
+        .eq("picklist_id", id);
 
       const oldItemIds = (oldItems || []).map((i: any) => i.id);
 
       // Delete batch allocations for old items
       if (oldItemIds.length > 0) {
         await client
-          .from('picklist_batch_allocation')
+          .from("picklist_batch_allocation")
           .delete()
-          .in('picklist_item_id', oldItemIds);
+          .in("picklist_item_id", oldItemIds);
       }
 
       // Delete old items
-      await client
-        .from('picklist_items')
-        .delete()
-        .eq('picklist_id', id);
+      await client.from("picklist_items").delete().eq("picklist_id", id);
 
       // Insert new items and allocations
       for (const item of items) {
         const { data: picklistItem, error: itemError } = await client
-          .from('picklist_items')
+          .from("picklist_items")
           .insert({
             picklist_id: id,
             product_id: item.product_id,
@@ -426,7 +500,7 @@ export class PicklistsService {
             qty_ordered: item.qty_ordered || 0,
             qty_to_pick: item.qty_to_pick || 0,
             qty_picked: item.qty_picked || 0,
-            status: item.status || 'YET_TO_START',
+            status: item.status || "YET_TO_START",
           })
           .select()
           .single();
@@ -438,14 +512,17 @@ export class PicklistsService {
             picklist_item_id: picklistItem.id,
             batch_id: ba.batch_id,
             layer_id: ba.layer_id,
-            warehouse_id: ba.warehouse_id || headerData.warehouse_id || picklist.warehouse_id,
+            warehouse_id:
+              ba.warehouse_id ||
+              headerData.warehouse_id ||
+              picklist.warehouse_id,
             bin_id: ba.bin_id,
             qty: ba.qty || 0,
             foc_qty: ba.foc_qty || 0,
           }));
 
           const { error: batchError } = await client
-            .from('picklist_batch_allocation')
+            .from("picklist_batch_allocation")
             .insert(batchRows);
 
           if (batchError) throw batchError;
@@ -466,14 +543,14 @@ export class PicklistsService {
 
     // Soft-delete: set is_delete = true instead of removing from DB
     const { data, error } = await client
-      .from('picklist_master')
+      .from("picklist_master")
       .update({ is_delete: true })
-      .eq('id', id)
-      .eq('entity_id', tenant.entityId)
+      .eq("id", id)
+      .eq("entity_id", tenant.entityId)
       .select()
       .single();
 
-    if (error) throw new NotFoundException('Picklist not found');
+    if (error) throw new NotFoundException("Picklist not found");
     return data;
   }
 
@@ -486,14 +563,14 @@ export class PicklistsService {
     const client = this.supabaseService.getClient();
 
     const { data, error } = await client
-      .from('picklist_master')
-      .select('picklist_no')
-      .eq('entity_id', tenant.entityId)
-      .like('picklist_no', 'PL-%');
+      .from("picklist_master")
+      .select("picklist_no")
+      .eq("entity_id", tenant.entityId)
+      .like("picklist_no", "PL-%");
 
     if (error) {
       this.logger.error(`Error fetching next number: ${error.message}`);
-      return { next_number: 1, prefix: 'PL-', formatted: 'PL-00001' };
+      return { next_number: 1, prefix: "PL-", formatted: "PL-00001" };
     }
 
     let maxNumber = 0;
@@ -508,8 +585,8 @@ export class PicklistsService {
     const nextNum = maxNumber + 1;
     return {
       next_number: nextNum,
-      prefix: 'PL-',
-      formatted: `PL-${String(nextNum).padStart(5, '0')}`,
+      prefix: "PL-",
+      formatted: `PL-${String(nextNum).padStart(5, "0")}`,
     };
   }
 
@@ -526,7 +603,9 @@ export class PicklistsService {
     sortOrder?: string,
   ) {
     try {
-      this.logger.log(`Fetching items for warehouse: ${warehouseId} (Page: ${page}, Limit: ${limit})`);
+      this.logger.log(
+        `Fetching items for warehouse: ${warehouseId} (Page: ${page}, Limit: ${limit})`,
+      );
 
       const client = this.supabaseService.getClient();
 
@@ -536,19 +615,20 @@ export class PicklistsService {
       // PostgREST `or(...)` cannot safely mix referenced-table columns, so we
       // resolve sales-order IDs first and apply OR only on base table columns.
       const { data: soRows } = await client
-        .from('sales_orders')
-        .select('id')
-        .eq('warehouse_id', warehouseId)
-        .eq('entity_id', tenant.entityId)
-        .eq('is_delete', false);
+        .from("sales_orders")
+        .select("id")
+        .eq("warehouse_id", warehouseId)
+        .eq("entity_id", tenant.entityId)
+        .eq("is_delete", false);
 
       const soIds = (soRows ?? [])
-        .map((r: any) => (r?.id ?? '').toString())
+        .map((r: any) => (r?.id ?? "").toString())
         .filter((id: string) => id.length > 0);
 
       let query = client
-        .from('sales_order_items')
-        .select(`
+        .from("sales_order_items")
+        .select(
+          `
           id,
           product_id,
           sales_order_id,
@@ -571,55 +651,75 @@ export class PicklistsService {
             units(unit_name),
             storage_conditions(location_name)
           )
-        `, { count: 'exact' })
-        .eq('entity_id', tenant.entityId);
+        `,
+          { count: "exact" },
+        )
+        .eq("entity_id", tenant.entityId);
 
       if (soIds.length > 0) {
         query = query.or(
-          `warehouse_id.eq.${warehouseId},sales_order_id.in.(${soIds.join(',')})`,
+          `warehouse_id.eq.${warehouseId},sales_order_id.in.(${soIds.join(",")})`,
         );
       } else {
-        query = query.eq('warehouse_id', warehouseId);
+        query = query.eq("warehouse_id", warehouseId);
       }
 
       // Apply Filters (support comma-separated IDs for multi-select)
       if (customerId) {
-        const ids = customerId.split(',').map(id => id.trim()).filter(Boolean);
+        const ids = customerId
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean);
         if (ids.length > 0) {
-          query = query.in('sales_orders.customer_id', ids);
+          query = query.in("sales_orders.customer_id", ids);
         }
       }
       if (productId) {
-        const ids = productId.split(',').map(id => id.trim()).filter(Boolean);
+        const ids = productId
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean);
         if (ids.length > 0) {
-          query = query.in('product_id', ids);
+          query = query.in("product_id", ids);
         }
       }
       if (salesOrderId) {
-        const ids = salesOrderId.split(',').map(id => id.trim()).filter(Boolean);
+        const ids = salesOrderId
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean);
         if (ids.length > 0) {
-          query = query.in('sales_order_id', ids);
+          query = query.in("sales_order_id", ids);
         }
       }
 
       // Apply Search
       if (search) {
-        query = query.or(`products.product_name.ilike.%${search}%,products.sku.ilike.%${search}%,sales_orders.sale_number.ilike.%${search}%`);
+        query = query.or(
+          `products.product_name.ilike.%${search}%,products.sku.ilike.%${search}%,sales_orders.sale_number.ilike.%${search}%`,
+        );
       }
 
-      const ascending = (sortOrder ?? 'desc') === 'asc';
-      if (sortBy === 'salesOrder') {
+      const ascending = (sortOrder ?? "desc") === "asc";
+      if (sortBy === "salesOrder") {
         // Sort by sale_number on main query — referenced-table ordering alone
         // does NOT control the primary row order in PostgREST.
         // We'll sort in-memory after fetch instead.
       } else {
-        query = query.order('created_at', { referencedTable: 'sales_orders', ascending: false });
+        query = query.order("created_at", {
+          referencedTable: "sales_orders",
+          ascending: false,
+        });
       }
 
       // Apply Pagination
-      const { data: orderItems, count, error } = await query
+      const {
+        data: orderItems,
+        count,
+        error,
+      } = await query
         .range((page - 1) * limit, page * limit - 1)
-        .order('id', { ascending: false });
+        .order("id", { ascending: false });
 
       if (error) {
         this.logger.error(`sales_order_items query error: ${error.message}`);
@@ -627,14 +727,16 @@ export class PicklistsService {
       }
 
       let items = orderItems ?? [];
-      this.logger.log(`Loaded ${items.length} sales_order_items rows for warehouse ${warehouseId}`);
+      this.logger.log(
+        `Loaded ${items.length} sales_order_items rows for warehouse ${warehouseId}`,
+      );
 
       // In-memory sort by sale_number when requested, since PostgREST
       // referenced-table ordering doesn't control the primary row order.
-      if (sortBy === 'salesOrder') {
+      if (sortBy === "salesOrder") {
         items = [...items].sort((a: any, b: any) => {
-          const aNum = a.sales_orders?.sale_number || '';
-          const bNum = b.sales_orders?.sale_number || '';
+          const aNum = a.sales_orders?.sale_number || "";
+          const bNum = b.sales_orders?.sale_number || "";
           return ascending
             ? aNum.localeCompare(bNum, undefined, { numeric: true })
             : bNum.localeCompare(aNum, undefined, { numeric: true });
@@ -643,26 +745,25 @@ export class PicklistsService {
 
       return {
         data: items.map((item: any) => ({
-          id: item.id || '',
+          id: item.id || "",
           warehouseId: item.warehouse_id || warehouseId,
-          productId: item.product_id || '',
-          salesOrderId: item.sales_order_id || '',
-          salesOrderLineId: item.id || '',
-          customerId: item.sales_orders?.customer_id || '',
-          productCode: item.products?.sku || '',
-          productName: item.products?.product_name || '',
+          productId: item.product_id || "",
+          salesOrderId: item.sales_order_id || "",
+          salesOrderLineId: item.id || "",
+          customerId: item.sales_orders?.customer_id || "",
+          productCode: item.products?.sku || "",
+          productName: item.products?.product_name || "",
           currentStock: 0,
           quantityOnHand: 0,
-          availableQuantity:
-            (Number(item.quantity) || 0),
-          quantityToPick:
-            (Number(item.quantity) || 0),
-          quantityOrdered:
-            (Number(item.quantity) || 0),
-          orderNumber: item.sales_orders?.sale_number || '',
-          customerName: item.sales_orders?.customers?.display_name || 'Walk-in Customer',
-          preferredBin: item.products?.storage_conditions?.location_name || 'N/A',
-          unit: item.products?.units?.unit_name || item.products?.unit_id || '',
+          availableQuantity: Number(item.quantity) || 0,
+          quantityToPick: Number(item.quantity) || 0,
+          quantityOrdered: Number(item.quantity) || 0,
+          orderNumber: item.sales_orders?.sale_number || "",
+          customerName:
+            item.sales_orders?.customers?.display_name || "Walk-in Customer",
+          preferredBin:
+            item.products?.storage_conditions?.location_name || "N/A",
+          unit: item.products?.units?.unit_name || item.products?.unit_id || "",
         })),
         meta: {
           page,
@@ -674,7 +775,7 @@ export class PicklistsService {
       };
     } catch (error) {
       this.logger.error(
-        `Error fetching warehouse items for ${warehouseId}: ${error instanceof Error ? error.stack : String(error)}`
+        `Error fetching warehouse items for ${warehouseId}: ${error instanceof Error ? error.stack : String(error)}`,
       );
       return {
         data: [],
@@ -685,7 +786,7 @@ export class PicklistsService {
         },
         total: 0,
         success: false,
-        message: 'Failed to fetch warehouse items from transactions',
+        message: "Failed to fetch warehouse items from transactions",
       };
     }
   }
@@ -702,68 +803,79 @@ export class PicklistsService {
     productId?: string,
   ) {
     try {
-      this.logger.log(`Fetching bins for warehouse: ${warehouseId}, product: ${productId}, entity: ${tenant.entityId}`);
+      this.logger.log(
+        `Fetching bins for warehouse: ${warehouseId}, product: ${productId}, entity: ${tenant.entityId}`,
+      );
       const client = this.supabaseService.getClient();
 
       let binIds: string[] = [];
 
       if (productId) {
         const { data: stockLayers, error: stockError } = await client
-          .from('batch_stock_layers')
-          .select('bin_id')
-          .eq('product_id', productId)
-          .eq('warehouse_id', warehouseId)
-          .eq('entity_id', tenant.entityId);
+          .from("batch_stock_layers")
+          .select("bin_id")
+          .eq("product_id", productId)
+          .eq("warehouse_id", warehouseId)
+          .eq("entity_id", tenant.entityId);
 
         if (stockError) {
-          this.logger.error(`batch_stock_layers query error: ${stockError.message}`);
+          this.logger.error(
+            `batch_stock_layers query error: ${stockError.message}`,
+          );
         } else if (stockLayers && stockLayers.length > 0) {
           // Deduplicate bin IDs and remove nulls
           const set = new Set(
             stockLayers
               .map((sl: any) => sl.bin_id)
-              .filter((id: any) => id !== null && id !== '')
+              .filter((id: any) => id !== null && id !== ""),
           );
           binIds = Array.from(set);
-          this.logger.log(`Found ${binIds.length} unique bins associated with product ${productId}`);
+          this.logger.log(
+            `Found ${binIds.length} unique bins associated with product ${productId}`,
+          );
         } else {
-          this.logger.warn(`No associations found in batch_stock_layers for product ${productId}. Falling back to all warehouse bins.`);
+          this.logger.warn(
+            `No associations found in batch_stock_layers for product ${productId}. Falling back to all warehouse bins.`,
+          );
         }
       }
 
       // Step 2: Query bin_master
       let query = client
-        .from('bin_master')
-        .select('id, bin_code, is_active')
-        .eq('warehouse_id', warehouseId)
-        .eq('entity_id', tenant.entityId)
-        .eq('is_active', true);
+        .from("bin_master")
+        .select("id, bin_code, is_active")
+        .eq("warehouse_id", warehouseId)
+        .eq("entity_id", tenant.entityId)
+        .eq("is_active", true);
 
       // Apply product filter ONLY if we found bins
       if (binIds.length > 0) {
-        query = query.in('id', binIds);
+        query = query.in("id", binIds);
       }
 
-      query = query.order('bin_code', { ascending: true });
+      query = query.order("bin_code", { ascending: true });
 
       if (search) {
-        query = query.ilike('bin_code', `%${search}%`);
+        query = query.ilike("bin_code", `%${search}%`);
       }
 
       let { data, error } = await query.limit(1000);
 
       // FALLBACK: If we filtered by product and got ZERO results, try again without the filter
       if (!error && productId && (data == null || data.length === 0)) {
-        this.logger.warn(`No bins found for product ${productId} in warehouse ${warehouseId}. Falling back to ALL warehouse bins.`);
+        this.logger.warn(
+          `No bins found for product ${productId} in warehouse ${warehouseId}. Falling back to ALL warehouse bins.`,
+        );
         const fallbackQuery = client
-          .from('bin_master')
-          .select('id, bin_code, is_active')
-          .eq('warehouse_id', warehouseId)
-          .eq('entity_id', tenant.entityId)
-          .eq('is_active', true)
-          .order('bin_code', { ascending: true });
+          .from("bin_master")
+          .select("id, bin_code, is_active")
+          .eq("warehouse_id", warehouseId)
+          .eq("entity_id", tenant.entityId)
+          .eq("is_active", true)
+          .order("bin_code", { ascending: true });
 
-        const { data: fallbackData, error: fallbackError } = await fallbackQuery.limit(1000);
+        const { data: fallbackData, error: fallbackError } =
+          await fallbackQuery.limit(1000);
         if (!fallbackError) {
           data = fallbackData;
         }
@@ -790,7 +902,7 @@ export class PicklistsService {
       };
     } catch (error) {
       this.logger.error(
-        `Error fetching bins for warehouse ${warehouseId}: ${error instanceof Error ? error.message : String(error)}`
+        `Error fetching bins for warehouse ${warehouseId}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return { data: [], success: false };
     }

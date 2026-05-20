@@ -75,7 +75,11 @@ export class ProductsService {
     return uuidRegex.test(value.trim());
   }
 
-  private resolveScope(tenant?: TenantContext, orgId?: string | null, _branchId?: string | null) {
+  private resolveScope(
+    tenant?: TenantContext,
+    orgId?: string | null,
+    _branchId?: string | null,
+  ) {
     return {
       entityId: tenant?.entityId || this.cleanUuid(orgId) || this.defaultOrgId,
       orgId: tenant?.orgId || this.cleanUuid(orgId) || this.defaultOrgId,
@@ -891,11 +895,14 @@ export class ProductsService {
     return (data || []).map((batch) => {
       const layers = (batch as any).batch_stock_layers || [];
       // Pick the latest layer by updated_at or index
-      const latestLayer = layers.length > 0 
-        ? layers.reduce((prev, current) => 
-            (new Date(current.updated_at) > new Date(prev.updated_at)) ? current : prev
-          )
-        : null;
+      const latestLayer =
+        layers.length > 0
+          ? layers.reduce((prev, current) =>
+              new Date(current.updated_at) > new Date(prev.updated_at)
+                ? current
+                : prev,
+            )
+          : null;
 
       return {
         ...batch,
@@ -946,7 +953,9 @@ export class ProductsService {
     if (error) {
       console.error("Error creating batch:", error);
 
-      if ((error.message || "").includes("permission denied for table batches")) {
+      if (
+        (error.message || "").includes("permission denied for table batches")
+      ) {
         try {
           const [fallbackCreated] = await db
             .insert(batches)
@@ -1195,7 +1204,7 @@ export class ProductsService {
     const supabase = this.supabaseService.getClient();
     const scope = this.resolveScope(tenant);
 
-    let query = supabase
+    const query = supabase
       .from("products")
       .update({ is_active: false })
       .eq("id", id);
@@ -1958,7 +1967,7 @@ export class ProductsService {
       updateData.description = termData.description;
     }
 
-    let query = supabase
+    const query = supabase
       .from("reorder_terms")
       .update(updateData)
       .eq("id", id)
@@ -1989,7 +1998,7 @@ export class ProductsService {
     }
 
     // Soft delete
-    let query = supabase
+    const query = supabase
       .from("reorder_terms")
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq("id", id)
@@ -2007,7 +2016,7 @@ export class ProductsService {
   async syncReorderTerms(items: any[], tenant?: TenantContext) {
     const supabase = this.supabaseService.getClient();
     const scope = this.resolveScope(tenant);
-    let currentQuery = supabase
+    const currentQuery = supabase
       .from("reorder_terms")
       .select("id, term_name, quantity, is_active")
       .eq("entity_id", scope.entityId);
@@ -2090,9 +2099,7 @@ export class ProductsService {
     const { data, error } = await supabase
       .from("reorder_terms")
       .upsert(toUpsert, { onConflict: "id" })
-      .select(
-        "id, entity_id, term_name, quantity, description, is_active",
-      );
+      .select("id, entity_id, term_name, quantity, description, is_active");
 
     if (error) throw error;
     return data ?? [];
@@ -2207,7 +2214,10 @@ export class ProductsService {
   }
 
   async getLookupBootstrap(tenant?: TenantContext) {
-    const safeLookup = async <T>(name: string, fn: () => Promise<T>): Promise<T | any[]> => {
+    const safeLookup = async <T>(
+      name: string,
+      fn: () => Promise<T>,
+    ): Promise<T | any[]> => {
       try {
         return await fn();
       } catch (error: any) {
@@ -2717,10 +2727,7 @@ export class ProductsService {
     return data;
   }
 
-  private async mapProduct(
-    product: any,
-    tenant?: TenantContext,
-  ) {
+  private async mapProduct(product: any, tenant?: TenantContext) {
     if (!product) return null;
 
     // Sign Primary Image if it exists
@@ -2776,10 +2783,7 @@ export class ProductsService {
     return product;
   }
 
-  private async mapCompositeItem(
-    compositeItem: any,
-    tenant?: TenantContext,
-  ) {
+  private async mapCompositeItem(compositeItem: any, tenant?: TenantContext) {
     if (!compositeItem) return null;
 
     try {
@@ -2788,9 +2792,7 @@ export class ProductsService {
         tenant,
       );
       if (branchSetting) {
-        compositeItem.reorder_point = Number(
-          branchSetting.reorder_point ?? 0,
-        );
+        compositeItem.reorder_point = Number(branchSetting.reorder_point ?? 0);
         compositeItem.reorder_term_id = branchSetting.reorder_term_id ?? null;
       }
     } catch (e) {

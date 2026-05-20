@@ -474,7 +474,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         return;
       }
       if (item.accountId == null || item.accountId!.isEmpty) {
-        ZerpaiToast.error(context, 'Please select Account for item ${i + 1}');
+        ZerpaiToast.error(
+          context,
+          'Please select Account for item ${i + 1} (${item.productName ?? 'Product'})',
+        );
         return;
       }
     }
@@ -528,6 +531,18 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         }
       }
 
+      final activePriceLists = ref.read(activePriceListsProvider);
+
+      final updatedItems = poState.items
+          .where((i) => i.productId.isNotEmpty)
+          .map((item) {
+            final pl = activePriceLists.where((p) => p.id == item.priceListId).firstOrNull;
+            return item.copyWith(
+              pricelist: pl?.name,
+            );
+          })
+          .toList();
+
       final po = PurchaseOrder(
         id: _editingOrderId,
         orderNumber: poState.orderNumber,
@@ -556,7 +571,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         discountLevel: poState.discountLevel,
         discountAccountId: poState.discountAccountId,
         isDelete: false,
-        items: poState.items.where((i) => i.productId.isNotEmpty).toList(),
+        items: updatedItems,
       );
 
       // 3. Save to Backend
@@ -573,6 +588,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       }
 
       if (mounted) {
+        // Invalidate cached list so the PO list page refetches fresh data
+        ref.invalidate(purchaseOrdersProvider);
+
         ZerpaiToast.success(
           context,
           _isEditMode ? 'Purchase Order updated successfully' : 'Purchase Order saved successfully',
@@ -1520,11 +1538,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           // ── FORM SECTION ──
           _buildFormSection(vendors, customers, warehouses, poState),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            padding: const EdgeInsets.only(left: 32, right: 32, bottom: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 24),
                 // ── WAREHOUSE ──
                 _zFormRow(
                   label: 'Warehouse',
@@ -2029,7 +2046,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               ),
               const SizedBox(height: 8),
               _reverseChargeCheckbox(poState, notifier),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
             ],
           ),
         ),
@@ -4446,7 +4463,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                               i.productName,
                                               isSelected,
                                               isHovered,
-                                              sublabel: i.itemCode.isNotEmpty ? i.itemCode : null,
+                                              sublabel: i.costPrice != null
+                                                  ? 'Purchase Rate: ₹${i.costPrice!.toStringAsFixed(2)}'
+                                                  : null,
                                             ),
                                         onChanged: (i) async {
                                           if (i == null) return;
@@ -4781,14 +4800,22 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                   child: Row(
                                     children: [
                                       Expanded(
-                                        child: Text(
-                                          item.accountName ?? 'Select Account',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: item.accountName == null ? _hintColor : _textPrimary,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                                        child: () {
+                                          final displayAccountName = (item.accountName != null && item.accountName!.isNotEmpty)
+                                              ? item.accountName!
+                                              : (item.accountId != null && item.accountId!.isNotEmpty
+                                                  ? availableAccounts.where((a) => a.id == item.accountId).firstOrNull?.name
+                                                  : null) ?? 'Select Account';
+                                          final isPlaceholder = displayAccountName == 'Select Account';
+                                          return Text(
+                                            displayAccountName,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: isPlaceholder ? _hintColor : _textPrimary,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          );
+                                        }(),
                                       ),
                                       const Icon(Icons.arrow_drop_down, size: 16, color: _hintColor),
                                     ],

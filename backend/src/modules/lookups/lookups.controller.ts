@@ -15,7 +15,10 @@ export class LookupsController {
   ]);
 
   @Get(":type")
-  async getLookups(@Param("type") type: string, @Tenant() tenant: TenantContext) {
+  async getLookups(
+    @Param("type") type: string,
+    @Tenant() tenant: TenantContext,
+  ) {
     const tableMap = {
       units: { table: "units", field: "unit_name" },
       categories: { table: "categories", field: "name" },
@@ -71,7 +74,11 @@ export class LookupsController {
   }
 
   @Get(":type/search")
-  async searchLookups(@Param("type") type: string, @Query("q") query: string, @Tenant() tenant: TenantContext) {
+  async searchLookups(
+    @Param("type") type: string,
+    @Query("q") query: string,
+    @Tenant() tenant: TenantContext,
+  ) {
     if (!query) return [];
 
     const tableMap = {
@@ -166,7 +173,11 @@ export class LookupsController {
   }
 
   @Post(":type/sync")
-  async syncLookups(@Param("type") type: string, @Body() items: any[], @Tenant() tenant: TenantContext) {
+  async syncLookups(
+    @Param("type") type: string,
+    @Body() items: any[],
+    @Tenant() tenant: TenantContext,
+  ) {
     const tableMap = {
       units: "units",
       categories: "categories",
@@ -193,7 +204,7 @@ export class LookupsController {
 
     // Only inject entity_id for tables that have that column
     const isEntityScoped = LookupsController.entityScopedTables.has(tableName);
-    const syncedItems = items.map(item => ({
+    const syncedItems = items.map((item) => ({
       ...item,
       ...(isEntityScoped ? { entity_id: tenant.entityId } : {}),
     }));

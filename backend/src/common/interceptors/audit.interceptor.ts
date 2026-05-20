@@ -112,7 +112,11 @@ const ROUTE_TABLE_MAP: RouteEntry[] = [
   },
   { pattern: /\/users\/[0-9a-fA-F-]{36}/, table: "users", module: "settings" },
   { pattern: /^\/api\/v1\/users$/, table: "users", module: "settings" },
-  { pattern: /\/users\/roles\/(?!catalog$)[^/]+$/, table: "roles", module: "settings" },
+  {
+    pattern: /\/users\/roles\/(?!catalog$)[^/]+$/,
+    table: "roles",
+    module: "settings",
+  },
   { pattern: /^\/api\/v1\/users\/roles$/, table: "roles", module: "settings" },
   // Transaction series
   {
@@ -137,7 +141,9 @@ export class AuditInterceptor implements NestInterceptor {
   private resolveOrgId(request: any): string {
     return (
       request?.tenantContext?.orgId?.toString().trim() ||
-      (request?.headers?.["x-org-id"] as string | undefined)?.toString().trim() ||
+      (request?.headers?.["x-org-id"] as string | undefined)
+        ?.toString()
+        .trim() ||
       request?.query?.org_id?.toString().trim() ||
       request?.body?.org_id?.toString().trim() ||
       "00000000-0000-0000-0000-000000000000"
@@ -190,12 +196,15 @@ export class AuditInterceptor implements NestInterceptor {
     const branchId = this.resolveBranchId(request);
     const userId: string =
       request?.tenantContext?.userId?.toString().trim() ||
-      (request.headers?.["x-user-id"] as string | undefined)?.toString().trim() ||
+      (request.headers?.["x-user-id"] as string | undefined)
+        ?.toString()
+        .trim() ||
       (request.user?.sub as string | undefined)?.toString().trim() ||
       "00000000-0000-0000-0000-000000000000";
     const actorName: string =
-      (request.headers?.["x-actor-name"] as string | undefined)?.toString().trim() ||
-      this.resolveActorName(request, userId);
+      (request.headers?.["x-actor-name"] as string | undefined)
+        ?.toString()
+        .trim() || this.resolveActorName(request, userId);
 
     const entry = this.resolveEntry(url);
 
@@ -220,7 +229,10 @@ export class AuditInterceptor implements NestInterceptor {
             module_name: "api",
             source: "api",
           }).catch((err) =>
-            console.error("[AuditInterceptor] Failed to write fallback log:", err),
+            console.error(
+              "[AuditInterceptor] Failed to write fallback log:",
+              err,
+            ),
           );
         }),
       );

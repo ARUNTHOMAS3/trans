@@ -48,11 +48,7 @@ export class SequencesController {
   ) {
     const resolvedBranchId = branchId || tenant.branchId;
 
-    return this.sequencesService.getSequence(
-      module,
-      tenant,
-      resolvedBranchId,
-    );
+    return this.sequencesService.getSequence(module, tenant, resolvedBranchId);
   }
 
   @Post(":module/increment")

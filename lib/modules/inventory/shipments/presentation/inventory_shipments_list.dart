@@ -583,7 +583,7 @@ class _InventoryShipmentsListScreenState extends ConsumerState<InventoryShipment
                     _activeShipmentId = s['id'];
                   });
                 },
-                color: MaterialStateProperty.resolveWith<Color?>((states) {
+                color: WidgetStateProperty.resolveWith<Color?>((states) {
                   if (isSelected) return const Color(0xFFF0F7FF);
                   return null;
                 }),
@@ -2398,9 +2398,9 @@ String _formatAddress(String? addressStr) {
       } catch (_) {}
     }
 
-    final dateStr = shipment['date_of_shipment'] != null
+    /* final dateStr = shipment['date_of_shipment'] != null
         ? DateFormat('dd-MM-yyyy').format(DateTime.parse(shipment['date_of_shipment']))
-        : '-';
+        : '-'; */
 
     doc.addPage(
       pw.Page(

@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Patch,
+  Put,
   Param,
   Delete,
   Query,
@@ -53,27 +54,26 @@ export class PurchaseOrdersController {
   }
 
   @Get(":id")
-  findOne(
-    @Tenant() tenant: TenantContext,
-    @Param("id") id: string,
-  ) {
+  findOne(@Tenant() tenant: TenantContext, @Param("id") id: string) {
     return this.purchaseOrdersService.findOne(id, tenant);
   }
 
   @Patch(":id")
+  @Put(":id")
   update(
     @Param("id") id: string,
     @Tenant() tenant: TenantContext,
     @Body() updatePurchaseOrderDto: UpdatePurchaseOrderDto,
   ) {
-    return this.purchaseOrdersService.update(id, tenant, updatePurchaseOrderDto);
+    return this.purchaseOrdersService.update(
+      id,
+      tenant,
+      updatePurchaseOrderDto,
+    );
   }
 
   @Delete(":id")
-  remove(
-    @Tenant() tenant: TenantContext,
-    @Param("id") id: string,
-  ) {
+  remove(@Tenant() tenant: TenantContext, @Param("id") id: string) {
     return this.purchaseOrdersService.remove(id, tenant);
   }
 }

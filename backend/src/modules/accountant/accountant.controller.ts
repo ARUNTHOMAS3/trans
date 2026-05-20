@@ -55,18 +55,12 @@ export class AccountantController {
   }
 
   @Get("manual-journals/:id([0-9a-fA-F-]{36})")
-  findManualJournal(
-    @Param("id") id: string,
-    @Tenant() tenant: TenantContext,
-  ) {
+  findManualJournal(@Param("id") id: string, @Tenant() tenant: TenantContext) {
     return this.accountantService.findManualJournal(id, tenant);
   }
 
   @Post("manual-journals")
-  createManualJournal(
-    @Body() data: any,
-    @Tenant() tenant: TenantContext,
-  ) {
+  createManualJournal(@Body() data: any, @Tenant() tenant: TenantContext) {
     return this.accountantService.createManualJournal(data, tenant);
   }
 
@@ -122,10 +116,7 @@ export class AccountantController {
   }
 
   @Post("manual-journals/:id([0-9a-fA-F-]{36})/clone")
-  cloneManualJournal(
-    @Param("id") id: string,
-    @Tenant() tenant: TenantContext,
-  ) {
+  cloneManualJournal(@Param("id") id: string, @Tenant() tenant: TenantContext) {
     return this.accountantService.cloneManualJournal(id, tenant);
   }
 
@@ -151,10 +142,7 @@ export class AccountantController {
   }
 
   @Post("fiscal-years")
-  saveFiscalYear(
-    @Body() data: any,
-    @Tenant() tenant: TenantContext,
-  ) {
+  saveFiscalYear(@Body() data: any, @Tenant() tenant: TenantContext) {
     return this.accountantService.saveFiscalYear(data, tenant);
   }
 
@@ -248,10 +236,7 @@ export class AccountantController {
   }
 
   @Get("recurring-journals/:id([0-9a-fA-F-]{36})/child-journals")
-  findChildJournals(
-    @Param("id") id: string,
-    @Tenant() tenant: TenantContext,
-  ) {
+  findChildJournals(@Param("id") id: string, @Tenant() tenant: TenantContext) {
     return this.accountantService.findRecurringChildJournals(id, tenant);
   }
 
@@ -261,12 +246,21 @@ export class AccountantController {
   }
 
   @Post("recurring-journals/:id([0-9a-fA-F-]{36})/generate")
-  generateChildJournal(@Param("id") id: string, @Tenant() tenant: TenantContext) {
-    return this.accountantService.generateManualJournalFromRecurring(id, tenant);
+  generateChildJournal(
+    @Param("id") id: string,
+    @Tenant() tenant: TenantContext,
+  ) {
+    return this.accountantService.generateManualJournalFromRecurring(
+      id,
+      tenant,
+    );
   }
 
   @Post("recurring-journals/:id([0-9a-fA-F-]{36})/clone")
-  cloneRecurringJournal(@Param("id") id: string, @Tenant() tenant: TenantContext) {
+  cloneRecurringJournal(
+    @Param("id") id: string,
+    @Tenant() tenant: TenantContext,
+  ) {
     return this.accountantService.cloneRecurringJournal(id, tenant);
   }
 
@@ -293,7 +287,10 @@ export class AccountantController {
   }
 
   @Delete("recurring-journals/:id([0-9a-fA-F-]{36})")
-  deleteRecurringJournal(@Param("id") id: string, @Tenant() tenant: TenantContext) {
+  deleteRecurringJournal(
+    @Param("id") id: string,
+    @Tenant() tenant: TenantContext,
+  ) {
     return this.accountantService.deleteRecurringJournal(id, tenant);
   }
 
@@ -343,10 +340,7 @@ export class AccountantController {
   }
 
   @Post("transaction-locking")
-  lockModule(
-    @Body() data: any,
-    @Tenant() tenant: TenantContext,
-  ) {
+  lockModule(@Body() data: any, @Tenant() tenant: TenantContext) {
     return this.accountantService.lockModule(data, tenant);
   }
 
@@ -361,18 +355,12 @@ export class AccountantController {
   // --- Dynamic Accounts Routes (must be last) ---
 
   @Get(":id([0-9a-fA-F-]{36})/journal-usage")
-  checkJournalUsage(
-    @Param("id") id: string,
-    @Tenant() tenant: TenantContext,
-  ) {
+  checkJournalUsage(@Param("id") id: string, @Tenant() tenant: TenantContext) {
     return this.accountantService.checkAccountJournalUsage(id, tenant);
   }
 
   @Get(":id([0-9a-fA-F-]{36})")
-  findOne(
-    @Param("id") id: string,
-    @Tenant() tenant: TenantContext,
-  ) {
+  findOne(@Param("id") id: string, @Tenant() tenant: TenantContext) {
     return this.accountantService.findOne(id, tenant);
   }
 
@@ -390,10 +378,7 @@ export class AccountantController {
   }
 
   @Get(":id([0-9a-fA-F-]{36})/closing-balance")
-  getClosingBalance(
-    @Param("id") id: string,
-    @Tenant() tenant: TenantContext,
-  ) {
+  getClosingBalance(@Param("id") id: string, @Tenant() tenant: TenantContext) {
     return this.accountantService.getClosingBalance(id, tenant);
   }
 
@@ -407,10 +392,7 @@ export class AccountantController {
   }
 
   @Delete(":id([0-9a-fA-F-]{36})")
-  remove(
-    @Param("id") id: string,
-    @Tenant() tenant: TenantContext,
-  ) {
+  remove(@Param("id") id: string, @Tenant() tenant: TenantContext) {
     return this.accountantService.remove(id, tenant);
   }
 }

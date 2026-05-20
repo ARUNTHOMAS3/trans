@@ -194,7 +194,13 @@ describe.skip("ReportsService.getDashboardSummary", () => {
         from: (table: string) => {
           if (table === "accounts") {
             const accResult = {
-              data: [{ id: "acc-1", account_type: "cash", user_account_name: "Cash" }],
+              data: [
+                {
+                  id: "acc-1",
+                  account_type: "cash",
+                  user_account_name: "Cash",
+                },
+              ],
               error: null,
             };
             const accQuery: any = {
@@ -226,7 +232,10 @@ describe.skip("ReportsService.getDashboardSummary", () => {
       }),
     } as any);
 
-    await service.getDashboardSummary({ entityId: undefined, orgId: undefined } as any);
+    await service.getDashboardSummary({
+      entityId: undefined,
+      orgId: undefined,
+    } as any);
 
     expect(eqCalls).not.toContainEqual(["org_id", undefined]);
     expect(eqCalls).toContainEqual(["contact_type", "customer"]);

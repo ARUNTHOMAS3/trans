@@ -21,7 +21,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
-import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock_providers.dart';
+
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 
@@ -118,7 +118,8 @@ class _BatchItemRowController {
 // MAIN WIDGET
 // ═════════════════════════════════════════════════════════════════════════════
 class PurchasesPurchaseReceivesCreateScreen extends ConsumerStatefulWidget {
-  const PurchasesPurchaseReceivesCreateScreen({super.key});
+  final String? initialPoId;
+  const PurchasesPurchaseReceivesCreateScreen({super.key, this.initialPoId});
 
   @override
   ConsumerState<PurchasesPurchaseReceivesCreateScreen> createState() =>
@@ -142,7 +143,7 @@ class _PRCreateState
   PurchaseOrder? _selectedPO;
   String? _selectedPONumber;
   String? _selectedPOId;
-  String? _selectedWarehouseName;
+
   List<PurchaseOrder> _vendorPOs = [];
   bool _isLoadingPOs = false;
   bool _isSaving = false;
@@ -157,7 +158,7 @@ class _PRCreateState
   final Set<String> _focusedQtyFields = <String>{};
   final Set<String> _hoveredBinFields = <String>{};
   final Set<String> _focusedBinFields = <String>{};
-  final Set<String> _focusedManualItemFields = <String>{};
+
   final Set<int> _hiddenManualIndices = <int>{};
   String _binMode = 'item'; // 'transaction' or 'item'
   bool _showFilePopup = false;
@@ -220,9 +221,40 @@ class _PRCreateState
     _receivedDateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
 
     // Load vendors and next number when screen opens
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(vendorProvider.notifier).loadVendors();
-      _fetchNextNumber();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(vendorProvider.notifier).loadVendors();
+      await _fetchNextNumber();
+
+      if (widget.initialPoId != null && mounted) {
+        try {
+          setState(() {
+            _isLoadingPOs = true;
+          });
+          // 1. Fetch the Purchase Order detail
+          final po = await ref.read(purchaseOrderProvider(widget.initialPoId!).future);
+          if (po != null && mounted) {
+            // 2. Set vendor details from the PO
+            setState(() {
+              _selectedVendorId = po.vendorId;
+              _selectedVendorName = po.vendorName;
+            });
+            // 3. Fetch POs for that vendor so the dropdown gets populated
+            if (po.vendorId.isNotEmpty) {
+              await _fetchPOsForVendor(po.vendorId);
+            }
+            // 4. Select the PO and populate its items
+            await _onPOSelected(po);
+          }
+        } catch (e) {
+          AppLogger.error('Failed to load initial purchase order for receive', error: e, module: 'purchases');
+        } finally {
+          if (mounted) {
+            setState(() {
+              _isLoadingPOs = false;
+            });
+          }
+        }
+      }
     });
   }
 
@@ -640,7 +672,7 @@ class _PRCreateState
                       border: Border.all(color: const Color(0xFFE5E7EB)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -867,7 +899,7 @@ class _PRCreateState
       _selectedPO = null;
       _selectedPONumber = null;
       _selectedPOId = null;
-      _selectedWarehouseName = null;
+
       _clearAllRows();
     });
 
@@ -904,7 +936,7 @@ class _PRCreateState
       final fullPO = await ref.read(purchaseOrderProvider(po.id!).future);
       if (!mounted) return;
 
-      // Resolve warehouse name explicitly
+      /* // Resolve warehouse name explicitly
       String? resolvedName;
       final poToUse = fullPO ?? po;
       
@@ -939,11 +971,11 @@ class _PRCreateState
         resolvedName = (poToUse.warehouseName != null && poToUse.warehouseName!.isNotEmpty)
             ? poToUse.warehouseName
             : 'Not Available';
-      }
+      } */
 
       setState(() {
         _selectedPO = fullPO ?? po;
-        _selectedWarehouseName = resolvedName;
+
         _isLoadingPOs = false;
         _clearAllRows();
 
@@ -1880,9 +1912,6 @@ class _PRCreateState
     required ValueChanged<String> onChanged,
     double height = 36,
   }) {
-    final isActive =
-        _hoveredQtyFields.contains(fieldKey) ||
-        _focusedQtyFields.contains(fieldKey);
 
     return MouseRegion(
       onEnter: (_) {
@@ -2276,9 +2305,7 @@ class _PRCreateState
         .map((e) => e.value.itemId)
         .whereType<String>()
         .toSet();
-    final visibleManualRowsCount = _items.asMap().entries
-        .where((e) => !_hiddenManualIndices.contains(e.key))
-        .length;
+
     final availablePoItems = poItems.where((poItem) {
       return !selectedIds.contains(poItem.productId) ||
           poItem.productId == item.itemId;

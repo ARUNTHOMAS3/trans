@@ -12,7 +12,6 @@ import { TenantContext } from "../../../../common/middleware/tenant.middleware";
 export class VendorsService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
-
   async findAll(
     tenant: TenantContext,
     page: number = 1,
@@ -199,7 +198,11 @@ export class VendorsService {
     return vendor;
   }
 
-  async update(id: string, updateVendorDto: UpdateVendorDto, tenant: TenantContext) {
+  async update(
+    id: string,
+    updateVendorDto: UpdateVendorDto,
+    tenant: TenantContext,
+  ) {
     const {
       billingAddress,
       shippingAddress,
@@ -304,10 +307,7 @@ export class VendorsService {
 
     // 2. Update Contacts (Delete and re-insert for simplicity/consistency)
     if (contactPersons) {
-      await client
-        .from("vendor_contact_persons")
-        .delete()
-        .eq("vendor_id", id);
+      await client.from("vendor_contact_persons").delete().eq("vendor_id", id);
       const contacts = contactPersons.map((c) => ({
         vendor_id: id,
         salutation: c.salutation,
@@ -324,10 +324,7 @@ export class VendorsService {
 
     // 3. Update Banks (Delete and re-insert)
     if (bankDetails) {
-      await client
-        .from("vendor_bank_accounts")
-        .delete()
-        .eq("vendor_id", id);
+      await client.from("vendor_bank_accounts").delete().eq("vendor_id", id);
       const banks = bankDetails.map((b) => ({
         vendor_id: id,
         holder_name: b.holderName,

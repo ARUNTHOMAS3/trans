@@ -48,10 +48,7 @@ export class CustomersController {
   }
 
   @Get(":id")
-  async findOne(
-    @Tenant() tenant: TenantContext,
-    @Param("id") id: string,
-  ) {
+  async findOne(@Tenant() tenant: TenantContext, @Param("id") id: string) {
     const customer = await this.customersService.findOne(id, tenant);
     if (!customer) {
       return {
@@ -78,9 +75,15 @@ export class CustomersController {
   }
 
   @Post()
-  async create(@Tenant() tenant: TenantContext, @Body() createCustomerDto: CreateCustomerDto) {
+  async create(
+    @Tenant() tenant: TenantContext,
+    @Body() createCustomerDto: CreateCustomerDto,
+  ) {
     try {
-      const customer = await this.customersService.create(createCustomerDto, tenant);
+      const customer = await this.customersService.create(
+        createCustomerDto,
+        tenant,
+      );
       return {
         data: customer,
         message: "Customer created successfully",
@@ -126,10 +129,7 @@ export class CustomersController {
   }
 
   @Delete(":id")
-  async remove(
-    @Tenant() tenant: TenantContext,
-    @Param("id") id: string,
-  ) {
+  async remove(@Tenant() tenant: TenantContext, @Param("id") id: string) {
     const result = await this.customersService.remove(id, tenant);
     if (!result) {
       return {

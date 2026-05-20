@@ -22,6 +22,10 @@ class PurchaseOrderItemDto {
   @IsOptional()
   account_id?: string;
 
+  @IsUUID()
+  @IsOptional()
+  accounts?: string;
+
   @IsNumber()
   quantity: number;
 
@@ -50,9 +54,29 @@ class PurchaseOrderItemDto {
 
   @IsNumber()
   amount: number;
+
+  @IsString()
+  @IsOptional()
+  hsn_code?: string;
+
+  @IsString()
+  @IsOptional()
+  pricelist?: string;
 }
 
 export class CreatePurchaseOrderDto {
+  @IsString()
+  @IsOptional()
+  org_id?: string;
+
+  @IsString()
+  @IsOptional()
+  branch_id?: string;
+
+  @IsString()
+  @IsOptional()
+  warehouse_name?: string;
+
   @IsUUID()
   vendor_id: string;
 

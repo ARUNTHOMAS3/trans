@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Delete,
-  Body,
-  Param,
-} from "@nestjs/common";
+import { Controller, Get, Post, Delete, Body, Param } from "@nestjs/common";
 import { TransactionLockingService } from "./transaction-locking.service";
 import { Tenant } from "../../common/decorators/tenant.decorator";
 import { TenantContext } from "../../common/middleware/tenant.middleware";

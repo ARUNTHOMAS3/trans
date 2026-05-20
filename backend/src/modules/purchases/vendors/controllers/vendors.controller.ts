@@ -29,10 +29,7 @@ export class VendorsController {
   }
 
   @Get(":id")
-  async findOne(
-    @Tenant() tenant: TenantContext,
-    @Param("id") id: string,
-  ) {
+  async findOne(@Tenant() tenant: TenantContext, @Param("id") id: string) {
     return this.vendorsService.findOne(id, tenant);
   }
 
@@ -54,10 +51,7 @@ export class VendorsController {
   }
 
   @Delete(":id")
-  async remove(
-    @Tenant() tenant: TenantContext,
-    @Param("id") id: string,
-  ) {
+  async remove(@Tenant() tenant: TenantContext, @Param("id") id: string) {
     return this.vendorsService.remove(id, tenant);
   }
 }

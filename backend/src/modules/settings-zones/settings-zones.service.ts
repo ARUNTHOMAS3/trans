@@ -114,10 +114,12 @@ export class SettingsZonesService {
         `Failed to resolve branch warehouses: ${byBranchId.error.message}`,
       );
     }
-    const mappedBranchWarehouses = (byBranchId.data ?? []).map((warehouse: any) => ({
-      id: warehouse.id.toString(),
-      name: (warehouse.name ?? fallbackName ?? "").toString(),
-    }));
+    const mappedBranchWarehouses = (byBranchId.data ?? []).map(
+      (warehouse: any) => ({
+        id: warehouse.id.toString(),
+        name: (warehouse.name ?? fallbackName ?? "").toString(),
+      }),
+    );
     if (mappedBranchWarehouses.length > 0) {
       return mappedBranchWarehouses;
     }
@@ -135,7 +137,11 @@ export class SettingsZonesService {
       );
     }
     if (branchLookup.data) {
-      const branchName = (branchLookup.data.name ?? fallbackName ?? normalizedId)
+      const branchName = (
+        branchLookup.data.name ??
+        fallbackName ??
+        normalizedId
+      )
         .toString()
         .trim();
       throw new BadRequestException(
@@ -209,9 +215,7 @@ export class SettingsZonesService {
     return levelMap;
   }
 
-  private async fetchBinRows(
-    zoneIds: string[],
-  ): Promise<BinRow[]> {
+  private async fetchBinRows(zoneIds: string[]): Promise<BinRow[]> {
     if (zoneIds.length === 0) return [];
     const { data, error } = await this.client
       .from("bin_master")
@@ -272,7 +276,10 @@ export class SettingsZonesService {
     );
 
     for (const scopeId of uniqueScopeIds) {
-      const scopeWarehouses = await this.resolveScopeWarehouses(tenant, scopeId);
+      const scopeWarehouses = await this.resolveScopeWarehouses(
+        tenant,
+        scopeId,
+      );
       const warehouseIds = scopeWarehouses.map((warehouse) => warehouse.id);
       if (warehouseIds.length === 0) {
         counts[scopeId] = 0;
@@ -299,7 +306,9 @@ export class SettingsZonesService {
     }
 
     for (const warehouse of scopeWarehouses) {
-      const existing = await this.fetchZonesByWarehouseIds(tenant, [warehouse.id]);
+      const existing = await this.fetchZonesByWarehouseIds(tenant, [
+        warehouse.id,
+      ]);
       if (existing.length > 0) {
         continue;
       }
@@ -394,19 +403,23 @@ export class SettingsZonesService {
     }
 
     if (levels.length > 0) {
-      const { error: levelInsertError } = await this.client.from("zone_levels").insert(
-        levels.map((level) => ({
-          id: randomUUID(),
-          zone_id: insertedZone.id,
-          level_no: level.level,
-          level_name: level.location,
-          alias: level.alias_name,
-          delimiter: level.delimiter,
-          total: level.total,
-        })),
-      );
+      const { error: levelInsertError } = await this.client
+        .from("zone_levels")
+        .insert(
+          levels.map((level) => ({
+            id: randomUUID(),
+            zone_id: insertedZone.id,
+            level_no: level.level,
+            level_name: level.location,
+            alias: level.alias_name,
+            delimiter: level.delimiter,
+            total: level.total,
+          })),
+        );
       if (levelInsertError) {
-        throw new Error(`Failed to create zone levels: ${levelInsertError.message}`);
+        throw new Error(
+          `Failed to create zone levels: ${levelInsertError.message}`,
+        );
       }
     }
 
@@ -422,7 +435,9 @@ export class SettingsZonesService {
       levels,
     );
     if (bins.length > 0) {
-      const { error: binInsertError } = await this.client.from("bin_master").insert(bins);
+      const { error: binInsertError } = await this.client
+        .from("bin_master")
+        .insert(bins);
       if (binInsertError) {
         throw new Error(`Failed to create bins: ${binInsertError.message}`);
       }
@@ -443,19 +458,26 @@ export class SettingsZonesService {
     );
   }
 
-  async disableBinLocations(tenant: TenantContext, body: DisableBinLocationsDto) {
+  async disableBinLocations(
+    tenant: TenantContext,
+    body: DisableBinLocationsDto,
+  ) {
     const scopeWarehouses = await this.resolveScopeWarehouses(
       tenant,
       body.branch_id,
     );
     const warehouseIds = scopeWarehouses.map((warehouse) => warehouse.id);
     if (warehouseIds.length === 0) {
-      throw new BadRequestException("Bin locations are not enabled for this location");
+      throw new BadRequestException(
+        "Bin locations are not enabled for this location",
+      );
     }
 
     const zones = await this.fetchZonesByWarehouseIds(tenant, warehouseIds);
     if (zones.length === 0) {
-      throw new BadRequestException("Bin locations are not enabled for this location");
+      throw new BadRequestException(
+        "Bin locations are not enabled for this location",
+      );
     }
 
     const zoneIds = zones.map((zone) => zone.id);
@@ -486,7 +508,9 @@ export class SettingsZonesService {
         .delete()
         .in("zone_id", zoneIds);
       if (levelDeleteError) {
-        throw new Error(`Failed to remove zone levels: ${levelDeleteError.message}`);
+        throw new Error(
+          `Failed to remove zone levels: ${levelDeleteError.message}`,
+        );
       }
 
       const { error: binDeleteError } = await this.client
@@ -543,13 +567,17 @@ export class SettingsZonesService {
     const start = (page - 1) * pageSize;
     const pageBins = bins.slice(start, start + pageSize);
 
-    const stockByBin = await this.fetchBinStockMap(pageBins.map((bin) => bin.id));
+    const stockByBin = await this.fetchBinStockMap(
+      pageBins.map((bin) => bin.id),
+    );
 
     const warehouseName = await this.resolveWarehouseName(zone.warehouse_id);
 
     return {
       zone: this.presentZone(zone, levels, totalCount, warehouseName),
-      items: pageBins.map((bin) => this.presentBin(bin, stockByBin.get(bin.id) ?? 0)),
+      items: pageBins.map((bin) =>
+        this.presentBin(bin, stockByBin.get(bin.id) ?? 0),
+      ),
       total_count: totalCount,
       page,
       page_size: pageSize,
@@ -578,7 +606,9 @@ export class SettingsZonesService {
       )
       .single();
     if (error || !data) {
-      throw new Error(`Failed to create bin: ${error?.message ?? "unknown error"}`);
+      throw new Error(
+        `Failed to create bin: ${error?.message ?? "unknown error"}`,
+      );
     }
     return this.presentBin(data as BinRow, 0);
   }
@@ -618,7 +648,9 @@ export class SettingsZonesService {
       )
       .single();
     if (error || !data) {
-      throw new Error(`Failed to update bin: ${error?.message ?? "unknown error"}`);
+      throw new Error(
+        `Failed to update bin: ${error?.message ?? "unknown error"}`,
+      );
     }
     const stock = await this.fetchBinStockMap([binId]);
     return this.presentBin(data as BinRow, stock.get(binId) ?? 0);
@@ -747,8 +779,7 @@ export class SettingsZonesService {
       0,
     );
     if (
-      aliasAndDelimiterLength >
-      SettingsZonesService.maxAliasAndDelimiterLength
+      aliasAndDelimiterLength > SettingsZonesService.maxAliasAndDelimiterLength
     ) {
       throw new BadRequestException(
         "The total combined length of the Alias Name and Delimiter fields across all five levels must not exceed 50 characters",
@@ -765,12 +796,11 @@ export class SettingsZonesService {
       .join(" | ");
   }
 
-  private buildBinName(
-    levels: ZoneLevelRecord[],
-    indexes: number[],
-  ): string {
+  private buildBinName(levels: ZoneLevelRecord[], indexes: number[]): string {
     return levels
-      .map((level, idx) => `${level.alias_name}${indexes[idx]}${level.delimiter}`)
+      .map(
+        (level, idx) => `${level.alias_name}${indexes[idx]}${level.delimiter}`,
+      )
       .join("");
   }
 
@@ -900,7 +930,9 @@ export class SettingsZonesService {
             .update({ bin_code: expectedName })
             .eq("id", existingBins[0].id);
           if (error) {
-            throw new Error(`Failed to normalize default bin name: ${error.message}`);
+            throw new Error(
+              `Failed to normalize default bin name: ${error.message}`,
+            );
           }
           return true;
         }

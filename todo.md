@@ -88,6 +88,8 @@ These are intentionally still under construction and should be tracked as planne
 - [ ] `lib/modules/purchases/vendors/presentation/sections/purchases_vendors_license_section.dart:386` Replace deprecated `withOpacity` with `.withValues()`.
 - [ ] `lib/modules/purchases/vendors/presentation/sections/purchases_vendors_other_details_section.dart:529` Replace deprecated `withOpacity` with `.withValues()`.
 - [ ] `lib/modules/purchases/vendors/presentation/sections/purchases_vendors_remarks_section.dart:49` Replace deprecated `withOpacity` with `.withValues()`.
+- [ ] `lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart:1589` Implement "Convert to Bill" action in purchase receive detail panel.
+- [ ] `lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_list.dart:2109` Fetch real associated bills count for purchase receive detail tabs.
 
 **Frontend / Items**
 

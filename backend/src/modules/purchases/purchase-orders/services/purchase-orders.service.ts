@@ -15,8 +15,8 @@ export class PurchaseOrdersService {
     if (dto.discount_account_id) {
       return dto.discount_account_id;
     }
-    
-    let { data } = await this.supabaseService
+
+    const { data } = await this.supabaseService
       .getClient()
       .from("accounts")
       .select("id,user_account_name,system_account_name")
@@ -26,7 +26,7 @@ export class PurchaseOrdersService {
       )
       .limit(1)
       .maybeSingle();
-      
+
     if (!data) {
       const fallback = await this.supabaseService
         .getClient()
@@ -39,7 +39,6 @@ export class PurchaseOrdersService {
     }
     return data?.id ?? null;
   }
-
 
   private async getNextPurchaseOrderNumber(tenant: TenantContext) {
     const regexPattern = "^PO-[0-9]+$";
@@ -153,14 +152,18 @@ export class PurchaseOrdersService {
       .single();
 
     if (error) {
-      throw new NotFoundException(`Purchase Order with ID ${id} not found`);
+      console.error("Error in findOne PO:", error);
+      throw new NotFoundException(`Purchase Order not found: ${error.message} (code: ${error.code})`);
     }
 
     return data;
   }
 
-  async create(createPurchaseOrderDto: CreatePurchaseOrderDto, tenant: TenantContext) {
-    const { items, ...poData } = createPurchaseOrderDto;
+  async create(
+    createPurchaseOrderDto: CreatePurchaseOrderDto,
+    tenant: TenantContext,
+  ) {
+    const { items, org_id, branch_id, warehouse_name, ...poData } = createPurchaseOrderDto;
     const resolvedDiscountAccountId = await this.resolveDiscountAccountId(
       tenant,
       createPurchaseOrderDto,
@@ -183,11 +186,24 @@ export class PurchaseOrdersService {
     }
 
     if (items && items.length > 0) {
-      const itemsPayload = items.map((item) => ({
-        ...(item as any),
-        purchase_order_id: data.id,
-        entity_id: tenant.entityId,
-      }));
+      const itemsPayload = items.map((item) => {
+        const accountId = item.account_id || item.accounts;
+        let hsnNumeric: number | null = null;
+        if (item.hsn_code !== undefined && item.hsn_code !== null && item.hsn_code !== '') {
+          const parsed = Number(item.hsn_code);
+          if (!isNaN(parsed)) {
+            hsnNumeric = parsed;
+          }
+        }
+        return {
+          ...(item as any),
+          account_id: accountId,
+          accounts: accountId,
+          hsn_code: hsnNumeric,
+          purchase_order_id: data.id,
+          entity_id: tenant.entityId,
+        };
+      });
 
       const { error: itemsError } = await this.supabaseService
         .getClient()
@@ -209,12 +225,13 @@ export class PurchaseOrdersService {
     tenant: TenantContext,
     updatePurchaseOrderDto: UpdatePurchaseOrderDto,
   ) {
+    const { items, org_id, branch_id, warehouse_name, ...poData } = updatePurchaseOrderDto;
     const resolvedDiscountAccountId = await this.resolveDiscountAccountId(
       tenant,
       updatePurchaseOrderDto,
     );
     const payload = {
-      ...(updatePurchaseOrderDto as any),
+      ...(poData as any),
       discount_account_id: resolvedDiscountAccountId,
     };
     const { data, error } = await this.supabaseService
@@ -232,6 +249,52 @@ export class PurchaseOrdersService {
 
     if (!data) {
       throw new NotFoundException(`Purchase Order with ID ${id} not found`);
+    }
+
+    // 1. Delete all existing items for this Purchase Order
+    const { error: deleteError } = await this.supabaseService
+      .getClient()
+      .from("purchase_order_items")
+      .delete()
+      .eq("purchase_order_id", id);
+
+    if (deleteError) {
+      throw new Error(
+        `Failed to clean old purchase order items: ${deleteError.message}`,
+      );
+    }
+
+    // 2. Insert new / updated items
+    if (items && items.length > 0) {
+      const itemsPayload = items.map((item) => {
+        const accountId = item.account_id || item.accounts;
+        let hsnNumeric: number | null = null;
+        if (item.hsn_code !== undefined && item.hsn_code !== null && item.hsn_code !== '') {
+          const parsed = Number(item.hsn_code);
+          if (!isNaN(parsed)) {
+            hsnNumeric = parsed;
+          }
+        }
+        return {
+          ...(item as any),
+          account_id: accountId,
+          accounts: accountId,
+          hsn_code: hsnNumeric,
+          purchase_order_id: id,
+          entity_id: tenant.entityId,
+        };
+      });
+
+      const { error: itemsError } = await this.supabaseService
+        .getClient()
+        .from("purchase_order_items")
+        .insert(itemsPayload);
+
+      if (itemsError) {
+        throw new Error(
+          `Failed to update purchase order items: ${itemsError.message}`,
+        );
+      }
     }
 
     return data;

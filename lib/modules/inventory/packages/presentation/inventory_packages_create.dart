@@ -247,7 +247,6 @@ class _InventoryPackagesCreateScreenState
   bool _isAutoGenerate = true;
   String _packagePrefix = 'PKG-';
   int _nextNumber = 1;
-  List<String> _sourceItemIds = [];
 
   final List<TextEditingController> _normalRowControllers = [];
   int _currentPage = 0;
@@ -1116,7 +1115,6 @@ class _InventoryPackagesCreateScreenState
                                                     _isPicklistMode = false;
                                                     _salesOrderItems = [];
                                                     _items = [];
-                                                    _sourceItemIds = []; // Added this line
                                                     _clearRowControllers();
                                                     for (var c
                                                         in _normalRowControllers) {

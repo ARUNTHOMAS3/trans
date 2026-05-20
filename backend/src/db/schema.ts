@@ -1116,6 +1116,7 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
   productId: uuid("product_id").references(() => product.id),
   description: text("description"),
   accountId: uuid("account_id").references(() => account.id),
+  accounts: uuid("accounts").references(() => account.id),
   quantity: numeric("quantity").default("0.00"),
   rate: numeric("rate").default("0.00"),
   taxId: uuid("tax_id").references(() => taxRate.id),
@@ -1124,6 +1125,8 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
   discount: numeric("discount").default("0.00"),
   discountType: varchar("discount_type").default("percentage"),
   amount: numeric("amount").default("0.00"),
+  hsnCode: varchar("hsn_code", { length: 50 }),
+  pricelist: varchar("pricelist", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   entityId: uuid("entity_id")

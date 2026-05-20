@@ -19,7 +19,8 @@ export class RecurringJournalsCronService {
   async processRecurringJournals() {
     try {
       // Use the global fetcher which doesn't filter by a single tenant
-      const activeJournals = await this.accountantService.findAllGlobalRecurringJournals();
+      const activeJournals =
+        await this.accountantService.findAllGlobalRecurringJournals();
 
       let processedCount = 0;
       const today = new Date();
@@ -32,11 +33,15 @@ export class RecurringJournalsCronService {
           orgId: journal.orgId || journal.org_id,
           entityId: journal.entityId || journal.entity_id,
           branchId: journal.branchId || journal.branch_id,
-          userId: journal.createdById || journal.created_by || "00000000-0000-0000-0000-000000000000",
+          userId:
+            journal.createdById ||
+            journal.created_by ||
+            "00000000-0000-0000-0000-000000000000",
           email: "system@zerpai.com", // Mock email for background tasks
           role: "ho_admin", // Assume HO Admin privileges for automated background tasks
           accessibleBranchIds: [],
-          defaultBusinessBranchId: journal.branchId || journal.branch_id || null,
+          defaultBusinessBranchId:
+            journal.branchId || journal.branch_id || null,
           defaultWarehouseBranchId: null,
           permissions: { full_access: true },
         };

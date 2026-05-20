@@ -181,7 +181,9 @@ export class CreateCustomerDto {
 
   @IsOptional()
   @IsString()
-  @Matches(/^[0-9]{10}$/, { message: "Mobile number must be exactly 10 digits" })
+  @Matches(/^[0-9]{10}$/, {
+    message: "Mobile number must be exactly 10 digits",
+  })
   mobilePhone?: string;
 
   @IsOptional()
@@ -301,6 +303,8 @@ export class CreateCustomerDto {
 
   @IsOptional()
   @IsString()
-  @Matches(/^[0-9]{10}$/, { message: "WhatsApp number must be exactly 10 digits" })
+  @Matches(/^[0-9]{10}$/, {
+    message: "WhatsApp number must be exactly 10 digits",
+  })
   whatsappNumber?: string;
 }

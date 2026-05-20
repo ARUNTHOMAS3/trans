@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { TenantContext } from '../../../common/middleware/tenant.middleware';
-import { SupabaseService } from '../../supabase/supabase.service';
-import { SequencesService } from '../../../sequences/sequences.service';
+import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import { TenantContext } from "../../../common/middleware/tenant.middleware";
+import { SupabaseService } from "../../supabase/supabase.service";
+import { SequencesService } from "../../../sequences/sequences.service";
 
 @Injectable()
 export class PackagesService {
@@ -10,7 +10,7 @@ export class PackagesService {
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly sequencesService: SequencesService,
-  ) { }
+  ) {}
 
   async findAll(
     tenant: TenantContext,
@@ -21,22 +21,24 @@ export class PackagesService {
   ) {
     const client = this.supabaseService.getClient();
     let query = client
-      .from('inventory_packages')
-      .select('*', { count: 'exact' })
-      .eq('entity_id', tenant.entityId)
-      .eq('is_delete', false);
+      .from("inventory_packages")
+      .select("*", { count: "exact" })
+      .eq("entity_id", tenant.entityId)
+      .eq("is_delete", false);
 
     if (status) {
-      query = query.eq('status', status);
+      query = query.eq("status", status);
     }
 
     if (search) {
-      query = query.or(`package_number.ilike.%${search}%,notes.ilike.%${search}%`);
+      query = query.or(
+        `package_number.ilike.%${search}%,notes.ilike.%${search}%`,
+      );
     }
 
     const { data, count, error } = await query
       .range((page - 1) * limit, page * limit - 1)
-      .order('created_at', { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
 
@@ -44,43 +46,57 @@ export class PackagesService {
 
     // Resolve SO, Picklist numbers and total quantity
     const allPkgIds = rows.map((r: any) => r.id);
-    
+
     // Fetch from items table
     const { data: itemRefs } = await client
-      .from('inventory_package_items')
-      .select('package_id, sales_order_id, picklist_id, quantity')
-      .in('package_id', allPkgIds)
-      .eq('entity_id', tenant.entityId);
+      .from("inventory_package_items")
+      .select("package_id, sales_order_id, picklist_id, quantity")
+      .in("package_id", allPkgIds)
+      .eq("entity_id", tenant.entityId);
 
     // Fetch from join table (for packages linked directly to SO)
     const { data: soJoinRefs } = await client
-      .from('inventory_package_sales_orders')
-      .select('package_id, sales_order_id')
-      .in('package_id', allPkgIds)
-      .eq('entity_id', tenant.entityId);
+      .from("inventory_package_sales_orders")
+      .select("package_id, sales_order_id")
+      .in("package_id", allPkgIds)
+      .eq("entity_id", tenant.entityId);
 
     // Calculate total quantity per package
     const pkgQuantities = new Map<string, number>();
     (itemRefs || []).forEach((ref: any) => {
-      const q = parseFloat(ref.quantity?.toString() || '0');
+      const q = parseFloat(ref.quantity?.toString() || "0");
       const current = pkgQuantities.get(ref.package_id) || 0;
       pkgQuantities.set(ref.package_id, current + q);
     });
 
-    const itemSoIds = (itemRefs || []).map((r: any) => r.sales_order_id).filter(Boolean);
-    const joinSoIds = (soJoinRefs || []).map((r: any) => r.sales_order_id).filter(Boolean);
+    const itemSoIds = (itemRefs || [])
+      .map((r: any) => r.sales_order_id)
+      .filter(Boolean);
+    const joinSoIds = (soJoinRefs || [])
+      .map((r: any) => r.sales_order_id)
+      .filter(Boolean);
     const allSoIds = [...new Set([...itemSoIds, ...joinSoIds])] as string[];
-    const allPlIds = [...new Set((itemRefs || []).map((r: any) => r.picklist_id).filter(Boolean))] as string[];
+    const allPlIds = [
+      ...new Set(
+        (itemRefs || []).map((r: any) => r.picklist_id).filter(Boolean),
+      ),
+    ] as string[];
 
     let soMap = new Map<string, string>();
     if (allSoIds.length > 0) {
-      const { data: sos } = await client.from('sales_orders').select('id, sale_number').in('id', allSoIds);
+      const { data: sos } = await client
+        .from("sales_orders")
+        .select("id, sale_number")
+        .in("id", allSoIds);
       soMap = new Map((sos || []).map((s: any) => [s.id, s.sale_number]));
     }
 
     let plMap = new Map<string, string>();
     if (allPlIds.length > 0) {
-      const { data: pls } = await client.from('picklist_master').select('id, picklist_no').in('id', allPlIds);
+      const { data: pls } = await client
+        .from("picklist_master")
+        .select("id, picklist_no")
+        .in("id", allPlIds);
       plMap = new Map((pls || []).map((p: any) => [p.id, p.picklist_no]));
     }
 
@@ -118,14 +134,18 @@ export class PackagesService {
     });
 
     // Resolve customer names
-    const customerIds = [...new Set(rows.map((r: any) => r.customer_id).filter(Boolean))] as string[];
+    const customerIds = [
+      ...new Set(rows.map((r: any) => r.customer_id).filter(Boolean)),
+    ] as string[];
     let customerMap = new Map<string, string>();
     if (customerIds.length > 0) {
       const { data: customers } = await client
-        .from('customers')
-        .select('id, display_name')
-        .in('id', customerIds);
-      customerMap = new Map((customers || []).map((c: any) => [c.id, c.display_name]));
+        .from("customers")
+        .select("id, display_name")
+        .in("id", customerIds);
+      customerMap = new Map(
+        (customers || []).map((c: any) => [c.id, c.display_name]),
+      );
     }
 
     return {
@@ -156,71 +176,104 @@ export class PackagesService {
 
     // 1. Fetch package root
     const { data: pkg, error: pkgError } = await client
-      .from('inventory_packages')
-      .select('*')
-      .eq('id', id)
-      .eq('entity_id', tenant.entityId)
+      .from("inventory_packages")
+      .select("*")
+      .eq("id", id)
+      .eq("entity_id", tenant.entityId)
       .single();
 
     if (pkgError || !pkg) {
-      this.logger.error(`Package not found: ${id}. Error: ${pkgError?.message}`);
-      throw new NotFoundException('Package not found');
+      this.logger.error(
+        `Package not found: ${id}. Error: ${pkgError?.message}`,
+      );
+      throw new NotFoundException("Package not found");
     }
 
     // Resolve customer name
     let customerName = null;
     if (pkg.customer_id) {
-      const { data: cust } = await client.from('customers').select('display_name').eq('id', pkg.customer_id).maybeSingle();
+      const { data: cust } = await client
+        .from("customers")
+        .select("display_name")
+        .eq("id", pkg.customer_id)
+        .maybeSingle();
       customerName = cust?.display_name || null;
     }
 
     // 2. Fetch items (Scoped to entity for safety)
     const { data: rawItems, error: itemsError } = await client
-      .from('inventory_package_items')
-      .select('*')
-      .eq('package_id', id)
-      .eq('entity_id', tenant.entityId);
+      .from("inventory_package_items")
+      .select("*")
+      .eq("package_id", id)
+      .eq("entity_id", tenant.entityId);
 
     if (itemsError) {
-      this.logger.error(`Error fetching package items for package ${id}: ${itemsError.message}`);
+      this.logger.error(
+        `Error fetching package items for package ${id}: ${itemsError.message}`,
+      );
       throw new Error(`Failed to load package items: ${itemsError.message}`);
     }
 
     const items = rawItems || [];
 
     // Resolve metadata for items
-    const productIds = [...new Set(items.map((i: any) => i.product_id).filter(Boolean))] as string[];
-    const soIdsFromItems = [...new Set(items.map((i: any) => i.sales_order_id).filter(Boolean))] as string[];
-    const plIdsFromItems = [...new Set(items.map((i: any) => i.picklist_id).filter(Boolean))] as string[];
+    const productIds = [
+      ...new Set(items.map((i: any) => i.product_id).filter(Boolean)),
+    ] as string[];
+    const soIdsFromItems = [
+      ...new Set(items.map((i: any) => i.sales_order_id).filter(Boolean)),
+    ] as string[];
+    const plIdsFromItems = [
+      ...new Set(items.map((i: any) => i.picklist_id).filter(Boolean)),
+    ] as string[];
 
     let productMap = new Map<string, string>();
     if (productIds.length > 0) {
-      const { data: products } = await client.from('products').select('id, product_name').in('id', productIds);
-      productMap = new Map((products || []).map((p: any) => [p.id, p.product_name]));
+      const { data: products } = await client
+        .from("products")
+        .select("id, product_name")
+        .in("id", productIds);
+      productMap = new Map(
+        (products || []).map((p: any) => [p.id, p.product_name]),
+      );
     }
 
     let soMap = new Map<string, string>();
     if (soIdsFromItems.length > 0) {
-      const { data: sos } = await client.from('sales_orders').select('id, sale_number').in('id', soIdsFromItems);
+      const { data: sos } = await client
+        .from("sales_orders")
+        .select("id, sale_number")
+        .in("id", soIdsFromItems);
       soMap = new Map((sos || []).map((s: any) => [s.id, s.sale_number]));
     }
 
     let plMap = new Map<string, string>();
     if (plIdsFromItems.length > 0) {
-      const { data: pls } = await client.from('picklist_master').select('id, picklist_no').in('id', plIdsFromItems);
+      const { data: pls } = await client
+        .from("picklist_master")
+        .select("id, picklist_no")
+        .in("id", plIdsFromItems);
       plMap = new Map((pls || []).map((p: any) => [p.id, p.picklist_no]));
     }
 
     // Resolve Batch metadata
-    const batchNumbers = [...new Set(items.map((i: any) => i.batch_no).filter((n: any) => n && n !== 'No Batch'))] as string[];
-    let batchMap = new Map<string, any>();
+    const batchNumbers = [
+      ...new Set(
+        items
+          .map((i: any) => i.batch_no)
+          .filter((n: any) => n && n !== "No Batch"),
+      ),
+    ] as string[];
+    const batchMap = new Map<string, any>();
     if (batchNumbers.length > 0 && productIds.length > 0) {
       const { data: batches } = await client
-        .from('batch_master')
-        .select('batch_no, product_id, manufacture_batch_number, manufacture_exp, expiry_date')
-        .in('batch_no', batchNumbers)
-        .in('product_id', productIds);
-      
+        .from("batch_master")
+        .select(
+          "batch_no, product_id, manufacture_batch_number, manufacture_exp, expiry_date",
+        )
+        .in("batch_no", batchNumbers)
+        .in("product_id", productIds);
+
       if (batches) {
         batches.forEach((b: any) => {
           batchMap.set(`${b.product_id}_${b.batch_no}`, b);
@@ -230,9 +283,9 @@ export class PackagesService {
 
     // 3. Fetch sales order associations from join table (unique SOs)
     const { data: soRefs, error: soRefsError } = await client
-      .from('inventory_package_sales_orders')
-      .select('sales_order_id, sales_order:sales_orders(sale_number)')
-      .eq('package_id', id);
+      .from("inventory_package_sales_orders")
+      .select("sales_order_id, sales_order:sales_orders(sale_number)")
+      .eq("package_id", id);
 
     if (soRefsError) {
       this.logger.error(`Error fetching SO refs: ${soRefsError.message}`);
@@ -240,18 +293,38 @@ export class PackagesService {
 
     // 4. Aggregate IDs and Numbers
     const itemSoIds = items.map((i: any) => i.sales_order_id).filter(Boolean);
-    const joinSoIds = (soRefs || []).map((r: any) => r.sales_order_id).filter(Boolean);
-    const sales_order_ids = [...new Set([...itemSoIds, ...joinSoIds])] as string[];
+    const joinSoIds = (soRefs || [])
+      .map((r: any) => r.sales_order_id)
+      .filter(Boolean);
+    const sales_order_ids = [
+      ...new Set([...itemSoIds, ...joinSoIds]),
+    ] as string[];
 
-    const itemSoNums = items.map((i: any) => soMap.get(i.sales_order_id)).filter(Boolean);
-    const joinSoNums = (soRefs || []).map((r: any) => r.sales_order?.sale_number).filter(Boolean);
-    const sales_order_numbers = [...new Set([...itemSoNums, ...joinSoNums])] as string[];
+    const itemSoNums = items
+      .map((i: any) => soMap.get(i.sales_order_id))
+      .filter(Boolean);
+    const joinSoNums = (soRefs || [])
+      .map((r: any) => r.sales_order?.sale_number)
+      .filter(Boolean);
+    const sales_order_numbers = [
+      ...new Set([...itemSoNums, ...joinSoNums]),
+    ] as string[];
 
-    const picklist_ids = [...new Set(items.map((i: any) => i.picklist_id).filter(Boolean))] as string[];
-    const picklist_numbers = [...new Set(items.map((i: any) => plMap.get(i.picklist_id)).filter(Boolean))] as string[];
+    const picklist_ids = [
+      ...new Set(items.map((i: any) => i.picklist_id).filter(Boolean)),
+    ] as string[];
+    const picklist_numbers = [
+      ...new Set(
+        items.map((i: any) => plMap.get(i.picklist_id)).filter(Boolean),
+      ),
+    ] as string[];
 
-    const total_quantity = items.reduce((sum: number, item: any) => sum + (parseFloat(item.quantity?.toString() || '0')), 0);
-    
+    const total_quantity = items.reduce(
+      (sum: number, item: any) =>
+        sum + parseFloat(item.quantity?.toString() || "0"),
+      0,
+    );
+
     return {
       ...pkg,
       customer_name: customerName,
@@ -261,7 +334,8 @@ export class PackagesService {
         item_name: productMap.get(item.product_id) || null,
         sales_order_number: soMap.get(item.sales_order_id) || null,
         picklist_number: plMap.get(item.picklist_id) || null,
-        batch_details: batchMap.get(`${item.product_id}_${item.batch_no}`) || null,
+        batch_details:
+          batchMap.get(`${item.product_id}_${item.batch_no}`) || null,
       })),
       sales_order_ids,
       picklist_ids,
@@ -281,7 +355,7 @@ export class PackagesService {
     const generatedNumber = await this.generatePackageNumber(tenant);
 
     const { data: newPkg, error: pkgError } = await client
-      .from('inventory_packages')
+      .from("inventory_packages")
       .insert({
         ...packageData,
         package_number: packageData.package_number || generatedNumber,
@@ -295,7 +369,11 @@ export class PackagesService {
     if (pkgError) throw pkgError;
 
     const usedNumber = packageData.package_number || generatedNumber;
-    await this.sequencesService.incrementSequence('inventory_packages', tenant, usedNumber);
+    await this.sequencesService.incrementSequence(
+      "inventory_packages",
+      tenant,
+      usedNumber,
+    );
 
     if (items && items.length > 0) {
       const itemsToInsert = items.map((item: any) => ({
@@ -305,11 +383,13 @@ export class PackagesService {
       }));
 
       const { error: itemsError } = await client
-        .from('inventory_package_items')
+        .from("inventory_package_items")
         .insert(itemsToInsert);
 
       if (itemsError) {
-        this.logger.error(`Error inserting package items: ${itemsError.message}`);
+        this.logger.error(
+          `Error inserting package items: ${itemsError.message}`,
+        );
         throw new Error(`Failed to save package items: ${itemsError.message}`);
       }
     }
@@ -320,7 +400,7 @@ export class PackagesService {
       const soRefsToInsert: any[] = [];
 
       for (const so of sales_order_ids) {
-        const soId = typeof so === 'object' ? so.sales_order_id : so;
+        const soId = typeof so === "object" ? so.sales_order_id : so;
         if (soId && !uniqueSoIds.has(soId)) {
           uniqueSoIds.add(soId);
           soRefsToInsert.push({
@@ -333,17 +413,17 @@ export class PackagesService {
 
       if (soRefsToInsert.length > 0) {
         const { error: soRefsError } = await client
-          .from('inventory_package_sales_orders')
+          .from("inventory_package_sales_orders")
           .insert(soRefsToInsert);
 
         if (soRefsError) {
           this.logger.error(`Error inserting SO refs: ${soRefsError.message}`);
-          throw new Error(`Failed to save sales order references: ${soRefsError.message}`);
+          throw new Error(
+            `Failed to save sales order references: ${soRefsError.message}`,
+          );
         }
       }
     }
-
-
 
     return this.findOne(newPkg.id, tenant);
   }
@@ -354,13 +434,13 @@ export class PackagesService {
     const { items, sales_order_ids, picklist_ids, ...packageData } = updateDto;
 
     const { data: pkg, error: pkgError } = await client
-      .from('inventory_packages')
+      .from("inventory_packages")
       .update({
         ...packageData,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id)
-      .eq('entity_id', tenant.entityId)
+      .eq("id", id)
+      .eq("entity_id", tenant.entityId)
       .select()
       .single();
 
@@ -369,7 +449,10 @@ export class PackagesService {
     // Handle items updates
     if (items !== undefined) {
       // 1. Remove existing items
-      await client.from('inventory_package_items').delete().eq('package_id', id);
+      await client
+        .from("inventory_package_items")
+        .delete()
+        .eq("package_id", id);
 
       // 2. Insert new items
       if (items.length > 0) {
@@ -378,7 +461,9 @@ export class PackagesService {
           package_id: id,
           entity_id: tenant.entityId,
         }));
-        const { error: itemsError } = await client.from('inventory_package_items').insert(itemsToInsert);
+        const { error: itemsError } = await client
+          .from("inventory_package_items")
+          .insert(itemsToInsert);
         if (itemsError) throw itemsError;
       }
     }
@@ -386,7 +471,10 @@ export class PackagesService {
     // Handle Sales Order associations
     if (sales_order_ids !== undefined) {
       // 1. Remove existing refs
-      await client.from('inventory_package_sales_orders').delete().eq('package_id', id);
+      await client
+        .from("inventory_package_sales_orders")
+        .delete()
+        .eq("package_id", id);
 
       // 2. Insert new refs
       if (sales_order_ids && sales_order_ids.length > 0) {
@@ -394,7 +482,7 @@ export class PackagesService {
         const refsToInsert: any[] = [];
 
         for (const so of sales_order_ids) {
-          const soId = typeof so === 'object' ? so.sales_order_id : so;
+          const soId = typeof so === "object" ? so.sales_order_id : so;
           if (soId && !uniqueSoIds.has(soId)) {
             uniqueSoIds.add(soId);
             refsToInsert.push({
@@ -406,7 +494,9 @@ export class PackagesService {
         }
 
         if (refsToInsert.length > 0) {
-          const { error: soRefsError } = await client.from('inventory_package_sales_orders').insert(refsToInsert);
+          const { error: soRefsError } = await client
+            .from("inventory_package_sales_orders")
+            .insert(refsToInsert);
           if (soRefsError) throw soRefsError;
         }
       }
@@ -418,16 +508,16 @@ export class PackagesService {
   async getNextNumber(tenant: TenantContext) {
     try {
       const formatted = await this.generatePackageNumber(tenant);
-      const next_number = parseInt(formatted.split('-')[1], 10);
+      const next_number = parseInt(formatted.split("-")[1], 10);
 
       return {
         next_number: next_number,
-        prefix: 'PKG-',
+        prefix: "PKG-",
         formatted: formatted,
       };
     } catch (e) {
       this.logger.error(`Error fetching next package number: ${e.message}`);
-      return { next_number: 1, prefix: 'PKG-', formatted: 'PKG-00001' };
+      return { next_number: 1, prefix: "PKG-", formatted: "PKG-00001" };
     }
   }
 
@@ -442,13 +532,15 @@ export class PackagesService {
 
     // 1. Fetch all existing package numbers starting with 'PKG-'
     const { data: existingPackages, error } = await client
-      .from('inventory_packages')
-      .select('package_number')
-      .eq('entity_id', tenant.entityId)
-      .like('package_number', 'PKG-%');
+      .from("inventory_packages")
+      .select("package_number")
+      .eq("entity_id", tenant.entityId)
+      .like("package_number", "PKG-%");
 
     if (error) {
-      this.logger.error(`Error fetching existing package numbers: ${error.message}`);
+      this.logger.error(
+        `Error fetching existing package numbers: ${error.message}`,
+      );
       throw error;
     }
 
@@ -473,20 +565,22 @@ export class PackagesService {
 
     // 5. Format and 6. Double-check uniqueness in a loop
     let isUnique = false;
-    let formattedNumber = '';
+    let formattedNumber = "";
 
     while (!isUnique) {
-      formattedNumber = `PKG-${nextNum.toString().padStart(5, '0')}`;
-      
+      formattedNumber = `PKG-${nextNum.toString().padStart(5, "0")}`;
+
       const { data: duplicate, error: dupError } = await client
-        .from('inventory_packages')
-        .select('id')
-        .eq('entity_id', tenant.entityId)
-        .eq('package_number', formattedNumber)
+        .from("inventory_packages")
+        .select("id")
+        .eq("entity_id", tenant.entityId)
+        .eq("package_number", formattedNumber)
         .maybeSingle();
 
       if (dupError) {
-        this.logger.error(`Error checking duplicate package number: ${dupError.message}`);
+        this.logger.error(
+          `Error checking duplicate package number: ${dupError.message}`,
+        );
         throw dupError;
       }
 
@@ -504,10 +598,10 @@ export class PackagesService {
     const client = this.supabaseService.getClient();
 
     const { error } = await client
-      .from('inventory_packages')
+      .from("inventory_packages")
       .update({ is_delete: true })
-      .eq('id', id)
-      .eq('entity_id', tenant.entityId);
+      .eq("id", id)
+      .eq("entity_id", tenant.entityId);
 
     if (error) throw error;
   }

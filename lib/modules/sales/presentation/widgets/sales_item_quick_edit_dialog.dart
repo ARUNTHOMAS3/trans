@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_state.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
@@ -9,7 +8,6 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/category_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/composition_section.dart';
@@ -18,9 +16,7 @@ import 'package:zerpai_erp/modules/items/items/presentation/sections/sales_secti
 import 'package:zerpai_erp/modules/items/items/presentation/sections/purchase_section.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/default_tax_rates_section.dart';
 import 'package:zerpai_erp/shared/widgets/hsn_sac_search_modal.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/manage_list_dialog.dart';
 import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/manage_reorder_terms_dialog.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_composition_model.dart';
 
 // Tabs enum as in items_item_create.dart
@@ -157,14 +153,14 @@ class _SalesItemQuickEditDialogState
     interStateTaxId = item.interStateTaxId;
 
     sellingPriceCtrl = TextEditingController(text: item.sellingPrice?.toString() ?? '');
-    salesCurrency = item.sellingPriceCurrency ?? 'INR';
+    salesCurrency = item.sellingPriceCurrency;
     mrpCtrl = TextEditingController(text: item.mrp?.toString() ?? '');
     ptrCtrl = TextEditingController(text: item.ptr?.toString() ?? '');
     salesAccountId = item.salesAccountId;
     salesDescriptionCtrl = TextEditingController(text: item.salesDescription ?? '');
 
     costPriceCtrl = TextEditingController(text: item.costPrice?.toString() ?? '');
-    purchaseCurrency = item.costPriceCurrency ?? 'INR';
+    purchaseCurrency = item.costPriceCurrency;
     purchaseAccountId = item.purchaseAccountId;
     preferredVendorId = item.preferredVendorId;
     purchaseDescriptionCtrl = TextEditingController(text: item.purchaseDescription ?? '');
@@ -172,9 +168,9 @@ class _SalesItemQuickEditDialogState
     dimXCtrl = TextEditingController(text: item.length?.toString() ?? '');
     dimYCtrl = TextEditingController(text: item.width?.toString() ?? '');
     dimZCtrl = TextEditingController(text: item.height?.toString() ?? '');
-    dimUnit = item.dimensionUnit ?? 'cm';
+    dimUnit = item.dimensionUnit;
     weightCtrl = TextEditingController(text: item.weight?.toString() ?? '');
-    weightUnit = item.weightUnit ?? 'kg';
+    weightUnit = item.weightUnit;
     manufacturerId = item.manufacturerId;
     brandId = item.brandId;
     upcCtrl = TextEditingController(text: item.upc ?? '');
@@ -1051,12 +1047,14 @@ class _TypeRadio extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Radio<bool>(
-            value: value,
+          RadioGroup<bool>(
             groupValue: selected ? value : !value,
             onChanged: (v) => onChanged(v!),
-            activeColor: AppTheme.primaryBlueDark,
-            visualDensity: VisualDensity.compact,
+            child: Radio<bool>(
+              value: value,
+              activeColor: AppTheme.primaryBlueDark,
+              visualDensity: VisualDensity.compact,
+            ),
           ),
           const SizedBox(width: 4),
           Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),

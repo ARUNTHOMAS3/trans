@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
@@ -335,14 +335,7 @@ class FormulationSection extends StatelessWidget {
     );
   }
 
-  Widget _dimInput(TextEditingController ctrl, String hint) {
-    return zerpaiTextField(
-      controller: ctrl,
-      hint: hint,
-      keyboardType: TextInputType.number,
-      height: 44,
-    );
-  }
+
 
   // ---------------- WEIGHT ----------------
 

@@ -18,7 +18,7 @@ export class SalesController {
   constructor(
     private readonly hsnSacService: HsnSacService,
     private readonly salesService: SalesService,
-  ) { }
+  ) {}
 
   @Get()
   async getList(@Query("type") type: string) {
@@ -36,14 +36,8 @@ export class SalesController {
   }
 
   @Post()
-  async createSalesOrder(
-    @Body() body: any,
-    @Tenant() tenant: TenantContext,
-  ) {
-    return this.salesService.createSalesOrder(
-      body,
-      tenant.entityId,
-    );
+  async createSalesOrder(@Body() body: any, @Tenant() tenant: TenantContext) {
+    return this.salesService.createSalesOrder(body, tenant.entityId);
   }
 
   @Get("hsn/search")
@@ -76,14 +70,8 @@ export class SalesController {
   }
 
   @Post("payments")
-  async createPayment(
-    @Body() body: any,
-    @Tenant() tenant: TenantContext,
-  ) {
-    return this.salesService.createPayment(
-      body,
-      tenant.entityId,
-    );
+  async createPayment(@Body() body: any, @Tenant() tenant: TenantContext) {
+    return this.salesService.createPayment(body, tenant.entityId);
   }
 
   @Get("payment-links")
@@ -92,14 +80,8 @@ export class SalesController {
   }
 
   @Post("payment-links")
-  async createPaymentLink(
-    @Body() body: any,
-    @Tenant() tenant: TenantContext,
-  ) {
-    return this.salesService.createPaymentLink(
-      body,
-      tenant.entityId,
-    );
+  async createPaymentLink(@Body() body: any, @Tenant() tenant: TenantContext) {
+    return this.salesService.createPaymentLink(body, tenant.entityId);
   }
 
   @Get("eway-bills")
@@ -108,14 +90,8 @@ export class SalesController {
   }
 
   @Post("eway-bills")
-  async createEWayBill(
-    @Body() body: any,
-    @Tenant() tenant: TenantContext,
-  ) {
-    return this.salesService.createEWayBill(
-      body,
-      tenant.entityId,
-    );
+  async createEWayBill(@Body() body: any, @Tenant() tenant: TenantContext) {
+    return this.salesService.createEWayBill(body, tenant.entityId);
   }
 
   @Put(":id")
@@ -124,11 +100,7 @@ export class SalesController {
     @Body() body: any,
     @Tenant() tenant: TenantContext,
   ) {
-    return this.salesService.updateSalesOrder(
-      id,
-      body,
-      tenant.entityId,
-    );
+    return this.salesService.updateSalesOrder(id, body, tenant.entityId);
   }
 
   // Must be last — dynamic segment catches anything not matched above

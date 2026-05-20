@@ -14,12 +14,11 @@ import { PackagesService } from "../services/packages.service";
 
 @Controller("inventory-packages")
 export class PackagesController {
-  constructor(private readonly packagesService: PackagesService) { }
+  constructor(private readonly packagesService: PackagesService) {}
   @Get("next-number")
   getNextNumber(@Tenant() tenant: TenantContext) {
     return this.packagesService.getNextNumber(tenant);
   }
-
 
   @Get()
   findAll(

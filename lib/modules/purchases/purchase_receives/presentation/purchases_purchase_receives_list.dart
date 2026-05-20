@@ -1586,7 +1586,7 @@ class _PurchaseReceiveDetailPanelState
                         LucideIcons.fileText,
                         'Convert to Bill',
                         onPressed: () {
-                          // TODO: Implement convert to bill
+                          // [Planned] Convert to bill — see todo.md
                         },
                       ),
                       _buildDivider(),
@@ -1719,23 +1719,7 @@ class _PurchaseReceiveDetailPanelState
     );
   }
 
-  Widget _buildSelectionButton(String label, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppTheme.bgLight,
-        foregroundColor: AppTheme.textPrimary,
-        elevation: 0,
-        side: const BorderSide(color: AppTheme.borderColor),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        minimumSize: const Size(0, 36),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
+
 
   Widget _buildPdfPrintDropdown(PurchaseReceive receive) {
     final orgSettings = ref.read(orgSettingsProvider).asData?.value;
@@ -2122,7 +2106,7 @@ class _PurchaseReceiveDetailPanelState
                   ),
                   _buildDropdownOption(
                     'Associated bills',
-                    0, // TODO: Fetch real bills count when available
+                    0, // [Planned] Fetch real bills count — see todo.md
                     _activeTabIndex == 1,
                     () => setState(() {
                       _activeTabIndex = 1;

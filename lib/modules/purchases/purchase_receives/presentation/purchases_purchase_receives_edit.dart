@@ -173,8 +173,7 @@ class _PREditState extends ConsumerState<PurchasesPurchaseReceivesEditScreen> {
   final List<_ReceiveItemRowController> _rowControllers = [];
   final Map<int, String> _rowSelectedWarehouses = {};
   final Map<int, String> _rowSelectedViews = {};
-  final Set<String> _hoveredQtyFields = <String>{};
-  final Set<String> _focusedQtyFields = <String>{};
+
   final Set<String> _hoveredBinFields = <String>{};
   final Set<String> _focusedBinFields = <String>{};
   final Set<int> _hiddenManualIndices = <int>{};

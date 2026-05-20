@@ -343,10 +343,7 @@ export class GlobalLookupsController {
 
   @Get("gst-treatments")
   async getGstTreatments() {
-    return this.fetchActiveOptions(
-      "gst_treatments",
-      "code,label,sort_order",
-    );
+    return this.fetchActiveOptions("gst_treatments", "code,label,sort_order");
   }
 
   @Get("gst-registration-types")
@@ -561,7 +558,10 @@ export class GlobalLookupsController {
    *  merged with branding settings from branding.
    *  Also resolves country name from state_id → states.state_id → countries. */
   @Get("org/:orgId")
-  async getOrgDetails(@Param("orgId") orgId: string, @Tenant() tenant: TenantContext) {
+  async getOrgDetails(
+    @Param("orgId") orgId: string,
+    @Tenant() tenant: TenantContext,
+  ) {
     this.assertOrgAccess(tenant, orgId);
     const client = this.supabaseService.getClient();
 
@@ -630,7 +630,10 @@ export class GlobalLookupsController {
 
   /** GET branding settings for an org. */
   @Get("org/:orgId/branding")
-  async getOrgBranding(@Param("orgId") orgId: string, @Tenant() tenant: TenantContext) {
+  async getOrgBranding(
+    @Param("orgId") orgId: string,
+    @Tenant() tenant: TenantContext,
+  ) {
     this.assertOrgAccess(tenant, orgId);
     const client = this.supabaseService.getClient();
     const { data, error } = await client
@@ -657,7 +660,7 @@ export class GlobalLookupsController {
       theme_mode?: string;
       keep_branding?: boolean;
     },
-    @Tenant() tenant: TenantContext
+    @Tenant() tenant: TenantContext,
   ) {
     this.assertOrgAccess(tenant, orgId);
     const client = this.supabaseService.getClient();
@@ -713,16 +716,18 @@ export class GlobalLookupsController {
       payment_stub_assembly_id?: string;
       additional_fields?: any;
     },
-    @Tenant() tenant: TenantContext
+    @Tenant() tenant: TenantContext,
   ) {
     this.assertOrgAccess(tenant, orgId);
     const client = this.supabaseService.getClient();
     const payload = { ...body } as Record<string, unknown>;
-    
+
     if (typeof body.phone === "string" && body.phone.trim().length > 0) {
       const mobileRegex = /^[0-9]{10}$/;
       if (!mobileRegex.test(body.phone.trim())) {
-        throw new BadRequestException("Phone number must be exactly 10 digits.");
+        throw new BadRequestException(
+          "Phone number must be exactly 10 digits.",
+        );
       }
     }
 
@@ -789,7 +794,7 @@ export class GlobalLookupsController {
   async uploadOrgLogo(
     @Param("orgId") orgId: string,
     @Body() body: { fileName: string; fileData: string; mimeType?: string },
-    @Tenant() tenant: TenantContext
+    @Tenant() tenant: TenantContext,
   ) {
     this.assertOrgAccess(tenant, orgId);
     const { fileName, fileData, mimeType } = body;
@@ -887,7 +892,9 @@ export class GlobalLookupsController {
   ) {
     const fileKey =
       body.fileKey?.trim() ||
-      (body.fileUrl?.trim() ? this.parseFileKeyFromUrl(body.fileUrl.trim()) : null);
+      (body.fileUrl?.trim()
+        ? this.parseFileKeyFromUrl(body.fileUrl.trim())
+        : null);
 
     if (!fileKey) {
       throw new BadRequestException("fileKey or a valid fileUrl is required.");

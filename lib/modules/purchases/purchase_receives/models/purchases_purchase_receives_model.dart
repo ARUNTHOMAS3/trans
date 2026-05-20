@@ -263,6 +263,9 @@ class PurchaseReceive {
     DateTime? updatedAt,
     bool? billed,
     double? quantity,
+    String? billNo,
+    DateTime? billDate,
+    double? invoiceTotal,
   }) {
     return PurchaseReceive(
       id: id ?? this.id,
