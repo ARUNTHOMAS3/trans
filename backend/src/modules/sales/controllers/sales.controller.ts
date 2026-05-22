@@ -1,4 +1,4 @@
-﻿import {
+import {
   Controller,
   Get,
   Post,
@@ -101,6 +101,21 @@ export class SalesController {
     @Tenant() tenant: TenantContext,
   ) {
     return this.salesService.updateSalesOrder(id, body, tenant.entityId);
+  }
+
+  @Get("invoices")
+  async getInvoices(@Tenant() tenant: TenantContext) {
+    return this.salesService.getInvoices(tenant.entityId);
+  }
+
+  @Get("invoices/:id")
+  async getInvoiceById(@Param("id") id: string) {
+    return this.salesService.getInvoiceById(id);
+  }
+
+  @Post("invoices")
+  async createInvoice(@Body() body: any, @Tenant() tenant: TenantContext) {
+    return this.salesService.createInvoice(body, tenant.entityId);
   }
 
   // Must be last — dynamic segment catches anything not matched above

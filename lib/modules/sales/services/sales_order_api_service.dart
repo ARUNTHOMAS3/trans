@@ -572,4 +572,66 @@ class SalesOrderApiService {
       throw Exception('Error creating payment link: $e');
     }
   }
+
+  Future<Map<String, dynamic>> createInvoice(Map<String, dynamic> payload) async {
+    try {
+      debugPrint('🚀 Sending invoice payload: $payload');
+      final response = await _apiClient.post('/sales/invoices', data: payload);
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final resData = response.data;
+        if (resData is Map) {
+          if (resData.containsKey('data') && resData['data'] is Map) {
+            return Map<String, dynamic>.from(resData['data']);
+          }
+          return Map<String, dynamic>.from(resData);
+        }
+        return {};
+      }
+      throw Exception('Failed to create invoice');
+    } catch (e) {
+      if (e is DioException) {
+        debugPrint(
+          '❌ createInvoice error response: ${e.response?.statusCode} -> ${e.response?.data}',
+        );
+      }
+      throw Exception('Error creating invoice: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getInvoices() async {
+    try {
+      final response = await _apiClient.get('/sales/invoices');
+      if (response.statusCode == 200) {
+        final resData = response.data;
+        final List<dynamic> data = resData is List
+            ? resData
+            : (resData is Map && resData.containsKey('data')
+                ? resData['data']
+                : []);
+        return data.map((json) => Map<String, dynamic>.from(json)).toList();
+      }
+      throw Exception('Failed to load invoices');
+    } catch (e) {
+      throw Exception('Error fetching invoices: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> getInvoiceById(String id) async {
+    try {
+      final response = await _apiClient.get('/sales/invoices/$id');
+      if (response.statusCode == 200) {
+        final resData = response.data;
+        if (resData is Map) {
+          if (resData.containsKey('data') && resData['data'] is Map) {
+            return Map<String, dynamic>.from(resData['data']);
+          }
+          return Map<String, dynamic>.from(resData);
+        }
+        return {};
+      }
+      throw Exception('Failed to load invoice');
+    } catch (e) {
+      throw Exception('Error fetching invoice by id: $e');
+    }
+  }
 }

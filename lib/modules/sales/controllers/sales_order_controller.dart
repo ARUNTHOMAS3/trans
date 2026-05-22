@@ -44,8 +44,10 @@ final salesQuotesProvider = FutureProvider<List<SalesOrder>>((ref) {
   return ref.watch(salesOrderApiServiceProvider).getSalesByType('quote');
 });
 
-final salesInvoicesProvider = FutureProvider<List<SalesOrder>>((ref) {
-  return ref.watch(salesOrderApiServiceProvider).getSalesByType('invoice');
+final salesInvoicesProvider = FutureProvider<List<SalesOrder>>((ref) async {
+  final api = ref.watch(salesOrderApiServiceProvider);
+  final rawList = await api.getInvoices();
+  return rawList.map((json) => SalesOrder.fromJson(json)).toList();
 });
 
 final salesPaymentsProvider = FutureProvider<List<SalesPayment>>((ref) {

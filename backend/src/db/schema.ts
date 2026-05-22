@@ -994,6 +994,9 @@ export const salesOrderItems = pgTable("sales_order_items", {
   entityId: uuid("entity_id")
     .notNull()
     .references(() => organisationBranchMaster.id),
+  hsnCode: numeric("hsn_code").notNull(),
+  accounts: varchar("accounts").notNull(),
+  pricelist: varchar("pricelist"),
 });
 
 export const salesOrderAttachments = pgTable("sales_order_attachments", {
@@ -1980,6 +1983,9 @@ export const inventoryPackageItems = pgTable("inventory_package_items", {
   quantity: numeric("quantity", { precision: 15, scale: 3 }).default("0").notNull(),
   salesOrderId: uuid("sales_order_id").references(() => salesOrder.id),
   picklistId: uuid("picklist_id").references(() => inventoryPicklists.id),
+  batchNo: varchar("batch_no"),
+  binLocation: varchar("bin_location"),
+  foc: smallint("foc"),
 });
 
 export const inventoryPackageSalesOrders = pgTable("inventory_package_sales_orders", {

@@ -16,6 +16,7 @@ import 'package:zerpai_erp/modules/sales/presentation/sales_order_create.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_order_model.dart';
 import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_invoice_create.dart';
+import 'package:zerpai_erp/modules/sales/presentation/sales_invoice_list.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_retainer_invoice_create.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_delivery_challan_create.dart';
 import 'package:zerpai_erp/modules/sales/presentation/sales_payment_create.dart';
@@ -1001,20 +1002,8 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'sales/invoices',
               name: AppRoutes.salesInvoices,
-              builder: (context, state) => SalesGenericListScreen(
-                title: 'Invoices',
-                createRoute: AppRoutes.salesInvoicesCreate,
-                detailRoute: AppRoutes.salesInvoicesDetail,
+              builder: (context, state) => SalesInvoiceOverviewScreen(
                 initialSearchQuery: state.uri.queryParameters['q'],
-                provider: salesInvoicesProvider,
-                columns: [
-                  'invoice_number',
-                  'customer',
-                  'date',
-                  'amount',
-                  'balance',
-                  'status',
-                ],
               ),
               routes: [
                 GoRoute(
@@ -1029,10 +1018,9 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: ':id',
                   name: AppRoutes.salesInvoicesDetail,
-                  builder: (context, state) => SalesDocumentDetailScreen(
-                    id: state.pathParameters['id']!,
-                    documentType: 'invoice',
-                    initialTab: state.uri.queryParameters['tab'],
+                  builder: (context, state) => SalesInvoiceOverviewScreen(
+                    initialSearchQuery: state.uri.queryParameters['q'],
+                    initialSelectedId: state.pathParameters['id']!,
                   ),
                 ),
               ],

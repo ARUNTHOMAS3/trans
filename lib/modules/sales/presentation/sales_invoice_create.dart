@@ -51,6 +51,7 @@ import 'package:zerpai_erp/modules/inventory/picklists/providers/inventory_pickl
 import 'package:zerpai_erp/modules/inventory/packages/models/inventory_package_model.dart';
 import 'package:zerpai_erp/modules/inventory/packages/providers/inventory_packages_provider.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
+import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 
 // ─── Colour constants ────────────────────────────────────────────────────────
 const _kBorder = Color(0xFFE5E7EB);
@@ -203,17 +204,7 @@ class _SalesInvoiceCreateScreenState
       widget.initialOrder != null ||
       (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty);
 
-  String? get _editingOrderId {
-    final directId = widget.initialOrder?.id;
-    if (directId != null && directId.isNotEmpty) {
-      return directId;
-    }
-    final routeId = widget.initialOrderId;
-    if (routeId != null && routeId.isNotEmpty) {
-      return routeId;
-    }
-    return null;
-  }
+
 
   @override
   void initState() {
@@ -1010,6 +1001,7 @@ class _SalesInvoiceCreateScreenState
         branchId: selectedWhObj.branchId,
         totalQuantity: double.tryParse(row.quantityCtrl.text) ?? 1.0,
         savedBatchData: row.batchDataList,
+        isFromPackage: _selectedPackage != null,
       ),
     );
     if (!mounted || result == null) return;
@@ -1017,9 +1009,7 @@ class _SalesInvoiceCreateScreenState
       row.hasBatchData = true;
       row.batchCount = result.batchCount;
       row.batchDataList = result.batchDataList ?? [];
-      if (result.overwriteLineItem) {
-        row.quantityCtrl.text = result.appliedQuantity.toInt().toString();
-      }
+      row.quantityCtrl.text = result.appliedQuantity.toInt().toString();
       _calculateTotals();
     });
   }
@@ -5591,7 +5581,7 @@ class _SalesInvoiceCreateScreenState
               if (context.canPop()) {
                 context.pop();
               } else {
-                context.go('/sales/orders');
+                context.go('/sales/invoices');
               }
             },
             style: OutlinedButton.styleFrom(
@@ -5661,71 +5651,233 @@ class _SalesInvoiceCreateScreenState
       ZerpaiToast.error(context, 'Please select a salesperson');
       return;
     }
-    final items = rows
-        .where((r) => r.itemId.isNotEmpty)
-        .map(
-          (r) => SalesOrderItem(
-            itemId: r.itemId,
-            quantity: double.tryParse(r.quantityCtrl.text) ?? 0,
-            rate: double.tryParse(r.rateCtrl.text) ?? 0,
-            discount: double.tryParse(r.discountCtrl.text) ?? 0,
-            discountType: r.discountType == 'Value' ? 'value' : '%',
-            taxId: r.taxId,
-          ),
-        )
-        .toList();
 
-    final order = SalesOrder(
-      id: _editingOrderId ?? '',
-      customerId: _selectedCustomerId!,
-      saleNumber: invoiceNumberCtrl.text,
-      reference: referenceCtrl.text.isNotEmpty
-          ? referenceCtrl.text
-          : orderNumberCtrl.text,
-      saleDate: invoiceDate,
-      expectedShipmentDate: dueDate,
-      paymentTerms: terms,
-      deliveryMethod: deliveryMethod,
-      salesperson: salesperson,
-      status: status,
-      documentType: 'order',
-      items: items,
-      subTotal: subTotal,
-      taxTotal: taxTotal,
-      discountTotal: 0,
-      shippingCharges: double.tryParse(shippingCtrl.text) ?? 0,
-      adjustment: double.tryParse(adjustmentCtrl.text) ?? 0,
-      total: total,
-      customerNotes: notesCtrl.text,
-      termsAndConditions: termsCtrl.text,
+    // Show elegant loading progress overlay
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF10B981),
+        ),
+      ),
     );
 
     try {
-      final controller = ref.read(salesOrderControllerProvider.notifier);
-      if (_isEditMode && _editingOrderId != null) {
-        await controller.updateSalesOrder(_editingOrderId!, order);
-      } else {
-        await controller.createSalesOrder(order);
-        if (_isAutoGenerateInvoice) {
-          await ref.read(sequencesApiServiceProvider).incrementSequence(
-            'invoice',
-            usedNumber: invoiceNumberCtrl.text,
-          );
+      final warehouseList = ref.read(warehousesProvider).value ?? <Warehouse>[];
+      final selectedWhObj = warehouseList.firstWhere(
+        (w) => w.name.trim().toLowerCase() == (warehouse ?? '').trim().toLowerCase(),
+        orElse: () => warehouseList.isNotEmpty
+            ? warehouseList.first
+            : Warehouse(id: 'cbd212aa-0a75-430f-b1e7-fb32fdb94b0d', name: 'Central Logistics Hub'),
+      );
+      final warehouseId = selectedWhObj.id;
+
+      final usersList = ref.read(allUsersProvider).value ?? <User>[];
+      User? selectedUserObj;
+      try {
+        selectedUserObj = usersList.firstWhere(
+          (u) => u.fullName.trim().toLowerCase() == (salesperson ?? '').trim().toLowerCase(),
+        );
+      } catch (_) {
+        if (usersList.isNotEmpty) {
+          selectedUserObj = usersList.first;
         }
       }
+      final salespersonId = selectedUserObj?.id;
+
+      final itemsState = ref.read(itemsControllerProvider);
+
+      final List<Map<String, dynamic>> itemsPayloadList = [];
+
+      for (final row in rows.where((r) => r.itemId.isNotEmpty)) {
+        final productId = row.itemId;
+        final quantity = double.tryParse(row.quantityCtrl.text) ?? 0.0;
+        final rate = double.tryParse(row.rateCtrl.text) ?? 0.0;
+        final discount = double.tryParse(row.discountCtrl.text) ?? 0.0;
+        final discountType = row.discountType == 'Value' ? 'value' : '%';
+        final discountValue = discount;
+
+        final taxRateObj = itemsState.taxGroups.firstWhere(
+          (t) => t.id == row.taxId,
+          orElse: () => itemsState.taxRates.firstWhere(
+            (t) => t.id == row.taxId,
+            orElse: () => TaxRate(id: '', taxName: '', taxRate: 0.0),
+          ),
+        );
+        final taxPercentage = taxRateObj.taxRate;
+
+        // Calculate line amounts
+        final double rawAmount = quantity * rate;
+        final double discountAmt = discountType == '%' ? (rawAmount * discount / 100) : discount;
+        final double taxableAmount = rawAmount - discountAmt;
+        final double taxAmount = taxableAmount * (taxPercentage / 100);
+        final double lineTotal = taxableAmount + taxAmount;
+        final double focQuantity = double.tryParse(row.fQtyCtrl.text) ?? 0.0;
+
+        final List<Map<String, dynamic>> itemBatches = [];
+
+        if (row.batchDataList.isNotEmpty) {
+          for (final bData in row.batchDataList) {
+            String bId = bData['batchId'] ?? '';
+            String lId = bData['layerId'] ?? '';
+            String bnId = bData['binId'] ?? '';
+
+            final bNo = bData['batchNo']?.trim() ?? bData['batchRef']?.trim() ?? '';
+            final binLoc = bData['binLocation']?.trim() ?? '';
+
+            if (bId.isEmpty || lId.isEmpty || bnId.isEmpty) {
+              final batches = await ref.read(batchLookupProvider(productId).future);
+              final bins = await ref.read(inventoryPicklistRepositoryProvider).getWarehouseBins(
+                warehouseId: warehouseId,
+                productId: productId,
+              );
+
+              if (bId.isEmpty && bNo.isNotEmpty && batches.isNotEmpty) {
+                final match = batches.firstWhere(
+                  (b) => b['batch_no']?.toString().trim() == bNo,
+                  orElse: () => <String, dynamic>{},
+                );
+                if (match.isNotEmpty) {
+                  bId = match['id']?.toString() ?? match['batchId']?.toString() ?? '';
+                  lId = match['layer_id']?.toString() ?? match['layerId']?.toString() ?? '';
+                }
+              }
+              if (bnId.isEmpty && binLoc.isNotEmpty && bins.isNotEmpty) {
+                final match = bins.firstWhere(
+                  (b) => (b['binCode'] ?? b['bin_code'])?.toString().trim() == binLoc,
+                  orElse: () => <String, String>{},
+                );
+                if (match.isNotEmpty) {
+                  bnId = match['id'] ?? match['binId'] ?? '';
+                }
+              }
+            }
+
+            itemBatches.add({
+              'batchId': bId,
+              'layerId': lId,
+              'warehouseId': warehouseId,
+              'binId': bnId,
+              'quantity': double.tryParse(bData['qtyOut'] ?? '') ?? quantity,
+              'focQuantity': double.tryParse(bData['foc'] ?? '') ?? focQuantity,
+              'purchaseRate': double.tryParse(bData['prate'] ?? '') ?? 0.0,
+              'salesRate': double.tryParse(bData['salesRate'] ?? bData['ptr'] ?? '') ?? rate,
+              'mrp': double.tryParse(bData['mrp'] ?? '') ?? 0.0,
+              'expiryDate': bData['expDate']?.isNotEmpty == true ? bData['expDate'] : null,
+              'manufacturerBatch': bData['mfgBatch']?.isNotEmpty == true ? bData['mfgBatch'] : null,
+            });
+          }
+        } else {
+          final trackBatches = row.item?.trackBatches ?? false;
+          final trackBinLocation = row.item?.trackBinLocation ?? false;
+
+          if (trackBatches || trackBinLocation) {
+            final batches = await ref.read(batchLookupProvider(productId).future);
+            final bins = await ref.read(inventoryPicklistRepositoryProvider).getWarehouseBins(
+              warehouseId: warehouseId,
+              productId: productId,
+            );
+
+            String? bId;
+            String? lId;
+            String? bnId;
+            double? prate;
+            String? expD;
+
+            if (batches.isNotEmpty) {
+              final match = batches.first;
+              bId = match['id']?.toString() ?? match['batchId']?.toString();
+              lId = match['layer_id']?.toString() ?? match['layerId']?.toString();
+              prate = double.tryParse(match['prate']?.toString() ?? match['ptr']?.toString() ?? '');
+              expD = match['expiry_date']?.toString();
+            }
+
+            if (bins.isNotEmpty) {
+              final match = bins.first;
+              bnId = match['id'] ?? match['binId'];
+            }
+
+            itemBatches.add({
+              'batchId': bId ?? 'cbd212aa-0a75-430f-b1e7-fb32fdb94b0d',
+              'layerId': lId,
+              'warehouseId': warehouseId,
+              'binId': bnId,
+              'quantity': quantity,
+              'focQuantity': focQuantity,
+              'purchaseRate': prate ?? 0.0,
+              'salesRate': rate,
+              'mrp': rate,
+              'expiryDate': expD,
+              'manufacturerBatch': null,
+            });
+          }
+        }
+
+        itemsPayloadList.add({
+          'productId': productId,
+          'description': row.descriptionCtrl.text,
+          'quantity': quantity,
+          'rate': rate,
+          'discountType': discountType,
+          'discountValue': discountValue,
+          'taxId': row.taxId,
+          'taxPercentage': taxPercentage,
+          'taxableAmount': taxableAmount,
+          'taxAmount': taxAmount,
+          'lineTotal': lineTotal,
+          'focQuantity': focQuantity,
+          'hsnCode': row.hsnCode ?? row.item?.hsnCode,
+          'batches': itemBatches,
+        });
+      }
+
+      final payload = {
+        'customerId': _selectedCustomerId,
+        'invoiceNumber': invoiceNumberCtrl.text,
+        'invoiceDate': intl.DateFormat('yyyy-MM-dd').format(invoiceDate),
+        'dueDate': dueDate != null ? intl.DateFormat('yyyy-MM-dd').format(dueDate!) : null,
+        'paymentTerms': terms,
+        'salespersonId': salespersonId,
+        'warehouseId': warehouseId,
+        'shippingCharges': double.tryParse(shippingCtrl.text) ?? 0.0,
+        'adjustmentAmount': double.tryParse(adjustmentCtrl.text) ?? 0.0,
+        'roundOff': _roundOff,
+        'subtotal': subTotal,
+        'taxTotal': taxTotal,
+        'grandTotal': total,
+        'subject': referenceCtrl.text.isNotEmpty ? referenceCtrl.text : orderNumberCtrl.text,
+        'customerNotes': notesCtrl.text,
+        'termsConditions': termsCtrl.text,
+        'status': status,
+        'inventoryFlowType': _selectedPackage != null ? 'PACKAGE_BEFORE_INVOICE' : 'DIRECT_INVOICE',
+        if (_selectedPackage != null) 'packageId': _selectedPackage!.id,
+        if (widget.initialOrderId != null || widget.fromOrderId != null)
+          'salesOrderId': widget.initialOrderId ?? widget.fromOrderId,
+        'items': itemsPayloadList,
+      };
+
+      final api = ref.read(salesOrderApiServiceProvider);
+      await api.createInvoice(payload);
+
+      if (_isAutoGenerateInvoice) {
+        await ref.read(sequencesApiServiceProvider).incrementSequence(
+          'invoice',
+          usedNumber: invoiceNumberCtrl.text,
+        );
+      }
+
       if (mounted) {
+        Navigator.pop(context); // Close loading overlay
         ZerpaiToast.success(
           context,
-          _isEditMode ? 'Sales order updated' : 'Sales order created',
+          _isEditMode ? 'Sales invoice updated' : 'Sales invoice created',
         );
-        if (context.canPop()) {
-          context.pop();
-        } else {
-          context.go('/sales/orders');
-        }
+        context.go('/sales/invoices');
       }
     } catch (e) {
       if (mounted) {
+        Navigator.pop(context); // Close loading overlay
         ZerpaiToast.error(context, 'Error: $e');
       }
     }
@@ -10446,6 +10598,9 @@ class _InvoiceBatchRowController {
   final GlobalKey mfgKey = GlobalKey();
   DateTime? expDate;
   DateTime? mfgDate;
+  String? batchId;
+  String? layerId;
+  String? binId;
 
   void dispose() {
     binLocationCtrl.dispose();
@@ -10486,6 +10641,7 @@ class _InvoiceSelectBatchesDialog extends ConsumerStatefulWidget {
   final String? branchId;
   final double totalQuantity;
   final List<Map<String, String>>? savedBatchData;
+  final bool isFromPackage;
 
   _InvoiceSelectBatchesDialog({
     required this.itemName,
@@ -10495,6 +10651,7 @@ class _InvoiceSelectBatchesDialog extends ConsumerStatefulWidget {
     this.branchId,
     required this.totalQuantity,
     this.savedBatchData,
+    required this.isFromPackage,
   });
 
   @override
@@ -10510,6 +10667,7 @@ class _InvoiceSelectBatchesDialogState
   final Set<int> _hoveredFocRows = <int>{};
   final Set<int> _hoveredBatchRows = <int>{};
   List<String> _binLocations = [];
+  List<Map<String, String>> _binsData = [];
   bool _overwriteLineItem = false;
   bool _showMfgDetails = false;
   bool _showFocColumn = false;
@@ -10561,6 +10719,9 @@ class _InvoiceSelectBatchesDialogState
         row.binLocationCtrl.text = batchData['binLocation'] ?? '';
         row.batchRefCtrl.text = batchData['batchRef'] ?? '';
         row.batchNoCtrl.text = batchData['batchNo'] ?? '';
+        row.batchId = batchData['batchId'];
+        row.layerId = batchData['layerId'];
+        row.binId = batchData['binId'];
         row.unitPackCtrl.text = batchData['unitPack'] ?? '';
         row.mrpCtrl.text = batchData['mrp'] ?? '';
         row.ptrCtrl.text = batchData['prate'] ?? '';
@@ -10636,6 +10797,7 @@ class _InvoiceSelectBatchesDialogState
       
       if (mounted) {
         setState(() {
+          _binsData = bins;
           _binLocations = bins
               .map((b) => (b['binCode'] ?? b['bin_code'] ?? '').toString())
               .where((c) => c.isNotEmpty)
@@ -10650,6 +10812,22 @@ class _InvoiceSelectBatchesDialogState
 
   Future<void> _loadInitialData() async {
     await _loadBins();
+    if (!widget.isFromPackage) {
+      if (mounted) {
+        setState(() {
+          for (final row in _rows) {
+            if (row.binLocationCtrl.text.isNotEmpty) {
+              final foundBin = _binsData.firstWhere(
+                (b) => b['binCode'] == row.binLocationCtrl.text.trim(),
+                orElse: () => <String, String>{},
+              );
+              row.binId = foundBin['id'];
+            }
+          }
+        });
+      }
+      return;
+    }
     try {
       final batches = await ref.read(batchLookupProvider(widget.productId).future);
       if (mounted) {
@@ -10660,51 +10838,26 @@ class _InvoiceSelectBatchesDialogState
             if (_binLocations.isNotEmpty && row.binLocationCtrl.text.isEmpty) {
               row.binLocationCtrl.text = _binLocations.first;
             }
-            
-            if (batches.isNotEmpty && row.batchRefCtrl.text.isEmpty) {
-              final firstBatch = batches.first;
-              final batchNo = firstBatch['batch_no']?.toString().trim() ?? '';
-              row.batchRefCtrl.text = batchNo;
-              row.batchNoCtrl.text = batchNo;
-              
-              row.unitPackCtrl.text = firstBatch['unit_pack']?.toString() ?? '';
-              
-              final rawExpDate = firstBatch['expiry_date']?.toString() ?? '';
-              row.expDateCtrl.text = _normalizeDateForUi(rawExpDate);
-              if (row.expDateCtrl.text.isNotEmpty) {
-                try {
-                  row.expDate = intl.DateFormat('dd-MM-yyyy').parse(row.expDateCtrl.text);
-                } catch (_) {}
-              }
-              
-              final rawMfgDate = firstBatch['mfg_date']?.toString() ?? firstBatch['manufactured_date']?.toString() ?? '';
-              row.mfgDateCtrl.text = _normalizeDateForUi(rawMfgDate);
-              if (row.mfgDateCtrl.text.isNotEmpty) {
-                try {
-                  row.mfgDate = intl.DateFormat('dd-MM-yyyy').parse(row.mfgDateCtrl.text);
-                } catch (_) {}
-              }
-              
-              row.mfgBatchCtrl.text = firstBatch['mfg_batch']?.toString() ?? firstBatch['manufacturer_batch']?.toString() ?? '';
-              
-              final prices = firstBatch['prices'] as List?;
-              if (prices != null && prices.isNotEmpty) {
-                final p = prices[0];
-                row.mrpCtrl.text = (p['mrp'] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
-                row.ptrCtrl.text = ((p['ptr'] ?? p['prate'] ?? p['purchase_rate']) as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
-              } else {
-                row.mrpCtrl.text = (firstBatch['mrp'] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
-                row.ptrCtrl.text = ((firstBatch['ptr'] ?? firstBatch['prate'] ?? firstBatch['purchase_rate']) as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
-              }
-              
-              if (row.mfgDateCtrl.text.isNotEmpty || row.mfgBatchCtrl.text.isNotEmpty) {
-                _showMfgDetails = true;
-              }
+            if (row.binLocationCtrl.text.isNotEmpty) {
+              final foundBin = _binsData.firstWhere(
+                (b) => b['binCode'] == row.binLocationCtrl.text.trim(),
+                orElse: () => <String, String>{},
+              );
+              row.binId = foundBin['id'];
             }
+            
+            // Do not auto-populate batches.first on load, start empty
           } else if (widget.savedBatchData != null && widget.savedBatchData!.isNotEmpty && _rows.isNotEmpty) {
             for (final row in _rows) {
               if (_binLocations.isNotEmpty && row.binLocationCtrl.text.isEmpty) {
                 row.binLocationCtrl.text = _binLocations.first;
+              }
+              if (row.binLocationCtrl.text.isNotEmpty) {
+                final foundBin = _binsData.firstWhere(
+                  (b) => b['binCode'] == row.binLocationCtrl.text.trim(),
+                  orElse: () => <String, String>{},
+                );
+                row.binId = foundBin['id'];
               }
               if (batches.isNotEmpty) {
                 final batchRef = row.batchRefCtrl.text.trim();
@@ -10714,6 +10867,8 @@ class _InvoiceSelectBatchesDialogState
                     orElse: () => <String, dynamic>{},
                   );
                   if (match.isNotEmpty) {
+                    row.batchId = match['id']?.toString() ?? match['batchId']?.toString();
+                    row.layerId = match['layer_id']?.toString() ?? match['layerId']?.toString();
                     if (row.unitPackCtrl.text.isEmpty) {
                       row.unitPackCtrl.text = match['unit_pack']?.toString() ?? '';
                     }
@@ -11355,6 +11510,15 @@ class _InvoiceSelectBatchesDialogState
                                           setState(() {
                                             row.binLocationCtrl.text =
                                                 val ?? '';
+                                            if (val != null) {
+                                              final foundBin = _binsData.firstWhere(
+                                                (b) => (b['binCode'] ?? b['bin_code']) == val.trim(),
+                                                orElse: () => <String, String>{},
+                                              );
+                                              row.binId = foundBin['id'] ?? foundBin['binId'];
+                                            } else {
+                                              row.binId = null;
+                                            }
                                           });
                                         },
                                       ),
@@ -11486,6 +11650,9 @@ class _InvoiceSelectBatchesDialogState
                                                     batchNo ?? '';
                                                 row.batchNoCtrl.text =
                                                     batchNo ?? '';
+
+                                                row.batchId = v['id']?.toString() ?? v['batchId']?.toString();
+                                                row.layerId = v['layer_id']?.toString() ?? v['layerId']?.toString();
 
                                                 row.unitPackCtrl.text =
                                                     v['unit_pack']
@@ -11767,6 +11934,9 @@ class _InvoiceSelectBatchesDialogState
                               'mfgBatch': row.mfgBatchCtrl.text,
                               'qtyOut': row.qtyOutCtrl.text,
                               'foc': row.focCtrl.text,
+                              'batchId': row.batchId ?? '',
+                              'layerId': row.layerId ?? '',
+                              'binId': row.binId ?? '',
                             },
                           )
                           .toList();

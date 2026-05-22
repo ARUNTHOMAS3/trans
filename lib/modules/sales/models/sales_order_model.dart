@@ -86,33 +86,61 @@ class SalesOrder {
       id: json['id']?.toString() ?? '',
       customerId: (json['customer_id'] ?? json['customerId'])?.toString() ?? '',
       isDelete: json['is_delete'] ?? false,
-      saleNumber: (json['sale_number'] ?? json['saleNumber'])?.toString() ?? '',
-      reference: json['reference']?.toString(),
+      saleNumber: (json['sale_number'] ??
+              json['saleNumber'] ??
+              json['invoice_number'] ??
+              json['invoiceNumber'])
+          ?.toString() ??
+          '',
+      reference: json['reference']?.toString() ?? json['subject']?.toString(),
       saleDate: DateTime.parse(
         json['sale_date'] ??
             json['saleDate'] ??
+            json['invoice_date'] ??
+            json['invoiceDate'] ??
             DateTime.now().toIso8601String(),
       ),
       expectedShipmentDate: json['expected_shipment_date'] != null
           ? DateTime.parse(json['expected_shipment_date'])
-          : null,
-      paymentTerms: json['payment_terms']?.toString(),
-      deliveryMethod: json['delivery_method']?.toString(),
-      salesperson: (json['salesperson'] ?? json['salesperson'])?.toString(),
+          : (json['expectedShipmentDate'] != null
+              ? DateTime.parse(json['expectedShipmentDate'])
+              : (json['due_date'] != null
+                  ? DateTime.parse(json['due_date'])
+                  : (json['dueDate'] != null
+                      ? DateTime.parse(json['dueDate'])
+                      : null))),
+      paymentTerms: json['payment_terms']?.toString() ?? json['paymentTerms']?.toString(),
+      deliveryMethod: json['delivery_method']?.toString() ?? json['deliveryMethod']?.toString(),
+      salesperson: (json['salesperson'] ?? json['salesperson_id'] ?? json['salespersonId'])?.toString(),
       status: json['status'] ?? 'draft',
       documentType: json['document_type'] ?? json['documentType'] ?? 'order',
-      subTotal: (json['sub_total'] ?? json['subTotal'] ?? 0.0).toDouble(),
+      subTotal: (json['sub_total'] ??
+              json['subTotal'] ??
+              json['subtotal'] ??
+              0.0)
+          .toDouble(),
       taxTotal: (json['tax_total'] ?? json['taxTotal'] ?? 0.0).toDouble(),
       discountTotal: (json['discount_total'] ?? json['discountTotal'] ?? 0.0)
           .toDouble(),
-      shippingCharges:
-          (json['shipping_charges'] ?? json['shippingCharges'] ?? 0.0)
-              .toDouble(),
-      adjustment: (json['adjustment'] ?? 0.0).toDouble(),
-      total: (json['total'] ?? 0.0).toDouble(),
+      shippingCharges: (json['shipping_charges'] ??
+              json['shippingCharges'] ??
+              0.0)
+          .toDouble(),
+      adjustment: (json['adjustment'] ??
+              json['adjustment_amount'] ??
+              json['adjustmentAmount'] ??
+              0.0)
+          .toDouble(),
+      total: (json['total'] ??
+              json['grand_total'] ??
+              json['grandTotal'] ??
+              0.0)
+          .toDouble(),
       customerNotes: json['customer_notes'] ?? json['customerNotes'],
-      termsAndConditions:
-          json['terms_and_conditions'] ?? json['termsAndConditions'],
+      termsAndConditions: json['terms_and_conditions'] ??
+          json['termsAndConditions'] ??
+          json['terms_conditions'] ??
+          json['termsConditions'],
       customer: normalizedCustomerJson != null
           ? SalesCustomer.fromJson(normalizedCustomerJson)
           : null,

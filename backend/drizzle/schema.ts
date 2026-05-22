@@ -4232,6 +4232,7 @@ export const invoiceItems = pgTable("invoice_items", {
 	focQuantity: numeric("foc_quantity"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	hsnCode: numeric("hsn_code"),
 }, (table) => [
 	foreignKey({
 			columns: [table.invoiceId],
