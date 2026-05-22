@@ -1,14 +1,24 @@
+.claude/settings.local.json
+.flutter-plugins-dependencies
 .gitignore
 Invoice backend Connection.docx
 backend/drizzle/schema.ts
 backend/src/db/schema.ts
+backend/src/modules/inventory/services/packages.service.ts
 backend/src/modules/sales/controllers/sales.controller.ts
 backend/src/modules/sales/services/sales.service.ts
+current schema.md
 handoff.txt
 lib/core/routing/app_router.dart
+lib/modules/purchases/bills/presentation/purchases_bills_create.dart
+lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart
 lib/modules/sales/controllers/sales_order_controller.dart
 lib/modules/sales/models/sales_order_model.dart
 lib/modules/sales/presentation/sales_invoice_create.dart
 lib/modules/sales/presentation/sales_invoice_list.dart
+lib/modules/sales/presentation/sales_order_create.dart
+lib/modules/sales/presentation/widgets/sales_order_item_row.dart
 lib/modules/sales/services/sales_order_api_service.dart
+lib/shared/widgets/inputs/dropdown_input.dart
 log.md
+pubspec.lock
