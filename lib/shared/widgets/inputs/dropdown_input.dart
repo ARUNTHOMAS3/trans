@@ -676,8 +676,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                       ),
                     )
                   else if (widget.listBuilder != null)
-                    SizedBox(
-                      height: listHeight,
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: listHeight),
                       child: widget.listBuilder!(_filteredItems, (item) {
                         final int index = _filteredItems.indexOf(item);
                         final bool isSelected = widget.multiSelect
@@ -718,8 +718,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                       }),
                     )
                   else
-                    SizedBox(
-                      height: listHeight,
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: listHeight),
                       child: Scrollbar(
                         controller: _listScrollCtrl,
                         thumbVisibility: shouldShowListScrollbar,
@@ -741,6 +741,8 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                           },
                           child: ListView.builder(
                             controller: _listScrollCtrl,
+                            shrinkWrap: true,
+                            physics: const ClampingScrollPhysics(),
                             padding: EdgeInsets.zero,
                             itemCount: _filteredItems.length,
                             itemBuilder: (context, index) {

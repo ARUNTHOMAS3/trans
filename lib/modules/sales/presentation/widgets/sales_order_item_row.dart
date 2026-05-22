@@ -29,6 +29,9 @@ class SalesOrderItemRow {
   final LayerLink taxLink = LayerLink();
   double profit = 0;
   bool isHeader;
+  bool hasBatchData = false;
+  int batchCount = 0;
+  List<Map<String, String>> batchDataList = [];
 
   SalesOrderItemRow({
     required this.quantityCtrl,

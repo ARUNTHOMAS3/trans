@@ -169,3 +169,20 @@ Created a handoff directory containing all currently modified and untracked file
 
 Timestamp of Log Update: May 20, 2026 - 10:27 AM (IST)
 
+
+
+## 3. Sales Invoice Reference Field & Layout Adjustments (May 20, 2026)
+
+### Summary
+Enhanced the Sales Invoice creation screen (`sales_invoice_create.dart`) by adding a dedicated `Reference#` input field positioned above the `Invoice#` textbox and aligning table bottom border treatments. Cleaned up the reporting tags banner layout by removing superfluous bottom borders.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/sales/presentation/sales_invoice_create.dart`:
+  - **Reference# Field Addition**: Added `referenceCtrl` and introduced a new `Reference#` text field layout directly above `Invoice#`.
+  - **Data Hydration & Save Integration**: Updated `_hydrateFromInitialOrder` to populate `referenceCtrl` with `order.reference`. Refactored `_saveSalesInvoice` payload mapping to store `referenceCtrl.text` in the `reference` column (falling back to `orderNumberCtrl.text` if empty).
+  - **Table Bottom Color Realignment**: Updated table bottom border container background to render grey (`Color(0xFFF3F4F6)`) when `_showAdditionalInfo` is active, matching `sales_order_create.dart` design.
+  - **Reporting Tags Border Adjustment**: Removed the `bottom: BorderSide(color: _kBorder)` constraint from the container decoration wrapping `_buildReportingTags` to eliminate redundant horizontal border lines.
+
+Timestamp of Log Update: May 20, 2026 - 1:00 PM (IST)

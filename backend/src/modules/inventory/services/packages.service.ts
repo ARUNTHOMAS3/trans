@@ -50,7 +50,7 @@ export class PackagesService {
     // Fetch from items table
     const { data: itemRefs } = await client
       .from("inventory_package_items")
-      .select("package_id, sales_order_id, picklist_id, quantity")
+      .select("package_id, sales_order_id, picklist_id, quantity, product_id, bin_location, batch_no")
       .in("package_id", allPkgIds)
       .eq("entity_id", tenant.entityId);
 
@@ -148,6 +148,41 @@ export class PackagesService {
       );
     }
 
+    // Resolve product names for package items
+    const productIds = [
+      ...new Set((itemRefs || []).map((i: any) => i.product_id).filter(Boolean)),
+    ] as string[];
+    let productMap = new Map<string, string>();
+    if (productIds.length > 0) {
+      const { data: products } = await client
+        .from("products")
+        .select("id, product_name")
+        .in("id", productIds);
+      productMap = new Map(
+        (products || []).map((p: any) => [p.id, p.product_name]),
+      );
+    }
+
+    // Group items by package_id
+    const pkgItemsMap = new Map<string, any[]>();
+    (itemRefs || []).forEach((item: any) => {
+      const existing = pkgItemsMap.get(item.package_id) || [];
+      existing.push({
+        id: item.id,
+        package_id: item.package_id,
+        product_id: item.product_id,
+        item_name: productMap.get(item.product_id) || null,
+        quantity: parseFloat(item.quantity?.toString() || "0"),
+        sales_order_id: item.sales_order_id,
+        sales_order_number: soMap.get(item.sales_order_id) || null,
+        picklist_id: item.picklist_id,
+        picklist_number: plMap.get(item.picklist_id) || null,
+        bin_location: item.bin_location,
+        batch_no: item.batch_no,
+      });
+      pkgItemsMap.set(item.package_id, existing);
+    });
+
     return {
       data: rows.map((row: any) => ({
         id: row.id,
@@ -166,6 +201,7 @@ export class PackagesService {
         quantity: pkgQuantities.get(row.id) || 0,
         sales_order_numbers: pkgSoNumbers.get(row.id) || [],
         picklist_numbers: pkgPlNumbers.get(row.id) || [],
+        items: pkgItemsMap.get(row.id) || [],
       })),
       total: count || 0,
     };
@@ -216,13 +252,23 @@ export class PackagesService {
 
     const items = rawItems || [];
 
+    // Fetch sales order associations from join table sequentially to bypass relationship cache issues
+    const { data: soRefs, error: soRefsError } = await client
+      .from("inventory_package_sales_orders")
+      .select("sales_order_id")
+      .eq("package_id", id);
+
+    if (soRefsError) {
+      this.logger.error(`Error fetching SO refs: ${soRefsError.message}`);
+    }
+
     // Resolve metadata for items
     const productIds = [
       ...new Set(items.map((i: any) => i.product_id).filter(Boolean)),
     ] as string[];
-    const soIdsFromItems = [
-      ...new Set(items.map((i: any) => i.sales_order_id).filter(Boolean)),
-    ] as string[];
+    const itemSoIds = items.map((i: any) => i.sales_order_id).filter(Boolean);
+    const joinSoIds = (soRefs || []).map((r: any) => r.sales_order_id).filter(Boolean);
+    const allSoIds = [...new Set([...itemSoIds, ...joinSoIds])] as string[];
     const plIdsFromItems = [
       ...new Set(items.map((i: any) => i.picklist_id).filter(Boolean)),
     ] as string[];
@@ -239,11 +285,11 @@ export class PackagesService {
     }
 
     let soMap = new Map<string, string>();
-    if (soIdsFromItems.length > 0) {
+    if (allSoIds.length > 0) {
       const { data: sos } = await client
         .from("sales_orders")
         .select("id, sale_number")
-        .in("id", soIdsFromItems);
+        .in("id", allSoIds);
       soMap = new Map((sos || []).map((s: any) => [s.id, s.sale_number]));
     }
 
@@ -281,33 +327,10 @@ export class PackagesService {
       }
     }
 
-    // 3. Fetch sales order associations from join table (unique SOs)
-    const { data: soRefs, error: soRefsError } = await client
-      .from("inventory_package_sales_orders")
-      .select("sales_order_id, sales_order:sales_orders(sale_number)")
-      .eq("package_id", id);
-
-    if (soRefsError) {
-      this.logger.error(`Error fetching SO refs: ${soRefsError.message}`);
-    }
-
     // 4. Aggregate IDs and Numbers
-    const itemSoIds = items.map((i: any) => i.sales_order_id).filter(Boolean);
-    const joinSoIds = (soRefs || [])
-      .map((r: any) => r.sales_order_id)
-      .filter(Boolean);
-    const sales_order_ids = [
-      ...new Set([...itemSoIds, ...joinSoIds]),
-    ] as string[];
-
-    const itemSoNums = items
-      .map((i: any) => soMap.get(i.sales_order_id))
-      .filter(Boolean);
-    const joinSoNums = (soRefs || [])
-      .map((r: any) => r.sales_order?.sale_number)
-      .filter(Boolean);
+    const sales_order_ids = allSoIds;
     const sales_order_numbers = [
-      ...new Set([...itemSoNums, ...joinSoNums]),
+      ...new Set(allSoIds.map((id: string) => soMap.get(id)).filter(Boolean)),
     ] as string[];
 
     const picklist_ids = [
@@ -343,7 +366,7 @@ export class PackagesService {
       picklist_numbers,
       sales_order_refs: (soRefs || []).map((r: any) => ({
         sales_order_id: r.sales_order_id,
-        sale_number: r.sales_order?.sale_number,
+        sale_number: soMap.get(r.sales_order_id) || null,
       })),
     };
   }

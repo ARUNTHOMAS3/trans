@@ -311,8 +311,23 @@ class _PurchasesBillCreateScreenState
 
   @override
   void dispose() {
-    _removeVendorOverlay();
-    _removeMoreOverlay();
+    _vendorOverlayEntry?.remove();
+    _vendorOverlayEntry = null;
+    _itemOverlayEntry?.remove();
+    _itemOverlayEntry = null;
+    _hsnOverlayEntry?.remove();
+    _hsnOverlayEntry = null;
+    _sidebarOverlayEntry?.remove();
+    _sidebarOverlayEntry = null;
+    _addRowDropdownOverlay?.remove();
+    _addRowDropdownOverlay = null;
+    _moreOverlayEntry?.remove();
+    _moreOverlayEntry = null;
+    _taxOverlayEntry?.remove();
+    _taxOverlayEntry = null;
+    _customerOverlayEntry?.remove();
+    _customerOverlayEntry = null;
+
     _vendorSearchCtrl.dispose();
     _billNumberCtrl.dispose();
     _orderNumberCtrl.dispose();
@@ -325,10 +340,6 @@ class _PurchasesBillCreateScreenState
     _totalsTaxSearchCtrl.dispose();
     _totalsTaxSearchFocus.dispose();
     _notesCtrl.dispose();
-    _sidebarOverlayEntry?.remove();
-    _sidebarOverlayEntry = null;
-    _addRowDropdownOverlay?.remove();
-    _addRowDropdownOverlay = null;
     for (var row in _lineItems) {
       row.dispose();
     }

@@ -94,7 +94,22 @@ export class SalesService {
     const { data, error } = await client
       .from("sales_orders")
       .select(
-        "*, customer:customers(id, display_name, first_name, last_name, company_name)",
+        `
+        *,
+        customer:customers(id, display_name, first_name, last_name, company_name),
+        items:sales_order_items(
+          *,
+          product:products(
+            id,
+            product_name,
+            sku,
+            item_code,
+            unit_id,
+            hsn_code,
+            unit:units(unit_name)
+          )
+        )
+        `,
       )
       .eq("customer_id", customerId)
       .order("created_at", { ascending: false });

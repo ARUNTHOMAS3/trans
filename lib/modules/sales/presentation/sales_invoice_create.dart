@@ -38,7 +38,6 @@ import 'widgets/advanced_customer_search_dialog.dart';
 import 'package:zerpai_erp/shared/services/lookup_service.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/manage_simple_list_dialog.dart';
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'sales_customer_create.dart';
 import 'package:zerpai_erp/modules/accountant/models/accountant_chart_of_accounts_account_model.dart';
@@ -47,6 +46,11 @@ import 'package:zerpai_erp/shared/widgets/hsn_sac_search_modal.dart';
 import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
+import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
+import 'package:zerpai_erp/modules/inventory/picklists/providers/inventory_picklists_provider.dart';
+import 'package:zerpai_erp/modules/inventory/packages/models/inventory_package_model.dart';
+import 'package:zerpai_erp/modules/inventory/packages/providers/inventory_packages_provider.dart';
+import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 
 // ─── Colour constants ────────────────────────────────────────────────────────
 const _kBorder = Color(0xFFE5E7EB);
@@ -111,6 +115,10 @@ class _SalesInvoiceCreateScreenState
 
   String? _selectedCustomerId;
   SalesCustomer? _selectedCustomer;
+  List<SalesOrder> _confirmedCustomerOrders = [];
+  InventoryPackage? _selectedPackage;
+  List<String> _warehouseBins = [];
+  String? _loadedWarehouseId;
 
   bool _showSearchItemDetails = false;
   final TextEditingController _itemDetailsSearchCtrl = TextEditingController();
@@ -118,6 +126,7 @@ class _SalesInvoiceCreateScreenState
 
   late final TextEditingController invoiceNumberCtrl;
   late final TextEditingController orderNumberCtrl;
+  late final TextEditingController referenceCtrl;
   late final TextEditingController notesCtrl;
   late final TextEditingController termsCtrl;
   late final TextEditingController shippingCtrl;
@@ -210,13 +219,13 @@ class _SalesInvoiceCreateScreenState
   void initState() {
     super.initState();
     invoiceNumberCtrl = TextEditingController(
-      text: 'INV-\${intl.DateFormat(\'yyyyMMdd-HHmm\').format(DateTime.now())}',
+      text: 'INV-${intl.DateFormat('yyyyMMdd-HHmm').format(DateTime.now())}',
     );
-    salesperson = 'ALTHAF';
     // terms = 'Net 360'; // Loaded dynamically in _loadPaymentTerms
     warehouse = 'Main Warehouse';
 
     orderNumberCtrl = TextEditingController();
+    referenceCtrl = TextEditingController();
     notesCtrl = TextEditingController();
     termsCtrl = TextEditingController();
     shippingCtrl = TextEditingController(text: '0');
@@ -237,6 +246,11 @@ class _SalesInvoiceCreateScreenState
     } else {
       rows.add(_createItemRow());
       _loadNextInvoiceNumber();
+    }
+    if (widget.initialCustomerId != null &&
+        widget.initialCustomerId!.isNotEmpty) {
+      _selectedCustomerId = widget.initialCustomerId;
+      _loadConfirmedCustomerOrders();
     }
     _loadPaymentTerms();
     _loadSalespersons();
@@ -275,6 +289,7 @@ class _SalesInvoiceCreateScreenState
     _selectedCustomer = order.customer;
     invoiceNumberCtrl.text = order.saleNumber;
     orderNumberCtrl.text = order.reference ?? '';
+    referenceCtrl.text = order.reference ?? '';
     notesCtrl.text = order.customerNotes ?? '';
     termsCtrl.text = order.termsAndConditions ?? '';
     shippingCtrl.text = order.shippingCharges.toStringAsFixed(2);
@@ -295,6 +310,465 @@ class _SalesInvoiceCreateScreenState
     taxTotal = order.taxTotal;
     subTotal = order.subTotal;
     total = order.total;
+    _loadConfirmedCustomerOrders();
+  }
+
+  Future<void> _loadConfirmedCustomerOrders() async {
+    final customerId = _selectedCustomerId;
+    if (customerId == null) {
+      if (mounted) {
+        setState(() {
+          _confirmedCustomerOrders = [];
+        });
+      }
+      return;
+    }
+
+    try {
+      ref.read(inventoryPackagesProvider.notifier).fetchPackages();
+      final api = ref.read(salesOrderApiServiceProvider);
+      final allOrders = await api.getSalesOrdersByCustomer(customerId);
+      final confirmedOrders = allOrders
+          .where((o) => o.status.toLowerCase() == 'confirmed')
+          .toList();
+
+      if (mounted) {
+        setState(() {
+          _confirmedCustomerOrders = confirmedOrders;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading customer sales orders: $e');
+    }
+  }
+
+  Future<void> _loadWarehouseBins(String warehouseId) async {
+    if (_loadedWarehouseId == warehouseId) return;
+    _loadedWarehouseId = warehouseId;
+    try {
+      final repo = ref.read(inventoryPicklistRepositoryProvider);
+      final bins = await repo.getWarehouseBins(warehouseId: warehouseId);
+      if (!mounted) return;
+      setState(() {
+        _warehouseBins = bins
+            .map((b) => b['binCode'] ?? '')
+            .where((code) => code.isNotEmpty)
+            .toList();
+      });
+    } catch (e) {
+      debugPrint('Error loading warehouse bins: $e');
+    }
+  }
+
+  void _addItemsFromPackage(InventoryPackage package) {
+    if (package.items.isEmpty) return;
+
+    final allItems = ref.read(itemsControllerProvider).items;
+
+    setState(() {
+      if (rows.length == 1 && rows.first.itemId.isEmpty) {
+        rows.clear();
+      }
+
+      for (final pkgItem in package.items) {
+        final matchedItem = allItems.firstWhere(
+          (it) => it.id == pkgItem.productId,
+          orElse: () => Item(
+            id: pkgItem.productId ?? '',
+            type: 'goods',
+            productName: pkgItem.itemName ?? 'Unknown Item',
+            itemCode: 'ITEM-UNKNOWN',
+            unitId: 'unit-uuid',
+            sellingPrice: 0,
+            costPrice: 0,
+            isTrackInventory: true,
+            trackBatches: true,
+            trackBinLocation: true,
+          ),
+        );
+
+        final newRow = _createItemRow(
+          quantity: pkgItem.quantity.toString(),
+          rate: matchedItem.sellingPrice.toString(),
+          itemId: pkgItem.productId ?? '',
+          item: matchedItem,
+        );
+
+        if (pkgItem.batchNo != null && pkgItem.batchNo!.isNotEmpty) {
+          newRow.hasBatchData = true;
+          newRow.batchCount = 1;
+          newRow.batchDataList = [
+            {
+              'batchRef': pkgItem.batchNo!,
+              'batchNo': pkgItem.batchNo!,
+              'qtyOut': pkgItem.quantity.toInt().toString(),
+              'binLocation': pkgItem.binLocation ?? '',
+              'unitPack': '',
+              'mrp': '0.00',
+              'prate': '0.00',
+              'expDate': '',
+              'mfgDate': '',
+              'mfgBatch': '',
+              'foc': '0',
+            }
+          ];
+        }
+
+        rows.add(newRow);
+      }
+
+      _calculateTotals();
+    });
+
+    ZerpaiToast.success(context, 'Added items from Package: ${package.packageNumber}');
+  }
+
+  void _showPendingOrdersDialog() {
+    final List<SalesOrder> selectedOrders = [];
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              alignment: Alignment.topCenter,
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              insetPadding: const EdgeInsets.only(top: 0, left: 16, right: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              child: Container(
+                width: 700,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Pending Sales Orders',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(LucideIcons.x, size: 20, color: Color(0xFFEF4444)),
+                          onPressed: () => Navigator.pop(dialogContext),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(color: _kBorder),
+                    const SizedBox(height: 8),
+                    if (_confirmedCustomerOrders.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Text(
+                            'No pending sales orders found for this customer.',
+                            style: TextStyle(color: Color(0xFF6B7280)),
+                          ),
+                        ),
+                      )
+                    else ...[
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Table(
+                            columnWidths: const {
+                              0: FlexColumnWidth(1),   // Checkbox
+                              1: FlexColumnWidth(4),   // Sales Order Details
+                              2: FlexColumnWidth(4),   // Location
+                              3: FlexColumnWidth(3),   // Date
+                              4: FlexColumnWidth(3),   // Amount
+                            },
+                            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                            children: [
+                              TableRow(
+                                decoration: const BoxDecoration(
+                                  border: Border(bottom: BorderSide(color: _kBorder, width: 1.5)),
+                                ),
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: Checkbox(
+                                          value: _confirmedCustomerOrders.isNotEmpty && selectedOrders.length == _confirmedCustomerOrders.length,
+                                          activeColor: const Color(0xFF2563EB),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(3),
+                                          ),
+                                          side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
+                                          onChanged: (val) {
+                                            setDialogState(() {
+                                              if (val == true) {
+                                                selectedOrders.clear();
+                                                selectedOrders.addAll(_confirmedCustomerOrders);
+                                              } else {
+                                                selectedOrders.clear();
+                                              }
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('SALES ORDER DETAILS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563))),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('LOCATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563))),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Text('DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563))),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                                    child: Text('AMOUNT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)), textAlign: TextAlign.right),
+                                  ),
+                                ],
+                              ),
+                              ..._confirmedCustomerOrders.map((order) {
+                                final dateStr = intl.DateFormat('dd-MM-yyyy').format(order.saleDate);
+                                final isChecked = selectedOrders.contains(order);
+                                final locationStr = order.customer?.companyName ??
+                                    order.customer?.displayName ??
+                                    _selectedCustomer?.companyName ??
+                                    _selectedCustomer?.displayName ??
+                                    '—';
+                                final amountFormatter = intl.NumberFormat.currency(
+                                  locale: 'en_IN',
+                                  symbol: '₹',
+                                  decimalDigits: 2,
+                                );
+                                final amountStr = amountFormatter.format(order.total);
+
+                                return TableRow(
+                                  decoration: const BoxDecoration(
+                                    border: Border(bottom: BorderSide(color: _kBorder)),
+                                  ),
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: Checkbox(
+                                            value: isChecked,
+                                            activeColor: const Color(0xFF2563EB),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(3),
+                                            ),
+                                            side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
+                                            onChanged: (val) {
+                                              setDialogState(() {
+                                                if (val == true) {
+                                                  selectedOrders.add(order);
+                                                } else {
+                                                  selectedOrders.remove(order);
+                                                }
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            order.saleNumber,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF2563EB),
+                                            ),
+                                          ),
+                                          if (order.reference != null && order.reference!.isNotEmpty) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              order.reference!,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      child: Text(
+                                        locationStr,
+                                        style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      child: Text(dateStr, style: const TextStyle(fontSize: 13, color: Color(0xFF374151))),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                                      child: Text(
+                                        amountStr,
+                                        style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          ElevatedButton(
+                            onPressed: selectedOrders.isEmpty
+                                ? null
+                                : () {
+                                    Navigator.pop(dialogContext);
+                                    _addItemsFromMultipleSalesOrders(selectedOrders);
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF54B999),
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: const Color(0x8054B999),
+                              disabledForegroundColor: const Color(0xCCFFFFFF),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              elevation: 0,
+                            ),
+                            child: const Text('Add', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF4B5563),
+                              side: const BorderSide(color: Color(0xFFD1D5DB)),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            ),
+                            child: const Text('Cancel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _addItemsFromMultipleSalesOrders(List<SalesOrder> orders) {
+    if (orders.isEmpty) return;
+
+    setState(() {
+      if (rows.length == 1 && rows.first.itemId.isEmpty) {
+        rows.clear();
+      }
+      
+      for (final order in orders) {
+        final initialItems = order.items ?? const <SalesOrderItem>[];
+        rows.addAll(initialItems.map(_createItemRowFromOrderItem));
+        
+        if (orderNumberCtrl.text.isEmpty) {
+          orderNumberCtrl.text = order.saleNumber;
+        } else if (!orderNumberCtrl.text.contains(order.saleNumber)) {
+          orderNumberCtrl.text += ', ${order.saleNumber}';
+        }
+      }
+      
+      _calculateTotals();
+    });
+
+    final orderNumbers = orders.map((o) => o.saleNumber).join(', ');
+    ZerpaiToast.success(context, 'Added items from Sales Orders: $orderNumbers');
+  }
+
+  Widget _buildPendingOrdersBanner() {
+    if (_selectedCustomerId == null || _confirmedCustomerOrders.isEmpty) {
+      return const SizedBox();
+    }
+
+    final count = _confirmedCustomerOrders.length;
+    final linkText = count == 1 ? '1 Confirmed Sales Order' : '$count Confirmed Sales Orders';
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(top: 12, bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF5F5), // Soft Pink/Red
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: const Color(0xFFFEE2E2)), // Soft Pink Border
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              LucideIcons.info,
+              size: 15,
+              color: Color(0xFFEF4444), // Red info icon
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Include ',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF374151), // Neutral color for neutral text
+              ),
+            ),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: _showPendingOrdersDialog,
+                child: Text(
+                  linkText,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF2563EB), // Blue clickable text
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadTdsList() async {
@@ -309,22 +783,16 @@ class _SalesInvoiceCreateScreenState
 
   Future<void> _loadSalespersons() async {
     try {
-      final lookupsService = LookupsApiService();
-      final persons = await lookupsService.getSalespersons();
+      final users = await ref.read(allUsersProvider.future);
       if (mounted) {
         setState(() {
-          _salespersonList = persons;
-          // If salesperson is not set, we don't necessarily want to force one
-          // but we can set a default if needed.
-          if (persons.isNotEmpty && salesperson == null) {
-            // Check for ALTHAF as requested in screenshot
-            final althaf = persons.firstWhere(
-              (p) => p['name']?.toString().toUpperCase() == 'ALTHAF',
-              orElse: () => persons.first,
-            );
-            salesperson =
-                althaf['id']?.toString() ?? althaf['name']?.toString();
-          }
+          _salespersonList = users
+              .map((u) => <String, dynamic>{
+                    'id': u.fullName,
+                    'name': u.fullName,
+                    'salesperson_name': u.fullName,
+                  })
+              .toList();
         });
       }
     } catch (e) {
@@ -451,6 +919,10 @@ class _SalesInvoiceCreateScreenState
     String discountType = '%',
     String? taxId,
     String? hsnCode,
+    String? priceListId,
+    String? accountId,
+    String? accountName,
+    String? warehouseId,
     bool isHeader = false,
   }) {
     final row = SalesOrderItemRow(
@@ -464,6 +936,10 @@ class _SalesInvoiceCreateScreenState
       item: item,
       discountType: discountType,
       taxId: taxId,
+      priceListId: priceListId,
+      accountId: accountId,
+      accountName: accountName,
+      warehouseId: warehouseId,
       isHeader: isHeader,
     );
     row.hsnCode = hsnCode ?? item?.hsnCode;
@@ -507,47 +983,45 @@ class _SalesInvoiceCreateScreenState
       item: item.item,
       discountType: item.discountType == 'value' ? 'Value' : item.discountType,
       taxId: item.taxId,
+      priceListId: item.priceListId,
+      accountId: item.accountId,
+      warehouseId: item.warehouseId,
     );
   }
 
-  void _showManageSalespersonsDialog() {
-    showDialog(
+  Future<void> _showSelectBatchesDialog(SalesOrderItemRow row) async {
+    final warehouseList = ref.read(warehousesProvider).value ?? <Warehouse>[];
+    final selectedWhObj = warehouseList.firstWhere(
+      (w) => w.name.trim().toLowerCase() == (warehouse ?? '').trim().toLowerCase(),
+      orElse: () => warehouseList.isNotEmpty
+          ? warehouseList.first
+          : Warehouse(id: 'cbd212aa-0a75-430f-b1e7-fb32fdb94b0d', name: 'Central Logistics Hub'),
+    );
+    final warehouseId = selectedWhObj.id;
+
+    final result = await showDialog<_InvoiceBatchDialogResult>(
       context: context,
-      builder: (context) => ManageSimpleListDialog(
-        title: 'Manage Salespersons',
-        singularLabel: 'Salesperson',
-        headerLabel: 'Salesperson Name',
-        items: _salespersonList,
-        selectedId: salesperson,
-        labelKey: 'name',
-        onSelect: (item) {
-          setState(() {
-            salesperson = item['id']?.toString() ?? item['name']?.toString();
-          });
-        },
-        onSave: (items) async {
-          final lookupsService = LookupsApiService();
-          final updated = await lookupsService.syncSalespersons(items);
-          setState(() {
-            _salespersonList = updated;
-          });
-          return updated;
-        },
-        onDeleteCheck: (item) async {
-          if (item['id'] == null) return null;
-          final lookupsService = LookupsApiService();
-          final result = await lookupsService.checkLookupUsage(
-            'salespersons',
-            item['id'],
-          );
-          if (result['inUse'] == true) {
-            return result['message'] ??
-                'This salesperson is in use and cannot be deleted.';
-          }
-          return null;
-        },
+      barrierDismissible: true,
+      builder: (_) => _InvoiceSelectBatchesDialog(
+        itemName: row.item?.productName ?? '',
+        productId: row.itemId,
+        warehouseName: selectedWhObj.name,
+        warehouseId: warehouseId,
+        branchId: selectedWhObj.branchId,
+        totalQuantity: double.tryParse(row.quantityCtrl.text) ?? 1.0,
+        savedBatchData: row.batchDataList,
       ),
     );
+    if (!mounted || result == null) return;
+    setState(() {
+      row.hasBatchData = true;
+      row.batchCount = result.batchCount;
+      row.batchDataList = result.batchDataList ?? [];
+      if (result.overwriteLineItem) {
+        row.quantityCtrl.text = result.appliedQuantity.toInt().toString();
+      }
+      _calculateTotals();
+    });
   }
 
   @override
@@ -667,6 +1141,7 @@ class _SalesInvoiceCreateScreenState
                 // ignore: unused_result
                 ref.refresh(salesCustomersProvider);
               });
+              _loadConfirmedCustomerOrders();
             },
           ),
         ),
@@ -1083,17 +1558,31 @@ class _SalesInvoiceCreateScreenState
     AsyncValue<List<CurrencyOption>> currenciesAsync,
   ) {
     final warehouseList = ref.watch(warehousesProvider).value ?? <Warehouse>[];
-    final defaultWh = warehouseList.isEmpty 
-        ? null 
-        : warehouseList.firstWhere((w) => w.isDefaultForBranch, orElse: () => warehouseList.first);
-    if (defaultWh != null && warehouse == 'Main Warehouse') {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            warehouse = defaultWh.name;
+    if (warehouseList.isNotEmpty) {
+      final defaultWh = warehouseList.firstWhere(
+        (w) => w.isDefaultForBranch,
+        orElse: () => warehouseList.first,
+      );
+      if (defaultWh.name != warehouse && warehouse == 'Main Warehouse') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              warehouse = defaultWh.name;
+            });
+            _loadWarehouseBins(defaultWh.id);
+          }
+        });
+      } else {
+        final selectedWh = warehouseList.firstWhere(
+          (w) => w.name == warehouse,
+          orElse: () => warehouseList.first,
+        );
+        if (_loadedWarehouseId != selectedWh.id) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _loadWarehouseBins(selectedWh.id);
           });
         }
-      });
+      }
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1115,6 +1604,18 @@ class _SalesInvoiceCreateScreenState
                                 .where((c) => c.id == _selectedCustomerId)
                                 .firstOrNull ??
                             _selectedCustomer;
+
+                  if (_selectedCustomerId != null &&
+                      _selectedCustomer == null &&
+                      selectedCustomerFromList != null) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() {
+                          _selectedCustomer = selectedCustomerFromList;
+                        });
+                      }
+                    });
+                  }
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1171,6 +1672,7 @@ class _SalesInvoiceCreateScreenState
                                       }
                                     }
                                   });
+                                  _loadConfirmedCustomerOrders();
                                 },
                               ),
                             ),
@@ -1351,6 +1853,18 @@ class _SalesInvoiceCreateScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 16),
+              // Reference#
+              SharedFieldLayout(
+                label: 'Reference#',
+                labelWidth: 180,
+                maxWidth: 523,
+                child: CustomTextField(
+                  controller: referenceCtrl,
+                  height: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+
               // Invoice#
               SharedFieldLayout(
                 label: 'Invoice#',
@@ -1529,15 +2043,14 @@ class _SalesInvoiceCreateScreenState
               // Salesperson
               SharedFieldLayout(
                 label: 'Salesperson',
+                required: true,
                 labelWidth: 180,
                 maxWidth: 523,
                 child: FormDropdown<String>(
                   value: salesperson,
                   height: _kDropdownHeight,
                   allowClear: true,
-                  showSettings: true,
-                  settingsLabel: 'Manage Salespersons',
-                  onSettingsTap: _showManageSalespersonsDialog,
+                  maxVisibleItems: _salespersonList.length > 4 ? 4 : (_salespersonList.isEmpty ? 1 : _salespersonList.length),
                   items: _salespersonList
                       .map(
                         (p) =>
@@ -1612,7 +2125,20 @@ class _SalesInvoiceCreateScreenState
                         showSearch: warehouseList.length > 5,
                         itemBuilder: (w, isSelected, isHovered) =>
                             _dropdownItemBuilder(w.name, isSelected, isHovered),
-                        onChanged: (w) => setState(() => warehouse = w?.name),
+                        onChanged: (w) {
+                          setState(() {
+                            warehouse = w?.name;
+                            _selectedPackage = null;
+                          });
+                          if (w != null) {
+                            _loadWarehouseBins(w.id);
+                          } else {
+                            setState(() {
+                              _warehouseBins = [];
+                              _loadedWarehouseId = null;
+                            });
+                          }
+                        },
                       ),
                     ),
                     const SizedBox(width: 48),
@@ -1677,6 +2203,57 @@ class _SalesInvoiceCreateScreenState
                   ],
                 ),
               ),
+
+              // Packages Dropdown Row
+              if (_selectedCustomerId != null && warehouse != null) ...[
+                const SizedBox(height: 16),
+                SharedFieldLayout(
+                  label: 'Packages',
+                  labelWidth: 180,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 320,
+                        child: ref.watch(inventoryPackagesProvider).isLoading
+                            ? const Skeleton(height: 32, width: 320)
+                            : (() {
+                                final packagesList = ref.watch(inventoryPackagesProvider).packages;
+                                final filteredPackages = packagesList.where((pkg) {
+                                  final matchesCustomer = pkg.customerId == _selectedCustomerId;
+                                  if (!matchesCustomer) return false;
+                                  if (_warehouseBins.isNotEmpty) {
+                                    return pkg.items.any((item) =>
+                                        item.binLocation != null &&
+                                        _warehouseBins.contains(item.binLocation));
+                                  }
+                                  return true;
+                                }).toList();
+
+                                return FormDropdown<InventoryPackage>(
+                                  value: _selectedPackage,
+                                  height: _kDropdownHeight,
+                                  items: filteredPackages,
+                                  hint: 'Select Package',
+                                  displayStringForValue: (pkg) => pkg.packageNumber,
+                                  searchStringForValue: (pkg) => pkg.packageNumber,
+                                  showSearch: filteredPackages.length > 5,
+                                  itemBuilder: (pkg, isSelected, isHovered) =>
+                                      _dropdownItemBuilder(pkg.packageNumber, isSelected, isHovered),
+                                  onChanged: (pkg) {
+                                    setState(() {
+                                      _selectedPackage = pkg;
+                                      if (pkg != null) {
+                                        _addItemsFromPackage(pkg);
+                                      }
+                                    });
+                                  },
+                                );
+                              })(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 24),
               const Divider(),
@@ -2084,13 +2661,13 @@ class _SalesInvoiceCreateScreenState
             Expanded(
               child: Container(
                 height: 8,
-                decoration: const BoxDecoration(
-                  color: _kWhite,
-                  borderRadius: BorderRadius.only(
+                decoration: BoxDecoration(
+                  color: _showAdditionalInfo ? const Color(0xFFF3F4F6) : _kWhite,
+                  borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(6),
                     bottomRight: Radius.circular(6),
                   ),
-                  border: Border(
+                  border: const Border(
                     left: BorderSide(color: _kBorder),
                     right: BorderSide(color: _kBorder),
                     bottom: BorderSide(color: _kBorder),
@@ -2110,6 +2687,7 @@ class _SalesInvoiceCreateScreenState
             _buildBulkAddButton(products),
           ],
         ),
+        _buildPendingOrdersBanner(),
       ],
     );
   }
@@ -2416,8 +2994,6 @@ class _SalesInvoiceCreateScreenState
                                         ],
                                       )
                                     : _buildSelectedItemView(row, products),
-                                if (_showAdditionalInfo)
-                                  _buildReportingTags(row, availableAccounts),
                               ],
                             ),
                           ),
@@ -2512,6 +3088,42 @@ class _SalesInvoiceCreateScreenState
                                       ],
                                     ),
                                   ),
+                                  if (_selectedCustomerId != null && row.itemId.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: InkWell(
+                                        onTap: () => _showSelectBatchesDialog(row),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            if (!row.hasBatchData) ...[
+                                              const Icon(
+                                                LucideIcons.alertTriangle,
+                                                size: 10,
+                                                color: Color(0xFFEF4444),
+                                              ),
+                                              const SizedBox(width: 4),
+                                            ],
+                                            Text(
+                                              row.hasBatchData
+                                                  ? '${(double.tryParse(row.quantityCtrl.text) ?? 0.0).toInt()} pcs taken from\n${row.batchCount} ${row.batchCount <= 1 ? "batch" : "batches"}.'
+                                                  : 'Select Batch',
+                                              textAlign: TextAlign.right,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Color(0xFF2563EB),
+                                                fontFamily: 'Inter',
+                                                decoration: TextDecoration.underline,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ],
                             ),
@@ -2803,7 +3415,22 @@ class _SalesInvoiceCreateScreenState
             ),
           ],
         ),
-        if (idx < rows.length - 1)
+        if (_showAdditionalInfo)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(right: 60), // Align with columns
+            constraints: const BoxConstraints(minHeight: 36),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF3F4F6),
+              border: Border(
+                left: BorderSide(color: _kBorder),
+                right: BorderSide(color: _kBorder),
+              ),
+            ),
+            child: _buildReportingTags(row, availableAccounts),
+          ),
+        if (idx < rows.length - 1 && !_showAdditionalInfo)
           Row(
             children: [
               const Expanded(child: Divider(height: 1, color: _kBorder)),
@@ -5026,7 +5653,14 @@ class _SalesInvoiceCreateScreenState
   }
 
   void _saveSalesInvoice({required String status}) async {
-    if (_selectedCustomerId == null) return;
+    if (_selectedCustomerId == null) {
+      ZerpaiToast.error(context, 'Please select a customer');
+      return;
+    }
+    if (salesperson == null || salesperson!.isEmpty) {
+      ZerpaiToast.error(context, 'Please select a salesperson');
+      return;
+    }
     final items = rows
         .where((r) => r.itemId.isNotEmpty)
         .map(
@@ -5045,7 +5679,9 @@ class _SalesInvoiceCreateScreenState
       id: _editingOrderId ?? '',
       customerId: _selectedCustomerId!,
       saleNumber: invoiceNumberCtrl.text,
-      reference: orderNumberCtrl.text,
+      reference: referenceCtrl.text.isNotEmpty
+          ? referenceCtrl.text
+          : orderNumberCtrl.text,
       saleDate: invoiceDate,
       expectedShipmentDate: dueDate,
       paymentTerms: terms,
@@ -5275,20 +5911,18 @@ class _SalesInvoiceCreateScreenState
     final billingStates = (c.billingAddressCountryId != null && c.billingAddressCountryId!.isNotEmpty)
         ? (ref.watch(statesProvider(c.billingAddressCountryId!)).value ?? [])
         : [];
-    final billingStateMap = billingStates.firstWhere(
+    final billingStateMap = billingStates.where(
       (item) => item['id'] == c.billingAddressStateId || item['code'] == c.billingAddressStateId,
-      orElse: () => null,
-    );
+    ).firstOrNull;
     final billingStateName = billingStateMap != null ? billingStateMap['name'] : c.billingAddressStateId;
 
     // Resolve shipping state
     final shippingStates = (c.shippingAddressCountryId != null && c.shippingAddressCountryId!.isNotEmpty)
         ? (ref.watch(statesProvider(c.shippingAddressCountryId!)).value ?? [])
         : [];
-    final shippingStateMap = shippingStates.firstWhere(
+    final shippingStateMap = shippingStates.where(
       (item) => item['id'] == c.shippingAddressStateId || item['code'] == c.shippingAddressStateId,
-      orElse: () => null,
-    );
+    ).firstOrNull;
     final shippingStateName = shippingStateMap != null ? shippingStateMap['name'] : c.shippingAddressStateId;
 
     final gst = c.gstTreatment;
@@ -6354,6 +6988,7 @@ class _SalesInvoiceCreateScreenState
               }
             }
           });
+          _loadConfirmedCustomerOrders();
         },
       ),
       transitionBuilder: (ctx, anim, _, child) => FadeTransition(
@@ -9786,4 +10421,1515 @@ class __SalesInvoicePreferencesDialogState
     );
   }
 }
+
+// ─── Dialog Colour constants ───────────────────────────────────────────────
+const _dlgTextPrimary = Color(0xFF1F2937);
+const _dlgTextSecondary = Color(0xFF4B5563);
+const _dlgBorderCol = Color(0xFFE5E7EB);
+const _dlgFocusBorder = Colors.blue;
+const _dlgDangerRed = Color(0xFFEF4444);
+const _dlgGreenBtn = Color(0xFF16A34A);
+
+class _InvoiceBatchRowController {
+  final TextEditingController binLocationCtrl = TextEditingController();
+  final TextEditingController batchRefCtrl = TextEditingController();
+  final TextEditingController batchNoCtrl = TextEditingController();
+  final TextEditingController unitPackCtrl = TextEditingController();
+  final TextEditingController mrpCtrl = TextEditingController();
+  final TextEditingController ptrCtrl = TextEditingController();
+  final TextEditingController qtyOutCtrl = TextEditingController();
+  final TextEditingController focCtrl = TextEditingController();
+  final TextEditingController expDateCtrl = TextEditingController();
+  final TextEditingController mfgDateCtrl = TextEditingController();
+  final TextEditingController mfgBatchCtrl = TextEditingController();
+  final GlobalKey expKey = GlobalKey();
+  final GlobalKey mfgKey = GlobalKey();
+  DateTime? expDate;
+  DateTime? mfgDate;
+
+  void dispose() {
+    binLocationCtrl.dispose();
+    batchRefCtrl.dispose();
+    batchNoCtrl.dispose();
+    unitPackCtrl.dispose();
+    mrpCtrl.dispose();
+    ptrCtrl.dispose();
+    qtyOutCtrl.dispose();
+    focCtrl.dispose();
+    expDateCtrl.dispose();
+    mfgDateCtrl.dispose();
+    mfgBatchCtrl.dispose();
+  }
+}
+
+class _InvoiceBatchDialogResult {
+  final bool overwriteLineItem;
+  final int batchCount;
+  final double appliedQuantity;
+  final double totalIncludingFoc;
+  final List<Map<String, String>>? batchDataList;
+
+  const _InvoiceBatchDialogResult({
+    required this.overwriteLineItem,
+    required this.batchCount,
+    required this.appliedQuantity,
+    required this.totalIncludingFoc,
+    this.batchDataList,
+  });
+}
+
+class _InvoiceSelectBatchesDialog extends ConsumerStatefulWidget {
+  final String itemName;
+  final String productId;
+  final String warehouseName;
+  final String warehouseId;
+  final String? branchId;
+  final double totalQuantity;
+  final List<Map<String, String>>? savedBatchData;
+
+  _InvoiceSelectBatchesDialog({
+    required this.itemName,
+    required this.productId,
+    required this.warehouseName,
+    required this.warehouseId,
+    this.branchId,
+    required this.totalQuantity,
+    this.savedBatchData,
+  });
+
+  @override
+  ConsumerState<_InvoiceSelectBatchesDialog> createState() =>
+      _InvoiceSelectBatchesDialogState();
+}
+
+class _InvoiceSelectBatchesDialogState
+    extends ConsumerState<_InvoiceSelectBatchesDialog> {
+  static const double _batchDropdownHeight = 38;
+  static const double _batchTextFieldHeight = 38;
+  final List<_InvoiceBatchRowController> _rows = [];
+  final Set<int> _hoveredFocRows = <int>{};
+  final Set<int> _hoveredBatchRows = <int>{};
+  List<String> _binLocations = [];
+  bool _overwriteLineItem = false;
+  bool _showMfgDetails = false;
+  bool _showFocColumn = false;
+  static const String _quantityMismatchMessage =
+      'There\'s a mismatch between the quantity entered in the line item and the total quantity across all batches. Click the checkbox to overwrite the quantity in the line item.';
+
+  double _calculateBatchItemEstimatedHeight(List<Map<String, dynamic>> batches) {
+    if (batches.isEmpty) return 38;
+    double maxLen = 0;
+    for (final b in batches) {
+      final batchNo = b['batch_no']?.toString() ?? '-';
+      final balance = b['balance']?.toString() ?? '0';
+      final expDate = b['expiry_date']?.toString() ?? '-';
+      final mrp = b['mrp']?.toString() ?? '0.00';
+      final ptr = b['prate']?.toString() ?? '0.00';
+      final len = '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr'.length.toDouble();
+      if (len > maxLen) {
+        maxLen = len;
+      }
+    }
+    if (maxLen > 40) {
+      return 52;
+    }
+    return 38;
+  }
+
+  double _calculateBinItemEstimatedHeight(List<String> bins) {
+    if (bins.isEmpty) return 38;
+    double maxLen = 0;
+    for (final b in bins) {
+      final len = b.length.toDouble();
+      if (len > maxLen) {
+        maxLen = len;
+      }
+    }
+    if (maxLen > 22) {
+      return 52;
+    }
+    return 38;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
+    if (widget.savedBatchData != null && widget.savedBatchData!.isNotEmpty) {
+      for (var batchData in widget.savedBatchData!) {
+        final row = _InvoiceBatchRowController();
+        row.binLocationCtrl.text = batchData['binLocation'] ?? '';
+        row.batchRefCtrl.text = batchData['batchRef'] ?? '';
+        row.batchNoCtrl.text = batchData['batchNo'] ?? '';
+        row.unitPackCtrl.text = batchData['unitPack'] ?? '';
+        row.mrpCtrl.text = batchData['mrp'] ?? '';
+        row.ptrCtrl.text = batchData['prate'] ?? '';
+        row.expDateCtrl.text = batchData['expDate'] ?? '';
+        if (row.expDateCtrl.text.isNotEmpty) {
+          try {
+            row.expDate = intl.DateFormat('dd-MM-yyyy').parse(row.expDateCtrl.text);
+          } catch (_) {}
+        }
+        row.mfgDateCtrl.text = batchData['mfgDate'] ?? '';
+        if (row.mfgDateCtrl.text.isNotEmpty) {
+          try {
+            row.mfgDate = intl.DateFormat('dd-MM-yyyy').parse(row.mfgDateCtrl.text);
+          } catch (_) {}
+        }
+        row.mfgBatchCtrl.text = batchData['mfgBatch'] ?? '';
+        row.qtyOutCtrl.text =
+            batchData['qtyOut'] ?? widget.totalQuantity.toInt().toString();
+        row.focCtrl.text = batchData['foc'] ?? '';
+
+        if (row.focCtrl.text.isNotEmpty &&
+            (double.tryParse(row.focCtrl.text) ?? 0) > 0) {
+          _showFocColumn = true;
+        }
+        if (row.mfgDateCtrl.text.isNotEmpty ||
+            row.mfgBatchCtrl.text.isNotEmpty) {
+          _showMfgDetails = true;
+        }
+
+        _rows.add(row);
+      }
+    } else {
+      final firstRow = _InvoiceBatchRowController();
+      firstRow.qtyOutCtrl.text = widget.totalQuantity.toInt().toString();
+      _rows.add(firstRow);
+    }
+  }
+
+  String _normalizeDateForUi(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return '';
+    try {
+      if (value.contains('-') && value.length >= 10) {
+        final parsed = DateTime.tryParse(value.substring(0, 10));
+        if (parsed != null) {
+          return intl.DateFormat('dd-MM-yyyy').format(parsed);
+        }
+      }
+      return intl.DateFormat(
+        'dd-MM-yyyy',
+      ).format(intl.DateFormat('dd-MM-yyyy').parse(value));
+    } catch (_) {
+      return value;
+    }
+  }
+
+  Future<void> _loadBins() async {
+    if (widget.warehouseId.isEmpty) {
+      debugPrint('⚠️ Warehouse ID is empty in _loadBins (Invoice)');
+      return;
+    }
+    try {
+      debugPrint(
+        '🔄 Loading bins for Invoice - Warehouse: ${widget.warehouseId}, Product: ${widget.productId}',
+      );
+      final repository = ref.read(inventoryPicklistRepositoryProvider);
+      final bins = await repository.getWarehouseBins(
+        warehouseId: widget.warehouseId,
+        productId: widget.productId,
+      );
+      
+      debugPrint('📦 Found ${bins.length} bins from repository for Invoice');
+      
+      if (mounted) {
+        setState(() {
+          _binLocations = bins
+              .map((b) => (b['binCode'] ?? b['bin_code'] ?? '').toString())
+              .where((c) => c.isNotEmpty)
+              .toList();
+        });
+        debugPrint('✅ Set _binLocations (Invoice): $_binLocations');
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading bins in Invoice: $e');
+    }
+  }
+
+  Future<void> _loadInitialData() async {
+    await _loadBins();
+    try {
+      final batches = await ref.read(batchLookupProvider(widget.productId).future);
+      if (mounted) {
+        setState(() {
+          if ((widget.savedBatchData == null || widget.savedBatchData!.isEmpty) && _rows.isNotEmpty) {
+            final row = _rows.first;
+            
+            if (_binLocations.isNotEmpty && row.binLocationCtrl.text.isEmpty) {
+              row.binLocationCtrl.text = _binLocations.first;
+            }
+            
+            if (batches.isNotEmpty && row.batchRefCtrl.text.isEmpty) {
+              final firstBatch = batches.first;
+              final batchNo = firstBatch['batch_no']?.toString().trim() ?? '';
+              row.batchRefCtrl.text = batchNo;
+              row.batchNoCtrl.text = batchNo;
+              
+              row.unitPackCtrl.text = firstBatch['unit_pack']?.toString() ?? '';
+              
+              final rawExpDate = firstBatch['expiry_date']?.toString() ?? '';
+              row.expDateCtrl.text = _normalizeDateForUi(rawExpDate);
+              if (row.expDateCtrl.text.isNotEmpty) {
+                try {
+                  row.expDate = intl.DateFormat('dd-MM-yyyy').parse(row.expDateCtrl.text);
+                } catch (_) {}
+              }
+              
+              final rawMfgDate = firstBatch['mfg_date']?.toString() ?? firstBatch['manufactured_date']?.toString() ?? '';
+              row.mfgDateCtrl.text = _normalizeDateForUi(rawMfgDate);
+              if (row.mfgDateCtrl.text.isNotEmpty) {
+                try {
+                  row.mfgDate = intl.DateFormat('dd-MM-yyyy').parse(row.mfgDateCtrl.text);
+                } catch (_) {}
+              }
+              
+              row.mfgBatchCtrl.text = firstBatch['mfg_batch']?.toString() ?? firstBatch['manufacturer_batch']?.toString() ?? '';
+              
+              final prices = firstBatch['prices'] as List?;
+              if (prices != null && prices.isNotEmpty) {
+                final p = prices[0];
+                row.mrpCtrl.text = (p['mrp'] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+                row.ptrCtrl.text = ((p['ptr'] ?? p['prate'] ?? p['purchase_rate']) as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+              } else {
+                row.mrpCtrl.text = (firstBatch['mrp'] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+                row.ptrCtrl.text = ((firstBatch['ptr'] ?? firstBatch['prate'] ?? firstBatch['purchase_rate']) as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+              }
+              
+              if (row.mfgDateCtrl.text.isNotEmpty || row.mfgBatchCtrl.text.isNotEmpty) {
+                _showMfgDetails = true;
+              }
+            }
+          } else if (widget.savedBatchData != null && widget.savedBatchData!.isNotEmpty && _rows.isNotEmpty) {
+            for (final row in _rows) {
+              if (_binLocations.isNotEmpty && row.binLocationCtrl.text.isEmpty) {
+                row.binLocationCtrl.text = _binLocations.first;
+              }
+              if (batches.isNotEmpty) {
+                final batchRef = row.batchRefCtrl.text.trim();
+                if (batchRef.isNotEmpty) {
+                  final match = batches.firstWhere(
+                    (b) => b['batch_no']?.toString().trim() == batchRef,
+                    orElse: () => <String, dynamic>{},
+                  );
+                  if (match.isNotEmpty) {
+                    if (row.unitPackCtrl.text.isEmpty) {
+                      row.unitPackCtrl.text = match['unit_pack']?.toString() ?? '';
+                    }
+                    if (row.expDateCtrl.text.isEmpty) {
+                      row.expDateCtrl.text = _normalizeDateForUi(match['expiry_date']?.toString() ?? '');
+                      try {
+                        row.expDate = intl.DateFormat('dd-MM-yyyy').parse(row.expDateCtrl.text);
+                      } catch (_) {}
+                    }
+                    if (row.mfgDateCtrl.text.isEmpty) {
+                      row.mfgDateCtrl.text = _normalizeDateForUi(match['mfg_date']?.toString() ?? match['manufactured_date']?.toString() ?? '');
+                      try {
+                        row.mfgDate = intl.DateFormat('dd-MM-yyyy').parse(row.mfgDateCtrl.text);
+                      } catch (_) {}
+                    }
+                    if (row.mfgBatchCtrl.text.isEmpty) {
+                      row.mfgBatchCtrl.text = match['mfg_batch']?.toString() ?? match['manufacturer_batch']?.toString() ?? '';
+                    }
+                    if (row.mrpCtrl.text.isEmpty || row.mrpCtrl.text == '0.00' || row.mrpCtrl.text == '0') {
+                      final prices = match['prices'] as List?;
+                      if (prices != null && prices.isNotEmpty) {
+                        row.mrpCtrl.text = (prices[0]['mrp'] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+                      } else {
+                        row.mrpCtrl.text = (match['mrp'] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+                      }
+                    }
+                    if (row.ptrCtrl.text.isEmpty || row.ptrCtrl.text == '0.00' || row.ptrCtrl.text == '0') {
+                      final prices = match['prices'] as List?;
+                      if (prices != null && prices.isNotEmpty) {
+                        row.ptrCtrl.text = ((prices[0]['ptr'] ?? prices[0]['prate'] ?? prices[0]['purchase_rate']) as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+                      } else {
+                        row.ptrCtrl.text = ((match['ptr'] ?? match['prate'] ?? match['purchase_rate']) as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+                      }
+                    }
+                    if (row.mfgDateCtrl.text.isNotEmpty || row.mfgBatchCtrl.text.isNotEmpty) {
+                      _showMfgDetails = true;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading initial batch data for pre-fill: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final row in _rows) {
+      row.dispose();
+    }
+    super.dispose();
+  }
+
+  double get _totalQuantityOnlyOut => _rows.fold<double>(
+    0,
+    (sum, r) => sum + (double.tryParse(r.qtyOutCtrl.text.trim()) ?? 0),
+  );
+
+  double get _totalAppliedIncludingFoc => _rows.fold<double>(
+    0,
+    (sum, r) =>
+        sum +
+        (double.tryParse(r.qtyOutCtrl.text.trim()) ?? 0) +
+        (double.tryParse(r.focCtrl.text.trim()) ?? 0),
+  );
+
+  double get _quantityToBeAdded =>
+      (widget.totalQuantity - _totalQuantityOnlyOut).clamp(
+        0,
+        widget.totalQuantity,
+      );
+
+  bool get _hasQuantityMismatch =>
+      (_totalQuantityOnlyOut - widget.totalQuantity).abs() > 0.0001;
+
+  int get _batchCount {
+    final refs = _rows
+        .where((r) => (double.tryParse(r.qtyOutCtrl.text.trim()) ?? 0) > 0)
+        .map((r) => r.batchRefCtrl.text.trim())
+        .where((ref) => ref.isNotEmpty)
+        .toSet();
+    return refs.length;
+  }
+
+  void _addRow() {
+    setState(() {
+      _rows.add(_InvoiceBatchRowController());
+    });
+  }
+
+  void _removeRow(int index) {
+    setState(() {
+      if (_rows.length == 1) {
+        _rows[index].batchRefCtrl.clear();
+        _rows[index].qtyOutCtrl.clear();
+      } else {
+        _rows[index].dispose();
+        _rows.removeAt(index);
+      }
+    });
+  }
+
+  Widget _headerCell(
+    String text,
+    int flex, {
+    TextAlign alignment = TextAlign.center,
+  }) {
+    final isRequired = text.contains('*');
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Text(
+          text,
+          textAlign: alignment,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: isRequired ? const Color(0xFFD32F2F) : _dlgTextPrimary,
+            fontFamily: 'Inter',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInput({
+    required TextEditingController controller,
+    required int flex,
+    required String hint,
+    bool isNumber = false,
+    bool readOnly = false,
+  }) {
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Container(
+          child: TextField(
+            controller: controller,
+            readOnly: readOnly,
+            keyboardType: isNumber
+                ? const TextInputType.numberWithOptions(decimal: true)
+                : null,
+            inputFormatters: isNumber
+                ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
+                : [],
+            textAlign: isNumber ? TextAlign.right : TextAlign.left,
+            textAlignVertical: TextAlignVertical.center,
+            strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
+            style: TextStyle(
+              fontSize: 13,
+              color: readOnly ? _dlgTextSecondary : _dlgTextPrimary,
+              fontFamily: 'Inter',
+            ),
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              isDense: false,
+              hintText: hint,
+              hintStyle: const TextStyle(color: _dlgTextSecondary, fontSize: 13),
+              filled: true,
+              fillColor: readOnly ? const Color(0xFFF9FAFB) : Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 12,
+              ),
+              constraints: const BoxConstraints(
+                minHeight: _batchTextFieldHeight,
+                maxHeight: _batchTextFieldHeight,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(
+                  color: readOnly ? const Color(0xFFE5E7EB) : _dlgBorderCol,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(
+                  color: readOnly ? const Color(0xFFE5E7EB) : _dlgFocusBorder,
+                  width: 1.4,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDatePicker({
+    required TextEditingController controller,
+    required GlobalKey anchorKey,
+    required int flex,
+    required DateTime? currentDate,
+    required ValueChanged<DateTime?> onDateChanged,
+    bool readOnly = false,
+  }) {
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: SizedBox(
+          height: _batchTextFieldHeight,
+          child: TextField(
+            key: anchorKey,
+            controller: controller,
+            readOnly: true,
+            textAlignVertical: TextAlignVertical.center,
+            strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
+            style: TextStyle(
+              fontSize: 13,
+              color: readOnly ? _dlgTextSecondary : _dlgTextPrimary,
+              fontFamily: 'Inter',
+            ),
+            decoration: InputDecoration(
+              isDense: false,
+              hintText: '',
+              hintStyle: const TextStyle(color: _dlgTextSecondary, fontSize: 13),
+              filled: true,
+              fillColor: readOnly ? const Color(0xFFF9FAFB) : Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 12,
+              ),
+              constraints: const BoxConstraints(
+                minHeight: _batchTextFieldHeight,
+                maxHeight: _batchTextFieldHeight,
+              ),
+              suffixIcon: Icon(
+                LucideIcons.calendar,
+                size: 14,
+                color: readOnly ? const Color(0xFFD1D5DB) : _dlgTextSecondary,
+              ),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 32,
+                maxWidth: 32,
+                minHeight: _batchTextFieldHeight,
+                maxHeight: _batchTextFieldHeight,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(
+                  color: readOnly ? const Color(0xFFE5E7EB) : _dlgBorderCol,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(
+                  color: readOnly ? const Color(0xFFE5E7EB) : _dlgFocusBorder,
+                  width: 1.4,
+                ),
+              ),
+            ),
+            onTap: () async {
+              if (readOnly) return;
+              final picked = await ZerpaiDatePicker.show(
+                context,
+                initialDate: currentDate ?? DateTime.now(),
+                targetKey: anchorKey,
+              );
+              if (picked != null) {
+                onDateChanged(picked);
+                controller.text = intl.DateFormat('dd-MM-yyyy').format(picked);
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFocInput(_InvoiceBatchRowController row, int index) {
+    final isHovered = _hoveredFocRows.contains(index);
+    return Expanded(
+      flex: 15,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hoveredFocRows.add(index)),
+          onExit: (_) => setState(() => _hoveredFocRows.remove(index)),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            height: _batchTextFieldHeight,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isHovered ? _dlgFocusBorder : _dlgBorderCol,
+                width: isHovered ? 1.4 : 1,
+              ),
+            ),
+            child: TextField(
+              controller: row.focCtrl,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+              ],
+              textAlign: TextAlign.right,
+              textAlignVertical: TextAlignVertical.center,
+              strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
+              style: const TextStyle(
+                fontSize: 13,
+                color: _dlgTextPrimary,
+                fontFamily: 'Inter',
+              ),
+              decoration: InputDecoration(
+                isDense: false,
+                hintText: '0',
+                hintStyle: const TextStyle(color: _dlgTextSecondary, fontSize: 13),
+                filled: false,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 12,
+                ),
+                constraints: const BoxConstraints(
+                  minHeight: _batchTextFieldHeight,
+                  maxHeight: _batchTextFieldHeight,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      alignment: Alignment.topCenter,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      insetPadding: const EdgeInsets.fromLTRB(40, 0, 40, 24),
+      child: SizedBox(
+        width: _showMfgDetails
+            ? (_showFocColumn ? 1480 : 1320)
+            : (_showFocColumn ? 1320 : 1160),
+        height: MediaQuery.of(context).size.height * 0.86,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
+              child: Row(
+                children: [
+                  const Text(
+                    'Select Batches',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: _dlgTextPrimary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                  const Spacer(),
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blue),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 16,
+                        color: _dlgDangerRed,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: _dlgBorderCol),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.home, size: 16, color: _dlgTextSecondary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Location : ${widget.warehouseName.toUpperCase()}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: _dlgTextPrimary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text(
+                    'BATCH DETAILS',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: _dlgTextPrimary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Text(
+                      'Item: ${widget.itemName}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: _dlgTextSecondary,
+                        fontFamily: 'Inter',
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    'Total Quantity : ${widget.totalQuantity.toInt()}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _dlgTextPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('|', style: TextStyle(color: _dlgTextSecondary)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Quantity to be added : ${_quantityToBeAdded.toInt()}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _dlgTextPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: Checkbox(
+                      value: _showMfgDetails,
+                      onChanged: (val) =>
+                          setState(() => _showMfgDetails = val ?? false),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      activeColor: _dlgGreenBtn,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Manufacture Details',
+                    style: TextStyle(fontSize: 13, color: _dlgTextPrimary),
+                  ),
+                  const SizedBox(width: 24),
+                  SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: Checkbox(
+                      value: _showFocColumn,
+                      onChanged: (val) =>
+                          setState(() => _showFocColumn = val ?? false),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      activeColor: _dlgGreenBtn,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'FOC',
+                    style: TextStyle(fontSize: 13, color: _dlgTextPrimary),
+                  ),
+                  const Spacer(),
+                  SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: Checkbox(
+                      value: _overwriteLineItem,
+                      onChanged: (val) => setState(() {
+                        _overwriteLineItem = val ?? false;
+                      }),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      activeColor: _dlgGreenBtn,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Overwrite the line item with ${_totalQuantityOnlyOut.toInt()} quantities',
+                    style: const TextStyle(fontSize: 13, color: _dlgTextPrimary),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1, color: _dlgBorderCol),
+            const SizedBox(height: 8),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF9FAFB),
+                border: Border(bottom: BorderSide(color: _dlgBorderCol)),
+              ),
+              child: Row(
+                children: [
+                  _headerCell('BIN LOCATION*', 15),
+                  _headerCell('BATCH NO*', 15),
+                  _headerCell('UNIT PACK*', 15),
+                  _headerCell('MRP*', 15),
+                  _headerCell('PURCHASE RATE*', 15),
+                  _headerCell('EXPIRY DATE*', 15),
+                  if (_showMfgDetails) ...[
+                    _headerCell('MANUFACTURED DATE', 15),
+                    _headerCell('MANUFACTURER BATCH', 15),
+                  ],
+                  _headerCell('QUANTITY OUT*', 15),
+                  if (_showFocColumn) _headerCell('FOC', 15),
+                  const SizedBox(width: 24),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 8,
+                ),
+                itemCount: _rows.length,
+                itemBuilder: (context, index) {
+                  final row = _rows[index];
+                  final isRowHovered = _hoveredBatchRows.contains(index);
+                  return Column(
+                    children: [
+                      MouseRegion(
+                        onEnter: (_) =>
+                            setState(() => _hoveredBatchRows.add(index)),
+                        onExit: (_) =>
+                            setState(() => _hoveredBatchRows.remove(index)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 4,
+                            horizontal: 8,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 15,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: _InvoiceBinHoverBox(
+                                    isEnabled:
+                                        row.binLocationCtrl.text.isNotEmpty,
+                                    message: row.binLocationCtrl.text,
+                                    child: SizedBox(
+                                      height: _batchDropdownHeight,
+                                      child: FormDropdown<String>(
+                                        height: _batchDropdownHeight,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: _dlgBorderCol),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 8,
+                                        ),
+                                        value:
+                                            _binLocations.contains(
+                                              row.binLocationCtrl.text.trim(),
+                                            )
+                                            ? row.binLocationCtrl.text.trim()
+                                            : null,
+                                        items: _binLocations,
+                                        hint: 'Select Bin',
+                                        showSearch: true,
+                                        maxVisibleItems: 8,
+                                        menuMaxHeight: 400,
+                                        menuWidth: 160,
+                                        itemEstimatedHeight: _calculateBinItemEstimatedHeight(_binLocations),
+                                        displayStringForValue: (v) => v,
+                                        searchStringForValue: (v) => v,
+                                        itemBuilder:
+                                            (
+                                              item,
+                                              isSelected,
+                                              isHovered,
+                                            ) => Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
+                                                  ),
+                                              color: isHovered
+                                                  ? const Color(0xFF3B82F6)
+                                                  : (isSelected
+                                                        ? const Color(
+                                                            0xFFF3F4F6,
+                                                          )
+                                                        : Colors.transparent),
+                                              child: Text(
+                                                item,
+                                                softWrap: true,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: isHovered
+                                                      ? Colors.white
+                                                      : const Color(0xFF1F2937),
+                                                ),
+                                              ),
+                                            ),
+                                        onChanged: (val) {
+                                          setState(() {
+                                            row.binLocationCtrl.text =
+                                                val ?? '';
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 15,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: SizedBox(
+                                    height: _batchDropdownHeight,
+                                    child: Consumer(
+                                      builder: (context, ref, _) {
+                                        final batchesAsync = ref.watch(
+                                          batchLookupProvider(widget.productId),
+                                        );
+                                        final batches =
+                                            batchesAsync.value ?? [];
+
+                                        return FormDropdown<
+                                          Map<String, dynamic>
+                                        >(
+                                          height: _batchDropdownHeight,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          border: Border.all(color: _dlgBorderCol),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 8,
+                                          ),
+                                          value:
+                                              batches
+                                                  .firstWhere(
+                                                    (b) =>
+                                                        b['batch_no']
+                                                            ?.toString()
+                                                            .trim() ==
+                                                        row.batchRefCtrl.text
+                                                            .trim(),
+                                                    orElse: () =>
+                                                        <String, dynamic>{},
+                                                  )
+                                                  .isEmpty
+                                              ? null
+                                              : batches.firstWhere(
+                                                  (b) =>
+                                                      b['batch_no']
+                                                          ?.toString()
+                                                          .trim() ==
+                                                      row.batchRefCtrl.text
+                                                          .trim(),
+                                                ),
+                                          items: batches,
+                                          hint: 'Select Batch',
+                                          showSearch: true,
+                                          menuMaxHeight: 400,
+                                          menuWidth: 260,
+                                          itemEstimatedHeight: _calculateBatchItemEstimatedHeight(batches),
+                                          itemBuilder:
+                                              (item, isSelected, isHovered) {
+                                                final batchNo =
+                                                    item['batch_no']
+                                                        ?.toString() ??
+                                                    '-';
+                                                final balance =
+                                                    item['balance']
+                                                        ?.toString() ??
+                                                    '0';
+                                                final expDate =
+                                                    item['expiry_date']
+                                                        ?.toString() ??
+                                                    '-';
+                                                final mrp =
+                                                    item['mrp']?.toString() ??
+                                                    '0.00';
+                                                final ptr =
+                                                    item['prate']?.toString() ??
+                                                    '0.00';
+
+                                                final displayText =
+                                                    '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr';
+
+                                                return Container(
+                                                  width: double.infinity,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 8,
+                                                      ),
+                                                  color: isHovered
+                                                      ? const Color(0xFF3B82F6)
+                                                      : (isSelected
+                                                            ? const Color(
+                                                                0xFFF3F4F6,
+                                                              )
+                                                            : Colors
+                                                                  .transparent),
+                                                  child: Text(
+                                                    displayText,
+                                                    softWrap: true,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: isHovered
+                                                          ? Colors.white
+                                                          : const Color(
+                                                              0xFF1F2937,
+                                                            ),
+                                                      fontFamily: 'Inter',
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                          displayStringForValue: (v) =>
+                                              v['batch_no']?.toString() ?? '',
+                                          searchStringForValue: (v) =>
+                                              v['batch_no']?.toString() ?? '',
+                                          onChanged: (v) {
+                                            setState(() {
+                                              if (v != null) {
+                                                final batchNo = v['batch_no']
+                                                    ?.toString()
+                                                    .trim();
+                                                row.batchRefCtrl.text =
+                                                    batchNo ?? '';
+                                                row.batchNoCtrl.text =
+                                                    batchNo ?? '';
+
+                                                row.unitPackCtrl.text =
+                                                    v['unit_pack']
+                                                        ?.toString() ??
+                                                    '';
+                                                
+                                                final rawExp = v['expiry_date']?.toString() ?? '';
+                                                row.expDateCtrl.text = _normalizeDateForUi(rawExp);
+                                                if (row.expDateCtrl.text.isNotEmpty) {
+                                                  try {
+                                                    row.expDate = intl.DateFormat('dd-MM-yyyy').parse(row.expDateCtrl.text);
+                                                  } catch (_) {}
+                                                }
+
+                                                final rawMfgDate = v['mfg_date']?.toString() ?? v['manufactured_date']?.toString() ?? '';
+                                                row.mfgDateCtrl.text = _normalizeDateForUi(rawMfgDate);
+                                                if (row.mfgDateCtrl.text.isNotEmpty) {
+                                                  try {
+                                                    row.mfgDate = intl.DateFormat('dd-MM-yyyy').parse(row.mfgDateCtrl.text);
+                                                  } catch (_) {}
+                                                }
+                                                row.mfgBatchCtrl.text = v['mfg_batch']?.toString() ?? v['manufacturer_batch']?.toString() ?? '';
+                                                if (row.mfgDateCtrl.text.isNotEmpty || row.mfgBatchCtrl.text.isNotEmpty) {
+                                                  _showMfgDetails = true;
+                                                }
+
+                                                final prices =
+                                                    v['prices'] as List?;
+                                                if (prices != null &&
+                                                    prices.isNotEmpty) {
+                                                  final p = prices[0];
+                                                  row.mrpCtrl.text =
+                                                      (p['mrp'] as num?)
+                                                          ?.toDouble()
+                                                          .toStringAsFixed(2) ??
+                                                      '0.00';
+                                                  row.ptrCtrl.text =
+                                                      ((p['ptr'] ?? p['prate'] ?? p['purchase_rate']) as num?)
+                                                          ?.toDouble()
+                                                          .toStringAsFixed(2) ??
+                                                      '0.00';
+                                                } else {
+                                                  row.mrpCtrl.text =
+                                                      (v['mrp'] as num?)
+                                                          ?.toDouble()
+                                                          .toStringAsFixed(2) ??
+                                                      '0.00';
+                                                  row.ptrCtrl.text =
+                                                      ((v['ptr'] ?? v['prate'] ?? v['purchase_rate']) as num?)
+                                                          ?.toDouble()
+                                                          .toStringAsFixed(2) ??
+                                                      '0.00';
+                                                }
+                                              }
+                                            });
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              _buildInput(
+                                controller: row.unitPackCtrl,
+                                flex: 15,
+                                hint: 'Pack',
+                                isNumber: true,
+                                readOnly: true,
+                              ),
+                              _buildInput(
+                                controller: row.mrpCtrl,
+                                flex: 15,
+                                hint: '0',
+                                isNumber: true,
+                                readOnly: true,
+                              ),
+                              _buildInput(
+                                controller: row.ptrCtrl,
+                                flex: 15,
+                                hint: '0',
+                                isNumber: true,
+                                readOnly: true,
+                              ),
+                              _buildDatePicker(
+                                controller: row.expDateCtrl,
+                                anchorKey: row.expKey,
+                                flex: 15,
+                                currentDate: row.expDate,
+                                onDateChanged: (d) =>
+                                    setState(() => row.expDate = d),
+                                readOnly: true,
+                              ),
+                              if (_showMfgDetails) ...[
+                                _buildDatePicker(
+                                  controller: row.mfgDateCtrl,
+                                  anchorKey: row.mfgKey,
+                                  flex: 15,
+                                  currentDate: row.mfgDate,
+                                  onDateChanged: (d) =>
+                                      setState(() => row.mfgDate = d),
+                                  readOnly: true,
+                                ),
+                                _buildInput(
+                                  controller: row.mfgBatchCtrl,
+                                  flex: 15,
+                                  hint: 'Mfg Batch',
+                                  readOnly: true,
+                                ),
+                              ],
+                              _buildInput(
+                                controller: row.qtyOutCtrl,
+                                flex: 15,
+                                hint: '0',
+                                isNumber: true,
+                              ),
+                              if (_showFocColumn) _buildFocInput(row, index),
+                              SizedBox(
+                                width: 24,
+                                child: AnimatedOpacity(
+                                  opacity: isRowHovered ? 1 : 0,
+                                  duration: const Duration(milliseconds: 120),
+                                  child: IconButton(
+                                    onPressed: () => _removeRow(index),
+                                    tooltip: 'Remove row',
+                                    padding: EdgeInsets.zero,
+                                    icon: const Icon(
+                                      LucideIcons.x,
+                                      size: 15,
+                                      color: _dlgDangerRed,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (index < _rows.length - 1)
+                        const Divider(height: 1, color: _dlgBorderCol),
+                    ],
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+              child: Row(
+                children: [
+                  InkWell(
+                    onTap: _addRow,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          LucideIcons.plusCircle,
+                          size: 14,
+                          color: Colors.blue.shade600,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'New Row',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.blue.shade600,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Batches added: ${_rows.length}/100',
+                    style: const TextStyle(fontSize: 13, color: _dlgTextPrimary),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: _dlgBorderCol),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: () {
+                      for (var i = 0; i < _rows.length; i++) {
+                        final row = _rows[i];
+                        if (row.binLocationCtrl.text.isEmpty) {
+                          ZerpaiToast.error(
+                            context,
+                            'Please select Bin Location in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+                        if (row.batchRefCtrl.text.isEmpty) {
+                          ZerpaiToast.error(
+                            context,
+                            'Please select Batch Reference in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+                        if (row.batchNoCtrl.text.isEmpty) {
+                          ZerpaiToast.error(
+                            context,
+                            'Please enter Batch No in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+                        if (row.unitPackCtrl.text.isEmpty) {
+                          ZerpaiToast.error(
+                            context,
+                            'Please enter Unit Pack in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+                        if (row.mrpCtrl.text.isEmpty) {
+                          ZerpaiToast.error(
+                            context,
+                            'Please enter MRP in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+                        if (row.expDateCtrl.text.isEmpty) {
+                          ZerpaiToast.error(
+                            context,
+                            'Please select Expiry Date in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+
+                        final qtyOut =
+                            double.tryParse(row.qtyOutCtrl.text.trim()) ?? 0;
+                        final foc =
+                            double.tryParse(row.focCtrl.text.trim()) ?? 0;
+                        if (qtyOut <= 0 && foc <= 0) {
+                          ZerpaiToast.error(
+                            context,
+                            'Either Quantity Out or FOC must be filled in Row ${i + 1}.',
+                          );
+                          return;
+                        }
+                      }
+
+                      final seenPairs = <String>{};
+                      for (var i = 0; i < _rows.length; i++) {
+                        final row = _rows[i];
+                        final bin = row.binLocationCtrl.text.trim();
+                        final batch = row.batchNoCtrl.text.trim();
+                        if (bin.isNotEmpty && batch.isNotEmpty) {
+                          final pair = '$bin|$batch';
+                          if (seenPairs.contains(pair)) {
+                            ZerpaiToast.error(
+                              context,
+                              'Same Bin Location and Batch No can\'t be used multiple times.',
+                            );
+                            return;
+                          }
+                          seenPairs.add(pair);
+                        }
+                      }
+
+                      if (_hasQuantityMismatch && !_overwriteLineItem) {
+                        ZerpaiToast.error(context, _quantityMismatchMessage);
+                        return;
+                      }
+
+                      final batchDataList = _rows
+                          .map(
+                            (row) => {
+                              'binLocation': row.binLocationCtrl.text,
+                              'batchRef': row.batchRefCtrl.text,
+                              'batchNo': row.batchNoCtrl.text,
+                              'unitPack': row.unitPackCtrl.text,
+                              'mrp': row.mrpCtrl.text,
+                              'prate': row.ptrCtrl.text,
+                              'expDate': row.expDateCtrl.text,
+                              'mfgDate': row.mfgDateCtrl.text,
+                              'mfgBatch': row.mfgBatchCtrl.text,
+                              'qtyOut': row.qtyOutCtrl.text,
+                              'foc': row.focCtrl.text,
+                            },
+                          )
+                          .toList();
+
+                      Navigator.pop(
+                        context,
+                        _InvoiceBatchDialogResult(
+                          overwriteLineItem: _overwriteLineItem,
+                          batchCount: _batchCount > 0
+                              ? _batchCount
+                              : _rows.length,
+                          appliedQuantity: _totalQuantityOnlyOut,
+                          totalIncludingFoc: _totalAppliedIncludingFoc,
+                          batchDataList: batchDataList,
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _dlgGreenBtn,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text(
+                      'Save',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _dlgTextPrimary,
+                      side: const BorderSide(color: _dlgBorderCol),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InvoiceBinHoverBox extends StatefulWidget {
+  final String message;
+  final Widget child;
+  final bool isEnabled;
+
+  const _InvoiceBinHoverBox({
+    required this.message,
+    required this.child,
+    this.isEnabled = true,
+  });
+
+  @override
+  State<_InvoiceBinHoverBox> createState() => _InvoiceBinHoverBoxState();
+}
+
+class _InvoiceBinHoverBoxState extends State<_InvoiceBinHoverBox> {
+  OverlayEntry? _entry;
+  final LayerLink _layerLink = LayerLink();
+
+  void _showOverlay() {
+    if (_entry != null || !widget.isEnabled) return;
+    _entry = _createOverlayEntry();
+    Overlay.maybeOf(context)?.insert(_entry!);
+  }
+
+  void _hideOverlay() {
+    _entry?.remove();
+    _entry = null;
+  }
+
+  OverlayEntry _createOverlayEntry() {
+    return OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          CompositedTransformFollower(
+            link: _layerLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomCenter,
+            followerAnchor: Alignment.topCenter,
+            offset: const Offset(0, 4),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 250),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  widget.message,
+                  style: const TextStyle(
+                    color: Color(0xFF1F2937),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: 'Inter',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: MouseRegion(
+        onEnter: (_) => _showOverlay(),
+        onExit: (_) => _hideOverlay(),
+        child: widget.child,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _hideOverlay();
+    super.dispose();
+  }
+}
+
 

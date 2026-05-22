@@ -43,7 +43,6 @@ import 'widgets/advanced_customer_search_dialog.dart';
 import 'package:zerpai_erp/shared/services/lookup_service.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/manage_simple_list_dialog.dart';
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'widgets/sales_order_preferences_dialog.dart';
 import 'sales_customer_create.dart';
@@ -52,6 +51,7 @@ import 'package:zerpai_erp/modules/accountant/providers/accountant_chart_of_acco
 import 'package:zerpai_erp/shared/widgets/hsn_sac_search_modal.dart';
 import 'package:zerpai_erp/modules/sales/models/hsn_sac_model.dart';
 import 'package:zerpai_erp/shared/services/sequences_api_service.dart';
+import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 
 // ─── Colour constants ────────────────────────────────────────────────────────
 const _kBorder = Color(0xFFE5E7EB);
@@ -199,7 +199,6 @@ class _SalesOrderCreateScreenState
     salesOrderNumberCtrl = TextEditingController(
       text: '$_soPrefix$_soNextNumber',
     );
-    salesperson = 'ALTHAF';
     // paymentTerms = 'Net 360'; // Loaded dynamically in _loadPaymentTerms
     warehouse = 'Main Warehouse';
 
@@ -334,22 +333,16 @@ class _SalesOrderCreateScreenState
 
   Future<void> _loadSalespersons() async {
     try {
-      final lookupsService = LookupsApiService();
-      final persons = await lookupsService.getSalespersons();
+      final users = await ref.read(allUsersProvider.future);
       if (mounted) {
         setState(() {
-          _salespersonList = persons;
-          // If salesperson is not set, we don't necessarily want to force one
-          // but we can set a default if needed.
-          if (persons.isNotEmpty && salesperson == null) {
-            // Check for ALTHAF as requested in screenshot
-            final althaf = persons.firstWhere(
-              (p) => p['name']?.toString().toUpperCase() == 'ALTHAF',
-              orElse: () => persons.first,
-            );
-            salesperson =
-                althaf['id']?.toString() ?? althaf['name']?.toString();
-          }
+          _salespersonList = users
+              .map((u) => <String, dynamic>{
+                    'id': u.fullName,
+                    'name': u.fullName,
+                    'salesperson_name': u.fullName,
+                  })
+              .toList();
         });
       }
     } catch (e) {
@@ -521,46 +514,6 @@ class _SalesOrderCreateScreenState
     );
     row.hsnCode = item.hsnCode ?? item.item?.hsnCode;
     return row;
-  }
-
-  void _showManageSalespersonsDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => ManageSimpleListDialog(
-        title: 'Manage Salespersons',
-        singularLabel: 'Salesperson',
-        headerLabel: 'Salesperson Name',
-        items: _salespersonList,
-        selectedId: salesperson,
-        labelKey: 'name',
-        onSelect: (item) {
-          setState(() {
-            salesperson = item['id']?.toString() ?? item['name']?.toString();
-          });
-        },
-        onSave: (items) async {
-          final lookupsService = LookupsApiService();
-          final updated = await lookupsService.syncSalespersons(items);
-          setState(() {
-            _salespersonList = updated;
-          });
-          return updated;
-        },
-        onDeleteCheck: (item) async {
-          if (item['id'] == null) return null;
-          final lookupsService = LookupsApiService();
-          final result = await lookupsService.checkLookupUsage(
-            'salespersons',
-            item['id'],
-          );
-          if (result['inUse'] == true) {
-            return result['message'] ??
-                'This salesperson is in use and cannot be deleted.';
-          }
-          return null;
-        },
-      ),
-    );
   }
 
   @override
@@ -1601,15 +1554,14 @@ class _SalesOrderCreateScreenState
               // Salesperson
               SharedFieldLayout(
                 label: 'Salesperson',
+                required: true,
                 labelWidth: 180,
                 maxWidth: 600,
                 child: FormDropdown<String>(
                   value: salesperson,
                   height: _kDropdownHeight,
                   allowClear: true,
-                  showSettings: true,
-                  settingsLabel: 'Manage Salespersons',
-                  onSettingsTap: _showManageSalespersonsDialog,
+                  maxVisibleItems: _salespersonList.length > 4 ? 4 : (_salespersonList.isEmpty ? 1 : _salespersonList.length),
                   items: _salespersonList
                       .map(
                         (p) =>
@@ -5072,6 +5024,10 @@ class _SalesOrderCreateScreenState
   void _saveSalesOrder({required String status}) async {
     if (_selectedCustomerId == null) {
       ZerpaiToast.error(context, 'Please select a customer');
+      return;
+    }
+    if (salesperson == null || salesperson!.isEmpty) {
+      ZerpaiToast.error(context, 'Please select a salesperson');
       return;
     }
     if (salesOrderNumberCtrl.text.isEmpty) {

@@ -222,7 +222,9 @@ class _PRCreateState
 
     // Load vendors and next number when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       await ref.read(vendorProvider.notifier).loadVendors();
+      if (!mounted) return;
       await _fetchNextNumber();
 
       if (widget.initialPoId != null && mounted) {
@@ -231,6 +233,7 @@ class _PRCreateState
             _isLoadingPOs = true;
           });
           // 1. Fetch the Purchase Order detail
+          if (!mounted) return;
           final po = await ref.read(purchaseOrderProvider(widget.initialPoId!).future);
           if (po != null && mounted) {
             // 2. Set vendor details from the PO
@@ -263,6 +266,7 @@ class _PRCreateState
   }
 
   Future<void> _fetchNextNumber() async {
+    if (!mounted) return;
     try {
       final repo = ref.read(purchaseReceiveRepositoryProvider);
       final data = await repo.getNextPurchaseReceiveNumber(prefix: _receiveNumberPrefix);
@@ -804,7 +808,9 @@ class _PRCreateState
   void _hideFilePopupOverlay() {
     _filePopupOverlayEntry?.remove();
     _filePopupOverlayEntry = null;
-    setState(() => _showFilePopup = false);
+    if (mounted) {
+      setState(() => _showFilePopup = false);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -893,6 +899,7 @@ class _PRCreateState
   // SELECTION DIALOGS
   // ═══════════════════════════════════════════════════════════════════════════
   Future<void> _fetchPOsForVendor(String vendorId) async {
+    if (!mounted) return;
     setState(() {
       _isLoadingPOs = true;
       _vendorPOs.clear();
@@ -904,6 +911,7 @@ class _PRCreateState
     });
 
     try {
+      if (!mounted) return;
       final pos = await ref.read(
         purchaseOrdersProvider(PurchaseOrderFilter(limit: 500)).future,
       );
@@ -924,6 +932,7 @@ class _PRCreateState
   }
 
   Future<void> _onPOSelected(PurchaseOrder po) async {
+    if (!mounted) return;
     setState(() {
       _selectedPO = po;
       _selectedPONumber = po.orderNumber;
@@ -933,6 +942,7 @@ class _PRCreateState
     });
 
     try {
+      if (!mounted) return;
       final fullPO = await ref.read(purchaseOrderProvider(po.id!).future);
       if (!mounted) return;
 
