@@ -798,6 +798,11 @@ class _SalesInvoiceCreateScreenState
       if (mounted) {
         setState(() {
           invoiceNumberCtrl.text = nextNo;
+          final match = RegExp(r'^([a-zA-Z0-9_-]*?)(\d+)$').firstMatch(nextNo);
+          if (match != null) {
+            _invoicePrefix = match.group(1) ?? 'INV-';
+            _invoiceNextNumber = match.group(2) ?? '00001';
+          }
         });
       }
     } catch (e) {
@@ -835,10 +840,12 @@ class _SalesInvoiceCreateScreenState
     if (result != null && mounted) {
       setState(() {
         _isAutoGenerateInvoice = result['isAutoGenerate'] ?? true;
-        _invoicePrefix = result['prefix'] ?? '';
+        _invoicePrefix = (result['prefix'] ?? '').isEmpty ? 'INV-' : result['prefix'];
         _invoiceNextNumber = result['nextNumber'] ?? '';
         if (_isAutoGenerateInvoice) {
           invoiceNumberCtrl.text = '$_invoicePrefix$_invoiceNextNumber';
+        } else {
+          invoiceNumberCtrl.text = '';
         }
       });
     }
@@ -898,6 +905,24 @@ class _SalesInvoiceCreateScreenState
     );
   }
 
+  bool _isKeralaSupply() {
+    final pos = placeOfSupply ?? _selectedCustomer?.placeOfSupply ?? '';
+    final normalized = pos.trim().toLowerCase();
+    return normalized.contains('kerala') || normalized.startsWith('[kl]');
+  }
+
+  void _updateAllNonSalesOrderTaxIds() {
+    final isKerala = _isKeralaSupply();
+    for (var row in rows) {
+      if (row.itemId.isNotEmpty && row.item != null && !row.isFromSalesOrder) {
+        final item = row.item!;
+        row.taxId = isKerala 
+            ? (item.interStateTaxId ?? item.intraStateTaxId)
+            : (item.intraStateTaxId ?? item.interStateTaxId);
+      }
+    }
+  }
+
   SalesOrderItemRow _createItemRow({
     String quantity = '1',
     String rate = '0',
@@ -916,6 +941,12 @@ class _SalesInvoiceCreateScreenState
     String? warehouseId,
     bool isHeader = false,
   }) {
+    final resolvedTaxId = taxId ?? (item != null ? (
+      _isKeralaSupply()
+          ? (item.interStateTaxId ?? item.intraStateTaxId)
+          : (item.intraStateTaxId ?? item.interStateTaxId)
+    ) : null);
+
     final row = SalesOrderItemRow(
       quantityCtrl: TextEditingController(text: quantity),
       rateCtrl: TextEditingController(text: rate),
@@ -926,7 +957,7 @@ class _SalesInvoiceCreateScreenState
       itemId: itemId,
       item: item,
       discountType: discountType,
-      taxId: taxId,
+      taxId: resolvedTaxId,
       priceListId: priceListId,
       accountId: accountId,
       accountName: accountName,
@@ -965,7 +996,7 @@ class _SalesInvoiceCreateScreenState
   }
 
   SalesOrderItemRow _createItemRowFromOrderItem(SalesOrderItem item) {
-    return _createItemRow(
+    final row = _createItemRow(
       quantity: item.quantity.toString(),
       rate: item.rate.toString(),
       discount: item.discount.toString(),
@@ -978,6 +1009,8 @@ class _SalesInvoiceCreateScreenState
       accountId: item.accountId,
       warehouseId: item.warehouseId,
     );
+    row.isFromSalesOrder = true;
+    return row;
   }
 
   Future<void> _showSelectBatchesDialog(SalesOrderItemRow row) async {
@@ -1130,6 +1163,7 @@ class _SalesInvoiceCreateScreenState
                 // Refresh customer list to include the new one
                 // ignore: unused_result
                 ref.refresh(salesCustomersProvider);
+                _updateAllNonSalesOrderTaxIds();
               });
               _loadConfirmedCustomerOrders();
             },
@@ -1394,10 +1428,27 @@ class _SalesInvoiceCreateScreenState
     final shipping = double.tryParse(shippingCtrl.text) ?? 0.0;
     final adjustment = double.tryParse(adjustmentCtrl.text) ?? 0.0;
 
-    // Sample tax calculation (2.5% CGST + 2.5% SGST as per screenshot)
-    double cgst = (st * 0.025);
-    double sgst = (st * 0.025);
-    double currentTaxTotal = cgst + sgst;
+    double calculatedTaxTotal = 0;
+    for (var row in rows) {
+      if (row.itemId.isNotEmpty) {
+        final q = double.tryParse(row.quantityCtrl.text) ?? 0;
+        final r = double.tryParse(row.rateCtrl.text) ?? 0;
+        final d = double.tryParse(row.discountCtrl.text) ?? 0;
+        final discAmt = row.discountType == '%' ? (q * r * d / 100) : d;
+        final taxableAmount = (q * r) - discAmt;
+
+        final itemsState = ref.read(itemsControllerProvider);
+        final taxRateObj = itemsState.taxGroups.firstWhere(
+          (t) => t.id == row.taxId,
+          orElse: () => itemsState.taxRates.firstWhere(
+            (t) => t.id == row.taxId,
+            orElse: () => TaxRate(id: '', taxName: '', taxRate: 0.0),
+          ),
+        );
+        calculatedTaxTotal += taxableAmount * (taxRateObj.taxRate / 100);
+      }
+    }
+    double currentTaxTotal = calculatedTaxTotal;
 
     double rawTotal = st + currentTaxTotal + shipping + adjustment;
     double roundedTotal = rawTotal.roundToDouble();
@@ -1656,13 +1707,14 @@ class _SalesInvoiceCreateScreenState
                                         priceListsAsync.asData?.value ?? [];
 
                                     for (var row in rows) {
-                                      if (row.itemId.isNotEmpty &&
-                                          row.item != null) {
-                                        _updateRowRate(row, val.priceList, priceLists);
+                                        if (row.itemId.isNotEmpty &&
+                                            row.item != null) {
+                                          _updateRowRate(row, val.priceList, priceLists);
+                                        }
                                       }
-                                    }
-                                  });
-                                  _loadConfirmedCustomerOrders();
+                                      _updateAllNonSalesOrderTaxIds();
+                                    });
+                                    _loadConfirmedCustomerOrders();
                                 },
                               ),
                             ),
@@ -1828,7 +1880,13 @@ class _SalesInvoiceCreateScreenState
                     ], // Simplified options
                     itemBuilder: (item, isSelected, isHovered) =>
                         _dropdownItemBuilder(item, isSelected, isHovered),
-                    onChanged: (v) => setState(() => placeOfSupply = v),
+                    onChanged: (v) {
+                      setState(() {
+                        placeOfSupply = v;
+                        _updateAllNonSalesOrderTaxIds();
+                        _calculateTotals();
+                      });
+                    },
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -2973,9 +3031,10 @@ class _SalesInvoiceCreateScreenState
                                                     row.mrpCtrl.text =
                                                         (p.mrp ?? 0).toString();
                                                   }
-                                                  row.taxId ??=
-                                                      p.intraStateTaxId ??
-                                                      p.interStateTaxId;
+                                                  final isKerala = _isKeralaSupply();
+                                                   row.taxId = isKerala 
+                                                       ? (p.interStateTaxId ?? p.intraStateTaxId)
+                                                       : (p.intraStateTaxId ?? p.interStateTaxId);
                                                 });
                                                 _calculateTotals();
                                               },
@@ -3004,6 +3063,7 @@ class _SalesInvoiceCreateScreenState
                                   controller: row.quantityCtrl,
                                   height: 32,
                                   hideBorderDefault: true,
+                                  readOnly: _selectedPackage != null,
                                   keyboardType:
                                       const TextInputType.numberWithOptions(
                                         decimal: true,
@@ -3078,7 +3138,7 @@ class _SalesInvoiceCreateScreenState
                                       ],
                                     ),
                                   ),
-                                  if (_selectedCustomerId != null && row.itemId.isNotEmpty) ...[
+                                  if (row.itemId.isNotEmpty) ...[
                                     const SizedBox(height: 4),
                                     Align(
                                       alignment: Alignment.centerRight,
@@ -3574,23 +3634,29 @@ class _SalesInvoiceCreateScreenState
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    item.type == 'goods' ? 'HSN ' : 'SAC ',
-                    style: const TextStyle(fontSize: 12, color: _kBodyText),
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: item.type == 'goods' ? 'HSN ' : 'SAC ',
+                          style: const TextStyle(fontSize: 12, color: _kBodyText, fontFamily: 'Inter'),
+                        ),
+                      ],
+                    ),
                   ),
                   CompositedTransformTarget(
                     link: row.hsnLink,
                     child: Row(
                       children: [
                         Text(
-                          (item.type == 'goods'
-                                  ? item.hsnCode
-                                  : item.hsnCode) ??
-                              '',
+                          (row.hsnCode ?? item.hsnCode ?? '').isNotEmpty
+                              ? (row.hsnCode ?? item.hsnCode ?? '')
+                              : 'Select HSN',
                           style: const TextStyle(
                             fontSize: 12,
                             color: _kBlue,
                             fontWeight: FontWeight.w600,
+                            fontFamily: 'Inter',
                           ),
                         ),
                         const SizedBox(width: 4),
@@ -3866,12 +3932,19 @@ class _SalesInvoiceCreateScreenState
                     children: [
                       const Icon(LucideIcons.building, size: 14, color: Color(0xFF6B7280)),
                       const SizedBox(width: 6),
-                      Text(
-                        accountName ?? 'Select an account',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF6B7280),
-                          fontWeight: FontWeight.w500,
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: accountName ?? 'Select an account',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF6B7280),
+                                fontWeight: FontWeight.w500,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -5652,6 +5725,24 @@ class _SalesInvoiceCreateScreenState
       return;
     }
 
+    final validRows = rows.where((r) => r.itemId.isNotEmpty && !r.isHeader).toList();
+    if (validRows.isEmpty) {
+      ZerpaiToast.error(context, 'Please add at least one item');
+      return;
+    }
+
+    for (final row in validRows) {
+      if (row.accountId == null || row.accountId!.trim().isEmpty) {
+        ZerpaiToast.error(context, 'Please select an account for all items');
+        return;
+      }
+      final hsn = row.hsnCode ?? row.item?.hsnCode ?? '';
+      if (hsn.trim().isEmpty) {
+        ZerpaiToast.error(context, 'Please select an HSN/SAC code for all items');
+        return;
+      }
+    }
+
     // Show elegant loading progress overlay
     showDialog(
       context: context,
@@ -7139,6 +7230,7 @@ class _SalesInvoiceCreateScreenState
                 _updateRowRate(row, c.priceList, priceLists);
               }
             }
+            _updateAllNonSalesOrderTaxIds();
           });
           _loadConfirmedCustomerOrders();
         },
@@ -11167,6 +11259,7 @@ class _InvoiceSelectBatchesDialogState
             ),
             child: TextField(
               controller: row.focCtrl,
+              readOnly: widget.isFromPackage,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -11455,6 +11548,7 @@ class _InvoiceSelectBatchesDialogState
                                     child: SizedBox(
                                       height: _batchDropdownHeight,
                                       child: FormDropdown<String>(
+                                        enabled: !widget.isFromPackage,
                                         height: _batchDropdownHeight,
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(color: _dlgBorderCol),
@@ -11543,9 +11637,10 @@ class _InvoiceSelectBatchesDialogState
                                             batchesAsync.value ?? [];
 
                                         return FormDropdown<
-                                          Map<String, dynamic>
-                                        >(
-                                          height: _batchDropdownHeight,
+                                           Map<String, dynamic>
+                                         >(
+                                           enabled: !widget.isFromPackage,
+                                           height: _batchDropdownHeight,
                                           borderRadius: BorderRadius.circular(
                                             6,
                                           ),
@@ -11767,24 +11862,27 @@ class _InvoiceSelectBatchesDialogState
                                 flex: 15,
                                 hint: '0',
                                 isNumber: true,
+                                readOnly: widget.isFromPackage,
                               ),
                               if (_showFocColumn) _buildFocInput(row, index),
                               SizedBox(
                                 width: 24,
-                                child: AnimatedOpacity(
-                                  opacity: isRowHovered ? 1 : 0,
-                                  duration: const Duration(milliseconds: 120),
-                                  child: IconButton(
-                                    onPressed: () => _removeRow(index),
-                                    tooltip: 'Remove row',
-                                    padding: EdgeInsets.zero,
-                                    icon: const Icon(
-                                      LucideIcons.x,
-                                      size: 15,
-                                      color: _dlgDangerRed,
-                                    ),
-                                  ),
-                                ),
+                                child: widget.isFromPackage
+                                    ? null
+                                    : AnimatedOpacity(
+                                        opacity: isRowHovered ? 1 : 0,
+                                        duration: const Duration(milliseconds: 120),
+                                        child: IconButton(
+                                          onPressed: () => _removeRow(index),
+                                          tooltip: 'Remove row',
+                                          padding: EdgeInsets.zero,
+                                          icon: const Icon(
+                                            LucideIcons.x,
+                                            size: 15,
+                                            color: _dlgDangerRed,
+                                          ),
+                                        ),
+                                      ),
                               ),
                             ],
                           ),
@@ -11801,6 +11899,7 @@ class _InvoiceSelectBatchesDialogState
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
               child: Row(
                 children: [
+                  if (!widget.isFromPackage)
                   InkWell(
                     onTap: _addRow,
                     child: Row(

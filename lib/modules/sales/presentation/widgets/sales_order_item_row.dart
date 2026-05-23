@@ -32,6 +32,7 @@ class SalesOrderItemRow {
   bool hasBatchData = false;
   int batchCount = 0;
   List<Map<String, String>> batchDataList = [];
+  bool isFromSalesOrder = false;
 
   SalesOrderItemRow({
     required this.quantityCtrl,
@@ -51,6 +52,7 @@ class SalesOrderItemRow {
     this.warehouseId,
     this.profit = 0,
     this.isHeader = false,
+    this.isFromSalesOrder = false,
   }) : fQtyCtrl = fQtyCtrl ?? TextEditingController(text: '0'),
        mrpCtrl = mrpCtrl ?? TextEditingController(text: '0'),
        descriptionCtrl = descriptionCtrl ?? TextEditingController(),
