@@ -17,6 +17,7 @@ class SalesOrderItem {
   final Item? item;
   final String? accountId;
   final String? priceListId;
+  final bool isInvoiced;
 
   SalesOrderItem({
     this.id,
@@ -35,6 +36,7 @@ class SalesOrderItem {
     this.item,
     this.accountId,
     this.priceListId,
+    this.isInvoiced = false,
   });
 
   factory SalesOrderItem.fromJson(Map<String, dynamic> json) {
@@ -54,14 +56,18 @@ class SalesOrderItem {
       discountType: json['discount_type'] ?? json['discountType'] ?? '%',
       taxId: json['tax_id'] ?? json['taxId'],
       taxAmount: (json['tax_amount'] ?? json['taxAmount'] ?? 0.0).toDouble(),
-      itemTotal: (json['item_total'] ?? json['itemTotal'] ?? json['amount'] ?? 0.0).toDouble(),
+      itemTotal:
+          (json['item_total'] ?? json['itemTotal'] ?? json['amount'] ?? 0.0)
+              .toDouble(),
       hsnCode: (json['hsn_code'] ?? json['hsnCode'])?.toString(),
       warehouseId: json['warehouse_id'] ?? json['warehouseId'],
       item: (json['item'] ?? json['product']) != null
           ? Item.fromJson(json['item'] ?? json['product'])
           : null,
       accountId: json['accounts'] ?? json['account_id'] ?? json['accountId'],
-      priceListId: json['pricelist'] ?? json['price_list_id'] ?? json['priceListId'],
+      priceListId:
+          json['pricelist'] ?? json['price_list_id'] ?? json['priceListId'],
+      isInvoiced: json['is_invoiced'] ?? json['isInvoiced'] ?? false,
     );
   }
 
@@ -80,6 +86,7 @@ class SalesOrderItem {
       if (warehouseId != null) 'warehouseId': warehouseId,
       if (accountId != null) 'accounts': accountId,
       if (priceListId != null) 'pricelist': priceListId,
+      'is_invoiced': isInvoiced,
     };
   }
 }

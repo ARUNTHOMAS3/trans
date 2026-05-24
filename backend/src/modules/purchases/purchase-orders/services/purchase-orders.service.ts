@@ -153,7 +153,9 @@ export class PurchaseOrdersService {
 
     if (error) {
       console.error("Error in findOne PO:", error);
-      throw new NotFoundException(`Purchase Order not found: ${error.message} (code: ${error.code})`);
+      throw new NotFoundException(
+        `Purchase Order not found: ${error.message} (code: ${error.code})`,
+      );
     }
 
     return data;
@@ -163,7 +165,8 @@ export class PurchaseOrdersService {
     createPurchaseOrderDto: CreatePurchaseOrderDto,
     tenant: TenantContext,
   ) {
-    const { items, org_id, branch_id, warehouse_name, ...poData } = createPurchaseOrderDto;
+    const { items, org_id, branch_id, warehouse_name, ...poData } =
+      createPurchaseOrderDto;
     const resolvedDiscountAccountId = await this.resolveDiscountAccountId(
       tenant,
       createPurchaseOrderDto,
@@ -189,7 +192,11 @@ export class PurchaseOrdersService {
       const itemsPayload = items.map((item) => {
         const accountId = item.account_id || item.accounts;
         let hsnNumeric: number | null = null;
-        if (item.hsn_code !== undefined && item.hsn_code !== null && item.hsn_code !== '') {
+        if (
+          item.hsn_code !== undefined &&
+          item.hsn_code !== null &&
+          item.hsn_code !== ""
+        ) {
           const parsed = Number(item.hsn_code);
           if (!isNaN(parsed)) {
             hsnNumeric = parsed;
@@ -225,7 +232,8 @@ export class PurchaseOrdersService {
     tenant: TenantContext,
     updatePurchaseOrderDto: UpdatePurchaseOrderDto,
   ) {
-    const { items, org_id, branch_id, warehouse_name, ...poData } = updatePurchaseOrderDto;
+    const { items, org_id, branch_id, warehouse_name, ...poData } =
+      updatePurchaseOrderDto;
     const resolvedDiscountAccountId = await this.resolveDiscountAccountId(
       tenant,
       updatePurchaseOrderDto,
@@ -269,7 +277,11 @@ export class PurchaseOrdersService {
       const itemsPayload = items.map((item) => {
         const accountId = item.account_id || item.accounts;
         let hsnNumeric: number | null = null;
-        if (item.hsn_code !== undefined && item.hsn_code !== null && item.hsn_code !== '') {
+        if (
+          item.hsn_code !== undefined &&
+          item.hsn_code !== null &&
+          item.hsn_code !== ""
+        ) {
           const parsed = Number(item.hsn_code);
           if (!isNaN(parsed)) {
             hsnNumeric = parsed;

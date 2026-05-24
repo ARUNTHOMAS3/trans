@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'package:flutter/services.dart' show rootBundle;
 
+import 'package:zerpai_erp/core/models/org_settings_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,12 +18,65 @@ import 'package:zerpai_erp/shared/widgets/z_currency_display.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
+import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/email_composer.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:dio/dio.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 
+import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 import '../controllers/sales_order_controller.dart';
 import '../models/sales_order_model.dart';
 import '../models/sales_order_item_model.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
+import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
+
+// ─────────────────────────────────────────────────
+//  Payment Terms Provider
+// ─────────────────────────────────────────────────
+
+final _paymentTermsProvider = FutureProvider<Map<String, String>>((ref) async {
+  try {
+    final list = await LookupsApiService().getPaymentTerms();
+    final Map<String, String> map = {};
+    for (final item in list) {
+      final id = item['id']?.toString() ?? '';
+      final name = item['term_name']?.toString() ?? '';
+      if (id.isNotEmpty && name.isNotEmpty) {
+        map[id] = name;
+      }
+    }
+    return map;
+  } catch (_) {
+    return {};
+  }
+});
+
+// ─────────────────────────────────────────────────
+//  Branches Provider
+// ─────────────────────────────────────────────────
+
+final _branchesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final user = ref.watch(authUserProvider);
+  final orgId = user?.orgId ?? '';
+  if (orgId.isEmpty) return [];
+  final api = ref.watch(apiClientProvider);
+  try {
+    final response = await api.get('/branches', queryParameters: {'org_id': orgId});
+    if (response.statusCode == 200 && response.data != null) {
+      final List<dynamic> data = response.data is List ? response.data : (response.data['data'] ?? []);
+      return data.map((json) => Map<String, dynamic>.from(json)).toList();
+    }
+  } catch (e) {
+    debugPrint('Error loading branches: $e');
+  }
+  return [];
+});
 
 // ─────────────────────────────────────────────────
 //  Invoice Detail Provider Family
@@ -79,6 +135,7 @@ final _salesInvoiceDetailProvider = FutureProvider.family<SalesOrder, String>((
       warehouseId: order.warehouseId,
       paymentTermId: order.paymentTermId,
       priceListId: order.priceListId,
+      entityId: order.entityId,
     );
   } catch (_) {
     return order;
@@ -195,7 +252,7 @@ class _SalesInvoiceOverviewScreenState
   Set<String> _selectedIds = <String>{};
   late List<_InvColumnConfig> _columnConfigs;
   Map<String, double>? _customColumnWidths;
-  bool _isAssociatedOrdersExpanded = true;
+  bool _isAssociatedOrdersExpanded = false;
 
   List<_InvColumnConfig> get _visibleColumns =>
       _columnConfigs.where((c) => c.visible).toList();
@@ -316,7 +373,7 @@ class _SalesInvoiceOverviewScreenState
       _InvColumnConfig(
         key: _InvColumnKey.balanceDue,
         label: 'Balance Due',
-        width: 120,
+        width: 150,
         visible: true,
       ),
       _InvColumnConfig(
@@ -568,6 +625,49 @@ class _SalesInvoiceOverviewScreenState
         children: [
           _buildCheckbox(true, onTap: _clearSelection),
           const SizedBox(width: 10),
+          MenuAnchor(
+            style: _menuStyle(),
+            builder: (context, controller, child) {
+              return InkWell(
+                onTap: () =>
+                    controller.isOpen ? controller.close() : controller.open(),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: AppTheme.borderColor),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Bulk Actions', style: TextStyle(fontSize: 13)),
+                      SizedBox(width: 6),
+                      Icon(LucideIcons.chevronDown, size: 14),
+                    ],
+                  ),
+                ),
+              );
+            },
+            menuChildren: [
+              _bulkActionMenuItem('Bulk Update', 'Bulk update'),
+              _bulkActionMenuItem('Export as PDF', 'PDF export'),
+              _bulkActionMenuItem('Export as ZIP (File)', 'ZIP export'),
+              _bulkActionMenuItem('Export as E-Way Bill', 'E-Way Bill export'),
+              _bulkActionMenuItem('Print', 'Print'),
+              _bulkActionMenuItem('Associate with Sales Orders', 'Associate with Sales Orders'),
+              _bulkActionMenuItem('Dissociate Sales Orders', 'Dissociate Sales Orders'),
+              _bulkActionMenuItem('Mark As Sent', 'Mark As Sent'),
+              _bulkActionMenuItem('Mark as Shipped', 'Mark as Shipped'),
+              _bulkActionMenuItem('Undo Shipment', 'Undo Shipment'),
+              _bulkActionMenuItem('Delete', 'Delete'),
+            ],
+          ),
+          const SizedBox(width: 14),
+          Container(width: 1, height: 20, color: AppTheme.borderColor),
+          const SizedBox(width: 12),
           Container(
             width: 28,
             height: 28,
@@ -600,6 +700,14 @@ class _SalesInvoiceOverviewScreenState
     );
   }
 
+  MenuItemButton _bulkActionMenuItem(String label, String actionLabel) {
+    return MenuItemButton(
+      style: _menuItemStyle(),
+      onPressed: () => _handleBulkAction(actionLabel),
+      child: SizedBox(width: 240, child: Text(label)),
+    );
+  }
+
   // ─── RIGHT SIDE DETAILED SHEET ───────────────────
 
   Widget _detailPane(String invoiceId, SalesOrder? summary) {
@@ -614,17 +722,114 @@ class _SalesInvoiceOverviewScreenState
       data: (invoice) {
         final items = invoice.items ?? const <SalesOrderItem>[];
         final warehouses = ref.watch(warehousesProvider).value;
+        final branchesAsync = ref.watch(_branchesProvider);
+        final branches = branchesAsync.value;
+        final paymentTermsMap = ref.watch(_paymentTermsProvider).value ?? const <String, String>{};
+
+        final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
+        final matchedBranchList = branches?.where((b) => b['entity_id'] == invoice.entityId).toList();
+        final matchedBranch = (matchedBranchList != null && matchedBranchList.isNotEmpty) ? matchedBranchList.first : null;
+
+        final String branchName;
+        final String fullBranchAddress;
+        final String emailVal;
+        final String? logoUrl;
+
+        if (matchedBranch != null) {
+          branchName = matchedBranch['name']?.toString() ?? 'ZABNIX PRIVATE LIMITED';
+          logoUrl = matchedBranch['logo_url']?.toString() ?? orgSettings?.logoUrl;
+          
+          final addressParts = <String>[];
+          final street = matchedBranch['street']?.toString() ?? matchedBranch['address']?.toString() ?? '';
+          final place = matchedBranch['place']?.toString() ?? '';
+          if (street.isNotEmpty) addressParts.add(street);
+          if (place.isNotEmpty) addressParts.add(place);
+          
+          final city = matchedBranch['city']?.toString() ?? '';
+          final state = matchedBranch['state']?.toString() ?? '';
+          final pincode = matchedBranch['pincode']?.toString() ?? '';
+          
+          String cityStatePin = '';
+          if (city.isNotEmpty) cityStatePin += '$city ';
+          if (state.isNotEmpty) cityStatePin += '$state ';
+          if (pincode.isNotEmpty) cityStatePin += pincode;
+          
+          if (cityStatePin.trim().isNotEmpty) {
+            addressParts.add(cityStatePin.trim());
+          }
+          
+          final country = matchedBranch['country']?.toString() ?? 'India';
+          if (country.isNotEmpty) addressParts.add(country);
+          
+          final gstin = matchedBranch['gstin']?.toString() ?? '';
+          if (gstin.isNotEmpty) addressParts.add('GSTIN $gstin');
+          
+          final phone = matchedBranch['phone']?.toString() ?? '';
+          if (phone.isNotEmpty) addressParts.add(phone);
+          
+          final email = matchedBranch['email']?.toString() ?? '';
+          if (email.isNotEmpty) addressParts.add(email);
+          
+          emailVal = email.isNotEmpty ? email : 'zabnixprivatelimited@gmail.com';
+          fullBranchAddress = addressParts.join('\n');
+        } else {
+          // Fallback to Org
+          branchName = orgSettings?.name ?? 'ZABNIX PRIVATE LIMITED';
+          logoUrl = orgSettings?.logoUrl;
+          
+          final addressParts = <String>[];
+          final attention = orgSettings?.attention ?? '';
+          final street = orgSettings?.street ?? '';
+          final place = orgSettings?.place ?? '';
+          if (attention.isNotEmpty) addressParts.add(attention);
+          if (street.isNotEmpty) addressParts.add(street);
+          if (place.isNotEmpty) addressParts.add(place);
+          
+          final city = orgSettings?.city ?? '';
+          final pincode = orgSettings?.pincode ?? '';
+          
+          String cityPin = '';
+          if (city.isNotEmpty) cityPin += '$city ';
+          if (pincode.isNotEmpty) cityPin += pincode;
+          
+          if (cityPin.trim().isNotEmpty) {
+            addressParts.add(cityPin.trim());
+          }
+          
+          final country = orgSettings?.country ?? 'India';
+          if (country.isNotEmpty) addressParts.add(country);
+          
+          final gstin = orgSettings?.companyIdValue ?? '';
+          if (gstin.isNotEmpty) {
+            final label = orgSettings?.companyIdLabel ?? 'GSTIN';
+            addressParts.add('$label $gstin');
+          }
+          
+          final phone = orgSettings?.phone ?? '';
+          if (phone.isNotEmpty) addressParts.add(phone);
+          
+          final primaryBranch = branches?.firstWhere(
+            (b) => b['is_primary'] == true,
+            orElse: () => branches.first,
+          );
+          final email = primaryBranch?['email']?.toString() ?? '';
+          if (email.isNotEmpty) addressParts.add(email);
+          
+          emailVal = email.isNotEmpty ? email : 'zabnixprivatelimited@gmail.com';
+          fullBranchAddress = addressParts.isNotEmpty ? addressParts.join('\n') : 'PERINTHALMANNA\nMALAPPURAM Kerala 679322\nIndia';
+        }
 
         return StatefulBuilder(
           builder: (context, setInnerState) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                _buildTopInfoBanner(invoice, warehouses),
                 _detailToolbar(invoice),
                 const Divider(height: 1, color: AppTheme.borderLight),
                 Expanded(
                   child: Container(
-                    color: const Color(0xFFF3F4F6), // Premium light grey backdrop
+                    color: Colors.white, // Pure white backdrop
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
                       child: Column(
@@ -634,7 +839,12 @@ class _SalesInvoiceOverviewScreenState
                           const SizedBox(height: 20),
                           _associatedSalesOrdersBanner(invoice),
                           const SizedBox(height: 20),
-                          _a4SimulatedInvoice(invoice, items, warehouses),
+                          Align(
+                            alignment: Alignment.topCenter,
+                            child: _a4SimulatedInvoice(invoice, items, warehouses, branchName, fullBranchAddress, logoUrl, paymentTermsMap),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildMoreInformationCard(invoice, emailVal),
                           const SizedBox(height: 24),
                           _InvoiceBatchesSection(items: items),
                         ],
@@ -651,49 +861,56 @@ class _SalesInvoiceOverviewScreenState
   }
 
   Widget _detailToolbar(SalesOrder invoice) {
+    final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '00000000-0000-0000-0000-000000000002';
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      color: Colors.white,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF9FAFB), // Grey background for action banner/toolbar
+        border: Border(
+          bottom: BorderSide(color: AppTheme.borderLight),
+        ),
+      ),
       child: Row(
         children: [
           _buildToolbarButton(
             LucideIcons.pencil,
             'Edit',
-            onPressed: () => context.push('/sales/invoices/${invoice.id}/edit', extra: invoice),
+            onPressed: () => context.push('/$orgId/sales/invoices/${invoice.id}/edit', extra: invoice),
           ),
           _buildDivider(),
-          _buildToolbarButton(
-            LucideIcons.mail,
-            'Send Email',
-            onPressed: () => ZerpaiToast.info(context, 'Sending invoice email...'),
-          ),
+          _buildSendDropdown(invoice),
+          _buildDivider(),
+          _buildShareButton(invoice),
+          _buildDivider(),
+          _buildRemindersDropdown(invoice),
           _buildDivider(),
           _buildPdfPrintDropdown(invoice),
           _buildDivider(),
-          ElevatedButton.icon(
-            onPressed: () => ZerpaiToast.success(context, 'Payment record initiated'),
-            icon: const Icon(LucideIcons.creditCard, size: 14, color: Colors.white),
-            label: const Text('Record Payment', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryBlue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-              elevation: 0,
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(LucideIcons.x, size: 18, color: AppTheme.errorRed),
-            onPressed: () => context.go('/sales/invoices'),
-          ),
+          _buildRecordPaymentDropdown(invoice),
+          _buildDivider(),
+          _buildMoreActionsDropdown(invoice),
         ],
       ),
     );
   }
 
-  Widget _buildPdfPrintDropdown(SalesOrder invoice) {
+  Widget _buildShareButton(SalesOrder invoice) {
+    final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
+    return _buildToolbarButton(
+      LucideIcons.externalLink,
+      'Share',
+      onPressed: () async {
+        final bytes = await _generateInvoicePdf(invoice, orgSettings);
+        await Printing.sharePdf(
+          bytes: bytes,
+          filename: '${invoice.saleNumber}.pdf',
+        );
+      },
+    );
+  }
+
+  Widget _buildRemindersDropdown(SalesOrder invoice) {
     return MenuAnchor(
       alignmentOffset: const Offset(0, 4),
       style: MenuStyle(
@@ -708,14 +925,517 @@ class _SalesInvoiceOverviewScreenState
         ),
       ),
       builder: (context, controller, _) => _buildToolbarButton(
-        LucideIcons.printer,
-        'PDF/Print',
+        LucideIcons.clock,
+        'Reminders',
+        hasDropdownArrow: true,
+        onPressed: () =>
+            controller.isOpen ? controller.close() : controller.open(),
+      ),
+      menuChildren: [
+        _menuItem(
+          label: 'Send Email',
+          icon: LucideIcons.mail,
+          onTap: () => _openEmailComposer(invoice),
+        ),
+        _menuItem(
+          label: 'Stop Reminders',
+          icon: LucideIcons.pause,
+          onTap: () => ZerpaiToast.success(context, 'Reminders stopped successfully'),
+        ),
+        _menuItem(
+          label: 'Expected Payment Date',
+          icon: LucideIcons.calendar,
+          onTap: () => ZerpaiToast.info(context, 'Expected payment date settings opened'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecordPaymentDropdown(SalesOrder invoice) {
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 4),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
+        ),
+      ),
+      builder: (context, controller, _) => _buildToolbarButton(
+        LucideIcons.arrowDownCircle,
+        'Record Payment',
+        hasDropdownArrow: true,
+        onPressed: () =>
+            controller.isOpen ? controller.close() : controller.open(),
+      ),
+      menuChildren: [
+        _menuItem(
+          label: 'Record Payment',
+          icon: LucideIcons.arrowDownCircle,
+          onTap: () => ZerpaiToast.success(context, 'Payment record initiated'),
+        ),
+        _menuItem(
+          label: 'Write Off',
+          icon: LucideIcons.fileText,
+          onTap: () => ZerpaiToast.info(context, 'Write-off functionality initiated'),
+        ),
+      ],
+    );
+  }
+
+
+  void _openEmailComposer(SalesOrder invoice) {
+    final String fromEmail = 'zabnixprivatelimited@gmail.com';
+    final String fromName = 'zabnixprivatelimited';
+    
+    final String toEmail = invoice.customer?.email ?? 'zabnixprivatelimited@gmail.com';
+    final String toName = invoice.customer?.displayName ?? 'CUS-1';
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => EmailComposerScreen(
+          title: 'Email To $toName',
+          initialFrom: '$fromName <$fromEmail>',
+          initialTo: '$toName <$toEmail>',
+          initialSubject: 'Invoice - ${invoice.saleNumber} from ZABNIX PRIVATE LIMITED',
+          initialBody: 'Dear $toName,\n\n'
+              'You can make payment for the ${invoice.saleNumber} through this link.\n\n'
+              'You can email us at $fromEmail or call us at 808635500 for any clarifications.\n\n'
+              'Regards,\n'
+              '$fromName\n'
+              'ZABNIX PRIVATE LIMITED',
+          attachmentName: invoice.saleNumber,
+          attachmentLabel: 'Attach Invoice PDF',
+          onCancel: () => Navigator.of(context).pop(),
+          onSend: (from, to, subject, body, attachPdf) {
+            ZerpaiToast.success(context, 'Email sent successfully');
+            Navigator.of(context).pop();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSendDropdown(SalesOrder invoice) {
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 4),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
+        ),
+      ),
+      builder: (context, controller, _) => _buildToolbarButton(
+        LucideIcons.mail,
+        'Send',
+        hasDropdownArrow: true,
         onPressed: () =>
             controller.isOpen ? controller.close() : controller.open(),
       ),
       menuChildren: [
         MenuItemButton(
-          onPressed: () => ZerpaiToast.info(context, 'PDF Generation started...'),
+          onPressed: () => _openEmailComposer(invoice),
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.transparent,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
+            alignment: Alignment.centerLeft,
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
+          child: const Row(
+            children: [
+              Icon(LucideIcons.mail, size: 16),
+              SizedBox(width: 12),
+              Text('Send Email', style: TextStyle(fontSize: 14)),
+            ],
+          ),
+        ),
+        MenuItemButton(
+          onPressed: () => ZerpaiToast.info(context, 'Send SMS coming soon'),
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? AppTheme.primaryBlue
+                  : Colors.transparent,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? Colors.white
+                  : AppTheme.textSecondary,
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            minimumSize: const WidgetStatePropertyAll(Size(160, 44)),
+            alignment: Alignment.centerLeft,
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+          ),
+          child: const Row(
+            children: [
+              Icon(LucideIcons.messageSquare, size: 16),
+              SizedBox(width: 12),
+              Text('Send SMS', style: TextStyle(fontSize: 14)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMoreActionsDropdown(SalesOrder invoice) {
+    final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '00000000-0000-0000-0000-000000000002';
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 4),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
+        ),
+      ),
+      builder: (context, controller, _) => Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFD3D9E3)),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: IconButton(
+          icon: const Icon(LucideIcons.moreHorizontal, size: 16, color: Color(0xFF4B5563)),
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+          constraints: const BoxConstraints(),
+          padding: const EdgeInsets.all(8),
+        ),
+      ),
+      menuChildren: [
+        _menuItem(
+          label: 'Create Credit Note',
+          icon: LucideIcons.fileMinus,
+          onTap: () => context.push('/$orgId/sales/credit-notes/new', extra: invoice),
+        ),
+        _menuItem(
+          label: 'Add e-Way Bill Details',
+          icon: LucideIcons.truck,
+          onTap: () => context.push('/$orgId/sales/eway-bills/new', extra: invoice),
+        ),
+        _menuItem(
+          label: 'Clone',
+          icon: LucideIcons.copy,
+          onTap: () => context.push('/$orgId/sales/invoices/new?cloneId=${invoice.id}'),
+        ),
+        _menuItem(
+          label: 'Void',
+          icon: LucideIcons.ban,
+          onTap: () => ZerpaiToast.info(context, 'Invoice marked as Void'),
+        ),
+        _menuItem(
+          label: 'Delete',
+          icon: LucideIcons.trash2,
+          onTap: () => ZerpaiToast.info(context, 'Delete functionality coming soon'),
+        ),
+        _menuItem(
+          label: 'Invoice Preferences',
+          icon: LucideIcons.sliders,
+          onTap: () => ZerpaiToast.info(context, 'Invoice Preferences opened'),
+        ),
+      ],
+    );
+  }
+
+  MenuItemButton _menuItem({required String label, required IconData icon, required VoidCallback onTap}) {
+    return MenuItemButton(
+      onPressed: onTap,
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.hovered)
+              ? AppTheme.primaryBlue
+              : Colors.transparent,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.hovered)
+              ? Colors.white
+              : AppTheme.textSecondary,
+        ),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+        minimumSize: const WidgetStatePropertyAll(Size(220, 44)),
+        alignment: Alignment.centerLeft,
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16),
+          const SizedBox(width: 12),
+          Text(label, style: const TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopInfoBanner(SalesOrder invoice, List<Warehouse>? warehouses) {
+    String whName = '';
+    if (warehouses != null && invoice.warehouseId != null) {
+      final match = warehouses.firstWhere(
+        (w) => w.id == invoice.warehouseId,
+        orElse: () => warehouses.firstWhere(
+          (w) => w.isDefaultForBranch,
+          orElse: () => warehouses.first,
+        ),
+      );
+      whName = match.name;
+    }
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      child: Row(
+        children: [
+          // Left: Location & Invoice Number
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Location: ${whName.toUpperCase()}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Inter',
+                    color: Color(0xFF6B7280),
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  invoice.saleNumber,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Inter',
+                    color: Color(0xFF111827),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Right: Attachment, Comment, Close
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(LucideIcons.paperclip, size: 16),
+                color: const Color(0xFF6B7280),
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
+                onPressed: () => ZerpaiToast.info(context, 'Attachments functionality coming soon'),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                icon: const Icon(LucideIcons.messageSquare, size: 16),
+                color: const Color(0xFF6B7280),
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
+                onPressed: () => ZerpaiToast.info(context, 'Comments functionality coming soon'),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                icon: const Icon(LucideIcons.x, size: 16),
+                color: AppTheme.errorRed,
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
+                onPressed: () => context.go('/sales/invoices'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMoreInformationCard(SalesOrder invoice, String branchEmail) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'More Information',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF111827),
+              fontFamily: 'Inter',
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Salesperson Row/Field
+              Expanded(
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 140,
+                      child: Text(
+                        'Salesperson',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontFamily: 'Inter',
+                          color: Color(0xFF4B5563),
+                        ),
+                      ),
+                    ),
+                    const Text(
+                      ': ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Inter',
+                        color: Colors.black,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        invoice.salesperson ?? '—',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Inter',
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Email Recipients Row/Field
+              Expanded(
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 140,
+                      child: Row(
+                        children: [
+                          Text(
+                            'Email Recipients',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontFamily: 'Inter',
+                              color: Color(0xFF4B5563),
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(
+                            LucideIcons.helpCircle,
+                            size: 14,
+                            color: Color(0xFF9CA3AF),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Text(
+                      ': ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Inter',
+                        color: Colors.black,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        branchEmail.isNotEmpty ? branchEmail : '—',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Inter',
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPdfPrintDropdown(SalesOrder invoice) {
+    final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 4),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+          ),
+        ),
+      ),
+      builder: (context, controller, _) => _buildToolbarButton(
+        LucideIcons.fileText,
+        'PDF/Print',
+        hasDropdownArrow: true,
+        onPressed: () =>
+            controller.isOpen ? controller.close() : controller.open(),
+      ),
+      menuChildren: [
+        MenuItemButton(
+          onPressed: () async {
+            final bytes = await _generateInvoicePdf(invoice, orgSettings);
+            await Printing.sharePdf(
+              bytes: bytes,
+              filename: '${invoice.saleNumber}.pdf',
+            );
+          },
           style: ButtonStyle(
             backgroundColor: WidgetStateProperty.resolveWith(
               (s) => s.contains(WidgetState.hovered)
@@ -745,7 +1465,13 @@ class _SalesInvoiceOverviewScreenState
           ),
         ),
         MenuItemButton(
-          onPressed: () => ZerpaiToast.info(context, 'Printing started...'),
+          onPressed: () async {
+            final bytes = await _generateInvoicePdf(invoice, orgSettings);
+            await Printing.layoutPdf(
+              onLayout: (_) async => bytes,
+              name: invoice.saleNumber,
+            );
+          },
           style: ButtonStyle(
             backgroundColor: WidgetStateProperty.resolveWith(
               (s) => s.contains(WidgetState.hovered)
@@ -783,17 +1509,37 @@ class _SalesInvoiceOverviewScreenState
     String label, {
     VoidCallback? onPressed,
     Color? color,
+    bool hasDropdownArrow = false,
   }) {
-    return TextButton.icon(
+    final btnColor = color ?? const Color(0xFF4B5563);
+    return OutlinedButton(
       onPressed: onPressed,
-      icon: Icon(icon, size: 14, color: color ?? const Color(0xFF4B5563)),
-      label: Text(
-        label,
-        style: TextStyle(fontSize: 13, color: color ?? const Color(0xFF4B5563)),
-      ),
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: btnColor,
+        side: const BorderSide(color: Color(0xFFD3D9E3)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: btnColor),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: btnColor,
+            ),
+          ),
+          if (hasDropdownArrow) ...[
+            const SizedBox(width: 4),
+            Icon(LucideIcons.chevronDown, size: 12, color: btnColor),
+          ],
+        ],
       ),
     );
   }
@@ -1146,7 +1892,7 @@ class _SalesInvoiceOverviewScreenState
                     context.go('/$orgId/sales/orders/${invoice.id}');
                   },
                   child: Text(
-                    '[$ref',
+                    ref,
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppTheme.primaryBlue,
@@ -1200,13 +1946,21 @@ class _SalesInvoiceOverviewScreenState
 
   // ─── A4 SIMULATED INVOICE SHEET ──────────────────
 
-  Widget _a4SimulatedInvoice(SalesOrder invoice, List<SalesOrderItem> items, List<Warehouse>? warehouses) {
+  Widget _a4SimulatedInvoice(
+    SalesOrder invoice,
+    List<SalesOrderItem> items,
+    List<Warehouse>? warehouses,
+    String branchName,
+    String fullBranchAddress,
+    String? logoUrl,
+    Map<String, String> paymentTermsMap,
+  ) {
     final billingAddress = invoice.customer?.fullBillingAddress ?? 'N/A';
-    final shippingAddress = invoice.customer?.fullShippingAddress ?? 'N/A';
     final isPaid = invoice.status.trim().toLowerCase() == 'paid';
 
     return Container(
       width: 755 + 24,
+      height: 1000, // Enforce portrait A4 aspect ratio fixed height
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -1224,11 +1978,12 @@ class _SalesInvoiceOverviewScreenState
         child: Stack(
           children: [
             Padding(
-              padding: const EdgeInsets.all(12.0),
+              padding: const EdgeInsets.all(60.0), // Increased white space between page edge and border
               child: Container(
-                decoration: BoxDecoration(
+                foregroundDecoration: BoxDecoration(
                   border: Border.all(color: const Color(0xFF666666), width: 1.0),
                 ),
+                height: 880, // Stretch content border to match aspect ratio precisely (1000 - 60 * 2)
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -1252,40 +2007,72 @@ class _SalesInvoiceOverviewScreenState
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      width: 140,
-                                      height: 60,
-                                      color: Colors.black,
-                                      alignment: Alignment.center,
-                                      child: const Text(
-                                        'ZABNIX',
-                                        style: TextStyle(
-                                          color: Color(0xFF28A745),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                          fontFamily: 'Courier',
-                                          letterSpacing: 1.5,
-                                        ),
-                                      ),
-                                    ),
+                                    logoUrl != null && logoUrl.isNotEmpty
+                                        ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(4),
+                                            child: Container(
+                                              width: 140,
+                                              height: 60,
+                                              color: Colors.white,
+                                              alignment: Alignment.center,
+                                              child: Image.network(
+                                                logoUrl,
+                                                width: 140,
+                                                height: 60,
+                                                fit: BoxFit.contain,
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  return Container(
+                                                    color: Colors.black,
+                                                    alignment: Alignment.center,
+                                                    child: Text(
+                                                      branchName.split(' ').first,
+                                                      style: const TextStyle(
+                                                        color: Color(0xFF28A745),
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 16,
+                                                        fontFamily: 'Courier',
+                                                        letterSpacing: 1.5,
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          )
+                                        : Container(
+                                            width: 140,
+                                            height: 60,
+                                            color: Colors.black,
+                                            alignment: Alignment.center,
+                                            child: Text(
+                                              branchName.split(' ').first,
+                                              style: const TextStyle(
+                                                color: Color(0xFF28A745),
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                fontFamily: 'Courier',
+                                                letterSpacing: 1.5,
+                                              ),
+                                            ),
+                                          ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: const [
+                                        children: [
                                           Text(
-                                            'ZABNIX PRIVATE LIMITED',
-                                            style: TextStyle(
+                                            branchName,
+                                            style: const TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.bold,
                                               fontFamily: 'Inter',
                                               color: Colors.black,
                                             ),
                                           ),
-                                          SizedBox(height: 4),
+                                          const SizedBox(height: 4),
                                           Text(
-                                            'PERINTHALMANNA\nMALAPPURAM Kerala 679322\nIndia\nGSTIN 32AACCZ4912F1ZL\n8086355500\nzabnixprivatelimited@gmail.com',
-                                            style: TextStyle(
+                                            fullBranchAddress,
+                                            style: const TextStyle(
                                               fontSize: 10,
                                               fontFamily: 'Inter',
                                               color: Colors.black,
@@ -1343,9 +2130,12 @@ class _SalesInvoiceOverviewScreenState
                                 children: [
                                   _invMetaRow('#', invoice.saleNumber),
                                   _invMetaRow('Invoice Date', _fmtDate(invoice.saleDate)),
-                                  _invMetaRow('Terms', invoice.paymentTerms ?? 'Net 360'),
+                                  _invMetaRow('Terms', () {
+                                    final termId = invoice.paymentTerms ?? '';
+                                    return paymentTermsMap[termId] ?? (termId.isEmpty ? 'Net 360' : termId);
+                                  }()),
                                   _invMetaRow('Due Date', invoice.expectedShipmentDate != null ? _fmtDate(invoice.expectedShipmentDate!) : '—'),
-                                  _invMetaRow('P.O.#', invoice.reference != null && invoice.reference!.isNotEmpty ? '[${invoice.reference}' : '—'),
+                                  _invMetaRow('P.O.#', invoice.reference != null && invoice.reference!.isNotEmpty ? invoice.reference! : '—'),
                                 ],
                               ),
                             ),
@@ -1357,7 +2147,7 @@ class _SalesInvoiceOverviewScreenState
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _invMetaRow('Place Of Supply', 'Kerala (32)'),
+                                  _invMetaRow('Place Of Supply', invoice.placeOfSupply ?? invoice.customer?.placeOfSupply ?? '—'),
                                 ],
                               ),
                             ),
@@ -1365,162 +2155,82 @@ class _SalesInvoiceOverviewScreenState
                         ],
                       ),
                     ),
-                    // Billing & Shipping blocks
+                    // Billing block (Bill To only, Ship To removed!)
                     Container(
                       decoration: const BoxDecoration(
                         border: Border(
                           bottom: BorderSide(color: Color(0xFF666666)),
                         ),
                       ),
-                      child: Row(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            flex: 5,
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Color(0xFF666666)),
-                                ),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF9FAFB),
+                              border: Border(
+                                bottom: BorderSide(color: Color(0xFF666666)),
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFF9FAFB),
-                                      border: Border(
-                                        bottom: BorderSide(color: Color(0xFF666666)),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Bill To',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        fontFamily: 'Inter',
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(10),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          invoice.customer?.displayName ?? 'CUS-1',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            fontFamily: 'Inter',
-                                            color: AppTheme.primaryBlue,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          billingAddress,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontFamily: 'Inter',
-                                            color: Colors.black,
-                                            height: 1.4,
-                                          ),
-                                        ),
-                                        if (invoice.customer?.phone != null && invoice.customer!.phone!.trim().isNotEmpty) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Ph: ${invoice.customer!.phone}',
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              fontFamily: 'Inter',
-                                              color: Colors.black,
-                                            ),
-                                          ),
-                                        ],
-                                        if (invoice.customer?.gstin != null && invoice.customer!.gstin!.trim().isNotEmpty) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'GSTIN: ${invoice.customer!.gstin}',
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w600,
-                                              fontFamily: 'Inter',
-                                              color: Colors.black,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                            ),
+                            child: const Text(
+                              'Bill To',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'Inter',
+                                  color: Colors.black,
                               ),
                             ),
                           ),
-                          Expanded(
-                            flex: 5,
+                          Padding(
+                            padding: const EdgeInsets.all(10),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFF9FAFB),
-                                    border: Border(
-                                      bottom: BorderSide(color: Color(0xFF666666)),
-                                    ),
+                                Text(
+                                  invoice.customer?.displayName ?? 'CUS-1',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Inter',
+                                    color: AppTheme.primaryBlue,
                                   ),
-                                  child: const Text(
-                                    'Ship To',
-                                    style: TextStyle(
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  billingAddress,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontFamily: 'Inter',
+                                    color: Colors.black,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                if (invoice.customer?.phone != null && invoice.customer!.phone!.trim().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Ph: ${invoice.customer!.phone}',
+                                    style: const TextStyle(
                                       fontSize: 11,
-                                      fontWeight: FontWeight.bold,
                                       fontFamily: 'Inter',
                                       color: Colors.black,
                                     ),
                                   ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(10),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        invoice.customer?.displayName ?? 'altha',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          fontFamily: 'Inter',
-                                          color: Colors.black,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        shippingAddress,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontFamily: 'Inter',
-                                          color: Colors.black,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                      if (invoice.customer?.shippingAddressPhone != null && invoice.customer!.shippingAddressPhone!.trim().isNotEmpty) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Ph: ${invoice.customer!.shippingAddressPhone}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontFamily: 'Inter',
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
+                                ],
+                                if (invoice.customer?.gstin != null && invoice.customer!.gstin!.trim().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'GSTIN: ${invoice.customer!.gstin}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'Inter',
+                                      color: Colors.black,
+                                    ),
                                   ),
-                                ),
+                                ],
                               ],
                             ),
                           ),
@@ -1532,7 +2242,9 @@ class _SalesInvoiceOverviewScreenState
                     // Item Rows
                     _buildItemRows(items),
                     // Totals Block
-                    _buildTotalsBlock(invoice, isPaid),
+                    Expanded(
+                      child: _buildTotalsBlock(invoice, isPaid),
+                    ),
                   ],
                 ),
               ),
@@ -1559,94 +2271,103 @@ class _SalesInvoiceOverviewScreenState
           bottom: BorderSide(color: Color(0xFF666666)),
         ),
       ),
-      child: Row(
-        children: [
-          _headerBox('#', 30),
-          _headerBox('Item & Description', 210, alignLeft: true),
-          _headerBox('HSN/SAC', 80),
-          _headerBox('Qty', 55),
-          _headerBox('Rate', 75, alignRight: true),
-          // CGST Spanning Block
-          Container(
-            width: 110,
-            decoration: const BoxDecoration(
-              border: Border(
-                right: BorderSide(color: Color(0xFF666666)),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _headerBox('#', 30),
+            Expanded(child: _headerBox('Item & Description', null, alignLeft: true)),
+            _headerBox('HSN/SAC', 80),
+            _headerBox('Qty', 55),
+            _headerBox('Rate', 75, alignRight: true),
+            // CGST Spanning Block
+            Container(
+              width: 110,
+              decoration: const BoxDecoration(
+                border: Border(
+                  right: BorderSide(color: Color(0xFF666666)),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: Color(0xFF666666)),
+                      ),
+                    ),
+                    child: const Text(
+                      'CGST',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Inter',
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _subHeaderBox('%', 45),
+                        Expanded(child: _subHeaderBox('Amt', null, alignRight: true)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: Color(0xFF666666)),
+            // SGST Spanning Block
+            Container(
+              width: 110,
+              decoration: const BoxDecoration(
+                border: Border(
+                  right: BorderSide(color: Color(0xFF666666)),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: Color(0xFF666666)),
+                      ),
+                    ),
+                    child: const Text(
+                      'SGST',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Inter',
+                        color: Colors.black,
+                      ),
                     ),
                   ),
-                  child: const Text(
-                    'CGST',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Inter',
-                      color: Colors.black,
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _subHeaderBox('%', 45),
+                        Expanded(child: _subHeaderBox('Amt', null, alignRight: true)),
+                      ],
                     ),
                   ),
-                ),
-                Row(
-                  children: [
-                    _subHeaderBox('%', 45),
-                    _subHeaderBox('Amt', 65, alignRight: true),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          // SGST Spanning Block
-          Container(
-            width: 110,
-            decoration: const BoxDecoration(
-              border: Border(
-                right: BorderSide(color: Color(0xFF666666)),
+                ],
               ),
             ),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: Color(0xFF666666)),
-                    ),
-                  ),
-                  child: const Text(
-                    'SGST',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Inter',
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-                Row(
-                  children: [
-                    _subHeaderBox('%', 45),
-                    _subHeaderBox('Amt', 65, alignRight: true),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          _headerBox('Amount', 85, alignRight: true, last: true),
-        ],
+            _headerBox('Amount', 85, alignRight: true, last: true),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _headerBox(String text, double width, {bool alignLeft = false, bool alignRight = false, bool last = false}) {
+  Widget _headerBox(String text, double? width, {bool alignLeft = false, bool alignRight = false, bool last = false}) {
     return Container(
       width: width,
       height: 42,
@@ -1674,7 +2395,7 @@ class _SalesInvoiceOverviewScreenState
     );
   }
 
-  Widget _subHeaderBox(String text, double width, {bool alignRight = false}) {
+  Widget _subHeaderBox(String text, double? width, {bool alignRight = false}) {
     return Container(
       width: width,
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
@@ -1726,51 +2447,58 @@ class _SalesInvoiceOverviewScreenState
               bottom: BorderSide(color: Color(0xFF666666)),
             ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _cellBox('${index + 1}', 30),
-              Container(
-                width: 210,
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    right: BorderSide(color: Color(0xFF666666)),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _cellBox('${index + 1}', 30),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        right: BorderSide(color: Color(0xFF666666)),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.item?.productName ?? item.item?.billingName ?? item.description ?? 'Item Name',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Inter',
+                            color: Colors.black,
+                          ),
+                        ),
+                        if (item.description != null &&
+                            item.description!.trim().isNotEmpty &&
+                            item.description != (item.item?.productName ?? item.item?.billingName)) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            item.description!,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontFamily: 'Inter',
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.item?.productName ?? item.item?.billingName ?? item.description ?? 'BATCH TARCK ITEM',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Inter',
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      item.description ?? 'sales description demo txt',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontFamily: 'Inter',
-                        color: Color(0xFF4B5563),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _cellBox(item.hsnCode ?? '30049084', 80),
-              _cellBox('${item.quantity.toInt()}.00 pcs', 55),
-              _cellBox(NumberFormat('#,##,##0.00', 'en_IN').format(item.rate), 75, alignRight: true),
-              _cellBox(cgstPercent, 45),
-              _cellBox(NumberFormat('#,##,##0.00', 'en_IN').format(cgstAmt), 65, alignRight: true),
-              _cellBox(sgstPercent, 45),
-              _cellBox(NumberFormat('#,##,##0.00', 'en_IN').format(sgstAmt), 65, alignRight: true),
-              _cellBox(NumberFormat('#,##,##0.00', 'en_IN').format(item.itemTotal), 85, alignRight: true, last: true),
-            ],
+                _cellBox(item.hsnCode ?? '30049084', 80),
+                _cellBox('${NumberFormat('#,##,##0.00', 'en_IN').format(item.quantity)}\n${item.item?.unitName ?? 'pcs'}', 55),
+                _cellBox(NumberFormat('#,##,##0.00', 'en_IN').format(item.rate), 75, alignRight: true),
+                _cellBox(cgstPercent, 45),
+                _cellBox(NumberFormat('#,##,##0.00', 'en_IN').format(cgstAmt), 65, alignRight: true),
+                _cellBox(sgstPercent, 45),
+                _cellBox(NumberFormat('#,##,##0.00', 'en_IN').format(sgstAmt), 65, alignRight: true),
+                _cellBox(NumberFormat('#,##,##0.00', 'en_IN').format(item.itemTotal), 85, alignRight: true, last: true),
+              ],
+            ),
           ),
         );
       }),
@@ -1800,70 +2528,69 @@ class _SalesInvoiceOverviewScreenState
   }
 
   Widget _buildTotalsBlock(SalesOrder invoice, bool isPaid) {
-    return Container(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 5,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Color(0xFF666666)),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Total In Words',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontFamily: 'Inter',
-                      color: Color(0xFF4B5563),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _numberToWords(invoice.total),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      fontStyle: FontStyle.italic,
-                      fontFamily: 'Inter',
-                      color: Colors.black,
-                    ),
-                  ),
-                ],
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          flex: 5,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(
+              border: Border(
+                right: BorderSide(color: Color(0xFF666666)),
               ),
             ),
-          ),
-          Expanded(
-            flex: 5,
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: Color(0xFF666666)),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      _totalsRow('Sub Total', NumberFormat('#,##,##0.00', 'en_IN').format(invoice.subTotal)),
-                      _totalsRow('CGST2.5 (2.5%)', NumberFormat('#,##,##0.00', 'en_IN').format(invoice.taxTotal / 2)),
-                      _totalsRow('SGST2.5 (2.5%)', NumberFormat('#,##,##0.00', 'en_IN').format(invoice.taxTotal / 2)),
-                      _totalsRow('Rounding', NumberFormat('0.00', 'en_IN').format(invoice.adjustment)),
-                      const SizedBox(height: 6),
-                      _totalsRow('Total', '₹${NumberFormat('#,##,##0.00', 'en_IN').format(invoice.total)}', isBold: true),
-                      _totalsRow('Balance Due', '₹${NumberFormat('#,##,##0.00', 'en_IN').format(isPaid ? 0.0 : invoice.total)}', isBold: true),
-                    ],
+                const Text(
+                  'Total In Words',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'Inter',
+                    color: Color(0xFF4B5563),
                   ),
                 ),
-                Container(
-                  height: 100,
+                const SizedBox(height: 6),
+                Text(
+                  _numberToWords(invoice.total),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    fontStyle: FontStyle.italic,
+                    fontFamily: 'Inter',
+                    color: Colors.black,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 5,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Color(0xFF666666)),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    _totalsRow('Sub Total', NumberFormat('#,##,##0.00', 'en_IN').format(invoice.subTotal)),
+                    _totalsRow('CGST2.5 (2.5%)', NumberFormat('#,##,##0.00', 'en_IN').format(invoice.taxTotal / 2)),
+                    _totalsRow('SGST2.5 (2.5%)', NumberFormat('#,##,##0.00', 'en_IN').format(invoice.taxTotal / 2)),
+                    _totalsRow('Rounding', NumberFormat('0.00', 'en_IN').format(invoice.adjustment)),
+                    const SizedBox(height: 6),
+                    _totalsRow('Total', '₹${NumberFormat('#,##,##0.00', 'en_IN').format(invoice.total)}', isBold: true),
+                    _totalsRow('Balance Due', '₹${NumberFormat('#,##,##0.00', 'en_IN').format(isPaid ? 0.0 : invoice.total)}', isBold: true),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Container(
                   alignment: Alignment.bottomCenter,
                   padding: const EdgeInsets.only(bottom: 12),
                   child: const Text(
@@ -1875,11 +2602,11 @@ class _SalesInvoiceOverviewScreenState
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -2215,7 +2942,7 @@ class _SalesInvoiceOverviewScreenState
               ),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Center(
                       child: Text(
@@ -2225,19 +2952,16 @@ class _SalesInvoiceOverviewScreenState
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Padding(
-                        padding: EdgeInsets.only(left: 12),
-                        child: Text(
-                          '79 Days',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
-                            fontFamily: 'Inter',
-                          ),
+                    Center(
+                      child: Text(
+                        '79 Days',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                          fontFamily: 'Inter',
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ],
@@ -2253,7 +2977,7 @@ class _SalesInvoiceOverviewScreenState
   Widget _summaryItem(String label, double amount, Color color) {
     return Expanded(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Center(
             child: Text(
@@ -2263,19 +2987,16 @@ class _SalesInvoiceOverviewScreenState
             ),
           ),
           const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 12),
-              child: Text(
-                '₹${NumberFormat('#,##,##0.00', 'en_IN').format(amount)}',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                  fontFamily: 'Inter',
-                ),
+          Center(
+            child: Text(
+              '₹${NumberFormat('#,##,##0.00', 'en_IN').format(amount)}',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: color,
+                fontFamily: 'Inter',
               ),
+              textAlign: TextAlign.center,
             ),
           ),
         ],
@@ -2375,8 +3096,14 @@ class _SalesInvoiceOverviewScreenState
   Widget _headerLabel(_InvColumnConfig col, double width) {
     final sortField = _sortFieldForColumn(col.key);
     final isSorted = sortField != null && _activeSortField == sortField;
-    final isAmountCol = col.key == _InvColumnKey.amount ||
-        col.key == _InvColumnKey.balanceDue;
+    MainAxisAlignment alignment = MainAxisAlignment.start;
+    if (col.key == _InvColumnKey.amount) {
+      alignment = MainAxisAlignment.end;
+    } else if (col.key == _InvColumnKey.balanceDue ||
+        col.key == _InvColumnKey.status ||
+        col.key == _InvColumnKey.orderNumber) {
+      alignment = MainAxisAlignment.center;
+    }
     return SizedBox(
       width: width,
       child: Padding(
@@ -2386,8 +3113,7 @@ class _SalesInvoiceOverviewScreenState
               ? null
               : () => setState(() => _toggleSort(sortField)),
           child: Row(
-            mainAxisAlignment:
-                isAmountCol ? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment: alignment,
             children: [
               Flexible(
                 child: Text(
@@ -2493,22 +3219,8 @@ class _SalesInvoiceOverviewScreenState
         }
         return _Cell(
           width: w,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Text(
-              '[$ref]',
-              style: AppTheme.tableCell.copyWith(
-                color: AppTheme.textSecondary,
-                fontSize: 12,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          alignCenter: true,
+          child: _tableText(ref, textAlign: TextAlign.center),
         );
 
       case _InvColumnKey.customerName:
@@ -2517,6 +3229,7 @@ class _SalesInvoiceOverviewScreenState
       case _InvColumnKey.status:
         return _Cell(
           width: w,
+          alignCenter: true,
           child: Text(
             _statusLabel(inv),
             style: TextStyle(
@@ -2556,7 +3269,7 @@ class _SalesInvoiceOverviewScreenState
             (s == 'paid' || s == 'void' || s == 'draft') ? 0.0 : inv.total;
         return _Cell(
           width: w,
-          alignRight: true,
+          alignCenter: true,
           child: ZCurrencyDisplay(
             amount: balanceAmount,
             style: AppTheme.tableCell.copyWith(
@@ -2567,7 +3280,7 @@ class _SalesInvoiceOverviewScreenState
         );
 
       case _InvColumnKey.warehouse:
-        final warehouses = ref.read(warehousesProvider).value;
+        final warehouses = ref.watch(warehousesProvider).value;
         String whName = '—';
         if (warehouses != null && inv.warehouseId != null) {
           final match = warehouses.firstWhere(
@@ -2659,6 +3372,70 @@ class _SalesInvoiceOverviewScreenState
 
   void _clearSelection() => setState(() => _selectedIds.clear());
 
+  void _handleBulkAction(String label) {
+    if (_selectedIds.isEmpty) {
+      ZerpaiToast.info(context, 'Select at least one invoice');
+      return;
+    }
+    if (label == 'Delete') {
+      _handleDeleteAction();
+      return;
+    }
+    if (label == 'Bulk update') {
+      _showBulkUpdateDialog();
+      return;
+    }
+    if (label == 'PDF export' || label == 'Share') {
+      _runBulkPdfExport();
+      return;
+    }
+    if (label == 'Print') {
+      _runBulkPrint();
+      return;
+    }
+    ZerpaiToast.success(
+      context,
+      '$label applied to ${_selectedIds.length} invoice(s)',
+    );
+  }
+
+  Future<void> _handleDeleteAction() async {
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase
+          .from('invoice_master')
+          .update({'is_delete': true})
+          .filter('id', 'in', _selectedIds.toList());
+
+      ZerpaiToast.success(
+        context,
+        'Deleted ${_selectedIds.length} invoice(s)',
+      );
+      _clearSelection();
+      ref.invalidate(salesInvoicesProvider);
+    } catch (e) {
+      ZerpaiToast.error(context, 'Error deleting invoices: $e');
+    }
+  }
+
+  Future<void> _showBulkUpdateDialog() async {
+    if (_selectedIds.isEmpty) {
+      ZerpaiToast.info(context, 'Select at least one invoice');
+      return;
+    }
+
+    final result = await showDialog<_BulkUpdateResult>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.58),
+      builder: (context) => const _InvoiceBulkUpdateDialog(),
+    );
+    if (result == null) return;
+    ZerpaiToast.success(
+      context,
+      '${result.field} updated for ${_selectedIds.length} invoice(s)',
+    );
+  }
+
   Widget _selectionToolbar() {
     return Container(
       height: 64,
@@ -2669,6 +3446,96 @@ class _SalesInvoiceOverviewScreenState
       ),
       child: Row(
         children: [
+          _BulkActionButton(label: 'Bulk Update', onTap: _showBulkUpdateDialog),
+          const SizedBox(width: 8),
+          _BulkIconButton(
+            icon: LucideIcons.printer,
+            onTap: () => _handleBulkAction('Print'),
+          ),
+          _BulkIconButton(
+            icon: LucideIcons.share2,
+            onTap: () => _handleBulkAction('Share'),
+          ),
+          const SizedBox(width: 4),
+          MenuAnchor(
+            style: _menuStyle(),
+            builder: (context, controller, child) {
+              return InkWell(
+                onTap: () =>
+                    controller.isOpen ? controller.close() : controller.open(),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  height: 34,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.borderLight),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Associate with Sales Orders', style: TextStyle(fontSize: 13)),
+                      SizedBox(width: 6),
+                      Icon(LucideIcons.chevronDown, size: 14),
+                    ],
+                  ),
+                ),
+              );
+            },
+            menuChildren: [
+              MenuItemButton(
+                style: _menuItemStyle(),
+                onPressed: () => _handleBulkAction('Associate with Sales Orders'),
+                child: const SizedBox(width: 240, child: Text('Associate with Sales Orders')),
+              ),
+              MenuItemButton(
+                style: _menuItemStyle(),
+                onPressed: () => _handleBulkAction('Dissociate Sales Orders'),
+                child: const SizedBox(width: 240, child: Text('Dissociate Sales Orders')),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
+          _BulkActionButton(
+            label: 'Mark As Sent',
+            onTap: () => _handleBulkAction('Mark As Sent'),
+          ),
+          _BulkActionButton(
+            label: 'Mark as Shipped',
+            onTap: () => _handleBulkAction('Mark as Shipped'),
+          ),
+          _BulkActionButton(
+            label: 'Undo Shipment',
+            onTap: () => _handleBulkAction('Undo Shipment'),
+          ),
+          MenuAnchor(
+            style: _menuStyle(),
+            builder: (context, controller, child) {
+              return InkWell(
+                onTap: () =>
+                    controller.isOpen ? controller.close() : controller.open(),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  height: 34,
+                  width: 34,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.borderLight),
+                  ),
+                  child: const Icon(LucideIcons.moreHorizontal, size: 16),
+                ),
+              );
+            },
+            menuChildren: [
+              MenuItemButton(
+                style: _menuItemStyle(),
+                onPressed: () => _handleBulkAction('Delete'),
+                child: const SizedBox(width: 150, child: Text('Delete')),
+              ),
+            ],
+          ),
           const Spacer(),
           Container(
             width: 28,
@@ -2722,7 +3589,7 @@ class _SalesInvoiceOverviewScreenState
       'status': (min: 120.0, flex: 1.3),
       'dueDate': (min: 100.0, flex: 1.0),
       'amount': (min: 110.0, flex: 1.2),
-      'balanceDue': (min: 110.0, flex: 1.2),
+      'balanceDue': (min: 150.0, flex: 1.6),
       'warehouse': (min: 140.0, flex: 1.5),
     };
 
@@ -3000,6 +3867,818 @@ class _SalesInvoiceOverviewScreenState
   }
 
   String _fmtDate(DateTime date) => DateFormat('dd-MM-yyyy').format(date);
+
+  Future<void> _runBulkPdfExport() async {
+    final invoicesState = ref.read(salesInvoicesProvider);
+    final invoices = invoicesState.valueOrNull ?? const <SalesOrder>[];
+    final selected = invoices
+        .where((inv) => _selectedIds.contains(inv.id))
+        .toList();
+    if (selected.isEmpty) {
+      ZerpaiToast.info(context, 'Select at least one invoice');
+      return;
+    }
+    final invoice = selected.first;
+    final orgSettings = ref.read(orgSettingsProvider).asData?.value;
+    final bytes = await _generateInvoicePdf(invoice, orgSettings);
+    await Printing.sharePdf(bytes: bytes, filename: '${invoice.saleNumber}.pdf');
+  }
+
+  Future<void> _runBulkPrint() async {
+    final invoicesState = ref.read(salesInvoicesProvider);
+    final invoices = invoicesState.valueOrNull ?? const <SalesOrder>[];
+    final selected = invoices
+        .where((inv) => _selectedIds.contains(inv.id))
+        .toList();
+    if (selected.isEmpty) {
+      ZerpaiToast.info(context, 'Select at least one invoice');
+      return;
+    }
+    final invoice = selected.first;
+    final orgSettings = ref.read(orgSettingsProvider).asData?.value;
+    final bytes = await _generateInvoicePdf(invoice, orgSettings);
+    await Printing.layoutPdf(onLayout: (_) async => bytes);
+  }
+
+  Future<Uint8List> _generateInvoicePdf(
+    SalesOrder order,
+    OrgSettings? org,
+  ) async {
+    final paymentTermsMap = ref.read(_paymentTermsProvider).value ?? const <String, String>{};
+    final termId = order.paymentTerms ?? '';
+    final termName = paymentTermsMap[termId] ?? (termId.isEmpty ? 'Net 360' : termId);
+
+    final doc = pw.Document();
+    final items = order.items ?? [];
+
+    final branches = ref.read(_branchesProvider).value;
+    final matchedBranchList = branches?.where((b) => b['entity_id'] == order.entityId).toList();
+    final matchedBranch = (matchedBranchList != null && matchedBranchList.isNotEmpty) ? matchedBranchList.first : null;
+
+    final primaryBranch = (branches != null && branches.isNotEmpty)
+        ? branches.firstWhere(
+            (b) => b['is_primary'] == true,
+            orElse: () => branches.first,
+          )
+        : null;
+
+    final String branchName;
+    final String fullBranchAddress;
+    final String? resolvedLogoUrl;
+
+    if (matchedBranch != null) {
+      branchName = matchedBranch['name']?.toString() ?? 'ZABNIX PRIVATE LIMITED';
+      resolvedLogoUrl = matchedBranch['logo_url']?.toString() ?? org?.logoUrl;
+      
+      final addressParts = <String>[];
+      final street = matchedBranch['street']?.toString() ?? matchedBranch['address']?.toString() ?? '';
+      final place = matchedBranch['place']?.toString() ?? '';
+      if (street.isNotEmpty) addressParts.add(street);
+      if (place.isNotEmpty) addressParts.add(place);
+      
+      final city = matchedBranch['city']?.toString() ?? '';
+      final state = matchedBranch['state']?.toString() ?? '';
+      final pincode = matchedBranch['pincode']?.toString() ?? '';
+      
+      String cityStatePin = '';
+      if (city.isNotEmpty) cityStatePin += '$city ';
+      if (state.isNotEmpty) cityStatePin += '$state ';
+      if (pincode.isNotEmpty) cityStatePin += pincode;
+      
+      if (cityStatePin.trim().isNotEmpty) {
+        addressParts.add(cityStatePin.trim());
+      }
+      
+      final country = matchedBranch['country']?.toString() ?? 'India';
+      if (country.isNotEmpty) addressParts.add(country);
+      
+      final gstin = matchedBranch['gstin']?.toString() ?? '';
+      if (gstin.isNotEmpty) addressParts.add('GSTIN $gstin');
+      
+      final phone = matchedBranch['phone']?.toString() ?? '';
+      if (phone.isNotEmpty) addressParts.add(phone);
+      
+      final email = matchedBranch['email']?.toString() ?? '';
+      if (email.isNotEmpty) addressParts.add(email);
+      
+      fullBranchAddress = addressParts.join('\n');
+    } else {
+      // Fallback to Org
+      branchName = org?.name ?? 'ZABNIX PRIVATE LIMITED';
+      resolvedLogoUrl = org?.logoUrl;
+      
+      final addressParts = <String>[];
+      final attention = org?.attention ?? '';
+      final street = org?.street ?? '';
+      final place = org?.place ?? '';
+      if (attention.isNotEmpty) addressParts.add(attention);
+      if (street.isNotEmpty) addressParts.add(street);
+      if (place.isNotEmpty) addressParts.add(place);
+      
+      final city = org?.city ?? '';
+      final pincode = org?.pincode ?? '';
+      
+      String cityPin = '';
+      if (city.isNotEmpty) cityPin += '$city ';
+      if (pincode.isNotEmpty) cityPin += pincode;
+      
+      if (cityPin.trim().isNotEmpty) {
+        addressParts.add(cityPin.trim());
+      }
+      
+      final country = org?.country ?? 'India';
+      if (country.isNotEmpty) addressParts.add(country);
+      
+      final gstin = org?.companyIdValue ?? '';
+      if (gstin.isNotEmpty) {
+        final label = org?.companyIdLabel ?? 'GSTIN';
+        addressParts.add('$label $gstin');
+      }
+      
+      final phone = org?.phone ?? '';
+      if (phone.isNotEmpty) addressParts.add(phone);
+      
+      final email = primaryBranch?['email']?.toString() ?? '';
+      if (email.isNotEmpty) addressParts.add(email);
+      
+      fullBranchAddress = addressParts.isNotEmpty ? addressParts.join('\n') : 'PERINTHALMANNA\nMALAPPURAM Kerala 679322\nIndia';
+    }
+
+    final String branchState = (matchedBranch != null)
+        ? (matchedBranch['state']?.toString() ?? 'Kerala')
+        : (primaryBranch?['state']?.toString() ?? 'Kerala');
+
+    final String placeOfSupply = order.placeOfSupply ?? order.customer?.placeOfSupply ?? 'Kerala';
+
+    String _normalizeState(String s) {
+      return s.split('(').first.replaceAll(RegExp(r'[^a-zA-Z]'), '').trim().toLowerCase();
+    }
+
+    final bool isIgst = _normalizeState(branchState) != _normalizeState(placeOfSupply);
+
+    pw.MemoryImage? logoImage;
+    if (resolvedLogoUrl != null && resolvedLogoUrl.trim().isNotEmpty) {
+      try {
+        final dio = Dio();
+        final res = await dio.get(
+          resolvedLogoUrl,
+          options: Options(responseType: ResponseType.bytes),
+        );
+        if (res.data != null) {
+          logoImage = pw.MemoryImage(Uint8List.fromList(res.data));
+        }
+      } catch (_) {}
+    }
+
+    final dateStr = _date(order.saleDate);
+    final customer = order.customer;
+
+    // Load fonts to draw ₹ symbol and italic styles
+    final regularData = await rootBundle.load('assets/fonts/Inter-Regular.ttf');
+    final boldData = await rootBundle.load('assets/fonts/Inter-Bold.ttf');
+    final italicData = await rootBundle.load('assets/fonts/Inter-Italic.ttf');
+    final boldItalicData = await rootBundle.load('assets/fonts/Inter-BoldItalic.ttf');
+    final regularFont = pw.Font.ttf(regularData);
+    final boldFont = pw.Font.ttf(boldData);
+    final italicFont = pw.Font.ttf(italicData);
+    final boldItalicFont = pw.Font.ttf(boldItalicData);
+    final pdfTheme = pw.ThemeData.withFont(
+      base: regularFont,
+      bold: boldFont,
+      italic: italicFont,
+      boldItalic: boldItalicFont,
+    );
+
+    // Dynamic Column widths for table
+    final double col0Width = 20;
+    final double col1Width = isIgst ? 221.0 : 144.0;
+    final double col2Width = 55;
+    final double col3Width = 40;
+    final double col4Width = 50;
+    final double col5Width = 32;
+    final double col6Width = 45;
+    final double col7Width = 32;
+    final double col8Width = 45;
+    final double col9Width = 60;
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.fromLTRB(36, 36, 36, 38),
+        theme: pdfTheme,
+        build: (pw.Context ctx) {
+          double totalTaxRate = (order.subTotal > 0) ? (order.taxTotal / order.subTotal) * 100 : 0.0;
+          double cgstPct = double.parse((totalTaxRate / 2).toStringAsFixed(1));
+          double sgstPct = double.parse((totalTaxRate / 2).toStringAsFixed(1));
+
+          return pw.Container(
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.black, width: 0.5),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                // 1. Top Header Box
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(6),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Row(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          if (logoImage != null) ...[
+                            pw.Container(
+                              width: 70,
+                              height: 48,
+                              child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                            ),
+                            pw.SizedBox(width: 10),
+                          ],
+                          pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text(
+                                branchName.toUpperCase(),
+                                style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold,
+                                  fontSize: 10,
+                                ),
+                              ),
+                              pw.SizedBox(height: 2),
+                              pw.Text(
+                                fullBranchAddress,
+                                style: const pw.TextStyle(
+                                  fontSize: 8,
+                                  lineSpacing: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      pw.Text(
+                        'TAX INVOICE',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 22,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.Container(height: 0.5, color: PdfColors.black),
+
+                // 2. Metadata Box (Using Table to guarantee matched column heights without stretch layout crash)
+                pw.Table(
+                  columnWidths: const {
+                    0: pw.FlexColumnWidth(6),
+                    1: pw.FlexColumnWidth(4),
+                  },
+                  border: const pw.TableBorder(
+                    verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                  ),
+                  children: [
+                    pw.TableRow(
+                      children: [
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              _pwMetaRow('#', ': ${order.saleNumber}'),
+                              _pwMetaRow('Invoice Date', ': $dateStr'),
+                              _pwMetaRow('Terms', ': $termName'),
+                              _pwMetaRow('Due Date', ': ${order.expectedShipmentDate != null ? _date(order.expectedShipmentDate!) : '-'}'),
+                              _pwMetaRow('P.O.#', ': ${order.reference ?? '-'}'),
+                            ],
+                          ),
+                        ),
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(6),
+                          alignment: pw.Alignment.topLeft,
+                          child: _pwMetaRow('Place Of Supply', ': ${order.placeOfSupply ?? order.customer?.placeOfSupply ?? '-'}'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.Container(height: 0.5, color: PdfColors.black),
+
+                // 3. Bill To Header Strip
+                pw.Container(
+                  width: double.infinity,
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  color: const PdfColor.fromInt(0xFFE5E7EB), // light grey background
+                  child: pw.Text(
+                    'Bill To',
+                    style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+                  ),
+                ),
+                pw.Container(height: 0.5, color: PdfColors.black),
+
+                // 4. Bill To Details
+                pw.Container(
+                  width: double.infinity,
+                  padding: const pw.EdgeInsets.all(6),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        customer?.displayName ?? 'CUS-1',
+                        style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                      ),
+                      if (customer?.gstin != null && customer!.gstin!.isNotEmpty) ...[
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          'GSTIN ${customer.gstin}',
+                          style: const pw.TextStyle(fontSize: 9),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                pw.Container(height: 0.5, color: PdfColors.black),
+
+                // 5. Table Header Section (Bounded height container to support layout constraints safely)
+                pw.Container(
+                  color: const PdfColor.fromInt(0xFFF3F4F6),
+                  height: 26, // Bounded height!
+                  child: pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                    children: [
+                      _thCell('#', col0Width),
+                      _thCell('Item & Description', col1Width),
+                      _thCell('HSN\n/SAC', col2Width),
+                      _thCell('Qty', col3Width),
+                      _thCell('Rate', col4Width),
+                      if (isIgst) ...[
+                        // IGST Double Column (No crossAxisAlignment: stretch inside Column to avoid infinite height)
+                        pw.Container(
+                          width: col5Width + col6Width,
+                          decoration: const pw.BoxDecoration(
+                            border: pw.Border(
+                              right: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                            ),
+                          ),
+                          child: pw.Column(
+                            children: [
+                              pw.Container(
+                                width: double.infinity,
+                                padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                                alignment: pw.Alignment.center,
+                                decoration: const pw.BoxDecoration(
+                                  border: pw.Border(
+                                    bottom: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                  ),
+                                ),
+                                child: pw.Text('IGST', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                              ),
+                              pw.Row(
+                                children: [
+                                  pw.Container(
+                                    width: col5Width,
+                                    height: 13,
+                                    padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                                    alignment: pw.Alignment.center,
+                                    decoration: const pw.BoxDecoration(
+                                      border: pw.Border(
+                                        right: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                      ),
+                                    ),
+                                    child: pw.Text('%', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                                  ),
+                                  pw.Container(
+                                    width: col6Width,
+                                    height: 13,
+                                    padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                                    alignment: pw.Alignment.center,
+                                    child: pw.Text('Amt', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        // CGST Double Column
+                        pw.Container(
+                          width: col5Width + col6Width,
+                          decoration: const pw.BoxDecoration(
+                            border: pw.Border(
+                              right: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                            ),
+                          ),
+                          child: pw.Column(
+                            children: [
+                              pw.Container(
+                                width: double.infinity,
+                                padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                                alignment: pw.Alignment.center,
+                                decoration: const pw.BoxDecoration(
+                                  border: pw.Border(
+                                    bottom: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                  ),
+                                ),
+                                child: pw.Text('CGST', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                              ),
+                              pw.Row(
+                                children: [
+                                  pw.Container(
+                                    width: col5Width,
+                                    height: 13,
+                                    padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                                    alignment: pw.Alignment.center,
+                                    decoration: const pw.BoxDecoration(
+                                      border: pw.Border(
+                                        right: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                      ),
+                                    ),
+                                    child: pw.Text('%', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                                  ),
+                                  pw.Container(
+                                    width: col6Width,
+                                    height: 13,
+                                    padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                                    alignment: pw.Alignment.center,
+                                    child: pw.Text('Amt', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        // SGST Double Column
+                        pw.Container(
+                          width: col7Width + col8Width,
+                          decoration: const pw.BoxDecoration(
+                            border: pw.Border(
+                              right: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                            ),
+                          ),
+                          child: pw.Column(
+                            children: [
+                              pw.Container(
+                                width: double.infinity,
+                                padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                                alignment: pw.Alignment.center,
+                                decoration: const pw.BoxDecoration(
+                                  border: pw.Border(
+                                    bottom: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                  ),
+                                ),
+                                child: pw.Text('SGST', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                              ),
+                              pw.Row(
+                                children: [
+                                  pw.Container(
+                                    width: col7Width,
+                                    height: 13,
+                                    padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                                    alignment: pw.Alignment.center,
+                                    decoration: const pw.BoxDecoration(
+                                      border: pw.Border(
+                                        right: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                      ),
+                                    ),
+                                    child: pw.Text('%', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                                  ),
+                                  pw.Container(
+                                    width: col8Width,
+                                    height: 13,
+                                    padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                                    alignment: pw.Alignment.center,
+                                    child: pw.Text('Amt', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      _thCell('Amount', col9Width, isLast: true),
+                    ],
+                  ),
+                ),
+                pw.Container(height: 0.5, color: PdfColors.black),
+
+                // Table Rows (Using pw.Table to prevent infinite height exception completely)
+                pw.Table(
+                  columnWidths: isIgst
+                      ? {
+                          0: pw.FixedColumnWidth(col0Width),
+                          1: pw.FixedColumnWidth(col1Width),
+                          2: pw.FixedColumnWidth(col2Width),
+                          3: pw.FixedColumnWidth(col3Width),
+                          4: pw.FixedColumnWidth(col4Width),
+                          5: pw.FixedColumnWidth(col5Width),
+                          6: pw.FixedColumnWidth(col6Width),
+                          7: pw.FixedColumnWidth(col9Width),
+                        }
+                      : {
+                          0: pw.FixedColumnWidth(col0Width),
+                          1: pw.FixedColumnWidth(col1Width),
+                          2: pw.FixedColumnWidth(col2Width),
+                          3: pw.FixedColumnWidth(col3Width),
+                          4: pw.FixedColumnWidth(col4Width),
+                          5: pw.FixedColumnWidth(col5Width),
+                          6: pw.FixedColumnWidth(col6Width),
+                          7: pw.FixedColumnWidth(col7Width),
+                          8: pw.FixedColumnWidth(col8Width),
+                          9: pw.FixedColumnWidth(col9Width),
+                        },
+                  border: const pw.TableBorder(
+                    verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                    horizontalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                  ),
+                  children: items.asMap().entries.map((e) {
+                    final item = e.value;
+                    final index = e.key;
+                    final double itemAmount = item.quantity * item.rate;
+
+                    if (isIgst) {
+                      final double igstAmt = itemAmount * (totalTaxRate / 100);
+                      return pw.TableRow(
+                        children: [
+                          _tdCell('${index + 1}', col0Width, align: pw.Alignment.center),
+                          _tdCellDesc(item, col1Width),
+                          _tdCell((item.hsnCode ?? item.item?.hsnCode) ?? '', col2Width, align: pw.Alignment.center),
+                          _tdCellQty(item, col3Width),
+                          _tdCell(_currency(item.rate), col4Width, align: pw.Alignment.centerRight),
+                          _tdCell('${totalTaxRate.toStringAsFixed(1)}%', col5Width, align: pw.Alignment.center),
+                          _tdCell(_currency(igstAmt), col6Width, align: pw.Alignment.centerRight),
+                          _tdCell(_currency(itemAmount), col9Width, align: pw.Alignment.centerRight, isLast: true),
+                        ],
+                      );
+                    } else {
+                      final double cgstAmt = itemAmount * (cgstPct / 100);
+                      final double sgstAmt = itemAmount * (sgstPct / 100);
+                      return pw.TableRow(
+                        children: [
+                          _tdCell('${index + 1}', col0Width, align: pw.Alignment.center),
+                          _tdCellDesc(item, col1Width),
+                          _tdCell((item.hsnCode ?? item.item?.hsnCode) ?? '', col2Width, align: pw.Alignment.center),
+                          _tdCellQty(item, col3Width),
+                          _tdCell(_currency(item.rate), col4Width, align: pw.Alignment.centerRight),
+                          _tdCell('${cgstPct.toStringAsFixed(1)}%', col5Width, align: pw.Alignment.center),
+                          _tdCell(_currency(cgstAmt), col6Width, align: pw.Alignment.centerRight),
+                          _tdCell('${sgstPct.toStringAsFixed(1)}%', col7Width, align: pw.Alignment.center),
+                          _tdCell(_currency(sgstAmt), col8Width, align: pw.Alignment.centerRight),
+                          _tdCell(_currency(itemAmount), col9Width, align: pw.Alignment.centerRight, isLast: true),
+                        ],
+                      );
+                    }
+                  }).toList(),
+                ),
+                pw.Container(height: 0.5, color: PdfColors.black),
+
+                // 6. Bottom Totals Section (Using Table to guarantee matching height without infinite constraint crash)
+                pw.Table(
+                  columnWidths: const {
+                    0: pw.FixedColumnWidth(309),
+                    1: pw.FixedColumnWidth(214),
+                  },
+                  border: const pw.TableBorder(
+                    verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                  ),
+                  children: [
+                    pw.TableRow(
+                      children: [
+                        // Left column: Total in words
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('Total In Words', style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+                              pw.SizedBox(height: 4),
+                              pw.Text(
+                                'Indian Rupee ${_numberToWordsIndian(order.total)}',
+                                style: pw.TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: pw.FontWeight.bold,
+                                  fontStyle: pw.FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Right column: Totals table & Signature
+                        pw.Container(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                            children: [
+                              _pwTotalRowRight('Sub Total', _currency(order.subTotal)),
+                              if (isIgst) ...[
+                                _pwTotalRowRight('IGST${totalTaxRate.toStringAsFixed(1)} (${totalTaxRate.toStringAsFixed(1)}%)', _currency(order.taxTotal)),
+                              ] else ...[
+                                _pwTotalRowRight('CGST${cgstPct.toStringAsFixed(1)} (${cgstPct.toStringAsFixed(1)}%)', _currency(order.taxTotal / 2)),
+                                _pwTotalRowRight('SGST${sgstPct.toStringAsFixed(1)} (${sgstPct.toStringAsFixed(1)}%)', _currency(order.taxTotal / 2)),
+                              ],
+                              _pwTotalRowRight('Rounding', '0.00'),
+                              _pwTotalRowRight('Total', '₹' + _currency(order.total), isBold: true),
+                              _pwTotalRowRight('Balance Due', '₹' + _currency(order.total), isBold: true),
+                              pw.Container(
+                                height: 45,
+                                alignment: pw.Alignment.bottomCenter,
+                                padding: const pw.EdgeInsets.only(bottom: 4),
+                                decoration: const pw.BoxDecoration(
+                                  border: pw.Border(
+                                    top: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                  ),
+                                ),
+                                child: pw.Text('Authorized Signature', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    return doc.save();
+  }
+
+  pw.Widget _thCell(String text, double width, {bool isLast = false}) {
+    return pw.Container(
+      width: width,
+      alignment: pw.Alignment.center,
+      decoration: pw.BoxDecoration(
+        border: pw.Border(
+          right: isLast ? pw.BorderSide.none : const pw.BorderSide(color: PdfColors.black, width: 0.5),
+        ),
+      ),
+      padding: const pw.EdgeInsets.symmetric(vertical: 4),
+      child: pw.Text(
+        text,
+        textAlign: pw.TextAlign.center,
+        style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+      ),
+    );
+  }
+
+  pw.Widget _tdCell(String text, double width, {pw.Alignment align = pw.Alignment.centerLeft, bool isLast = false}) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      alignment: align,
+      child: pw.Text(text, style: const pw.TextStyle(fontSize: 8)),
+    );
+  }
+
+  pw.Widget _tdCellDesc(SalesOrderItem item, double width) {
+    final name = item.item?.productName ?? item.item?.billingName ?? item.description ?? 'Unnamed item';
+    final hasDesc = item.description != null && item.description != name && item.description!.isNotEmpty;
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        mainAxisAlignment: pw.MainAxisAlignment.center,
+        children: [
+          pw.Text(name, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+          if (hasDesc) ...[
+            pw.SizedBox(height: 1),
+            pw.Text(item.description!, style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _tdCellQty(SalesOrderItem item, double width) {
+    final qtyStr = item.quantity.toStringAsFixed(2);
+    final unitStr = item.item?.unitName ?? 'pcs';
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        mainAxisAlignment: pw.MainAxisAlignment.center,
+        children: [
+          pw.Text(qtyStr, style: const pw.TextStyle(fontSize: 8)),
+          pw.Text(unitStr, style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _pwMetaRow(String label, String value) {
+    return pw.Row(
+      children: [
+        pw.SizedBox(
+          width: 80,
+          child: pw.Text(
+            label,
+            style: pw.TextStyle(fontSize: 8),
+          ),
+        ),
+        pw.Text(
+          value,
+          style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _pwTotalRowRight(String label, String value, {bool isBold = false}) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            label,
+            style: pw.TextStyle(
+              fontSize: 8,
+              fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            ),
+          ),
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              fontSize: 8,
+              fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _numberToWordsIndian(double number) {
+    if (number == 0) return 'Zero';
+    final intPart = number.toInt();
+    final decimalPart = ((number - intPart) * 100).round();
+
+    String result = _convertIntToWordsIndian(intPart);
+    if (decimalPart > 0) {
+      result += ' and ${_convertIntToWordsIndian(decimalPart)} Paise';
+    }
+    return '${result.trim()} Only';
+  }
+
+  String _convertIntToWordsIndian(int number) {
+    if (number == 0) return '';
+    final units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+                    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    final tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    String convertLessThanThousand(int n) {
+      String res = '';
+      if (n >= 100) {
+        res += '${units[n ~/ 100]} Hundred ';
+        n %= 100;
+      }
+      if (n >= 20) {
+        final t = n ~/ 10;
+        final u = n % 10;
+        if (u > 0) {
+          res += '${tens[t]}-${units[u]} ';
+        } else {
+          res += '${tens[t]} ';
+        }
+      } else if (n > 0) {
+        res += '${units[n]} ';
+      }
+      return res;
+    }
+
+    int temp = number;
+    String res = '';
+
+    if (temp >= 10000000) {
+      res += '${_convertIntToWordsIndian(temp ~/ 10000000)} Crore ';
+      temp %= 10000000;
+    }
+    if (temp >= 100000) {
+      res += '${convertLessThanThousand(temp ~/ 100000)} Lakh ';
+      temp %= 100000;
+    }
+    if (temp >= 1000) {
+      res += '${convertLessThanThousand(temp ~/ 1000)} Thousand ';
+      temp %= 1000;
+    }
+    if (temp > 0) {
+      res += convertLessThanThousand(temp);
+    }
+    return res.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  String _date(DateTime? d) {
+    if (d == null) return '';
+    return DateFormat('dd-MM-yyyy').format(d);
+  }
+
+  String _currency(double val) {
+    return NumberFormat('#,##,##0.00', 'en_IN').format(val);
+  }
 }
 
 // ─────────────────────────────────────────────────
@@ -3068,21 +4747,26 @@ class _Cell extends StatelessWidget {
   final double width;
   final Widget child;
   final bool alignRight;
+  final bool alignCenter;
 
   const _Cell({
     required this.width,
     required this.child,
     this.alignRight = false,
+    this.alignCenter = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final alignment = alignRight
+        ? Alignment.centerRight
+        : (alignCenter ? Alignment.center : Alignment.centerLeft);
     return SizedBox(
       width: width,
       child: Padding(
         padding: const EdgeInsets.only(right: 12),
         child: Align(
-          alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
+          alignment: alignment,
           child: child,
         ),
       ),
@@ -3432,30 +5116,17 @@ class _InvoiceBatchesSection extends StatefulWidget {
 }
 
 class _InvoiceBatchesSectionState extends State<_InvoiceBatchesSection> {
-  bool _isExpanded = true;
+  bool _isExpanded = false;
 
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> mockBatches = [];
 
-    int index = 1;
     for (final item in widget.items) {
       final name = item.item?.productName ?? item.description ?? 'Item';
       mockBatches.add({
         'itemName': name,
-        'lotNumber': 'LOT-2026-${1000 + index}',
-        'expiryDate': '31-12-2028',
         'qty': item.quantity.toInt(),
-      });
-      index++;
-    }
-
-    if (mockBatches.isEmpty) {
-      mockBatches.add({
-        'itemName': 'Paracetamol 650mg Table',
-        'lotNumber': 'LOT-2026-1001',
-        'expiryDate': '31-12-2028',
-        'qty': 120,
       });
     }
 
@@ -3478,7 +5149,7 @@ class _InvoiceBatchesSectionState extends State<_InvoiceBatchesSection> {
                   const Icon(LucideIcons.package2, size: 16, color: AppTheme.primaryBlue),
                   const SizedBox(width: 10),
                   Text(
-                    'INVOICE BATCHES & LOT TRACKING',
+                    'BATCHES',
                     style: AppTheme.sectionHeader.copyWith(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -3503,22 +5174,9 @@ class _InvoiceBatchesSectionState extends State<_InvoiceBatchesSection> {
               child: const Row(
                 children: [
                   Expanded(
-                    flex: 2,
+                    flex: 3,
                     child: Text(
                       'ITEM NAME',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'LOT / BATCH NUMBER',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'EXPIRY DATE',
-                      textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
                     ),
                   ),
@@ -3544,35 +5202,10 @@ class _InvoiceBatchesSectionState extends State<_InvoiceBatchesSection> {
                   child: Row(
                     children: [
                       Expanded(
-                        flex: 2,
+                        flex: 3,
                         child: Text(
                           batch['itemName'],
                           style: AppTheme.bodyText.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F5E9),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            batch['lotNumber'],
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF2E7D32),
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          batch['expiryDate'],
-                          textAlign: TextAlign.center,
-                          style: AppTheme.bodyText,
                         ),
                       ),
                       Expanded(
@@ -3790,5 +5423,285 @@ class _CornerFoldPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _BulkActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _BulkActionButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppTheme.borderLight),
+          ),
+          alignment: Alignment.center,
+          child: Text(label, style: AppTheme.bodyText.copyWith(fontSize: 13)),
+        ),
+      ),
+    );
+  }
+}
+
+class _BulkIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _BulkIconButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppTheme.borderLight),
+          ),
+          child: Icon(icon, size: 16, color: AppTheme.textBody),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+class _BulkUpdateResult {
+  final String field;
+  final String value;
+
+  _BulkUpdateResult({required this.field, required this.value});
+}
+
+const List<String> _bulkUpdateFields = [
+  'Invoice Date',
+  'Due Date',
+  'Sales Person',
+  'Customer Notes',
+  'Terms & Conditions',
+  'Payment Terms',
+  'Delivery Method',
+];
+
+class _InvoiceBulkUpdateDialog extends StatefulWidget {
+  const _InvoiceBulkUpdateDialog();
+
+  @override
+  State<_InvoiceBulkUpdateDialog> createState() =>
+      _InvoiceBulkUpdateDialogState();
+}
+
+class _InvoiceBulkUpdateDialogState extends State<_InvoiceBulkUpdateDialog> {
+  String? _selectedField;
+  final TextEditingController _valueController = TextEditingController();
+
+  @override
+  void dispose() {
+    _valueController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      alignment: Alignment.topCenter,
+      insetPadding: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: SizedBox(
+        width: 640,
+        height: 300,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 18, 18, 16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    'Bulk Update Invoices',
+                    style: AppTheme.sectionHeader.copyWith(fontSize: 16),
+                  ),
+                  const Spacer(),
+                  InkWell(
+                    onTap: () => Navigator.of(context).pop(),
+                    borderRadius: BorderRadius.circular(999),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        LucideIcons.x,
+                        size: 18,
+                        color: AppTheme.errorRed,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+              child: Text(
+                'Choose a field from the dropdown and update with new information.',
+                style: AppTheme.bodyText.copyWith(
+                  fontSize: 13,
+                  color: AppTheme.textBody,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 40,
+                      child: FormDropdown<String>(
+                        value: _selectedField,
+                        items: _bulkUpdateFields,
+                        hint: 'Select a field',
+                        onChanged: (value) {
+                          setState(() => _selectedField = value);
+                        },
+                        displayStringForValue: (value) => value,
+                        searchStringForValue: (value) => value,
+                        showSearch: true,
+                        menuWidth: 300,
+                        fillColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 40,
+                      child: TextField(
+                        controller: _valueController,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: 'Enter new value',
+                          hintStyle: AppTheme.bodyText.copyWith(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 0,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(
+                              color: AppTheme.borderLight,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(
+                              color: AppTheme.borderLight,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(
+                              color: AppTheme.primaryBlue,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Text(
+                'Note: All the selected invoices will be updated with the new information and you cannot undo this action.',
+                style: AppTheme.bodyText.copyWith(
+                  fontSize: 13,
+                  color: AppTheme.primaryBlue,
+                  height: 1.45,
+                ),
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: AppTheme.borderLight)),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    height: 34,
+                    child: ZButton.primary(
+                      label: 'Update',
+                      onPressed: () {
+                        if (_selectedField == null) {
+                          ZerpaiToast.info(
+                            context,
+                            'Select a field to update first',
+                          );
+                          return;
+                        }
+                        Navigator.of(context).pop(
+                          _BulkUpdateResult(
+                            field: _selectedField!,
+                            value: _valueController.text.trim(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    height: 34,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        side: const BorderSide(color: AppTheme.borderLight),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: AppTheme.bodyText.copyWith(fontSize: 13),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 

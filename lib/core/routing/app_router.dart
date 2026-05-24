@@ -1009,11 +1009,17 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.salesInvoicesCreate,
-                  builder: (context, state) => SalesInvoiceCreateScreen(
-                    initialCustomerId: state.uri.queryParameters['customerId'],
-                    fromOrderId: state.uri.queryParameters['fromOrderId'],
-                    cloneId: state.uri.queryParameters['cloneId'],
-                  ),
+                  builder: (context, state) {
+                    final extraMap = state.extra as Map<String, dynamic>?;
+                    final fromOrderId = state.uri.queryParameters['fromOrderId'] ?? extraMap?['fromOrderId'];
+                    final initialCustomerId = state.uri.queryParameters['customerId'] ?? extraMap?['customerId'];
+                    final cloneId = state.uri.queryParameters['cloneId'] ?? extraMap?['cloneId'];
+                    return SalesInvoiceCreateScreen(
+                      initialCustomerId: initialCustomerId,
+                      fromOrderId: fromOrderId,
+                      cloneId: cloneId,
+                    );
+                  },
                 ),
                 GoRoute(
                   path: ':id',
@@ -1022,6 +1028,19 @@ final GoRouter appRouter = GoRouter(
                     initialSearchQuery: state.uri.queryParameters['q'],
                     initialSelectedId: state.pathParameters['id']!,
                   ),
+                ),
+                GoRoute(
+                  path: ':id/edit',
+                  name: AppRoutes.salesInvoicesEdit,
+                  builder: (context, state) {
+                    final initialOrder = state.extra;
+                    return SalesInvoiceCreateScreen(
+                      initialOrder: initialOrder is SalesOrder
+                          ? initialOrder
+                          : null,
+                      initialOrderId: state.pathParameters['id'],
+                    );
+                  },
                 ),
               ],
             ),

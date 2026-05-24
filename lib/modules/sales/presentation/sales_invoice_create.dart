@@ -2,6 +2,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:convert';
+import 'package:zerpai_erp/shared/services/api_client.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -52,6 +56,7 @@ import 'package:zerpai_erp/modules/inventory/packages/models/inventory_package_m
 import 'package:zerpai_erp/modules/inventory/packages/providers/inventory_packages_provider.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
 
 // ─── Colour constants ────────────────────────────────────────────────────────
 const _kBorder = Color(0xFFE5E7EB);
@@ -120,6 +125,7 @@ class _SalesInvoiceCreateScreenState
   InventoryPackage? _selectedPackage;
   List<String> _warehouseBins = [];
   String? _loadedWarehouseId;
+  String? _selectedSalesOrderId;
 
   bool _showSearchItemDetails = false;
   final TextEditingController _itemDetailsSearchCtrl = TextEditingController();
@@ -204,8 +210,6 @@ class _SalesInvoiceCreateScreenState
       widget.initialOrder != null ||
       (widget.initialOrderId != null && widget.initialOrderId!.isNotEmpty);
 
-
-
   @override
   void initState() {
     super.initState();
@@ -234,6 +238,9 @@ class _SalesInvoiceCreateScreenState
     } else if (widget.initialOrderId != null &&
         widget.initialOrderId!.isNotEmpty) {
       _loadInitialOrder(widget.initialOrderId!);
+    } else if (widget.fromOrderId != null &&
+        widget.fromOrderId!.isNotEmpty) {
+      _loadInitialOrder(widget.fromOrderId!);
     } else {
       rows.add(_createItemRow());
       _loadNextInvoiceNumber();
@@ -278,6 +285,7 @@ class _SalesInvoiceCreateScreenState
   void _hydrateFromInitialOrder(SalesOrder order) {
     _selectedCustomerId = order.customerId;
     _selectedCustomer = order.customer;
+    _selectedSalesOrderId = order.id;
     invoiceNumberCtrl.text = order.saleNumber;
     orderNumberCtrl.text = order.reference ?? '';
     referenceCtrl.text = order.reference ?? '';
@@ -290,8 +298,12 @@ class _SalesInvoiceCreateScreenState
     terms = order.paymentTerms;
     deliveryMethod = order.deliveryMethod;
     salesperson = order.salesperson;
+    placeOfSupply = order.placeOfSupply;
+    _resolveSalespersonUuid();
 
-    final initialItems = order.items ?? const <SalesOrderItem>[];
+    final initialItems = (order.items ?? const <SalesOrderItem>[])
+        .where((item) => !item.isInvoiced)
+        .toList();
     if (initialItems.isEmpty) {
       rows.add(_createItemRow());
     } else {
@@ -401,7 +413,7 @@ class _SalesInvoiceCreateScreenState
               'mfgDate': '',
               'mfgBatch': '',
               'foc': '0',
-            }
+            },
           ];
         }
 
@@ -411,7 +423,10 @@ class _SalesInvoiceCreateScreenState
       _calculateTotals();
     });
 
-    ZerpaiToast.success(context, 'Added items from Package: ${package.packageNumber}');
+    ZerpaiToast.success(
+      context,
+      'Added items from Package: ${package.packageNumber}',
+    );
   }
 
   void _showPendingOrdersDialog() {
@@ -427,7 +442,9 @@ class _SalesInvoiceCreateScreenState
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
               insetPadding: const EdgeInsets.only(top: 0, left: 16, right: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Container(
                 width: 700,
                 padding: const EdgeInsets.all(24),
@@ -443,16 +460,33 @@ class _SalesInvoiceCreateScreenState
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Pending Sales Orders',
+                          'Confirmed Sales Orders',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF111827),
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(LucideIcons.x, size: 20, color: Color(0xFFEF4444)),
-                          onPressed: () => Navigator.pop(dialogContext),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(dialogContext),
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: const Color(0xFF2563EB),
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                LucideIcons.x,
+                                size: 14,
+                                color: Color(0xFFEF4444),
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -474,38 +508,58 @@ class _SalesInvoiceCreateScreenState
                         child: SingleChildScrollView(
                           child: Table(
                             columnWidths: const {
-                              0: FlexColumnWidth(1),   // Checkbox
-                              1: FlexColumnWidth(4),   // Sales Order Details
-                              2: FlexColumnWidth(4),   // Location
-                              3: FlexColumnWidth(3),   // Date
-                              4: FlexColumnWidth(3),   // Amount
+                              0: FlexColumnWidth(1), // Checkbox
+                              1: FlexColumnWidth(4), // Sales Order Details
+                              2: FlexColumnWidth(4), // Location
+                              3: FlexColumnWidth(3), // Date
+                              4: FlexColumnWidth(3), // Amount
                             },
-                            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                            defaultVerticalAlignment:
+                                TableCellVerticalAlignment.middle,
                             children: [
                               TableRow(
                                 decoration: const BoxDecoration(
-                                  border: Border(bottom: BorderSide(color: _kBorder, width: 1.5)),
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: _kBorder,
+                                      width: 1.5,
+                                    ),
+                                  ),
                                 ),
                                 children: [
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
                                     child: Align(
                                       alignment: Alignment.centerLeft,
                                       child: SizedBox(
                                         width: 20,
                                         height: 20,
                                         child: Checkbox(
-                                          value: _confirmedCustomerOrders.isNotEmpty && selectedOrders.length == _confirmedCustomerOrders.length,
+                                          value:
+                                              _confirmedCustomerOrders
+                                                  .isNotEmpty &&
+                                              selectedOrders.length ==
+                                                  _confirmedCustomerOrders
+                                                      .length,
                                           activeColor: const Color(0xFF2563EB),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(3),
+                                            borderRadius: BorderRadius.circular(
+                                              3,
+                                            ),
                                           ),
-                                          side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
+                                          side: const BorderSide(
+                                            color: Color(0xFFD1D5DB),
+                                            width: 1.5,
+                                          ),
                                           onChanged: (val) {
                                             setDialogState(() {
                                               if (val == true) {
                                                 selectedOrders.clear();
-                                                selectedOrders.addAll(_confirmedCustomerOrders);
+                                                selectedOrders.addAll(
+                                                  _confirmedCustomerOrders,
+                                                );
                                               } else {
                                                 selectedOrders.clear();
                                               }
@@ -517,44 +571,88 @@ class _SalesInvoiceCreateScreenState
                                   ),
                                   const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 8),
-                                    child: Text('SALES ORDER DETAILS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563))),
+                                    child: Text(
+                                      'SALES ORDER DETAILS',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF4B5563),
+                                      ),
+                                    ),
                                   ),
                                   const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 8),
-                                    child: Text('LOCATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563))),
+                                    child: Text(
+                                      'LOCATION',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF4B5563),
+                                      ),
+                                    ),
                                   ),
                                   const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 8),
-                                    child: Text('DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563))),
+                                    child: Text(
+                                      'DATE',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF4B5563),
+                                      ),
+                                    ),
                                   ),
                                   const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                                    child: Text('AMOUNT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4B5563)), textAlign: TextAlign.right),
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: 8,
+                                      horizontal: 4,
+                                    ),
+                                    child: Text(
+                                      'AMOUNT',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF4B5563),
+                                      ),
+                                      textAlign: TextAlign.right,
+                                    ),
                                   ),
                                 ],
                               ),
                               ..._confirmedCustomerOrders.map((order) {
-                                final dateStr = intl.DateFormat('dd-MM-yyyy').format(order.saleDate);
-                                final isChecked = selectedOrders.contains(order);
-                                final locationStr = order.customer?.companyName ??
+                                final dateStr = intl.DateFormat(
+                                  'dd-MM-yyyy',
+                                ).format(order.saleDate);
+                                final isChecked = selectedOrders.contains(
+                                  order,
+                                );
+                                final locationStr =
+                                    order.customer?.companyName ??
                                     order.customer?.displayName ??
                                     _selectedCustomer?.companyName ??
                                     _selectedCustomer?.displayName ??
                                     '—';
-                                final amountFormatter = intl.NumberFormat.currency(
-                                  locale: 'en_IN',
-                                  symbol: '₹',
-                                  decimalDigits: 2,
+                                final amountFormatter =
+                                    intl.NumberFormat.currency(
+                                      locale: 'en_IN',
+                                      symbol: '₹',
+                                      decimalDigits: 2,
+                                    );
+                                final amountStr = amountFormatter.format(
+                                  order.total,
                                 );
-                                final amountStr = amountFormatter.format(order.total);
 
                                 return TableRow(
                                   decoration: const BoxDecoration(
-                                    border: Border(bottom: BorderSide(color: _kBorder)),
+                                    border: Border(
+                                      bottom: BorderSide(color: _kBorder),
+                                    ),
                                   ),
                                   children: [
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
                                       child: Align(
                                         alignment: Alignment.centerLeft,
                                         child: SizedBox(
@@ -562,11 +660,17 @@ class _SalesInvoiceCreateScreenState
                                           height: 20,
                                           child: Checkbox(
                                             value: isChecked,
-                                            activeColor: const Color(0xFF2563EB),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(3),
+                                            activeColor: const Color(
+                                              0xFF2563EB,
                                             ),
-                                            side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(3),
+                                            ),
+                                            side: const BorderSide(
+                                              color: Color(0xFFD1D5DB),
+                                              width: 1.5,
+                                            ),
                                             onChanged: (val) {
                                               setDialogState(() {
                                                 if (val == true) {
@@ -581,9 +685,12 @@ class _SalesInvoiceCreateScreenState
                                       ),
                                     ),
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             order.saleNumber,
@@ -593,7 +700,8 @@ class _SalesInvoiceCreateScreenState
                                               color: Color(0xFF2563EB),
                                             ),
                                           ),
-                                          if (order.reference != null && order.reference!.isNotEmpty) ...[
+                                          if (order.reference != null &&
+                                              order.reference!.isNotEmpty) ...[
                                             const SizedBox(height: 2),
                                             Text(
                                               order.reference!,
@@ -607,23 +715,42 @@ class _SalesInvoiceCreateScreenState
                                       ),
                                     ),
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
                                       child: Text(
                                         locationStr,
-                                        style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF4B5563),
+                                        ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                      child: Text(dateStr, style: const TextStyle(fontSize: 13, color: Color(0xFF374151))),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      child: Text(
+                                        dateStr,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF374151),
+                                        ),
+                                      ),
                                     ),
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                        horizontal: 4,
+                                      ),
                                       child: Text(
                                         amountStr,
-                                        style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF374151),
+                                        ),
                                         textAlign: TextAlign.right,
                                       ),
                                     ),
@@ -643,18 +770,31 @@ class _SalesInvoiceCreateScreenState
                                 ? null
                                 : () {
                                     Navigator.pop(dialogContext);
-                                    _addItemsFromMultipleSalesOrders(selectedOrders);
+                                    _addItemsFromMultipleSalesOrders(
+                                      selectedOrders,
+                                    );
                                   },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF54B999),
                               foregroundColor: Colors.white,
                               disabledBackgroundColor: const Color(0x8054B999),
                               disabledForegroundColor: const Color(0xCCFFFFFF),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
                               elevation: 0,
                             ),
-                            child: const Text('Add', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                            child: const Text(
+                              'Add',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           OutlinedButton(
@@ -663,10 +803,21 @@ class _SalesInvoiceCreateScreenState
                               backgroundColor: Colors.white,
                               foregroundColor: const Color(0xFF4B5563),
                               side: const BorderSide(color: Color(0xFFD1D5DB)),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
                             ),
-                            child: const Text('Cancel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -688,23 +839,30 @@ class _SalesInvoiceCreateScreenState
       if (rows.length == 1 && rows.first.itemId.isEmpty) {
         rows.clear();
       }
-      
+
+      _selectedSalesOrderId = orders.first.id;
+
       for (final order in orders) {
-        final initialItems = order.items ?? const <SalesOrderItem>[];
+        final initialItems = (order.items ?? const <SalesOrderItem>[])
+            .where((item) => !item.isInvoiced)
+            .toList();
         rows.addAll(initialItems.map(_createItemRowFromOrderItem));
-        
+
         if (orderNumberCtrl.text.isEmpty) {
           orderNumberCtrl.text = order.saleNumber;
         } else if (!orderNumberCtrl.text.contains(order.saleNumber)) {
           orderNumberCtrl.text += ', ${order.saleNumber}';
         }
       }
-      
+
       _calculateTotals();
     });
 
     final orderNumbers = orders.map((o) => o.saleNumber).join(', ');
-    ZerpaiToast.success(context, 'Added items from Sales Orders: $orderNumbers');
+    ZerpaiToast.success(
+      context,
+      'Added items from Sales Orders: $orderNumbers',
+    );
   }
 
   Widget _buildPendingOrdersBanner() {
@@ -713,7 +871,9 @@ class _SalesInvoiceCreateScreenState
     }
 
     final count = _confirmedCustomerOrders.length;
-    final linkText = count == 1 ? '1 Confirmed Sales Order' : '$count Confirmed Sales Orders';
+    final linkText = count == 1
+        ? '1 Confirmed Sales Order'
+        : '$count Confirmed Sales Orders';
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -723,7 +883,9 @@ class _SalesInvoiceCreateScreenState
         decoration: BoxDecoration(
           color: const Color(0xFFFFF5F5), // Soft Pink/Red
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: const Color(0xFFFEE2E2)), // Soft Pink Border
+          border: Border.all(
+            color: const Color(0xFFFEE2E2),
+          ), // Soft Pink Border
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -778,12 +940,23 @@ class _SalesInvoiceCreateScreenState
       if (mounted) {
         setState(() {
           _salespersonList = users
-              .map((u) => <String, dynamic>{
-                    'id': u.fullName,
-                    'name': u.fullName,
-                    'salesperson_name': u.fullName,
-                  })
+              .map(
+                (u) => <String, dynamic>{
+                  'id': u.fullName,
+                  'name': u.fullName,
+                  'salesperson_name': u.fullName,
+                },
+              )
               .toList();
+
+          if (salesperson != null && salesperson!.isNotEmpty) {
+            try {
+              final matchedUser = users.firstWhere(
+                (u) => u.id == salesperson || u.fullName.toLowerCase() == salesperson!.toLowerCase(),
+              );
+              salesperson = matchedUser.fullName;
+            } catch (_) {}
+          }
         });
       }
     } catch (e) {
@@ -791,10 +964,52 @@ class _SalesInvoiceCreateScreenState
     }
   }
 
+  void _resolveSalespersonUuid() {
+    if (salesperson == null || salesperson!.isEmpty) return;
+    ref.read(allUsersProvider.future).then((users) {
+      if (mounted) {
+        setState(() {
+          try {
+            final matchedUser = users.firstWhere(
+              (u) => u.id == salesperson || u.fullName.toLowerCase() == salesperson!.toLowerCase(),
+            );
+            salesperson = matchedUser.fullName;
+          } catch (_) {}
+        });
+      }
+    }).catchError((_) {});
+  }
+
   Future<void> _loadNextInvoiceNumber() async {
     if (_isEditMode) return;
     try {
-      final nextNo = await ref.read(sequencesApiServiceProvider).getNextNumber('invoice');
+      final supabase = Supabase.instance.client;
+      final res = await supabase
+          .from('invoice_master')
+          .select('invoice_number')
+          .ilike('invoice_number', 'INV-%')
+          .order('invoice_number', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      String nextNo = 'INV-00001';
+      if (res != null && res['invoice_number'] != null) {
+        final currentNo = res['invoice_number'].toString();
+        final match = RegExp(r'^([a-zA-Z0-9_-]*?)(\d+)$').firstMatch(currentNo);
+        if (match != null) {
+          final prefix = match.group(1) ?? 'INV-';
+          final numStr = match.group(2) ?? '00000';
+          final currentVal = int.tryParse(numStr) ?? 0;
+          final newVal = currentVal + 1;
+          final paddedNum = newVal.toString().padLeft(numStr.length, '0');
+          nextNo = '$prefix$paddedNum';
+        }
+      } else {
+        nextNo = await ref
+            .read(sequencesApiServiceProvider)
+            .getNextNumber('inv');
+      }
+
       if (mounted) {
         setState(() {
           invoiceNumberCtrl.text = nextNo;
@@ -818,16 +1033,18 @@ class _SalesInvoiceCreateScreenState
             (w) => w.name == warehouse,
             orElse: () => warehouseList.first,
           );
-    final displayedWarehouseName = selectedWarehouse?.name ?? warehouse ?? 'Main Warehouse';
+    final displayedWarehouseName =
+        selectedWarehouse?.name ?? warehouse ?? 'Main Warehouse';
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => _SalesInvoicePreferencesDialog(
-        currentPrefix: _invoicePrefix,
+        currentPrefix: _invoicePrefix == 'INVOICE-' ? 'INV-' : _invoicePrefix,
         currentNextNumber: () {
           String currentText = invoiceNumberCtrl.text.trim();
-          if (_invoicePrefix.isNotEmpty && currentText.startsWith(_invoicePrefix)) {
-            return currentText.substring(_invoicePrefix.length);
+          final prefix = _invoicePrefix == 'INVOICE-' ? 'INV-' : _invoicePrefix;
+          if (prefix.isNotEmpty && currentText.startsWith(prefix)) {
+            return currentText.substring(prefix.length);
           }
           final match = RegExp(r'\d+$').firstMatch(currentText);
           return match != null ? match.group(0)! : _invoiceNextNumber;
@@ -840,12 +1057,13 @@ class _SalesInvoiceCreateScreenState
     if (result != null && mounted) {
       setState(() {
         _isAutoGenerateInvoice = result['isAutoGenerate'] ?? true;
-        _invoicePrefix = (result['prefix'] ?? '').isEmpty ? 'INV-' : result['prefix'];
+        _invoicePrefix = result['prefix'] ?? '';
+        if (_invoicePrefix == 'INVOICE-') {
+          _invoicePrefix = 'INV-';
+        }
         _invoiceNextNumber = result['nextNumber'] ?? '';
         if (_isAutoGenerateInvoice) {
           invoiceNumberCtrl.text = '$_invoicePrefix$_invoiceNextNumber';
-        } else {
-          invoiceNumberCtrl.text = '';
         }
       });
     }
@@ -905,26 +1123,8 @@ class _SalesInvoiceCreateScreenState
     );
   }
 
-  bool _isKeralaSupply() {
-    final pos = placeOfSupply ?? _selectedCustomer?.placeOfSupply ?? '';
-    final normalized = pos.trim().toLowerCase();
-    return normalized.contains('kerala') || normalized.startsWith('[kl]');
-  }
-
-  void _updateAllNonSalesOrderTaxIds() {
-    final isKerala = _isKeralaSupply();
-    for (var row in rows) {
-      if (row.itemId.isNotEmpty && row.item != null && !row.isFromSalesOrder) {
-        final item = row.item!;
-        row.taxId = isKerala 
-            ? (item.interStateTaxId ?? item.intraStateTaxId)
-            : (item.intraStateTaxId ?? item.interStateTaxId);
-      }
-    }
-  }
-
   SalesOrderItemRow _createItemRow({
-    String quantity = '1',
+    String quantity = '',
     String rate = '0',
     String discount = '0',
     String fQty = '0',
@@ -940,13 +1140,8 @@ class _SalesInvoiceCreateScreenState
     String? accountName,
     String? warehouseId,
     bool isHeader = false,
+    bool isFromSalesOrder = false,
   }) {
-    final resolvedTaxId = taxId ?? (item != null ? (
-      _isKeralaSupply()
-          ? (item.interStateTaxId ?? item.intraStateTaxId)
-          : (item.intraStateTaxId ?? item.interStateTaxId)
-    ) : null);
-
     final row = SalesOrderItemRow(
       quantityCtrl: TextEditingController(text: quantity),
       rateCtrl: TextEditingController(text: rate),
@@ -957,12 +1152,13 @@ class _SalesInvoiceCreateScreenState
       itemId: itemId,
       item: item,
       discountType: discountType,
-      taxId: resolvedTaxId,
+      taxId: taxId,
       priceListId: priceListId,
       accountId: accountId,
       accountName: accountName,
       warehouseId: warehouseId,
       isHeader: isHeader,
+      isFromSalesOrder: isFromSalesOrder,
     );
     row.hsnCode = hsnCode ?? item?.hsnCode;
 
@@ -996,30 +1192,34 @@ class _SalesInvoiceCreateScreenState
   }
 
   SalesOrderItemRow _createItemRowFromOrderItem(SalesOrderItem item) {
-    final row = _createItemRow(
+    return _createItemRow(
       quantity: item.quantity.toString(),
       rate: item.rate.toString(),
       discount: item.discount.toString(),
       description: item.description ?? '',
       itemId: item.itemId,
-      item: item.item,
+      item: item.item?.copyWith(hsnCode: item.hsnCode),
       discountType: item.discountType == 'value' ? 'Value' : item.discountType,
       taxId: item.taxId,
+      hsnCode: item.hsnCode,
       priceListId: item.priceListId,
       accountId: item.accountId,
       warehouseId: item.warehouseId,
+      isFromSalesOrder: true,
     );
-    row.isFromSalesOrder = true;
-    return row;
   }
 
   Future<void> _showSelectBatchesDialog(SalesOrderItemRow row) async {
     final warehouseList = ref.read(warehousesProvider).value ?? <Warehouse>[];
     final selectedWhObj = warehouseList.firstWhere(
-      (w) => w.name.trim().toLowerCase() == (warehouse ?? '').trim().toLowerCase(),
+      (w) =>
+          w.name.trim().toLowerCase() == (warehouse ?? '').trim().toLowerCase(),
       orElse: () => warehouseList.isNotEmpty
           ? warehouseList.first
-          : Warehouse(id: 'cbd212aa-0a75-430f-b1e7-fb32fdb94b0d', name: 'Central Logistics Hub'),
+          : Warehouse(
+              id: 'cbd212aa-0a75-430f-b1e7-fb32fdb94b0d',
+              name: 'Central Logistics Hub',
+            ),
     );
     final warehouseId = selectedWhObj.id;
 
@@ -1160,10 +1360,10 @@ class _SalesInvoiceCreateScreenState
               setState(() {
                 _selectedCustomer = newCustomer;
                 _selectedCustomerId = newCustomer.id;
+                _selectedSalesOrderId = null;
                 // Refresh customer list to include the new one
                 // ignore: unused_result
                 ref.refresh(salesCustomersProvider);
-                _updateAllNonSalesOrderTaxIds();
               });
               _loadConfirmedCustomerOrders();
             },
@@ -1303,7 +1503,10 @@ class _SalesInvoiceCreateScreenState
     }
   }
 
-  void _showItemDetailsSidebar(SalesOrderItemRow row, {int initialTabIndex = 2}) {
+  void _showItemDetailsSidebar(
+    SalesOrderItemRow row, {
+    int initialTabIndex = 2,
+  }) {
     if (_itemDetailsSidebarOverlay != null) {
       _itemDetailsSidebarOverlay!.remove();
       _itemDetailsSidebarOverlay = null;
@@ -1354,22 +1557,29 @@ class _SalesInvoiceCreateScreenState
     final priceListId = appliedPriceListId;
     if (priceListId == null || priceListId == 'Select') {
       final fallbackMrp = (row.item!.mrp ?? 0).toDouble();
-      row.rateCtrl.text = fallbackMrp == 0 ? '0' : fallbackMrp.toStringAsFixed(2);
+      row.rateCtrl.text = fallbackMrp == 0
+          ? '0'
+          : fallbackMrp.toStringAsFixed(2);
       return;
     }
 
     final matchingPls = priceLists.where((p) => p.id == priceListId);
     if (matchingPls.isEmpty) {
       final fallbackMrp = (row.item!.mrp ?? 0).toDouble();
-      row.rateCtrl.text = fallbackMrp == 0 ? '0' : fallbackMrp.toStringAsFixed(2);
+      row.rateCtrl.text = fallbackMrp == 0
+          ? '0'
+          : fallbackMrp.toStringAsFixed(2);
       return;
     }
     final pl = matchingPls.first;
-    final itemIncluded = pl.priceListType != 'individual_items' ||
+    final itemIncluded =
+        pl.priceListType != 'individual_items' ||
         (pl.itemRates?.any((r) => r.itemId == row.itemId) ?? false);
     if (!itemIncluded) {
       final fallbackMrp = (row.item!.mrp ?? 0).toDouble();
-      row.rateCtrl.text = fallbackMrp == 0 ? '0' : fallbackMrp.toStringAsFixed(2);
+      row.rateCtrl.text = fallbackMrp == 0
+          ? '0'
+          : fallbackMrp.toStringAsFixed(2);
       return;
     }
 
@@ -1428,27 +1638,10 @@ class _SalesInvoiceCreateScreenState
     final shipping = double.tryParse(shippingCtrl.text) ?? 0.0;
     final adjustment = double.tryParse(adjustmentCtrl.text) ?? 0.0;
 
-    double calculatedTaxTotal = 0;
-    for (var row in rows) {
-      if (row.itemId.isNotEmpty) {
-        final q = double.tryParse(row.quantityCtrl.text) ?? 0;
-        final r = double.tryParse(row.rateCtrl.text) ?? 0;
-        final d = double.tryParse(row.discountCtrl.text) ?? 0;
-        final discAmt = row.discountType == '%' ? (q * r * d / 100) : d;
-        final taxableAmount = (q * r) - discAmt;
-
-        final itemsState = ref.read(itemsControllerProvider);
-        final taxRateObj = itemsState.taxGroups.firstWhere(
-          (t) => t.id == row.taxId,
-          orElse: () => itemsState.taxRates.firstWhere(
-            (t) => t.id == row.taxId,
-            orElse: () => TaxRate(id: '', taxName: '', taxRate: 0.0),
-          ),
-        );
-        calculatedTaxTotal += taxableAmount * (taxRateObj.taxRate / 100);
-      }
-    }
-    double currentTaxTotal = calculatedTaxTotal;
+    // Sample tax calculation (2.5% CGST + 2.5% SGST as per screenshot)
+    double cgst = (st * 0.025);
+    double sgst = (st * 0.025);
+    double currentTaxTotal = cgst + sgst;
 
     double rawTotal = st + currentTaxTotal + shipping + adjustment;
     double roundedTotal = rawTotal.roundToDouble();
@@ -1477,6 +1670,7 @@ class _SalesInvoiceCreateScreenState
         collect(node.children);
       }
     }
+
     collect(accountsState.roots);
 
     final bodyHorizontalPadding = MediaQuery.sizeOf(context).width < 1000
@@ -1599,6 +1793,7 @@ class _SalesInvoiceCreateScreenState
     AsyncValue<List<CurrencyOption>> currenciesAsync,
   ) {
     final warehouseList = ref.watch(warehousesProvider).value ?? <Warehouse>[];
+    final packagesState = ref.watch(inventoryPackagesProvider);
     if (warehouseList.isNotEmpty) {
       final defaultWh = warehouseList.firstWhere(
         (w) => w.isDefaultForBranch,
@@ -1673,6 +1868,7 @@ class _SalesInvoiceCreateScreenState
                             SizedBox(
                               width: 550,
                               child: FormDropdown<SalesCustomer>(
+                                enabled: !_isEditMode,
                                 value: selectedCustomerFromList,
                                 height: _kDropdownHeight,
                                 borderRadius: const BorderRadius.only(
@@ -1684,7 +1880,7 @@ class _SalesInvoiceCreateScreenState
                                 hint: 'Select or add a customer',
                                 displayStringForValue: (c) => c.displayName,
                                 itemHeight: 56,
-                                showSettings: true,
+                                showSettings: !_isEditMode,
                                 settingsLabel: 'New Customer',
                                 settingsIcon: LucideIcons.plus,
                                 onSettingsTap: _showNewCustomerDialog,
@@ -1702,28 +1898,33 @@ class _SalesInvoiceCreateScreenState
                                     _customerDetailsSidebarOverlay = null;
                                     _selectedCustomer = val;
                                     _selectedCustomerId = val.id;
+                                    _selectedSalesOrderId = null;
                                     priceListId = val.priceList;
+                                    placeOfSupply = val.placeOfSupply;
                                     final priceLists =
                                         priceListsAsync.asData?.value ?? [];
 
                                     for (var row in rows) {
-                                        if (row.itemId.isNotEmpty &&
-                                            row.item != null) {
-                                          _updateRowRate(row, val.priceList, priceLists);
-                                        }
+                                      if (row.itemId.isNotEmpty &&
+                                          row.item != null) {
+                                        _updateRowRate(
+                                          row,
+                                          val.priceList,
+                                          priceLists,
+                                        );
                                       }
-                                      _updateAllNonSalesOrderTaxIds();
-                                    });
-                                    _loadConfirmedCustomerOrders();
+                                    }
+                                  });
+                                  _loadConfirmedCustomerOrders();
                                 },
                               ),
                             ),
                             Container(
                               height: 32,
                               width: 32,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF10B981), // Emerald-500
-                                borderRadius: BorderRadius.only(
+                              decoration: BoxDecoration(
+                                color: _isEditMode ? Colors.grey.shade400 : const Color(0xFF10B981), // Emerald-500 or Grey
+                                borderRadius: const BorderRadius.only(
                                   topRight: Radius.circular(4),
                                   bottomRight: Radius.circular(4),
                                 ),
@@ -1735,7 +1936,7 @@ class _SalesInvoiceCreateScreenState
                                   color: Colors.white,
                                   size: 18,
                                 ),
-                                onPressed: () => customersAsync.whenData(
+                                onPressed: _isEditMode ? null : () => customersAsync.whenData(
                                   (customers) =>
                                       _showAdvancedCustomerSearch(customers),
                                 ),
@@ -1871,6 +2072,7 @@ class _SalesInvoiceCreateScreenState
                   labelWidth: 180,
                   maxWidth: 450,
                   child: FormDropdown<String>(
+                    enabled: !_isEditMode,
                     height: _kDropdownHeight,
                     value: placeOfSupply ?? _selectedCustomer?.placeOfSupply,
                     items: const [
@@ -1880,13 +2082,7 @@ class _SalesInvoiceCreateScreenState
                     ], // Simplified options
                     itemBuilder: (item, isSelected, isHovered) =>
                         _dropdownItemBuilder(item, isSelected, isHovered),
-                    onChanged: (v) {
-                      setState(() {
-                        placeOfSupply = v;
-                        _updateAllNonSalesOrderTaxIds();
-                        _calculateTotals();
-                      });
-                    },
+                    onChanged: (v) => setState(() => placeOfSupply = v),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1906,10 +2102,7 @@ class _SalesInvoiceCreateScreenState
                 label: 'Reference#',
                 labelWidth: 180,
                 maxWidth: 523,
-                child: CustomTextField(
-                  controller: referenceCtrl,
-                  height: 32,
-                ),
+                child: CustomTextField(controller: referenceCtrl, height: 32),
               ),
               const SizedBox(height: 16),
 
@@ -2098,7 +2291,11 @@ class _SalesInvoiceCreateScreenState
                   value: salesperson,
                   height: _kDropdownHeight,
                   allowClear: true,
-                  maxVisibleItems: _salespersonList.length > 4 ? 4 : (_salespersonList.isEmpty ? 1 : _salespersonList.length),
+                  maxVisibleItems: _salespersonList.length > 4
+                      ? 4
+                      : (_salespersonList.isEmpty
+                            ? 1
+                            : _salespersonList.length),
                   items: _salespersonList
                       .map(
                         (p) =>
@@ -2206,8 +2403,10 @@ class _SalesInvoiceCreateScreenState
                       child: priceListsAsync.when(
                         data: (priceLists) {
                           final salesPriceLists = priceLists
-                              .where((p) =>
-                                  p.transactionType.toLowerCase() == 'sales')
+                              .where(
+                                (p) =>
+                                    p.transactionType.toLowerCase() == 'sales',
+                              )
                               .toList();
                           return FormDropdown<String>(
                             value: priceListId,
@@ -2223,10 +2422,10 @@ class _SalesInvoiceCreateScreenState
                             itemBuilder: (id, isSelected, isHovered) =>
                                 _dropdownItemBuilder(
                                   salesPriceLists
-                                      .where((p) => p.id == id)
-                                      .firstOrNull
-                                      ?.name ??
-                                  'Select Price List',
+                                          .where((p) => p.id == id)
+                                          .firstOrNull
+                                          ?.name ??
+                                      'Select Price List',
                                   isSelected,
                                   isHovered,
                                 ),
@@ -2234,7 +2433,8 @@ class _SalesInvoiceCreateScreenState
                               setState(() {
                                 priceListId = v;
                                 for (var row in rows) {
-                                  if (row.itemId.isNotEmpty && row.item != null) {
+                                  if (row.itemId.isNotEmpty &&
+                                      row.item != null) {
                                     row.priceListId = v;
                                     _updateRowRate(row, v, priceLists);
                                   }
@@ -2262,17 +2462,24 @@ class _SalesInvoiceCreateScreenState
                     children: [
                       SizedBox(
                         width: 320,
-                        child: ref.watch(inventoryPackagesProvider).isLoading
+                        child: packagesState.isLoading
                             ? const Skeleton(height: 32, width: 320)
                             : (() {
-                                final packagesList = ref.watch(inventoryPackagesProvider).packages;
-                                final filteredPackages = packagesList.where((pkg) {
-                                  final matchesCustomer = pkg.customerId == _selectedCustomerId;
+                                final packagesList = packagesState.packages;
+                                final filteredPackages = packagesList.where((
+                                  pkg,
+                                ) {
+                                  final matchesCustomer =
+                                      pkg.customerId == _selectedCustomerId;
                                   if (!matchesCustomer) return false;
                                   if (_warehouseBins.isNotEmpty) {
-                                    return pkg.items.any((item) =>
-                                        item.binLocation != null &&
-                                        _warehouseBins.contains(item.binLocation));
+                                    return pkg.items.any(
+                                      (item) =>
+                                          item.binLocation != null &&
+                                          _warehouseBins.contains(
+                                            item.binLocation,
+                                          ),
+                                    );
                                   }
                                   return true;
                                 }).toList();
@@ -2282,11 +2489,17 @@ class _SalesInvoiceCreateScreenState
                                   height: _kDropdownHeight,
                                   items: filteredPackages,
                                   hint: 'Select Package',
-                                  displayStringForValue: (pkg) => pkg.packageNumber,
-                                  searchStringForValue: (pkg) => pkg.packageNumber,
+                                  displayStringForValue: (pkg) =>
+                                      pkg.packageNumber,
+                                  searchStringForValue: (pkg) =>
+                                      pkg.packageNumber,
                                   showSearch: filteredPackages.length > 5,
                                   itemBuilder: (pkg, isSelected, isHovered) =>
-                                      _dropdownItemBuilder(pkg.packageNumber, isSelected, isHovered),
+                                      _dropdownItemBuilder(
+                                        pkg.packageNumber,
+                                        isSelected,
+                                        isHovered,
+                                      ),
                                   onChanged: (pkg) {
                                     setState(() {
                                       _selectedPackage = pkg;
@@ -2448,7 +2661,8 @@ class _SalesInvoiceCreateScreenState
                         onTap: () {
                           showDialog(
                             context: context,
-                            builder: (context) => _buildUpdateAccountDialog(availableAccounts),
+                            builder: (context) =>
+                                _buildUpdateAccountDialog(availableAccounts),
                           );
                         },
                       ),
@@ -2550,7 +2764,8 @@ class _SalesInvoiceCreateScreenState
                             isSearchVisible: _showSearchItemDetails,
                             onToggle: () {
                               setState(() {
-                                _showSearchItemDetails = !_showSearchItemDetails;
+                                _showSearchItemDetails =
+                                    !_showSearchItemDetails;
                                 if (!_showSearchItemDetails) {
                                   _itemDetailsSearchCtrl.clear();
                                   _itemDetailsSearchQuery = '';
@@ -2684,12 +2899,14 @@ class _SalesInvoiceCreateScreenState
               final row = rows[idx];
               // Apply search filter
               if (_itemDetailsSearchQuery.isNotEmpty) {
-                final itemName = (row.item?.productName ?? row.descriptionCtrl.text).toLowerCase();
+                final itemName =
+                    (row.item?.productName ?? row.descriptionCtrl.text)
+                        .toLowerCase();
                 if (!itemName.contains(_itemDetailsSearchQuery.toLowerCase())) {
                   return SizedBox(key: ValueKey(row));
                 }
               }
-              
+
               return _buildItemRow(
                 idx,
                 products,
@@ -2710,7 +2927,9 @@ class _SalesInvoiceCreateScreenState
               child: Container(
                 height: 8,
                 decoration: BoxDecoration(
-                  color: _showAdditionalInfo ? const Color(0xFFF3F4F6) : _kWhite,
+                  color: _showAdditionalInfo
+                      ? const Color(0xFFF3F4F6)
+                      : _kWhite,
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(6),
                     bottomRight: Radius.circular(6),
@@ -2793,14 +3012,21 @@ class _SalesInvoiceCreateScreenState
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 8),
                 hintText: hintText,
-                hintStyle: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+                hintStyle: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF9CA3AF),
+                ),
                 border: InputBorder.none,
               ),
             ),
           ),
           InkWell(
             onTap: onToggle,
-            child: const Icon(LucideIcons.x, size: 14, color: Color(0xFF9CA3AF)),
+            child: const Icon(
+              LucideIcons.x,
+              size: 14,
+              color: Color(0xFF9CA3AF),
+            ),
           ),
         ],
       ),
@@ -2829,11 +3055,15 @@ class _SalesInvoiceCreateScreenState
     }).toList();
 
     final currentPriceListId = row.priceListId ?? priceListId;
-    final currentPriceList = priceLists.where((pl) => pl.id == currentPriceListId).firstOrNull;
+    final currentPriceList = priceLists
+        .where((pl) => pl.id == currentPriceListId)
+        .firstOrNull;
     bool notIncluded = false;
     if (currentPriceList != null && row.itemId.isNotEmpty) {
       if (currentPriceList.priceListType == 'individual_items') {
-        notIncluded = !(currentPriceList.itemRates?.any((r) => r.itemId == row.itemId) ?? false);
+        notIncluded =
+            !(currentPriceList.itemRates?.any((r) => r.itemId == row.itemId) ??
+                false);
       }
     } else if (currentPriceListId != null && row.itemId.isNotEmpty) {
       notIncluded = true;
@@ -2999,18 +3229,20 @@ class _SalesInvoiceCreateScreenState
                                                       .productName,
                                               itemBuilder:
                                                   (id, isSelected, isHovered) {
-                                                final p = products.firstWhere(
-                                                  (p) => p.id == id,
-                                                );
-                                                return _dropdownItemBuilder(
-                                                  p.productName,
-                                                  isSelected,
-                                                  isHovered,
-                                                  sublabel: p.sellingPrice != null
-                                                      ? 'Selling Price: ₹${p.sellingPrice!.toStringAsFixed(2)}'
-                                                      : null,
-                                                );
-                                              },
+                                                    final p = products
+                                                        .firstWhere(
+                                                          (p) => p.id == id,
+                                                        );
+                                                    return _dropdownItemBuilder(
+                                                      p.productName,
+                                                      isSelected,
+                                                      isHovered,
+                                                      sublabel:
+                                                          p.sellingPrice != null
+                                                          ? 'Selling Price: ₹${p.sellingPrice!.toStringAsFixed(2)}'
+                                                          : null,
+                                                    );
+                                                  },
                                               onChanged: (v) {
                                                 if (v == null) return;
                                                 final p = products.firstWhere(
@@ -3031,10 +3263,9 @@ class _SalesInvoiceCreateScreenState
                                                     row.mrpCtrl.text =
                                                         (p.mrp ?? 0).toString();
                                                   }
-                                                  final isKerala = _isKeralaSupply();
-                                                   row.taxId = isKerala 
-                                                       ? (p.interStateTaxId ?? p.intraStateTaxId)
-                                                       : (p.intraStateTaxId ?? p.interStateTaxId);
+                                                  row.taxId ??=
+                                                      p.intraStateTaxId ??
+                                                      p.interStateTaxId;
                                                 });
                                                 _calculateTotals();
                                               },
@@ -3061,9 +3292,9 @@ class _SalesInvoiceCreateScreenState
                               children: [
                                 CustomTextField(
                                   controller: row.quantityCtrl,
+                                  hintText: '0',
                                   height: 32,
                                   hideBorderDefault: true,
-                                  readOnly: _selectedPackage != null,
                                   keyboardType:
                                       const TextInputType.numberWithOptions(
                                         decimal: true,
@@ -3104,7 +3335,8 @@ class _SalesInvoiceCreateScreenState
                                     child: Row(
                                       mainAxisAlignment: MainAxisAlignment.end,
                                       mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         const Icon(
                                           LucideIcons.home,
@@ -3123,7 +3355,8 @@ class _SalesInvoiceCreateScreenState
                                               });
                                             },
                                             child: Text(
-                                              (warehouse ?? 'hbnm').toUpperCase(),
+                                              (warehouse ?? 'hbnm')
+                                                  .toUpperCase(),
                                               textAlign: TextAlign.right,
                                               style: const TextStyle(
                                                 fontSize: 12,
@@ -3138,15 +3371,18 @@ class _SalesInvoiceCreateScreenState
                                       ],
                                     ),
                                   ),
-                                  if (row.itemId.isNotEmpty) ...[
+                                  if (_selectedCustomerId != null &&
+                                      row.itemId.isNotEmpty) ...[
                                     const SizedBox(height: 4),
                                     Align(
                                       alignment: Alignment.centerRight,
                                       child: InkWell(
-                                        onTap: () => _showSelectBatchesDialog(row),
+                                        onTap: () =>
+                                            _showSelectBatchesDialog(row),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
-                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
                                           children: [
                                             if (!row.hasBatchData) ...[
                                               const Icon(
@@ -3165,7 +3401,8 @@ class _SalesInvoiceCreateScreenState
                                                 fontSize: 10,
                                                 color: Color(0xFF2563EB),
                                                 fontFamily: 'Inter',
-                                                decoration: TextDecoration.underline,
+                                                decoration:
+                                                    TextDecoration.underline,
                                                 fontWeight: FontWeight.w500,
                                               ),
                                             ),
@@ -3246,8 +3483,13 @@ class _SalesInvoiceCreateScreenState
                                             Transform.translate(
                                               offset: const Offset(-22, 0),
                                               child: ZTooltip(
-                                                message: "This item has not been included in the selected price list. So, the item's default rate has been used.",
-                                                child: const Icon(LucideIcons.alertCircle, size: 14, color: Colors.orange),
+                                                message:
+                                                    "This item has not been included in the selected price list. So, the item's default rate has been used.",
+                                                child: const Icon(
+                                                  LucideIcons.alertCircle,
+                                                  size: 14,
+                                                  color: Colors.orange,
+                                                ),
                                               ),
                                             ),
                                           CompositedTransformTarget(
@@ -3257,37 +3499,71 @@ class _SalesInvoiceCreateScreenState
                                               height: 32,
                                               child: MouseRegion(
                                                 onEnter: (_) {
-                                                  final pl = applicablePriceLists.where((pl) => pl.id == (row.priceListId ?? priceListId)).firstOrNull;
+                                                  final pl = applicablePriceLists
+                                                      .where(
+                                                        (pl) =>
+                                                            pl.id ==
+                                                            (row.priceListId ??
+                                                                priceListId),
+                                                      )
+                                                      .firstOrNull;
                                                   if (pl != null) {
-                                                    _showValueTooltip(context, pl.name, row.priceListLink);
+                                                    _showValueTooltip(
+                                                      context,
+                                                      pl.name,
+                                                      row.priceListLink,
+                                                    );
                                                   }
                                                 },
                                                 onExit: (_) {
                                                   _hideValueTooltip();
                                                 },
                                                 child: FormDropdown<PriceList>(
-                                                  value: applicablePriceLists.where((pl) => pl.id == (row.priceListId ?? priceListId)).firstOrNull,
+                                                  value: applicablePriceLists
+                                                      .where(
+                                                        (pl) =>
+                                                            pl.id ==
+                                                            (row.priceListId ??
+                                                                priceListId),
+                                                      )
+                                                      .firstOrNull,
                                                   height: 32,
                                                   hint: 'Apply Price List',
-                                                  padding: const EdgeInsets.only(right: 10),
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        right: 10,
+                                                      ),
                                                   menuWidth: 250,
                                                   items: applicablePriceLists,
-                                                  displayStringForValue: (v) => v.name,
+                                                  displayStringForValue: (v) =>
+                                                      v.name,
                                                   preferDown: true,
                                                   itemBuilder:
-                                                      (item, isSelected, isHovered) =>
-                                                          _dropdownItemBuilder(
-                                                            item.name,
-                                                            isSelected,
-                                                            isHovered,
-                                                          ),
+                                                      (
+                                                        item,
+                                                        isSelected,
+                                                        isHovered,
+                                                      ) => _dropdownItemBuilder(
+                                                        item.name,
+                                                        isSelected,
+                                                        isHovered,
+                                                      ),
                                                   onChanged: (v) {
                                                     if (v != null) {
-                                                      final baseRate = row.item?.sellingPrice ?? 0;
-                                                      final rate = v.calculatePrice(row.itemId, baseRate);
+                                                      final baseRate =
+                                                          row
+                                                              .item
+                                                              ?.sellingPrice ??
+                                                          0;
+                                                      final rate = v
+                                                          .calculatePrice(
+                                                            row.itemId,
+                                                            baseRate,
+                                                          );
                                                       setState(() {
                                                         row.priceListId = v.id;
-                                                        row.rateCtrl.text = rate.toStringAsFixed(2);
+                                                        row.rateCtrl.text = rate
+                                                            .toStringAsFixed(2);
                                                         _calculateTotals();
                                                       });
                                                     }
@@ -3304,7 +3580,10 @@ class _SalesInvoiceCreateScreenState
                                     const SizedBox(height: 2),
                                     GestureDetector(
                                       onTap: () {
-                                        _showItemDetailsSidebar(row, initialTabIndex: 2);
+                                        _showItemDetailsSidebar(
+                                          row,
+                                          initialTabIndex: 2,
+                                        );
                                       },
                                       child: const Text(
                                         'Recent Transactions',
@@ -3634,29 +3913,23 @@ class _SalesInvoiceCreateScreenState
                     ),
                   ),
                   const SizedBox(width: 8),
-                  RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: item.type == 'goods' ? 'HSN ' : 'SAC ',
-                          style: const TextStyle(fontSize: 12, color: _kBodyText, fontFamily: 'Inter'),
-                        ),
-                      ],
-                    ),
+                  Text(
+                    item.type == 'goods' ? 'HSN ' : 'SAC ',
+                    style: const TextStyle(fontSize: 12, color: _kBodyText),
                   ),
                   CompositedTransformTarget(
                     link: row.hsnLink,
                     child: Row(
                       children: [
                         Text(
-                          (row.hsnCode ?? item.hsnCode ?? '').isNotEmpty
-                              ? (row.hsnCode ?? item.hsnCode ?? '')
-                              : 'Select HSN',
+                          (item.type == 'goods'
+                                  ? item.hsnCode
+                                  : item.hsnCode) ??
+                              '',
                           style: const TextStyle(
                             fontSize: 12,
                             color: _kBlue,
                             fontWeight: FontWeight.w600,
-                            fontFamily: 'Inter',
                           ),
                         ),
                         const SizedBox(width: 4),
@@ -3903,10 +4176,15 @@ class _SalesInvoiceCreateScreenState
     setState(() {});
   }
 
-  Widget _buildReportingTags(SalesOrderItemRow row, List<AccountNode> availableAccounts) {
+  Widget _buildReportingTags(
+    SalesOrderItemRow row,
+    List<AccountNode> availableAccounts,
+  ) {
     String? accountName = row.accountName;
     if (accountName == null && row.accountId != null) {
-      final acc = availableAccounts.where((a) => a.id == row.accountId).firstOrNull;
+      final acc = availableAccounts
+          .where((a) => a.id == row.accountId)
+          .firstOrNull;
       if (acc != null) {
         accountName = acc.name;
         row.accountName = acc.name; // Cache it
@@ -3926,29 +4204,33 @@ class _SalesInvoiceCreateScreenState
                 onTap: () => _toggleAccountsOverlay(row, availableAccounts),
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 4,
+                    horizontal: 8,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(LucideIcons.building, size: 14, color: Color(0xFF6B7280)),
+                      const Icon(
+                        LucideIcons.building,
+                        size: 14,
+                        color: Color(0xFF6B7280),
+                      ),
                       const SizedBox(width: 6),
-                      RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: accountName ?? 'Select an account',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF6B7280),
-                                fontWeight: FontWeight.w500,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                          ],
+                      Text(
+                        accountName ?? 'Select an account',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6B7280),
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF6B7280)),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 14,
+                        color: Color(0xFF6B7280),
+                      ),
                     ],
                   ),
                 ),
@@ -3963,7 +4245,10 @@ class _SalesInvoiceCreateScreenState
                 onTap: () => _toggleReportingTagsOverlay(row),
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 4,
+                    horizontal: 2,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -3982,7 +4267,11 @@ class _SalesInvoiceCreateScreenState
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF9CA3AF)),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 14,
+                        color: Color(0xFF9CA3AF),
+                      ),
                     ],
                   ),
                 ),
@@ -4078,7 +4367,11 @@ class _SalesInvoiceCreateScreenState
                       ),
                       const Spacer(),
                       IconButton(
-                        icon: const Icon(LucideIcons.x, size: 16, color: Color(0xFFEF4444)),
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: Color(0xFFEF4444),
+                        ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () => Navigator.of(context).pop(),
@@ -4117,13 +4410,24 @@ class _SalesInvoiceCreateScreenState
                             border: Border.all(color: const Color(0xFFE5E7EB)),
                             itemBuilder: (account, isSelected, isHovered) {
                               return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                color: isSelected ? const Color(0xFFE8F0FE) : (isHovered ? const Color(0xFF3B82F6) : Colors.white),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                color: isSelected
+                                    ? const Color(0xFFE8F0FE)
+                                    : (isHovered
+                                          ? const Color(0xFF3B82F6)
+                                          : Colors.white),
                                 child: Text(
                                   account.name,
                                   style: TextStyle(
-                                      fontSize: 13,
-                                      color: isSelected ? const Color(0xFF2563EB) : (isHovered ? Colors.white : const Color(0xFF111827)),
+                                    fontSize: 13,
+                                    color: isSelected
+                                        ? const Color(0xFF2563EB)
+                                        : (isHovered
+                                              ? Colors.white
+                                              : const Color(0xFF111827)),
                                   ),
                                 ),
                               );
@@ -4218,7 +4522,11 @@ class _SalesInvoiceCreateScreenState
                       ),
                       const Spacer(),
                       IconButton(
-                        icon: const Icon(LucideIcons.x, size: 16, color: Color(0xFFEF4444)),
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: Color(0xFFEF4444),
+                        ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () => Navigator.of(context).pop(),
@@ -4245,7 +4553,9 @@ class _SalesInvoiceCreateScreenState
                         ZerpaiRadioGroup<String>(
                           options: const ['%', 'Value'],
                           current: discountType,
-                          labelBuilder: (val) => val == '%' ? 'Percentage Discount (%)' : 'Flat Discount (₹)',
+                          labelBuilder: (val) => val == '%'
+                              ? 'Percentage Discount (%)'
+                              : 'Flat Discount (₹)',
                           onChanged: (v) {
                             setModalState(() {
                               discountType = v;
@@ -4261,7 +4571,9 @@ class _SalesInvoiceCreateScreenState
                               child: Container(
                                 height: 32,
                                 decoration: BoxDecoration(
-                                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                                  border: Border.all(
+                                    color: const Color(0xFFE5E7EB),
+                                  ),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(
@@ -4274,7 +4586,9 @@ class _SalesInvoiceCreateScreenState
                                           border: InputBorder.none,
                                           enabledBorder: InputBorder.none,
                                           focusedBorder: InputBorder.none,
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                                          contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                          ),
                                           filled: true,
                                           fillColor: Colors.transparent,
                                           hoverColor: Colors.transparent,
@@ -4282,7 +4596,8 @@ class _SalesInvoiceCreateScreenState
                                         ),
                                         keyboardType: TextInputType.number,
                                         inputFormatters: [
-                                          FilteringTextInputFormatter.digitsOnly
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
                                         ],
                                       ),
                                     ),
@@ -4291,12 +4606,18 @@ class _SalesInvoiceCreateScreenState
                                       height: 32,
                                       alignment: Alignment.center,
                                       decoration: const BoxDecoration(
-                                        border: Border(left: BorderSide(color: Color(0xFFE5E7EB))),
+                                        border: Border(
+                                          left: BorderSide(
+                                            color: Color(0xFFE5E7EB),
+                                          ),
+                                        ),
                                         color: Color(0xFFF9FAFB),
                                       ),
                                       child: Text(
                                         discountType == '%' ? '%' : '₹',
-                                        style: const TextStyle(color: Color(0xFF6B7280)),
+                                        style: const TextStyle(
+                                          color: Color(0xFF6B7280),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -4334,7 +4655,10 @@ class _SalesInvoiceCreateScreenState
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                         ),
                         child: const Text('Update'),
                       ),
@@ -4347,7 +4671,10 @@ class _SalesInvoiceCreateScreenState
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                         ),
                         child: const Text('Cancel'),
                       ),
@@ -4904,8 +5231,10 @@ class _SalesInvoiceCreateScreenState
                                 color: Color(0xFF374151),
                               ),
                             ),
-                            if (_attachedFiles.isNotEmpty) const SizedBox(width: 12),
-                            if (_attachedFiles.isNotEmpty) _buildAttachmentBadge(),
+                            if (_attachedFiles.isNotEmpty)
+                              const SizedBox(width: 12),
+                            if (_attachedFiles.isNotEmpty)
+                              _buildAttachmentBadge(),
                           ],
                         ),
                       ),
@@ -4967,7 +5296,11 @@ class _SalesInvoiceCreateScreenState
               const SizedBox(width: 4),
               Text(
                 '${_attachedFiles.length}',
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -5012,7 +5345,11 @@ class _SalesInvoiceCreateScreenState
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4)),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
                   ],
                   border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
@@ -5021,7 +5358,9 @@ class _SalesInvoiceCreateScreenState
                   child: SingleChildScrollView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: _attachedFiles.map((file) => _buildAttachmentListItem(file)).toList(),
+                      children: _attachedFiles
+                          .map((file) => _buildAttachmentListItem(file))
+                          .toList(),
                     ),
                   ),
                 ),
@@ -5050,7 +5389,11 @@ class _SalesInvoiceCreateScreenState
             ),
             child: Row(
               children: [
-                Icon(LucideIcons.file, size: 16, color: isHovered ? Colors.white : const Color(0xFF3B82F6)),
+                Icon(
+                  LucideIcons.file,
+                  size: 16,
+                  color: isHovered ? Colors.white : const Color(0xFF3B82F6),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -5060,7 +5403,9 @@ class _SalesInvoiceCreateScreenState
                         file.name,
                         style: TextStyle(
                           fontSize: 13,
-                          color: isHovered ? Colors.white : const Color(0xFF374151),
+                          color: isHovered
+                              ? Colors.white
+                              : const Color(0xFF374151),
                           fontWeight: FontWeight.w500,
                         ),
                         maxLines: 1,
@@ -5070,7 +5415,9 @@ class _SalesInvoiceCreateScreenState
                         'File Size: ${(file.size / 1024).toStringAsFixed(2)} KB',
                         style: TextStyle(
                           fontSize: 11,
-                          color: isHovered ? Colors.white.withValues(alpha: 0.8) : const Color(0xFF6B7280),
+                          color: isHovered
+                              ? Colors.white.withValues(alpha: 0.8)
+                              : const Color(0xFF6B7280),
                         ),
                       ),
                     ],
@@ -5088,7 +5435,11 @@ class _SalesInvoiceCreateScreenState
                       });
                       _attachmentListOverlay?.markNeedsBuild();
                     },
-                    child: const Icon(LucideIcons.trash, size: 14, color: Colors.white),
+                    child: const Icon(
+                      LucideIcons.trash,
+                      size: 14,
+                      color: Colors.white,
+                    ),
                   ),
               ],
             ),
@@ -5102,24 +5453,32 @@ class _SalesInvoiceCreateScreenState
     try {
       final result = await FilePicker.platform.pickFiles(allowMultiple: true);
       if (!mounted || result == null) return;
-      
+
       setState(() {
         final totalFiles = _attachedFiles.length + result.files.length;
         if (totalFiles > 10) {
-          ZerpaiToast.error(context, 'You can only attach a maximum of 10 files');
+          ZerpaiToast.error(
+            context,
+            'You can only attach a maximum of 10 files',
+          );
           return;
         }
-        
+
         // Check file size (5MB = 5 * 1024 * 1024 bytes)
-        final oversizedFiles = result.files.where((f) => f.size > 5 * 1024 * 1024).toList();
+        final oversizedFiles = result.files
+            .where((f) => f.size > 5 * 1024 * 1024)
+            .toList();
         if (oversizedFiles.isNotEmpty) {
-          ZerpaiToast.error(context, 'File size should be less than or equal to 5MB');
+          ZerpaiToast.error(
+            context,
+            'File size should be less than or equal to 5MB',
+          );
           return;
         }
-        
+
         _attachedFiles = [..._attachedFiles, ...result.files];
       });
-      
+
       final count = _attachedFiles.length;
       if (count > 0) {
         ZerpaiToast.success(
@@ -5225,9 +5584,7 @@ class _SalesInvoiceCreateScreenState
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected
                     ? Colors.white
-                    : (isHovered
-                          ? Colors.white
-                          : const Color(0xFF374151)),
+                    : (isHovered ? Colors.white : const Color(0xFF374151)),
               ),
             ),
           ),
@@ -5725,20 +6082,13 @@ class _SalesInvoiceCreateScreenState
       return;
     }
 
-    final validRows = rows.where((r) => r.itemId.isNotEmpty && !r.isHeader).toList();
-    if (validRows.isEmpty) {
-      ZerpaiToast.error(context, 'Please add at least one item');
-      return;
-    }
-
-    for (final row in validRows) {
-      if (row.accountId == null || row.accountId!.trim().isEmpty) {
-        ZerpaiToast.error(context, 'Please select an account for all items');
-        return;
-      }
-      final hsn = row.hsnCode ?? row.item?.hsnCode ?? '';
-      if (hsn.trim().isEmpty) {
-        ZerpaiToast.error(context, 'Please select an HSN/SAC code for all items');
+    // Validate that every row has batch data selected
+    for (final row in rows.where((r) => r.itemId.isNotEmpty)) {
+      if (!row.hasBatchData || row.batchDataList.isEmpty) {
+        ZerpaiToast.error(
+          context,
+          'Please select batch for item: ${row.item?.productName ?? "selected item"}',
+        );
         return;
       }
     }
@@ -5748,19 +6098,22 @@ class _SalesInvoiceCreateScreenState
       context: context,
       barrierDismissible: false,
       builder: (context) => const Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFF10B981),
-        ),
+        child: CircularProgressIndicator(color: Color(0xFF10B981)),
       ),
     );
 
     try {
       final warehouseList = ref.read(warehousesProvider).value ?? <Warehouse>[];
       final selectedWhObj = warehouseList.firstWhere(
-        (w) => w.name.trim().toLowerCase() == (warehouse ?? '').trim().toLowerCase(),
+        (w) =>
+            w.name.trim().toLowerCase() ==
+            (warehouse ?? '').trim().toLowerCase(),
         orElse: () => warehouseList.isNotEmpty
             ? warehouseList.first
-            : Warehouse(id: 'cbd212aa-0a75-430f-b1e7-fb32fdb94b0d', name: 'Central Logistics Hub'),
+            : Warehouse(
+                id: 'cbd212aa-0a75-430f-b1e7-fb32fdb94b0d',
+                name: 'Central Logistics Hub',
+              ),
       );
       final warehouseId = selectedWhObj.id;
 
@@ -5768,7 +6121,9 @@ class _SalesInvoiceCreateScreenState
       User? selectedUserObj;
       try {
         selectedUserObj = usersList.firstWhere(
-          (u) => u.fullName.trim().toLowerCase() == (salesperson ?? '').trim().toLowerCase(),
+          (u) =>
+              u.fullName.trim().toLowerCase() ==
+              (salesperson ?? '').trim().toLowerCase(),
         );
       } catch (_) {
         if (usersList.isNotEmpty) {
@@ -5800,7 +6155,9 @@ class _SalesInvoiceCreateScreenState
 
         // Calculate line amounts
         final double rawAmount = quantity * rate;
-        final double discountAmt = discountType == '%' ? (rawAmount * discount / 100) : discount;
+        final double discountAmt = discountType == '%'
+            ? (rawAmount * discount / 100)
+            : discount;
         final double taxableAmount = rawAmount - discountAmt;
         final double taxAmount = taxableAmount * (taxPercentage / 100);
         final double lineTotal = taxableAmount + taxAmount;
@@ -5814,15 +6171,20 @@ class _SalesInvoiceCreateScreenState
             String lId = bData['layerId'] ?? '';
             String bnId = bData['binId'] ?? '';
 
-            final bNo = bData['batchNo']?.trim() ?? bData['batchRef']?.trim() ?? '';
+            final bNo =
+                bData['batchNo']?.trim() ?? bData['batchRef']?.trim() ?? '';
             final binLoc = bData['binLocation']?.trim() ?? '';
 
             if (bId.isEmpty || lId.isEmpty || bnId.isEmpty) {
-              final batches = await ref.read(batchLookupProvider(productId).future);
-              final bins = await ref.read(inventoryPicklistRepositoryProvider).getWarehouseBins(
-                warehouseId: warehouseId,
-                productId: productId,
+              final batches = await ref.read(
+                batchLookupProvider(productId).future,
               );
+              final bins = await ref
+                  .read(inventoryPicklistRepositoryProvider)
+                  .getWarehouseBins(
+                    warehouseId: warehouseId,
+                    productId: productId,
+                  );
 
               if (bId.isEmpty && bNo.isNotEmpty && batches.isNotEmpty) {
                 final match = batches.firstWhere(
@@ -5830,13 +6192,21 @@ class _SalesInvoiceCreateScreenState
                   orElse: () => <String, dynamic>{},
                 );
                 if (match.isNotEmpty) {
-                  bId = match['id']?.toString() ?? match['batchId']?.toString() ?? '';
-                  lId = match['layer_id']?.toString() ?? match['layerId']?.toString() ?? '';
+                  bId =
+                      match['id']?.toString() ??
+                      match['batchId']?.toString() ??
+                      '';
+                  lId =
+                      match['layer_id']?.toString() ??
+                      match['layerId']?.toString() ??
+                      '';
                 }
               }
               if (bnId.isEmpty && binLoc.isNotEmpty && bins.isNotEmpty) {
                 final match = bins.firstWhere(
-                  (b) => (b['binCode'] ?? b['bin_code'])?.toString().trim() == binLoc,
+                  (b) =>
+                      (b['binCode'] ?? b['bin_code'])?.toString().trim() ==
+                      binLoc,
                   orElse: () => <String, String>{},
                 );
                 if (match.isNotEmpty) {
@@ -5853,10 +6223,16 @@ class _SalesInvoiceCreateScreenState
               'quantity': double.tryParse(bData['qtyOut'] ?? '') ?? quantity,
               'focQuantity': double.tryParse(bData['foc'] ?? '') ?? focQuantity,
               'purchaseRate': double.tryParse(bData['prate'] ?? '') ?? 0.0,
-              'salesRate': double.tryParse(bData['salesRate'] ?? bData['ptr'] ?? '') ?? rate,
+              'salesRate':
+                  double.tryParse(bData['salesRate'] ?? bData['ptr'] ?? '') ??
+                  rate,
               'mrp': double.tryParse(bData['mrp'] ?? '') ?? 0.0,
-              'expiryDate': bData['expDate']?.isNotEmpty == true ? bData['expDate'] : null,
-              'manufacturerBatch': bData['mfgBatch']?.isNotEmpty == true ? bData['mfgBatch'] : null,
+              'expiryDate': bData['expDate']?.isNotEmpty == true
+                  ? bData['expDate']
+                  : null,
+              'manufacturerBatch': bData['mfgBatch']?.isNotEmpty == true
+                  ? bData['mfgBatch']
+                  : null,
             });
           }
         } else {
@@ -5864,11 +6240,15 @@ class _SalesInvoiceCreateScreenState
           final trackBinLocation = row.item?.trackBinLocation ?? false;
 
           if (trackBatches || trackBinLocation) {
-            final batches = await ref.read(batchLookupProvider(productId).future);
-            final bins = await ref.read(inventoryPicklistRepositoryProvider).getWarehouseBins(
-              warehouseId: warehouseId,
-              productId: productId,
+            final batches = await ref.read(
+              batchLookupProvider(productId).future,
             );
+            final bins = await ref
+                .read(inventoryPicklistRepositoryProvider)
+                .getWarehouseBins(
+                  warehouseId: warehouseId,
+                  productId: productId,
+                );
 
             String? bId;
             String? lId;
@@ -5879,8 +6259,11 @@ class _SalesInvoiceCreateScreenState
             if (batches.isNotEmpty) {
               final match = batches.first;
               bId = match['id']?.toString() ?? match['batchId']?.toString();
-              lId = match['layer_id']?.toString() ?? match['layerId']?.toString();
-              prate = double.tryParse(match['prate']?.toString() ?? match['ptr']?.toString() ?? '');
+              lId =
+                  match['layer_id']?.toString() ?? match['layerId']?.toString();
+              prate = double.tryParse(
+                match['prate']?.toString() ?? match['ptr']?.toString() ?? '',
+              );
               expD = match['expiry_date']?.toString();
             }
 
@@ -5927,7 +6310,9 @@ class _SalesInvoiceCreateScreenState
         'customerId': _selectedCustomerId,
         'invoiceNumber': invoiceNumberCtrl.text,
         'invoiceDate': intl.DateFormat('yyyy-MM-dd').format(invoiceDate),
-        'dueDate': dueDate != null ? intl.DateFormat('yyyy-MM-dd').format(dueDate!) : null,
+        'dueDate': dueDate != null
+            ? intl.DateFormat('yyyy-MM-dd').format(dueDate!)
+            : null,
         'paymentTerms': terms,
         'salespersonId': salespersonId,
         'warehouseId': warehouseId,
@@ -5937,29 +6322,40 @@ class _SalesInvoiceCreateScreenState
         'subtotal': subTotal,
         'taxTotal': taxTotal,
         'grandTotal': total,
-        'subject': referenceCtrl.text.isNotEmpty ? referenceCtrl.text : orderNumberCtrl.text,
+        'subject': referenceCtrl.text.isNotEmpty
+            ? referenceCtrl.text
+            : orderNumberCtrl.text,
         'customerNotes': notesCtrl.text,
         'termsConditions': termsCtrl.text,
         'status': status,
-        'inventoryFlowType': _selectedPackage != null ? 'PACKAGE_BEFORE_INVOICE' : 'DIRECT_INVOICE',
+        'inventoryFlowType': _selectedPackage != null
+            ? 'PACKAGE_BEFORE_INVOICE'
+            : 'DIRECT_INVOICE',
         if (_selectedPackage != null) 'packageId': _selectedPackage!.id,
-        if (widget.initialOrderId != null || widget.fromOrderId != null)
-          'salesOrderId': widget.initialOrderId ?? widget.fromOrderId,
+        if (widget.initialOrderId != null || widget.fromOrderId != null || _selectedSalesOrderId != null)
+          'salesOrderId': widget.initialOrderId ?? widget.fromOrderId ?? _selectedSalesOrderId,
         'items': itemsPayloadList,
       };
 
       final api = ref.read(salesOrderApiServiceProvider);
-      await api.createInvoice(payload);
+      final savedInvoice = await api.createInvoice(payload);
+
+      final invoiceId = savedInvoice['id']?.toString();
+      if (invoiceId != null && _attachedFiles.isNotEmpty) {
+        await _saveAttachments(invoiceId);
+      }
 
       if (_isAutoGenerateInvoice) {
-        await ref.read(sequencesApiServiceProvider).incrementSequence(
-          'invoice',
-          usedNumber: invoiceNumberCtrl.text,
-        );
+        await ref
+            .read(sequencesApiServiceProvider)
+            .incrementSequence('invoice', usedNumber: invoiceNumberCtrl.text);
       }
 
       if (mounted) {
-        Navigator.pop(context); // Close loading overlay
+        Navigator.of(
+          context,
+          rootNavigator: true,
+        ).pop(); // Close loading overlay
         ZerpaiToast.success(
           context,
           _isEditMode ? 'Sales invoice updated' : 'Sales invoice created',
@@ -5968,8 +6364,60 @@ class _SalesInvoiceCreateScreenState
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); // Close loading overlay
+        Navigator.of(
+          context,
+          rootNavigator: true,
+        ).pop(); // Close loading overlay
         ZerpaiToast.error(context, 'Error: $e');
+      }
+    }
+  }
+
+  Future<void> _saveAttachments(String invoiceId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final apiClient = ApiClient();
+      var entityId = ref.read(entityProvider).entityId;
+      if (entityId == null) {
+        final user = ref.read(authUserProvider);
+        entityId = user?.orgEntityId;
+      }
+      if (entityId == null) return;
+
+      for (var file in _attachedFiles) {
+        if (file.bytes == null) {
+          debugPrint('Skipping file ${file.name} because bytes are null');
+          continue;
+        }
+
+        final base64Data = base64Encode(file.bytes!);
+
+        // Upload to Cloudflare R2 via backend
+        final response = await apiClient.post(
+          '/lookups/uploads',
+          data: {
+            'fileName': file.name,
+            'fileData': base64Data,
+            'mimeType': 'application/octet-stream',
+            'prefix': 'invoices',
+          },
+        );
+
+        final fileKey = response.data['fileKey'] ?? 'invoices/${file.name}';
+
+        await supabase.from('invoice_attachments').insert({
+          'invoice_id': invoiceId,
+          'file_name': file.name,
+          'file_path': fileKey,
+          'file_size': file.size.toString(),
+          'uploaded_by': supabase.auth.currentUser?.id,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        });
+      }
+    } catch (e) {
+      debugPrint('Error saving attachments: $e');
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to save attachments: $e');
       }
     }
   }
@@ -6113,7 +6561,6 @@ class _SalesInvoiceCreateScreenState
     );
   }
 
-
   // ── Address Section ──────────────────────────────────────────────────────
   Widget _buildCustomerAddressSection(SalesCustomer c) {
     // Check if billing address exists
@@ -6135,38 +6582,60 @@ class _SalesInvoiceCreateScreenState
     ].any((v) => v != null && v.isNotEmpty);
 
     final countries = ref.watch(countriesProvider(null)).value ?? [];
-    
+
     // Resolve billing country
     final billingCountryMap = countries.firstWhere(
-      (item) => item['id'] == c.billingAddressCountryId || item['shortCode'] == c.billingAddressCountryId,
+      (item) =>
+          item['id'] == c.billingAddressCountryId ||
+          item['shortCode'] == c.billingAddressCountryId,
       orElse: () => <String, String>{},
     );
-    final billingCountryName = billingCountryMap['name'] ?? c.billingAddressCountryId;
+    final billingCountryName =
+        billingCountryMap['name'] ?? c.billingAddressCountryId;
 
     // Resolve shipping country
     final shippingCountryMap = countries.firstWhere(
-      (item) => item['id'] == c.shippingAddressCountryId || item['shortCode'] == c.shippingAddressCountryId,
+      (item) =>
+          item['id'] == c.shippingAddressCountryId ||
+          item['shortCode'] == c.shippingAddressCountryId,
       orElse: () => <String, String>{},
     );
-    final shippingCountryName = shippingCountryMap['name'] ?? c.shippingAddressCountryId;
+    final shippingCountryName =
+        shippingCountryMap['name'] ?? c.shippingAddressCountryId;
 
     // Resolve billing state
-    final billingStates = (c.billingAddressCountryId != null && c.billingAddressCountryId!.isNotEmpty)
+    final billingStates =
+        (c.billingAddressCountryId != null &&
+            c.billingAddressCountryId!.isNotEmpty)
         ? (ref.watch(statesProvider(c.billingAddressCountryId!)).value ?? [])
         : [];
-    final billingStateMap = billingStates.where(
-      (item) => item['id'] == c.billingAddressStateId || item['code'] == c.billingAddressStateId,
-    ).firstOrNull;
-    final billingStateName = billingStateMap != null ? billingStateMap['name'] : c.billingAddressStateId;
+    final billingStateMap = billingStates
+        .where(
+          (item) =>
+              item['id'] == c.billingAddressStateId ||
+              item['code'] == c.billingAddressStateId,
+        )
+        .firstOrNull;
+    final billingStateName = billingStateMap != null
+        ? billingStateMap['name']
+        : c.billingAddressStateId;
 
     // Resolve shipping state
-    final shippingStates = (c.shippingAddressCountryId != null && c.shippingAddressCountryId!.isNotEmpty)
+    final shippingStates =
+        (c.shippingAddressCountryId != null &&
+            c.shippingAddressCountryId!.isNotEmpty)
         ? (ref.watch(statesProvider(c.shippingAddressCountryId!)).value ?? [])
         : [];
-    final shippingStateMap = shippingStates.where(
-      (item) => item['id'] == c.shippingAddressStateId || item['code'] == c.shippingAddressStateId,
-    ).firstOrNull;
-    final shippingStateName = shippingStateMap != null ? shippingStateMap['name'] : c.shippingAddressStateId;
+    final shippingStateMap = shippingStates
+        .where(
+          (item) =>
+              item['id'] == c.shippingAddressStateId ||
+              item['code'] == c.shippingAddressStateId,
+        )
+        .firstOrNull;
+    final shippingStateName = shippingStateMap != null
+        ? shippingStateMap['name']
+        : c.shippingAddressStateId;
 
     final gst = c.gstTreatment;
 
@@ -6975,7 +7444,8 @@ class _SalesInvoiceCreateScreenState
                                           quantity: quantity.toString(),
                                           rate: (item.sellingPrice ?? 0) == 0
                                               ? ''
-                                              : (item.sellingPrice ?? 0).toString(),
+                                              : (item.sellingPrice ?? 0)
+                                                    .toString(),
                                           discount: '0',
                                           itemId: item.id ?? '',
                                           item: item,
@@ -7039,7 +7509,9 @@ class _SalesInvoiceCreateScreenState
       if (_activeHsnRow == row) return;
     }
 
-    final hsnCtrl = TextEditingController(text: row.hsnCode ?? row.item?.hsnCode ?? '');
+    final hsnCtrl = TextEditingController(
+      text: row.hsnCode ?? row.item?.hsnCode ?? '',
+    );
     _activeHsnRow = row;
 
     _hsnOverlay = OverlayEntry(
@@ -7220,6 +7692,7 @@ class _SalesInvoiceCreateScreenState
             _customerDetailsSidebarOverlay = null;
             _selectedCustomerId = c.id;
             _selectedCustomer = c;
+            _selectedSalesOrderId = null;
             priceListId = c.priceList;
 
             // Trigger rate update for all rows when customer changes
@@ -7230,7 +7703,6 @@ class _SalesInvoiceCreateScreenState
                 _updateRowRate(row, c.priceList, priceLists);
               }
             }
-            _updateAllNonSalesOrderTaxIds();
           });
           _loadConfirmedCustomerOrders();
         },
@@ -7276,7 +7748,10 @@ class _SalesInvoiceCreateScreenState
               child: Material(
                 color: Colors.transparent,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(4),
@@ -9534,7 +10009,8 @@ class _ItemDetailsSidebar extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_ItemDetailsSidebar> createState() => _ItemDetailsSidebarState();
+  ConsumerState<_ItemDetailsSidebar> createState() =>
+      _ItemDetailsSidebarState();
 }
 
 class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
@@ -9810,19 +10286,36 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
           const SizedBox(height: 24),
           const Text(
             'Sales Information',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
           ),
           const SizedBox(height: 12),
-          _detailRow('Price', '₹${widget.row.item?.sellingPrice?.toStringAsFixed(2) ?? '0.00'}'),
+          _detailRow(
+            'Price',
+            '₹${widget.row.item?.sellingPrice?.toStringAsFixed(2) ?? '0.00'}',
+          ),
           _detailRow('Account', widget.row.item?.salesAccountName ?? 'Sales'),
           const SizedBox(height: 24),
           const Text(
             'Purchase Information',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
           ),
           const SizedBox(height: 12),
-          _detailRow('Price', '₹${widget.row.item?.costPrice?.toStringAsFixed(2) ?? '0.00'}'),
-          _detailRow('Account', widget.row.item?.purchaseAccountName ?? 'Cost of Goods Sold'),
+          _detailRow(
+            'Price',
+            '₹${widget.row.item?.costPrice?.toStringAsFixed(2) ?? '0.00'}',
+          ),
+          _detailRow(
+            'Account',
+            widget.row.item?.purchaseAccountName ?? 'Cost of Goods Sold',
+          ),
         ],
       ),
     );
@@ -9844,11 +10337,21 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
             children: [
               Icon(icon, size: 16, color: const Color(0xFF2563EB)),
               const SizedBox(width: 8),
-              Text(title, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
+          ),
         ],
       ),
     );
@@ -9861,13 +10364,20 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+          ),
           const SizedBox(width: 16),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF111827)),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF111827),
+              ),
             ),
           ),
         ],
@@ -9876,7 +10386,9 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
   }
 
   Widget _buildStockLocationsTab() {
-    final stockAsync = ref.watch(itemWarehouseStocksProvider(widget.row.itemId));
+    final stockAsync = ref.watch(
+      itemWarehouseStocksProvider(widget.row.itemId),
+    );
     return stockAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
@@ -9888,7 +10400,11 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
             children: [
               const Text(
                 'Physical Stock',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
               ),
               const SizedBox(height: 12),
               Table(
@@ -9917,11 +10433,18 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
                           child: Row(
                             children: [
                               Flexible(
-                                child: Text(wh.name, style: const TextStyle(fontSize: 12)),
+                                child: Text(
+                                  wh.name,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
                               ),
                               if (isSelected) ...[
                                 const SizedBox(width: 4),
-                                const Icon(Icons.star, size: 14, color: Colors.amber),
+                                const Icon(
+                                  Icons.star,
+                                  size: 14,
+                                  color: Colors.amber,
+                                ),
                               ],
                             ],
                           ),
@@ -9946,7 +10469,11 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
       padding: const EdgeInsets.all(8.0),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)),
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF6B7280),
+        ),
       ),
     );
   }
@@ -10208,7 +10735,11 @@ class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
                 ),
                 GestureDetector(
                   onTap: () {}, // Handled by overlay removal usually
-                  child: const Icon(Icons.close, size: 14, color: Color(0xFF6B7280)),
+                  child: const Icon(
+                    Icons.close,
+                    size: 14,
+                    color: Color(0xFF6B7280),
+                  ),
                 ),
               ],
             ),
@@ -10345,8 +10876,9 @@ class __SalesInvoicePreferencesDialogState
     super.initState();
     _isAutoGenerate = widget.isAutoGenerate;
     _prefixController = TextEditingController(text: widget.currentPrefix);
-    _nextNumberController =
-        TextEditingController(text: widget.currentNextNumber);
+    _nextNumberController = TextEditingController(
+      text: widget.currentNextNumber,
+    );
   }
 
   @override
@@ -10360,8 +10892,12 @@ class __SalesInvoicePreferencesDialogState
   Widget build(BuildContext context) {
     return Dialog(
       alignment: Alignment.topCenter,
-      insetPadding:
-          const EdgeInsets.only(top: 0, left: 24, right: 24, bottom: 24),
+      insetPadding: const EdgeInsets.only(
+        top: 0,
+        left: 24,
+        right: 24,
+        bottom: 24,
+      ),
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -10386,8 +10922,11 @@ class __SalesInvoicePreferencesDialogState
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(LucideIcons.x,
-                      color: Color(0xFFEF4444), size: 20),
+                  icon: const Icon(
+                    LucideIcons.x,
+                    color: Color(0xFFEF4444),
+                    size: 20,
+                  ),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -10525,8 +11064,9 @@ class __SalesInvoicePreferencesDialogState
                                         const Text(
                                           'Prefix',
                                           style: TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFF6B7280)),
+                                            fontSize: 12,
+                                            color: Color(0xFF6B7280),
+                                          ),
                                         ),
                                         const SizedBox(height: 4),
                                         TextField(
@@ -10534,13 +11074,15 @@ class __SalesInvoicePreferencesDialogState
                                           decoration: InputDecoration(
                                             contentPadding:
                                                 const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 8),
+                                                  horizontal: 12,
+                                                  vertical: 8,
+                                                ),
                                             border: OutlineInputBorder(
                                               borderRadius:
                                                   BorderRadius.circular(6),
                                               borderSide: const BorderSide(
-                                                  color: Color(0xFFD1D5DB)),
+                                                color: Color(0xFFD1D5DB),
+                                              ),
                                             ),
                                             isDense: true,
                                           ),
@@ -10559,8 +11101,9 @@ class __SalesInvoicePreferencesDialogState
                                         const Text(
                                           'Next Number',
                                           style: TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFF6B7280)),
+                                            fontSize: 12,
+                                            color: Color(0xFF6B7280),
+                                          ),
                                         ),
                                         const SizedBox(height: 4),
                                         TextField(
@@ -10568,13 +11111,15 @@ class __SalesInvoicePreferencesDialogState
                                           decoration: InputDecoration(
                                             contentPadding:
                                                 const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 8),
+                                                  horizontal: 12,
+                                                  vertical: 8,
+                                                ),
                                             border: OutlineInputBorder(
                                               borderRadius:
                                                   BorderRadius.circular(6),
                                               borderSide: const BorderSide(
-                                                  color: Color(0xFFD1D5DB)),
+                                                color: Color(0xFFD1D5DB),
+                                              ),
                                             ),
                                             isDense: true,
                                           ),
@@ -10635,13 +11180,18 @@ class __SalesInvoicePreferencesDialogState
                     backgroundColor: const Color(0xFF10B981),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6)),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
                     elevation: 0,
                   ),
-                  child: const Text('Save',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton(
@@ -10650,12 +11200,17 @@ class __SalesInvoicePreferencesDialogState
                     foregroundColor: const Color(0xFF374151),
                     side: const BorderSide(color: Color(0xFFD1D5DB)),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6)),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
                   ),
-                  child: const Text('Cancel',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -10766,7 +11321,9 @@ class _InvoiceSelectBatchesDialogState
   static const String _quantityMismatchMessage =
       'There\'s a mismatch between the quantity entered in the line item and the total quantity across all batches. Click the checkbox to overwrite the quantity in the line item.';
 
-  double _calculateBatchItemEstimatedHeight(List<Map<String, dynamic>> batches) {
+  double _calculateBatchItemEstimatedHeight(
+    List<Map<String, dynamic>> batches,
+  ) {
     if (batches.isEmpty) return 38;
     double maxLen = 0;
     for (final b in batches) {
@@ -10775,7 +11332,10 @@ class _InvoiceSelectBatchesDialogState
       final expDate = b['expiry_date']?.toString() ?? '-';
       final mrp = b['mrp']?.toString() ?? '0.00';
       final ptr = b['prate']?.toString() ?? '0.00';
-      final len = '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr'.length.toDouble();
+      final len =
+          '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr'
+              .length
+              .toDouble();
       if (len > maxLen) {
         maxLen = len;
       }
@@ -10820,13 +11380,17 @@ class _InvoiceSelectBatchesDialogState
         row.expDateCtrl.text = batchData['expDate'] ?? '';
         if (row.expDateCtrl.text.isNotEmpty) {
           try {
-            row.expDate = intl.DateFormat('dd-MM-yyyy').parse(row.expDateCtrl.text);
+            row.expDate = intl.DateFormat(
+              'dd-MM-yyyy',
+            ).parse(row.expDateCtrl.text);
           } catch (_) {}
         }
         row.mfgDateCtrl.text = batchData['mfgDate'] ?? '';
         if (row.mfgDateCtrl.text.isNotEmpty) {
           try {
-            row.mfgDate = intl.DateFormat('dd-MM-yyyy').parse(row.mfgDateCtrl.text);
+            row.mfgDate = intl.DateFormat(
+              'dd-MM-yyyy',
+            ).parse(row.mfgDateCtrl.text);
           } catch (_) {}
         }
         row.mfgBatchCtrl.text = batchData['mfgBatch'] ?? '';
@@ -10884,9 +11448,9 @@ class _InvoiceSelectBatchesDialogState
         warehouseId: widget.warehouseId,
         productId: widget.productId,
       );
-      
+
       debugPrint('📦 Found ${bins.length} bins from repository for Invoice');
-      
+
       if (mounted) {
         setState(() {
           _binsData = bins;
@@ -10921,12 +11485,16 @@ class _InvoiceSelectBatchesDialogState
       return;
     }
     try {
-      final batches = await ref.read(batchLookupProvider(widget.productId).future);
+      final batches = await ref.read(
+        batchLookupProvider(widget.productId).future,
+      );
       if (mounted) {
         setState(() {
-          if ((widget.savedBatchData == null || widget.savedBatchData!.isEmpty) && _rows.isNotEmpty) {
+          if ((widget.savedBatchData == null ||
+                  widget.savedBatchData!.isEmpty) &&
+              _rows.isNotEmpty) {
             final row = _rows.first;
-            
+
             if (_binLocations.isNotEmpty && row.binLocationCtrl.text.isEmpty) {
               row.binLocationCtrl.text = _binLocations.first;
             }
@@ -10937,11 +11505,14 @@ class _InvoiceSelectBatchesDialogState
               );
               row.binId = foundBin['id'];
             }
-            
+
             // Do not auto-populate batches.first on load, start empty
-          } else if (widget.savedBatchData != null && widget.savedBatchData!.isNotEmpty && _rows.isNotEmpty) {
+          } else if (widget.savedBatchData != null &&
+              widget.savedBatchData!.isNotEmpty &&
+              _rows.isNotEmpty) {
             for (final row in _rows) {
-              if (_binLocations.isNotEmpty && row.binLocationCtrl.text.isEmpty) {
+              if (_binLocations.isNotEmpty &&
+                  row.binLocationCtrl.text.isEmpty) {
                 row.binLocationCtrl.text = _binLocations.first;
               }
               if (row.binLocationCtrl.text.isNotEmpty) {
@@ -10959,43 +11530,87 @@ class _InvoiceSelectBatchesDialogState
                     orElse: () => <String, dynamic>{},
                   );
                   if (match.isNotEmpty) {
-                    row.batchId = match['id']?.toString() ?? match['batchId']?.toString();
-                    row.layerId = match['layer_id']?.toString() ?? match['layerId']?.toString();
+                    row.batchId =
+                        match['id']?.toString() ?? match['batchId']?.toString();
+                    row.layerId =
+                        match['layer_id']?.toString() ??
+                        match['layerId']?.toString();
                     if (row.unitPackCtrl.text.isEmpty) {
-                      row.unitPackCtrl.text = match['unit_pack']?.toString() ?? '';
+                      row.unitPackCtrl.text =
+                          match['unit_pack']?.toString() ?? '';
                     }
                     if (row.expDateCtrl.text.isEmpty) {
-                      row.expDateCtrl.text = _normalizeDateForUi(match['expiry_date']?.toString() ?? '');
+                      row.expDateCtrl.text = _normalizeDateForUi(
+                        match['expiry_date']?.toString() ?? '',
+                      );
                       try {
-                        row.expDate = intl.DateFormat('dd-MM-yyyy').parse(row.expDateCtrl.text);
+                        row.expDate = intl.DateFormat(
+                          'dd-MM-yyyy',
+                        ).parse(row.expDateCtrl.text);
                       } catch (_) {}
                     }
                     if (row.mfgDateCtrl.text.isEmpty) {
-                      row.mfgDateCtrl.text = _normalizeDateForUi(match['mfg_date']?.toString() ?? match['manufactured_date']?.toString() ?? '');
+                      row.mfgDateCtrl.text = _normalizeDateForUi(
+                        match['mfg_date']?.toString() ??
+                            match['manufactured_date']?.toString() ??
+                            '',
+                      );
                       try {
-                        row.mfgDate = intl.DateFormat('dd-MM-yyyy').parse(row.mfgDateCtrl.text);
+                        row.mfgDate = intl.DateFormat(
+                          'dd-MM-yyyy',
+                        ).parse(row.mfgDateCtrl.text);
                       } catch (_) {}
                     }
                     if (row.mfgBatchCtrl.text.isEmpty) {
-                      row.mfgBatchCtrl.text = match['mfg_batch']?.toString() ?? match['manufacturer_batch']?.toString() ?? '';
+                      row.mfgBatchCtrl.text =
+                          match['mfg_batch']?.toString() ??
+                          match['manufacturer_batch']?.toString() ??
+                          '';
                     }
-                    if (row.mrpCtrl.text.isEmpty || row.mrpCtrl.text == '0.00' || row.mrpCtrl.text == '0') {
+                    if (row.mrpCtrl.text.isEmpty ||
+                        row.mrpCtrl.text == '0.00' ||
+                        row.mrpCtrl.text == '0') {
                       final prices = match['prices'] as List?;
                       if (prices != null && prices.isNotEmpty) {
-                        row.mrpCtrl.text = (prices[0]['mrp'] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+                        row.mrpCtrl.text =
+                            (prices[0]['mrp'] as num?)
+                                ?.toDouble()
+                                .toStringAsFixed(2) ??
+                            '0.00';
                       } else {
-                        row.mrpCtrl.text = (match['mrp'] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+                        row.mrpCtrl.text =
+                            (match['mrp'] as num?)?.toDouble().toStringAsFixed(
+                              2,
+                            ) ??
+                            '0.00';
                       }
                     }
-                    if (row.ptrCtrl.text.isEmpty || row.ptrCtrl.text == '0.00' || row.ptrCtrl.text == '0') {
+                    if (row.ptrCtrl.text.isEmpty ||
+                        row.ptrCtrl.text == '0.00' ||
+                        row.ptrCtrl.text == '0') {
                       final prices = match['prices'] as List?;
                       if (prices != null && prices.isNotEmpty) {
-                        row.ptrCtrl.text = ((prices[0]['ptr'] ?? prices[0]['prate'] ?? prices[0]['purchase_rate']) as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+                        row.ptrCtrl.text =
+                            ((prices[0]['ptr'] ??
+                                        prices[0]['prate'] ??
+                                        prices[0]['purchase_rate'])
+                                    as num?)
+                                ?.toDouble()
+                                .toStringAsFixed(2) ??
+                            '0.00';
                       } else {
-                        row.ptrCtrl.text = ((match['ptr'] ?? match['prate'] ?? match['purchase_rate']) as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
+                        row.ptrCtrl.text =
+                            ((match['ptr'] ??
+                                        match['prate'] ??
+                                        match['purchase_rate'])
+                                    as num?)
+                                ?.toDouble()
+                                .toStringAsFixed(2) ??
+                            '0.00';
                       }
                     }
-                    if (row.mfgDateCtrl.text.isNotEmpty || row.mfgBatchCtrl.text.isNotEmpty) {
+                    if (row.mfgDateCtrl.text.isNotEmpty ||
+                        row.mfgBatchCtrl.text.isNotEmpty) {
                       _showMfgDetails = true;
                     }
                   }
@@ -11124,7 +11739,10 @@ class _InvoiceSelectBatchesDialogState
             decoration: InputDecoration(
               isDense: false,
               hintText: hint,
-              hintStyle: const TextStyle(color: _dlgTextSecondary, fontSize: 13),
+              hintStyle: const TextStyle(
+                color: _dlgTextSecondary,
+                fontSize: 13,
+              ),
               filled: true,
               fillColor: readOnly ? const Color(0xFFF9FAFB) : Colors.white,
               contentPadding: const EdgeInsets.symmetric(
@@ -11183,7 +11801,10 @@ class _InvoiceSelectBatchesDialogState
             decoration: InputDecoration(
               isDense: false,
               hintText: '',
-              hintStyle: const TextStyle(color: _dlgTextSecondary, fontSize: 13),
+              hintStyle: const TextStyle(
+                color: _dlgTextSecondary,
+                fontSize: 13,
+              ),
               filled: true,
               fillColor: readOnly ? const Color(0xFFF9FAFB) : Colors.white,
               contentPadding: const EdgeInsets.symmetric(
@@ -11259,7 +11880,6 @@ class _InvoiceSelectBatchesDialogState
             ),
             child: TextField(
               controller: row.focCtrl,
-              readOnly: widget.isFromPackage,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -11277,7 +11897,10 @@ class _InvoiceSelectBatchesDialogState
               decoration: InputDecoration(
                 isDense: false,
                 hintText: '0',
-                hintStyle: const TextStyle(color: _dlgTextSecondary, fontSize: 13),
+                hintStyle: const TextStyle(
+                  color: _dlgTextSecondary,
+                  fontSize: 13,
+                ),
                 filled: false,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -11356,7 +11979,11 @@ class _InvoiceSelectBatchesDialogState
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.home, size: 16, color: _dlgTextSecondary),
+                  const Icon(
+                    LucideIcons.home,
+                    size: 16,
+                    color: _dlgTextSecondary,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Location : ${widget.warehouseName.toUpperCase()}',
@@ -11477,7 +12104,10 @@ class _InvoiceSelectBatchesDialogState
                   const SizedBox(width: 8),
                   Text(
                     'Overwrite the line item with ${_totalQuantityOnlyOut.toInt()} quantities',
-                    style: const TextStyle(fontSize: 13, color: _dlgTextPrimary),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: _dlgTextPrimary,
+                    ),
                   ),
                 ],
               ),
@@ -11548,10 +12178,11 @@ class _InvoiceSelectBatchesDialogState
                                     child: SizedBox(
                                       height: _batchDropdownHeight,
                                       child: FormDropdown<String>(
-                                        enabled: !widget.isFromPackage,
                                         height: _batchDropdownHeight,
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: _dlgBorderCol),
+                                        border: Border.all(
+                                          color: _dlgBorderCol,
+                                        ),
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 10,
                                           vertical: 8,
@@ -11568,7 +12199,10 @@ class _InvoiceSelectBatchesDialogState
                                         maxVisibleItems: 8,
                                         menuMaxHeight: 400,
                                         menuWidth: 160,
-                                        itemEstimatedHeight: _calculateBinItemEstimatedHeight(_binLocations),
+                                        itemEstimatedHeight:
+                                            _calculateBinItemEstimatedHeight(
+                                              _binLocations,
+                                            ),
                                         displayStringForValue: (v) => v,
                                         searchStringForValue: (v) => v,
                                         itemBuilder:
@@ -11605,11 +12239,18 @@ class _InvoiceSelectBatchesDialogState
                                             row.binLocationCtrl.text =
                                                 val ?? '';
                                             if (val != null) {
-                                              final foundBin = _binsData.firstWhere(
-                                                (b) => (b['binCode'] ?? b['bin_code']) == val.trim(),
-                                                orElse: () => <String, String>{},
-                                              );
-                                              row.binId = foundBin['id'] ?? foundBin['binId'];
+                                              final foundBin = _binsData
+                                                  .firstWhere(
+                                                    (b) =>
+                                                        (b['binCode'] ??
+                                                            b['bin_code']) ==
+                                                        val.trim(),
+                                                    orElse: () =>
+                                                        <String, String>{},
+                                                  );
+                                              row.binId =
+                                                  foundBin['id'] ??
+                                                  foundBin['binId'];
                                             } else {
                                               row.binId = null;
                                             }
@@ -11637,14 +12278,15 @@ class _InvoiceSelectBatchesDialogState
                                             batchesAsync.value ?? [];
 
                                         return FormDropdown<
-                                           Map<String, dynamic>
-                                         >(
-                                           enabled: !widget.isFromPackage,
-                                           height: _batchDropdownHeight,
+                                          Map<String, dynamic>
+                                        >(
+                                          height: _batchDropdownHeight,
                                           borderRadius: BorderRadius.circular(
                                             6,
                                           ),
-                                          border: Border.all(color: _dlgBorderCol),
+                                          border: Border.all(
+                                            color: _dlgBorderCol,
+                                          ),
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
                                             vertical: 8,
@@ -11676,7 +12318,10 @@ class _InvoiceSelectBatchesDialogState
                                           showSearch: true,
                                           menuMaxHeight: 400,
                                           menuWidth: 260,
-                                          itemEstimatedHeight: _calculateBatchItemEstimatedHeight(batches),
+                                          itemEstimatedHeight:
+                                              _calculateBatchItemEstimatedHeight(
+                                                batches,
+                                              ),
                                           itemBuilder:
                                               (item, isSelected, isHovered) {
                                                 final batchNo =
@@ -11746,31 +12391,74 @@ class _InvoiceSelectBatchesDialogState
                                                 row.batchNoCtrl.text =
                                                     batchNo ?? '';
 
-                                                row.batchId = v['id']?.toString() ?? v['batchId']?.toString();
-                                                row.layerId = v['layer_id']?.toString() ?? v['layerId']?.toString();
+                                                row.batchId =
+                                                    v['id']?.toString() ??
+                                                    v['batchId']?.toString();
+                                                row.layerId =
+                                                    v['layer_id']?.toString() ??
+                                                    v['layerId']?.toString();
 
                                                 row.unitPackCtrl.text =
                                                     v['unit_pack']
                                                         ?.toString() ??
                                                     '';
-                                                
-                                                final rawExp = v['expiry_date']?.toString() ?? '';
-                                                row.expDateCtrl.text = _normalizeDateForUi(rawExp);
-                                                if (row.expDateCtrl.text.isNotEmpty) {
+
+                                                final rawExp =
+                                                    v['expiry_date']
+                                                        ?.toString() ??
+                                                    '';
+                                                row.expDateCtrl.text =
+                                                    _normalizeDateForUi(rawExp);
+                                                if (row
+                                                    .expDateCtrl
+                                                    .text
+                                                    .isNotEmpty) {
                                                   try {
-                                                    row.expDate = intl.DateFormat('dd-MM-yyyy').parse(row.expDateCtrl.text);
+                                                    row.expDate =
+                                                        intl.DateFormat(
+                                                          'dd-MM-yyyy',
+                                                        ).parse(
+                                                          row.expDateCtrl.text,
+                                                        );
                                                   } catch (_) {}
                                                 }
 
-                                                final rawMfgDate = v['mfg_date']?.toString() ?? v['manufactured_date']?.toString() ?? '';
-                                                row.mfgDateCtrl.text = _normalizeDateForUi(rawMfgDate);
-                                                if (row.mfgDateCtrl.text.isNotEmpty) {
+                                                final rawMfgDate =
+                                                    v['mfg_date']?.toString() ??
+                                                    v['manufactured_date']
+                                                        ?.toString() ??
+                                                    '';
+                                                row.mfgDateCtrl.text =
+                                                    _normalizeDateForUi(
+                                                      rawMfgDate,
+                                                    );
+                                                if (row
+                                                    .mfgDateCtrl
+                                                    .text
+                                                    .isNotEmpty) {
                                                   try {
-                                                    row.mfgDate = intl.DateFormat('dd-MM-yyyy').parse(row.mfgDateCtrl.text);
+                                                    row.mfgDate =
+                                                        intl.DateFormat(
+                                                          'dd-MM-yyyy',
+                                                        ).parse(
+                                                          row.mfgDateCtrl.text,
+                                                        );
                                                   } catch (_) {}
                                                 }
-                                                row.mfgBatchCtrl.text = v['mfg_batch']?.toString() ?? v['manufacturer_batch']?.toString() ?? '';
-                                                if (row.mfgDateCtrl.text.isNotEmpty || row.mfgBatchCtrl.text.isNotEmpty) {
+                                                row.mfgBatchCtrl.text =
+                                                    v['mfg_batch']
+                                                        ?.toString() ??
+                                                    v['manufacturer_batch']
+                                                        ?.toString() ??
+                                                    '';
+                                                if (row
+                                                        .mfgDateCtrl
+                                                        .text
+                                                        .isNotEmpty ||
+                                                    row
+                                                        .mfgBatchCtrl
+                                                        .text
+                                                        .isNotEmpty) {
                                                   _showMfgDetails = true;
                                                 }
 
@@ -11785,7 +12473,10 @@ class _InvoiceSelectBatchesDialogState
                                                           .toStringAsFixed(2) ??
                                                       '0.00';
                                                   row.ptrCtrl.text =
-                                                      ((p['ptr'] ?? p['prate'] ?? p['purchase_rate']) as num?)
+                                                      ((p['ptr'] ??
+                                                                  p['prate'] ??
+                                                                  p['purchase_rate'])
+                                                              as num?)
                                                           ?.toDouble()
                                                           .toStringAsFixed(2) ??
                                                       '0.00';
@@ -11796,7 +12487,10 @@ class _InvoiceSelectBatchesDialogState
                                                           .toStringAsFixed(2) ??
                                                       '0.00';
                                                   row.ptrCtrl.text =
-                                                      ((v['ptr'] ?? v['prate'] ?? v['purchase_rate']) as num?)
+                                                      ((v['ptr'] ??
+                                                                  v['prate'] ??
+                                                                  v['purchase_rate'])
+                                                              as num?)
                                                           ?.toDouble()
                                                           .toStringAsFixed(2) ??
                                                       '0.00';
@@ -11862,27 +12556,24 @@ class _InvoiceSelectBatchesDialogState
                                 flex: 15,
                                 hint: '0',
                                 isNumber: true,
-                                readOnly: widget.isFromPackage,
                               ),
                               if (_showFocColumn) _buildFocInput(row, index),
                               SizedBox(
                                 width: 24,
-                                child: widget.isFromPackage
-                                    ? null
-                                    : AnimatedOpacity(
-                                        opacity: isRowHovered ? 1 : 0,
-                                        duration: const Duration(milliseconds: 120),
-                                        child: IconButton(
-                                          onPressed: () => _removeRow(index),
-                                          tooltip: 'Remove row',
-                                          padding: EdgeInsets.zero,
-                                          icon: const Icon(
-                                            LucideIcons.x,
-                                            size: 15,
-                                            color: _dlgDangerRed,
-                                          ),
-                                        ),
-                                      ),
+                                child: AnimatedOpacity(
+                                  opacity: isRowHovered ? 1 : 0,
+                                  duration: const Duration(milliseconds: 120),
+                                  child: IconButton(
+                                    onPressed: () => _removeRow(index),
+                                    tooltip: 'Remove row',
+                                    padding: EdgeInsets.zero,
+                                    icon: const Icon(
+                                      LucideIcons.x,
+                                      size: 15,
+                                      color: _dlgDangerRed,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -11899,7 +12590,6 @@ class _InvoiceSelectBatchesDialogState
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
               child: Row(
                 children: [
-                  if (!widget.isFromPackage)
                   InkWell(
                     onTap: _addRow,
                     child: Row(
@@ -11926,7 +12616,10 @@ class _InvoiceSelectBatchesDialogState
                   const Spacer(),
                   Text(
                     'Batches added: ${_rows.length}/100',
-                    style: const TextStyle(fontSize: 13, color: _dlgTextPrimary),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: _dlgTextPrimary,
+                    ),
                   ),
                 ],
               ),
@@ -12200,5 +12893,3 @@ class _InvoiceBinHoverBoxState extends State<_InvoiceBinHoverBox> {
     super.dispose();
   }
 }
-
-

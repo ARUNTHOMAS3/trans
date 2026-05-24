@@ -79,6 +79,7 @@ class AppRoutes {
   static const String salesInvoices = '/sales/invoices';
   static const String salesInvoicesCreate = '/sales/invoices/create';
   static const String salesInvoicesDetail = '/sales/invoices/:id';
+  static const String salesInvoicesEdit = '/sales/invoices/:id/edit';
 
   // Sales — Delivery Challans
   static const String salesDeliveryChallans = '/sales/delivery-challans';

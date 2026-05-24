@@ -4024,7 +4024,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        _addRowController(initialQty: 1.0, initialRate: 0.0, initialDiscount: 0.0);
+                        _addRowController(initialRate: 0.0, initialDiscount: 0.0);
                         notifier.addItemRow();
                       },
                       child: const Padding(
@@ -4480,7 +4480,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
                                           final targetCtrl = _rowControllers[targetIndex];
                                           targetCtrl.nameCtrl.text = i.productName;
-                                          targetCtrl.qtyCtrl.text = '1.00';
+                                          targetCtrl.qtyCtrl.text = '';
                                           targetCtrl.rateCtrl.text =
                                               (i.costPrice ?? 0.0) % 1 == 0
                                                   ? (i.costPrice ?? 0.0).toInt().toString()
@@ -4664,7 +4664,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                                         onTap: () {
                                                           notifier.clearItemRow(index);
                                                           ctrl.nameCtrl.clear();
-                                                          ctrl.qtyCtrl.text = '1.00';
+                                                          ctrl.qtyCtrl.text = '';
                                                           ctrl.rateCtrl.text = '0';
                                                           ctrl.discountCtrl.text = '0';
                                                           ctrl.descCtrl.clear();
@@ -4844,7 +4844,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                             children: [
                               _gridField(
                                 ctrl.qtyCtrl,
-                                hint: '1.00',
+                                hint: '0',
                                 textAlign: TextAlign.right,
                                 valueFontWeight: FontWeight.w400,
                                 onChanged: (v) {

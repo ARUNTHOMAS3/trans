@@ -29,6 +29,7 @@ class SalesOrder {
   final String? paymentTermId;
   final String? priceListId;
   final bool isDelete;
+  final String? entityId;
 
   SalesOrder({
     required this.id,
@@ -58,6 +59,7 @@ class SalesOrder {
     this.paymentTermId,
     this.priceListId,
     this.isDelete = false,
+    this.entityId,
   });
 
   factory SalesOrder.fromJson(Map<String, dynamic> json) {
@@ -156,6 +158,7 @@ class SalesOrder {
       warehouseId: json['warehouse_id'] ?? json['warehouseId'],
       paymentTermId: json['payment_term_id'] ?? json['paymentTermId'],
       priceListId: json['price_list_id'] ?? json['priceListId'],
+      entityId: json['entity_id']?.toString() ?? json['entityId']?.toString(),
     );
   }
 
@@ -185,6 +188,7 @@ class SalesOrder {
       'paymentTermId': paymentTermId,
       'priceListId': priceListId,
       'is_delete': isDelete,
+      'entityId': entityId,
     };
   }
 

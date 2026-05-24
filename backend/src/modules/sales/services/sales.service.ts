@@ -37,14 +37,19 @@ export class SalesService {
     const client = this.supabaseService.getClient();
 
     // 1. Fetch product fallbacks
-    const productIds = items.map(item => item.itemId || item.productId).filter(Boolean);
-    const productMap = new Map<string, { hsn_code: string | null; sales_account_id: string | null }>();
+    const productIds = items
+      .map((item) => item.itemId || item.productId)
+      .filter(Boolean);
+    const productMap = new Map<
+      string,
+      { hsn_code: string | null; sales_account_id: string | null }
+    >();
     if (productIds.length > 0) {
       const { data: productsData } = await client
         .from("products")
         .select("id, hsn_code, sales_account_id")
         .in("id", productIds);
-      
+
       if (productsData) {
         for (const p of productsData) {
           productMap.set(p.id, {
@@ -61,10 +66,12 @@ export class SalesService {
       .from("accounts")
       .select("id")
       .eq("entity_id", orgId)
-      .or("user_account_name.ilike.%Sales%,system_account_name.ilike.%Sales%,user_account_name.ilike.%Revenue%,system_account_name.ilike.%Revenue%")
+      .or(
+        "user_account_name.ilike.%Sales%,system_account_name.ilike.%Sales%,user_account_name.ilike.%Revenue%,system_account_name.ilike.%Revenue%",
+      )
       .limit(1)
       .maybeSingle();
-    
+
     if (salesAcc) {
       defaultSalesAccountId = salesAcc.id;
     } else {
@@ -80,19 +87,27 @@ export class SalesService {
     }
 
     // 3. Map items with fallback logic
-    return items.map(item => {
+    return items.map((item) => {
       const prodId = item.itemId || item.productId;
-      const prodInfo = productMap.get(prodId) || { hsn_code: null, sales_account_id: null };
-      
+      const prodInfo = productMap.get(prodId) || {
+        hsn_code: null,
+        sales_account_id: null,
+      };
+
       // hsn fallback
       let resolvedHsn = item.hsnCode || item.hsn_code || prodInfo.hsn_code;
-      if (!resolvedHsn || resolvedHsn.toString().trim() === "" || resolvedHsn.toString().trim() === "null") {
+      if (
+        !resolvedHsn ||
+        resolvedHsn.toString().trim() === "" ||
+        resolvedHsn.toString().trim() === "null"
+      ) {
         resolvedHsn = "0";
       }
 
       // accounts fallback
-      let resolvedAccount = item.accounts || prodInfo.sales_account_id || defaultSalesAccountId;
-      
+      const resolvedAccount =
+        item.accounts || prodInfo.sales_account_id || defaultSalesAccountId;
+
       return {
         ...item,
         hsnCode: resolvedHsn,
@@ -100,7 +115,6 @@ export class SalesService {
       };
     });
   }
-
 
   async getSalesOrderById(id: string) {
     const client = this.supabaseService.getClient();
@@ -161,9 +175,24 @@ export class SalesService {
 
     if (itemsError) throw itemsError;
 
+    const total_items = items ? items.length : 0;
+    const invoiced_items = items
+      ? items.filter(
+          (item: any) =>
+            item.is_invoiced === true || item.is_invoiced === "true",
+        ).length
+      : 0;
+    const pending_items = total_items - invoiced_items;
+    const completion_percentage =
+      total_items > 0 ? Math.round((invoiced_items / total_items) * 100) : 0;
+
     return {
       ...order,
       customer,
+      total_items,
+      invoiced_items,
+      pending_items,
+      completion_percentage,
       items: items ?? [],
     };
   }
@@ -205,10 +234,72 @@ export class SalesService {
         `,
       )
       .eq("customer_id", customerId)
+      .neq("status", "closed")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data;
+    if (!data || data.length === 0) return [];
+
+    const enrichedOrders = [];
+
+    for (const order of data) {
+      const items = order.items ?? [];
+
+      // Get all invoice IDs linked to this sales order
+      const { data: linkedInvoices } = await client
+        .from("invoice_sales_orders")
+        .select("invoice_id")
+        .eq("sales_order_id", order.id);
+
+      const invoiceIds = (linkedInvoices ?? []).map((li: any) => li.invoice_id);
+      const invoicedQuantities = new Map<string, number>();
+
+      if (invoiceIds.length > 0) {
+        const { data: invItems } = await client
+          .from("invoice_items")
+          .select("product_id, quantity")
+          .in("invoice_id", invoiceIds);
+
+        for (const item of invItems ?? []) {
+          const current = invoicedQuantities.get(item.product_id) || 0;
+          invoicedQuantities.set(
+            item.product_id,
+            current + Number(item.quantity),
+          );
+        }
+      }
+
+      const enrichedItems = [];
+      for (const item of items) {
+        const invoicedQty = invoicedQuantities.get(item.product_id) || 0;
+        const pendingQty = Math.max(0, Number(item.quantity) - invoicedQty);
+
+        // Only return items with pending quantity
+        if (pendingQty > 0) {
+          enrichedItems.push({
+            ...item,
+            quantity: pendingQty,
+          });
+        }
+      }
+
+      const total_items = items.length;
+      const pending_items = enrichedItems.length;
+      const invoiced_items = total_items - pending_items;
+      const completion_percentage =
+        total_items > 0 ? Math.round((invoiced_items / total_items) * 100) : 0;
+
+      enrichedOrders.push({
+        ...order,
+        total_items,
+        invoiced_items,
+        pending_items,
+        completion_percentage,
+        items: enrichedItems,
+      });
+    }
+
+    return enrichedOrders;
   }
 
   async getPayments() {
@@ -404,6 +495,7 @@ export class SalesService {
         hsn_code: item.hsnCode ?? "0",
         accounts: item.accounts ?? "",
         pricelist: item.pricelist || null,
+        is_invoiced: false,
       };
     });
 
@@ -584,6 +676,7 @@ export class SalesService {
         hsn_code: item.hsnCode ?? "0",
         accounts: item.accounts ?? "",
         pricelist: item.pricelist || null,
+        is_invoiced: item.is_invoiced ?? item.isInvoiced ?? false,
       };
     });
 
@@ -656,7 +749,7 @@ export class SalesService {
     if (!invoices || invoices.length === 0) return [];
 
     const customerIds = Array.from(
-      new Set(invoices.map((inv) => inv.customer_id).filter(Boolean))
+      new Set(invoices.map((inv) => inv.customer_id).filter(Boolean)),
     );
 
     const customersMap = new Map<string, any>();
@@ -675,7 +768,9 @@ export class SalesService {
 
     return invoices.map((inv) => ({
       ...inv,
-      customer: inv.customer_id ? customersMap.get(inv.customer_id) || null : null,
+      customer: inv.customer_id
+        ? customersMap.get(inv.customer_id) || null
+        : null,
     }));
   }
 
@@ -693,7 +788,8 @@ export class SalesService {
     if (invoice?.customer_id) {
       const { data: customerData } = await client
         .from("customers")
-        .select(`
+        .select(
+          `
           id,
           display_name,
           first_name,
@@ -709,7 +805,8 @@ export class SalesService {
           shipping_city,
           shipping_pincode,
           shipping_state
-        `)
+        `,
+        )
         .eq("id", invoice.customer_id)
         .maybeSingle();
       customer = customerData ?? null;
@@ -722,12 +819,15 @@ export class SalesService {
 
     if (itemsError) throw itemsError;
 
-    const productIds = (items || []).map((item) => item.product_id).filter(Boolean);
+    const productIds = (items || [])
+      .map((item) => item.product_id)
+      .filter(Boolean);
     const productMap = new Map<string, any>();
     if (productIds.length > 0) {
       const { data: productsData } = await client
         .from("products")
-        .select(`
+        .select(
+          `
           id,
           product_name,
           sku,
@@ -735,7 +835,8 @@ export class SalesService {
           unit_id,
           hsn_code,
           unit:units(unit_name)
-        `)
+        `,
+        )
         .in("id", productIds);
 
       if (productsData) {
@@ -755,16 +856,18 @@ export class SalesService {
 
       const { data: batches, error: batchesError } = await client
         .from("invoice_item_batches")
-        .select(`
+        .select(
+          `
           *,
           batch:batch_master(
             id,
             batch_no,
             expiry_date
           )
-        `)
+        `,
+        )
         .eq("invoice_item_id", item.id);
-      
+
       if (!batchesError) {
         enrichedItems.push({
           ...enrichedItem,
@@ -813,7 +916,8 @@ export class SalesService {
     } = body;
 
     if (!customerId) throw new BadRequestException("customerId is required");
-    if (!invoiceNumber) throw new BadRequestException("invoiceNumber is required");
+    if (!invoiceNumber)
+      throw new BadRequestException("invoiceNumber is required");
     if (!invoiceDate) throw new BadRequestException("invoiceDate is required");
 
     const resolvedItems = await this.resolveItemFields(items, orgId);
@@ -843,7 +947,9 @@ export class SalesService {
         grand_total: Number(grandTotal) || 0,
         inventory_flow_type: inventoryFlowType || "DIRECT_INVOICE",
         status: status || "draft",
-        is_batch_allocated: resolvedItems.some((i: any) => i.batches && i.batches.length > 0),
+        is_batch_allocated: resolvedItems.some(
+          (i: any) => i.batches && i.batches.length > 0,
+        ),
         is_delete: false,
       })
       .select()
@@ -851,24 +957,142 @@ export class SalesService {
 
     if (invoiceError) throw invoiceError;
 
+    let originalSalesOrderStatus = "confirmed";
+    let originalSalesOrderItemsState: any[] = [];
+    const updatedLayers: { layerId: string; quantityAdded: number }[] = [];
+
     try {
       if (salesOrderId) {
-        const { error: soErr } = await client
-          .from("invoice_sales_orders")
-          .insert({
-            invoice_id: invoice.id,
-            sales_order_id: salesOrderId,
-          });
-        if (soErr) throw soErr;
+        // Fetch current sales order status to restore on rollback
+        const { data: soData } = await client
+          .from("sales_orders")
+          .select("status")
+          .eq("id", salesOrderId)
+          .single();
+        if (soData) {
+          originalSalesOrderStatus = soData.status;
+        }
+
+        // 1. Get all sales order items for this sales order
+        const { data: soItems, error: getSoItemsErr } = await client
+          .from("sales_order_items")
+          .select("*")
+          .eq("sales_order_id", salesOrderId);
+
+        if (getSoItemsErr) throw getSoItemsErr;
+
+        if (soItems && soItems.length > 0) {
+          // Keep a copy of original state for rollback
+          originalSalesOrderItemsState = soItems.map((item: any) => ({
+            id: item.id,
+            is_invoiced: item.is_invoiced,
+          }));
+
+          // Calculate previously invoiced quantities (excluding the current invoice)
+          const { data: linkedInvoices } = await client
+            .from("invoice_sales_orders")
+            .select("invoice_id")
+            .eq("sales_order_id", salesOrderId);
+
+          const invoiceIds = (linkedInvoices ?? []).map(
+            (li: any) => li.invoice_id,
+          );
+          const invoicedQuantities = new Map<string, number>();
+
+          if (invoiceIds.length > 0) {
+            const { data: invItems } = await client
+              .from("invoice_items")
+              .select("product_id, quantity")
+              .in("invoice_id", invoiceIds);
+
+            for (const item of invItems ?? []) {
+              const current = invoicedQuantities.get(item.product_id) || 0;
+              invoicedQuantities.set(
+                item.product_id,
+                current + Number(item.quantity),
+              );
+            }
+          }
+
+          // Validate new invoice quantities against pending quantities before modifying any DB rows!
+          for (const soItem of soItems) {
+            const previouslyInvoiced =
+              invoicedQuantities.get(soItem.product_id) || 0;
+            const pending = Math.max(
+              0,
+              Number(soItem.quantity) - previouslyInvoiced,
+            );
+
+            const newInvoiceItem = resolvedItems.find(
+              (item: any) =>
+                (item.productId || item.itemId) === soItem.product_id,
+            );
+            const newInvoiceQty = newInvoiceItem
+              ? Number(newInvoiceItem.quantity) || 0
+              : 0;
+
+            if (newInvoiceQty > pending) {
+              throw new BadRequestException(
+                `Invoice quantity (${newInvoiceQty}) exceeds pending quantity (${pending}) for product ID ${soItem.product_id}`,
+              );
+            }
+          }
+
+          // Now apply updates
+          const { error: soErr } = await client
+            .from("invoice_sales_orders")
+            .insert({
+              invoice_id: invoice.id,
+              sales_order_id: salesOrderId,
+            });
+          if (soErr) throw soErr;
+
+          for (const soItem of soItems) {
+            const previouslyInvoiced =
+              invoicedQuantities.get(soItem.product_id) || 0;
+
+            const newInvoiceItem = resolvedItems.find(
+              (item: any) =>
+                (item.productId || item.itemId) === soItem.product_id,
+            );
+            const newInvoiceQty = newInvoiceItem
+              ? Number(newInvoiceItem.quantity) || 0
+              : 0;
+
+            const totalInvoiced = previouslyInvoiced + newInvoiceQty;
+            const isFullyInvoiced = totalInvoiced >= Number(soItem.quantity);
+
+            // Update is_invoiced in DB
+            const { error: updateItemErr } = await client
+              .from("sales_order_items")
+              .update({ is_invoiced: isFullyInvoiced })
+              .eq("id", soItem.id);
+            if (updateItemErr) throw updateItemErr;
+
+            soItem.is_invoiced = isFullyInvoiced; // Update local state for subsequent closing check
+          }
+
+          // Check if ALL items under that sales order are now set to is_invoiced == true
+          const allInvoiced = soItems.every(
+            (item: any) =>
+              item.is_invoiced === true || item.is_invoiced === "true",
+          );
+          if (allInvoiced) {
+            // Update sales order status to 'closed'
+            const { error: updateSoErr } = await client
+              .from("sales_orders")
+              .update({ status: "closed" })
+              .eq("id", salesOrderId);
+            if (updateSoErr) throw updateSoErr;
+          }
+        }
       }
 
       if (packageId) {
-        const { error: pkgErr } = await client
-          .from("invoice_packages")
-          .insert({
-            invoice_id: invoice.id,
-            package_id: packageId,
-          });
+        const { error: pkgErr } = await client.from("invoice_packages").insert({
+          invoice_id: invoice.id,
+          package_id: packageId,
+        });
         if (pkgErr) throw pkgErr;
       }
 
@@ -902,7 +1126,7 @@ export class SalesService {
             const focQty = Number(batch.focQuantity) || 0;
             const totalOutQty = qty + focQty;
 
-            const { data: insertedItemBatch, error: itemBatchError } = await client
+            const { error: itemBatchError } = await client
               .from("invoice_item_batches")
               .insert({
                 invoice_item_id: insertedItem.id,
@@ -912,7 +1136,9 @@ export class SalesService {
                 bin_id: batch.binId || null,
                 quantity: qty,
                 foc_quantity: focQty,
-                purchase_rate: batch.purchaseRate ? Number(batch.purchaseRate) : null,
+                purchase_rate: batch.purchaseRate
+                  ? Number(batch.purchaseRate)
+                  : null,
                 sales_rate: batch.salesRate ? Number(batch.salesRate) : null,
                 mrp: batch.mrp ? Number(batch.mrp) : null,
                 expiry_date: this.parseToIsoDate(batch.expiryDate),
@@ -961,6 +1187,11 @@ export class SalesService {
                 .eq("id", batch.layerId);
 
               if (updateLayerErr) throw updateLayerErr;
+
+              updatedLayers.push({
+                layerId: batch.layerId,
+                quantityAdded: totalOutQty,
+              });
             }
           }
         }
@@ -968,9 +1199,41 @@ export class SalesService {
 
       return invoice;
     } catch (error) {
-      await client.from("invoice_master").delete().eq("id", invoice.id);
+      try {
+        await client.from("invoice_master").delete().eq("id", invoice.id);
+
+        if (salesOrderId) {
+          await client
+            .from("sales_orders")
+            .update({ status: originalSalesOrderStatus })
+            .eq("id", salesOrderId);
+
+          for (const itemState of originalSalesOrderItemsState) {
+            await client
+              .from("sales_order_items")
+              .update({ is_invoiced: itemState.is_invoiced })
+              .eq("id", itemState.id);
+          }
+        }
+
+        for (const layerUpdate of updatedLayers) {
+          const { data: currentLayer } = await client
+            .from("batch_stock_layers")
+            .select("qty")
+            .eq("id", layerUpdate.layerId)
+            .single();
+          if (currentLayer) {
+            const currentQty = Number(currentLayer.qty) || 0;
+            await client
+              .from("batch_stock_layers")
+              .update({ qty: currentQty + layerUpdate.quantityAdded })
+              .eq("id", layerUpdate.layerId);
+          }
+        }
+      } catch (rollbackError) {
+        console.error("Rollback failed:", rollbackError);
+      }
       throw error;
     }
   }
 }
-

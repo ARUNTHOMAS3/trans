@@ -235,7 +235,9 @@ class _SalesOrderCreateScreenState
   Future<void> _loadNextSalesOrderNumber() async {
     if (_isEditMode) return;
     try {
-      final nextNo = await ref.read(sequencesApiServiceProvider).getNextNumber('sale');
+      final nextNo = await ref
+          .read(sequencesApiServiceProvider)
+          .getNextNumber('sale');
       if (mounted) {
         setState(() {
           salesOrderNumberCtrl.text = nextNo;
@@ -252,20 +254,20 @@ class _SalesOrderCreateScreenState
       final order = await ref
           .read(salesOrderApiServiceProvider)
           .getSalesOrderById(orderId);
-          
+
       // Load attachments
       final supabase = Supabase.instance.client;
       final attachmentsData = await supabase
           .from('sales_order_attachments')
           .select()
           .eq('sales_order_id', orderId);
-          
+
       if (!mounted) return;
-      
+
       setState(() {
         rows.clear();
         _hydrateFromInitialOrder(order);
-        
+
         _attachedFiles = (attachmentsData as List).map<PlatformFile>((row) {
           final sizeVal = row['file_size'];
           int parsedSize = 0;
@@ -274,12 +276,9 @@ class _SalesOrderCreateScreenState
           } else if (sizeVal is String) {
             parsedSize = int.tryParse(sizeVal) ?? 0;
           }
-          return PlatformFile(
-            name: row['file_name'] ?? '',
-            size: parsedSize,
-          );
+          return PlatformFile(name: row['file_name'] ?? '', size: parsedSize);
         }).toList();
-        
+
         _isHydratingInitialOrder = false;
       });
     } catch (e) {
@@ -308,6 +307,7 @@ class _SalesOrderCreateScreenState
     paymentTerms = order.paymentTerms;
     deliveryMethod = order.deliveryMethod;
     salesperson = order.salesperson;
+    _resolveSalespersonUuid();
 
     final initialItems = order.items ?? const <SalesOrderItem>[];
     if (initialItems.isEmpty) {
@@ -337,17 +337,44 @@ class _SalesOrderCreateScreenState
       if (mounted) {
         setState(() {
           _salespersonList = users
-              .map((u) => <String, dynamic>{
-                    'id': u.fullName,
-                    'name': u.fullName,
-                    'salesperson_name': u.fullName,
-                  })
+              .map(
+                (u) => <String, dynamic>{
+                  'id': u.fullName,
+                  'name': u.fullName,
+                  'salesperson_name': u.fullName,
+                },
+              )
               .toList();
+
+          if (salesperson != null && salesperson!.isNotEmpty) {
+            try {
+              final matchedUser = users.firstWhere(
+                (u) => u.id == salesperson || u.fullName.toLowerCase() == salesperson!.toLowerCase(),
+              );
+              salesperson = matchedUser.fullName;
+            } catch (_) {}
+          }
         });
       }
     } catch (e) {
       debugPrint('Error loading salespersons: $e');
     }
+  }
+
+  void _resolveSalespersonUuid() {
+    if (salesperson == null || salesperson!.isEmpty) return;
+    ref.read(allUsersProvider.future).then((users) {
+      if (mounted) {
+        setState(() {
+          try {
+            final matchedUser = users.firstWhere(
+              (u) => u.id == salesperson || u.fullName.toLowerCase() == salesperson!.toLowerCase(),
+            );
+            salesperson = matchedUser.fullName;
+          } catch (_) {}
+        });
+      }
+    }).catchError((_) {});
   }
 
   Future<void> _loadPaymentTerms() async {
@@ -412,7 +439,8 @@ class _SalesOrderCreateScreenState
             (w) => w.name == warehouse,
             orElse: () => warehouseList.first,
           );
-    final displayedWarehouseName = selectedWarehouse?.name ?? warehouse ?? 'Main Warehouse';
+    final displayedWarehouseName =
+        selectedWarehouse?.name ?? warehouse ?? 'Main Warehouse';
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -444,7 +472,7 @@ class _SalesOrderCreateScreenState
   }
 
   SalesOrderItemRow _createItemRow({
-    String quantity = '1',
+    String quantity = '',
     String rate = '0',
     String discount = '0',
     String fQty = '0',
@@ -769,7 +797,10 @@ class _SalesOrderCreateScreenState
     }
   }
 
-  void _showItemDetailsSidebar(SalesOrderItemRow row, {int initialTabIndex = 0}) {
+  void _showItemDetailsSidebar(
+    SalesOrderItemRow row, {
+    int initialTabIndex = 0,
+  }) {
     if (_itemDetailsSidebarOverlay != null) {
       _itemDetailsSidebarOverlay!.remove();
       _itemDetailsSidebarOverlay = null;
@@ -819,22 +850,29 @@ class _SalesOrderCreateScreenState
     final priceListId = appliedPriceListId;
     if (priceListId == null || priceListId == 'Select') {
       final fallbackMrp = (row.item!.mrp ?? 0).toDouble();
-      row.rateCtrl.text = fallbackMrp == 0 ? '0' : fallbackMrp.toStringAsFixed(2);
+      row.rateCtrl.text = fallbackMrp == 0
+          ? '0'
+          : fallbackMrp.toStringAsFixed(2);
       return;
     }
 
     final matchingPls = priceLists.where((p) => p.id == priceListId);
     if (matchingPls.isEmpty) {
       final fallbackMrp = (row.item!.mrp ?? 0).toDouble();
-      row.rateCtrl.text = fallbackMrp == 0 ? '0' : fallbackMrp.toStringAsFixed(2);
+      row.rateCtrl.text = fallbackMrp == 0
+          ? '0'
+          : fallbackMrp.toStringAsFixed(2);
       return;
     }
     final pl = matchingPls.first;
-    final itemIncluded = pl.priceListType != 'individual_items' ||
+    final itemIncluded =
+        pl.priceListType != 'individual_items' ||
         (pl.itemRates?.any((r) => r.itemId == row.itemId) ?? false);
     if (!itemIncluded) {
       final fallbackMrp = (row.item!.mrp ?? 0).toDouble();
-      row.rateCtrl.text = fallbackMrp == 0 ? '0' : fallbackMrp.toStringAsFixed(2);
+      row.rateCtrl.text = fallbackMrp == 0
+          ? '0'
+          : fallbackMrp.toStringAsFixed(2);
       return;
     }
 
@@ -876,7 +914,6 @@ class _SalesOrderCreateScreenState
   }
 
   void _calculateTotals() {
-
     double st = 0;
     for (var row in rows) {
       if (row.itemId.isNotEmpty) {
@@ -916,13 +953,9 @@ class _SalesOrderCreateScreenState
     _taxOverlay = null;
   }
 
-  void _showTaxPopover(
-    BuildContext context,
-    int index,
-    SalesOrderItemRow row,
-  ) {
+  void _showTaxPopover(BuildContext context, int index, SalesOrderItemRow row) {
     _closeTaxOverlay();
-    
+
     _taxOverlay = OverlayEntry(
       builder: (ctx) => Stack(
         children: [
@@ -963,12 +996,18 @@ class _SalesOrderCreateScreenState
     final itemsState = ref.watch(itemsControllerProvider);
     final priceListsAsync = ref.watch(filteredPriceListsProvider);
     final currenciesAsync = ref.watch(currenciesProvider(null));
-    
-    ref.listen<AsyncValue<List<Warehouse>>>(warehousesProvider, (previous, next) {
+
+    ref.listen<AsyncValue<List<Warehouse>>>(warehousesProvider, (
+      previous,
+      next,
+    ) {
       next.whenData((warehouses) {
-        final defaultWh = warehouses.isEmpty 
-            ? null 
-            : warehouses.firstWhere((w) => w.isDefaultForBranch, orElse: () => warehouses.first);
+        final defaultWh = warehouses.isEmpty
+            ? null
+            : warehouses.firstWhere(
+                (w) => w.isDefaultForBranch,
+                orElse: () => warehouses.first,
+              );
         if (defaultWh != null && warehouse == 'Main Warehouse') {
           setState(() {
             warehouse = defaultWh.name;
@@ -976,7 +1015,7 @@ class _SalesOrderCreateScreenState
         }
       });
     });
-    
+
     final accountsState = ref.watch(chartOfAccountsProvider);
     final List<AccountNode> availableAccounts = [];
     void collect(List<AccountNode> nodes) {
@@ -985,6 +1024,7 @@ class _SalesOrderCreateScreenState
         collect(node.children);
       }
     }
+
     collect(accountsState.roots);
 
     final bodyHorizontalPadding = MediaQuery.sizeOf(context).width < 1000
@@ -1107,9 +1147,12 @@ class _SalesOrderCreateScreenState
     AsyncValue<List<CurrencyOption>> currenciesAsync,
   ) {
     final warehouseList = ref.watch(warehousesProvider).value ?? <Warehouse>[];
-    final defaultWh = warehouseList.isEmpty 
-        ? null 
-        : warehouseList.firstWhere((w) => w.isDefaultForBranch, orElse: () => warehouseList.first);
+    final defaultWh = warehouseList.isEmpty
+        ? null
+        : warehouseList.firstWhere(
+            (w) => w.isDefaultForBranch,
+            orElse: () => warehouseList.first,
+          );
     if (defaultWh != null && warehouse == 'Main Warehouse') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && warehouse == 'Main Warehouse') {
@@ -1170,7 +1213,9 @@ class _SalesOrderCreateScreenState
                                 showSettings: true,
                                 settingsLabel: 'New Customer',
                                 settingsIcon: LucideIcons.plus,
-                                onSettingsTap: _isEditMode ? null : _showNewCustomerDialog,
+                                onSettingsTap: _isEditMode
+                                    ? null
+                                    : _showNewCustomerDialog,
                                 itemBuilder:
                                     (customer, isSelected, isHovered) =>
                                         _buildCustomerDropdownItem(
@@ -1191,7 +1236,11 @@ class _SalesOrderCreateScreenState
                                     for (var row in rows) {
                                       if (row.itemId.isNotEmpty &&
                                           row.item != null) {
-                                        _updateRowRate(row, val.priceList, priceLists);
+                                        _updateRowRate(
+                                          row,
+                                          val.priceList,
+                                          priceLists,
+                                        );
                                       }
                                     }
                                   });
@@ -1202,7 +1251,11 @@ class _SalesOrderCreateScreenState
                               height: 32,
                               width: 32,
                               decoration: BoxDecoration(
-                                color: _isEditMode ? const Color(0xFFD1D5DB) : const Color(0xFF10B981), // Emerald-500 vs Gray-300
+                                color: _isEditMode
+                                    ? const Color(0xFFD1D5DB)
+                                    : const Color(
+                                        0xFF10B981,
+                                      ), // Emerald-500 vs Gray-300
                                 borderRadius: const BorderRadius.only(
                                   topRight: Radius.circular(4),
                                   bottomRight: Radius.circular(4),
@@ -1215,10 +1268,14 @@ class _SalesOrderCreateScreenState
                                   color: Colors.white,
                                   size: 18,
                                 ),
-                                onPressed: _isEditMode ? null : () => customersAsync.whenData(
-                                  (customers) =>
-                                      _showAdvancedCustomerSearch(customers),
-                                ),
+                                onPressed: _isEditMode
+                                    ? null
+                                    : () => customersAsync.whenData(
+                                        (customers) =>
+                                            _showAdvancedCustomerSearch(
+                                              customers,
+                                            ),
+                                      ),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -1338,7 +1395,8 @@ class _SalesOrderCreateScreenState
                           child: FormDropdown<String>(
                             enabled: !_isEditMode,
                             height: _kDropdownHeight,
-                            value: placeOfSupply ??
+                            value:
+                                placeOfSupply ??
                                 selectedCustomerFromList.placeOfSupply,
                             items: const [
                               '[KL] - Kerala',
@@ -1346,7 +1404,11 @@ class _SalesOrderCreateScreenState
                               '[KA] - Karnataka',
                             ], // Simplified options
                             itemBuilder: (item, isSelected, isHovered) =>
-                                _dropdownItemBuilder(item, isSelected, isHovered),
+                                _dropdownItemBuilder(
+                                  item,
+                                  isSelected,
+                                  isHovered,
+                                ),
                             onChanged: (v) => setState(() => placeOfSupply = v),
                           ),
                         ),
@@ -1428,10 +1490,7 @@ class _SalesOrderCreateScreenState
                 label: 'Reference#',
                 labelWidth: 180,
                 maxWidth: 600,
-                child: CustomTextField(
-                  controller: referenceCtrl,
-                  height: 32,
-                ),
+                child: CustomTextField(controller: referenceCtrl, height: 32),
               ),
 
               // Sales Order Date
@@ -1561,7 +1620,11 @@ class _SalesOrderCreateScreenState
                   value: salesperson,
                   height: _kDropdownHeight,
                   allowClear: true,
-                  maxVisibleItems: _salespersonList.length > 4 ? 4 : (_salespersonList.isEmpty ? 1 : _salespersonList.length),
+                  maxVisibleItems: _salespersonList.length > 4
+                      ? 4
+                      : (_salespersonList.isEmpty
+                            ? 1
+                            : _salespersonList.length),
                   items: _salespersonList
                       .map(
                         (p) =>
@@ -1634,8 +1697,10 @@ class _SalesOrderCreateScreenState
                       child: priceListsAsync.when(
                         data: (priceLists) {
                           final salesPriceLists = priceLists
-                              .where((p) =>
-                                  p.transactionType.toLowerCase() == 'sales')
+                              .where(
+                                (p) =>
+                                    p.transactionType.toLowerCase() == 'sales',
+                              )
                               .toList();
                           return FormDropdown<String>(
                             value: priceListId,
@@ -1651,10 +1716,10 @@ class _SalesOrderCreateScreenState
                             itemBuilder: (id, isSelected, isHovered) =>
                                 _dropdownItemBuilder(
                                   salesPriceLists
-                                      .where((p) => p.id == id)
-                                      .firstOrNull
-                                      ?.name ??
-                                  'Select Price List',
+                                          .where((p) => p.id == id)
+                                          .firstOrNull
+                                          ?.name ??
+                                      'Select Price List',
                                   isSelected,
                                   isHovered,
                                 ),
@@ -1662,7 +1727,8 @@ class _SalesOrderCreateScreenState
                               setState(() {
                                 priceListId = v;
                                 for (var row in rows) {
-                                  if (row.itemId.isNotEmpty && row.item != null) {
+                                  if (row.itemId.isNotEmpty &&
+                                      row.item != null) {
                                     row.priceListId = v;
                                     _updateRowRate(row, v, priceLists);
                                   }
@@ -1717,7 +1783,11 @@ class _SalesOrderCreateScreenState
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(LucideIcons.x, size: 16, color: Color(0xFFEF4444)),
+                    icon: const Icon(
+                      LucideIcons.x,
+                      size: 16,
+                      color: Color(0xFFEF4444),
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => context.pop(),
@@ -1756,13 +1826,22 @@ class _SalesOrderCreateScreenState
                         border: Border.all(color: const Color(0xFFE5E7EB)),
                         itemBuilder: (account, isSelected, isHovered) {
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            color: isSelected ? const Color(0xFFE8F0FE) : (isHovered ? const Color(0xFFF9FAFB) : Colors.white),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            color: isSelected
+                                ? const Color(0xFFE8F0FE)
+                                : (isHovered
+                                      ? const Color(0xFFF9FAFB)
+                                      : Colors.white),
                             child: Text(
                               account.name,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF111827),
+                                color: isSelected
+                                    ? const Color(0xFF2563EB)
+                                    : const Color(0xFF111827),
                               ),
                             ),
                           );
@@ -1826,7 +1905,7 @@ class _SalesOrderCreateScreenState
   Widget _buildUpdateDiscountDialog() {
     String discountType = '%';
     final controller = TextEditingController();
-    
+
     return Dialog(
       backgroundColor: Colors.white,
       alignment: Alignment.topCenter,
@@ -1855,7 +1934,11 @@ class _SalesOrderCreateScreenState
                       ),
                       const Spacer(),
                       IconButton(
-                        icon: const Icon(LucideIcons.x, size: 16, color: Color(0xFFEF4444)),
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: Color(0xFFEF4444),
+                        ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () => context.pop(),
@@ -1882,7 +1965,9 @@ class _SalesOrderCreateScreenState
                         ZerpaiRadioGroup<String>(
                           options: const ['%', 'Value'],
                           current: discountType,
-                          labelBuilder: (val) => val == '%' ? 'Percentage Discount (%)' : 'Flat Discount (₹)',
+                          labelBuilder: (val) => val == '%'
+                              ? 'Percentage Discount (%)'
+                              : 'Flat Discount (₹)',
                           onChanged: (v) {
                             setModalState(() {
                               discountType = v;
@@ -1898,7 +1983,9 @@ class _SalesOrderCreateScreenState
                               child: Container(
                                 height: 32,
                                 decoration: BoxDecoration(
-                                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                                  border: Border.all(
+                                    color: const Color(0xFFE5E7EB),
+                                  ),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(
@@ -1911,7 +1998,9 @@ class _SalesOrderCreateScreenState
                                           border: InputBorder.none,
                                           enabledBorder: InputBorder.none,
                                           focusedBorder: InputBorder.none,
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                                          contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                          ),
                                           filled: true,
                                           fillColor: Colors.transparent,
                                           hoverColor: Colors.transparent,
@@ -1919,7 +2008,8 @@ class _SalesOrderCreateScreenState
                                         ),
                                         keyboardType: TextInputType.number,
                                         inputFormatters: [
-                                          FilteringTextInputFormatter.digitsOnly
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
                                         ],
                                       ),
                                     ),
@@ -1928,12 +2018,18 @@ class _SalesOrderCreateScreenState
                                       height: 32,
                                       alignment: Alignment.center,
                                       decoration: const BoxDecoration(
-                                        border: Border(left: BorderSide(color: Color(0xFFE5E7EB))),
+                                        border: Border(
+                                          left: BorderSide(
+                                            color: Color(0xFFE5E7EB),
+                                          ),
+                                        ),
                                         color: Color(0xFFF9FAFB),
                                       ),
                                       child: Text(
                                         discountType == '%' ? '%' : '₹',
-                                        style: const TextStyle(color: Color(0xFF6B7280)),
+                                        style: const TextStyle(
+                                          color: Color(0xFF6B7280),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -1971,7 +2067,10 @@ class _SalesOrderCreateScreenState
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                         ),
                         child: const Text('Update'),
                       ),
@@ -1984,7 +2083,10 @@ class _SalesOrderCreateScreenState
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                         ),
                         child: const Text('Cancel'),
                       ),
@@ -2135,7 +2237,8 @@ class _SalesOrderCreateScreenState
                         onTap: () {
                           showDialog(
                             context: context,
-                            builder: (context) => _buildUpdateAccountDialog(availableAccounts),
+                            builder: (context) =>
+                                _buildUpdateAccountDialog(availableAccounts),
                           );
                         },
                       ),
@@ -2237,7 +2340,8 @@ class _SalesOrderCreateScreenState
                             isSearchVisible: _showSearchItemDetails,
                             onToggle: () {
                               setState(() {
-                                _showSearchItemDetails = !_showSearchItemDetails;
+                                _showSearchItemDetails =
+                                    !_showSearchItemDetails;
                                 if (!_showSearchItemDetails) {
                                   _itemDetailsSearchCtrl.clear();
                                   _itemDetailsSearchQuery = '';
@@ -2371,12 +2475,14 @@ class _SalesOrderCreateScreenState
               final row = rows[idx];
               // Apply search filter
               if (_itemDetailsSearchQuery.isNotEmpty) {
-                final itemName = (row.item?.productName ?? row.descriptionCtrl.text).toLowerCase();
+                final itemName =
+                    (row.item?.productName ?? row.descriptionCtrl.text)
+                        .toLowerCase();
                 if (!itemName.contains(_itemDetailsSearchQuery.toLowerCase())) {
                   return SizedBox(key: ValueKey(row));
                 }
               }
-              
+
               return _buildItemRow(
                 idx,
                 products,
@@ -2448,11 +2554,15 @@ class _SalesOrderCreateScreenState
     }).toList();
 
     final currentPriceListId = row.priceListId ?? priceListId;
-    final currentPriceList = priceLists.where((pl) => pl.id == currentPriceListId).firstOrNull;
+    final currentPriceList = priceLists
+        .where((pl) => pl.id == currentPriceListId)
+        .firstOrNull;
     bool notIncluded = false;
     if (currentPriceList != null && row.itemId.isNotEmpty) {
       if (currentPriceList.priceListType == 'individual_items') {
-        notIncluded = !(currentPriceList.itemRates?.any((r) => r.itemId == row.itemId) ?? false);
+        notIncluded =
+            !(currentPriceList.itemRates?.any((r) => r.itemId == row.itemId) ??
+                false);
       }
     } else if (currentPriceListId != null && row.itemId.isNotEmpty) {
       notIncluded = true;
@@ -2477,603 +2587,702 @@ class _SalesOrderCreateScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-          child: Container(
-            decoration: const BoxDecoration(
-              color: _kWhite,
-              border: Border(
-                left: BorderSide(color: _kBorder),
-                right: BorderSide(color: _kBorder),
-              ),
-            ),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_showBulkUpdateToolbar)
-                    SizedBox(
-                      width: 40,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Transform.scale(
-                          scale: 0.85,
-                          child: Checkbox(
-                            value: _selectedRows.contains(idx),
-                            onChanged: (v) {
-                              setState(() {
-                                if (v == true) {
-                                  _selectedRows.add(idx);
-                                } else {
-                                  _selectedRows.remove(idx);
-                                }
-                              });
-                            },
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            side: const BorderSide(color: Color(0xFFD1D5DB)),
-                            activeColor: _kBlue,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    SizedBox(
-                      width: 40,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 14),
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: ReorderableDragStartListener(
-                            index: idx,
-                            child: const MouseRegion(
-                              cursor: SystemMouseCursors.grab,
-                              child: Icon(
-                                LucideIcons.gripVertical,
-                                size: 16,
-                                color: Color(0xFFD1D5DB),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (row.isHeader)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        child: TextField(
-                          controller: row.descriptionCtrl,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF111827),
-                          ),
-                          decoration: const InputDecoration(
-                            hintText: 'Type a header...',
-                            hintStyle: TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF9CA3AF),
-                              fontWeight: FontWeight.normal,
-                            ),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 8),
-                          ),
-                        ),
-                      ),
-                    )
-                  else ...[
-                    // ITEM DETAILS
-                    Expanded(
-                      flex: 14,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            row.itemId.isEmpty
-                                ? Row(
-                                    children: [
-                                      Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF3F4F6),
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          LucideIcons.image,
-                                          size: 20,
-                                          color: Color(0xFF9CA3AF),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: FormDropdown<Item>(
-                                          value: null,
-                                          height: 32,
-                                          hint: 'Type or click to select an item.',
-                                          hideBorderDefault: true,
-                                          items: products
-                                              .where((p) => !rows.any((r) => r.itemId == p.id))
-                                              .take(20)
-                                              .toList(),
-                                          displayStringForValue: (item) => item.productName,
-                                          itemBuilder: (item, isSelected, isHovered) =>
-                                              _dropdownItemBuilder(
-                                                item.productName,
-                                                isSelected,
-                                                isHovered,
-                                                sublabel: item.sellingPrice != null
-                                                    ? 'Selling Price: ₹${item.sellingPrice!.toStringAsFixed(2)}'
-                                                    : null,
-                                              ),
-                                          onSearch: (query) async {
-                                            if (query.length < 3) return [];
-                                            return await ref.read(itemsControllerProvider.notifier).searchProductsNoState(query);
-                                          },
-                                          onChanged: (p) {
-                                            if (p == null) return;
-                                            setState(() {
-                                              row.itemId = p.id!;
-                                              row.item = p;
-                                              row.hsnCode = p.hsnCode;
-                                              row.accountId = p.salesAccountId;
-                                              row.accountName = p.salesAccountName;
-                                              final defaultRate =
-                                                  (p.mrp ?? 0).toDouble();
-                                              row.rateCtrl.text = defaultRate == 0
-                                                  ? '0'
-                                                  : defaultRate.toStringAsFixed(2);
-                                              if (row.mrpCtrl.text == '0' ||
-                                                  row.mrpCtrl.text.isEmpty) {
-                                                row.mrpCtrl.text = (p.mrp ?? 0)
-                                                    .toString();
-                                              }
-                                              row.taxId ??=
-                                                  p.intraStateTaxId ??
-                                                  p.interStateTaxId;
-                                            });
-                                            final activePriceListId =
-                                                row.priceListId ?? priceListId;
-                                            final lists =
-                                                priceListsAsync.value ?? const <PriceList>[];
-                                            _updateRowRate(
-                                              row,
-                                              activePriceListId,
-                                              lists,
-                                            );
-                                            _calculateTotals();
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : _buildSelectedItemView(row, products),
-                          ],
-                        ),
-                      ),
-                    ),
-                    _vLine(),
-                    // QUANTITY
-                    Expanded(
-                      flex: 5,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            CustomTextField(
-                              controller: row.quantityCtrl,
-                              height: 32,
-                              hideBorderDefault: true,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              contentCase: ContentCase.none,
-                              textAlign: TextAlign.right,
-                              onTap: () =>
-                                  row.quantityCtrl.selection = TextSelection(
-                                    baseOffset: 0,
-                                    extentOffset: row.quantityCtrl.text.length,
-                                  ),
-                              onChanged: (_) => _calculateTotals(),
-                            ),
-                            if (_showAvailableStock &&
-                                row.itemId.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Available for Sale:',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Color(0xFF4B5563),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: _kWhite,
+                  border: Border(
+                    left: BorderSide(color: _kBorder),
+                    right: BorderSide(color: _kBorder),
+                  ),
+                ),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_showBulkUpdateToolbar)
+                        SizedBox(
+                          width: 40,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Transform.scale(
+                              scale: 0.85,
+                              child: Checkbox(
+                                value: _selectedRows.contains(idx),
+                                onChanged: (v) {
+                                  setState(() {
+                                    if (v == true) {
+                                      _selectedRows.add(idx);
+                                    } else {
+                                      _selectedRows.remove(idx);
+                                    }
+                                  });
+                                },
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
-                                textAlign: TextAlign.right,
-                              ),
-                              const Text(
-                                '0 pcs',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Color(0xFF4B5563),
-                                  fontWeight: FontWeight.bold,
+                                side: const BorderSide(
+                                  color: Color(0xFFD1D5DB),
                                 ),
-                                textAlign: TextAlign.right,
+                                activeColor: _kBlue,
                               ),
-                              const SizedBox(height: 2),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Icon(
-                                      LucideIcons.home,
-                                      size: 12,
-                                      color: Color(0xFF2563EB),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: WarehouseHoverPopover(
-                                        warehouseName: warehouse ?? 'hbnm',
-                                        selectedView: 'Available for Sale',
-                                        onViewChanged: (v) {},
-                                        onWarehouseChanged: (newName) {
-                                          setState(() {
-                                            // Update warehouse name if needed
-                                          });
-                                        },
-                                        child: Text(
-                                          (warehouse ?? 'hbnm').toUpperCase(),
-                                          textAlign: TextAlign.right,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF2563EB),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 2,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                            ),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: 40,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 14),
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: ReorderableDragStartListener(
+                                index: idx,
+                                child: const MouseRegion(
+                                  cursor: SystemMouseCursors.grab,
+                                  child: Icon(
+                                    LucideIcons.gripVertical,
+                                    size: 16,
+                                    color: Color(0xFFD1D5DB),
+                                  ),
                                 ),
                               ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (_saleType == 'Business') ...[
-                      _vLine(),
-                      // F.QTY
-                      Expanded(
-                        flex: 3,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          child: CustomTextField(
-                            controller: row.fQtyCtrl,
-                            height: 32,
-                            hideBorderDefault: true,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
                             ),
-                            contentCase: ContentCase.none,
-                            textAlign: TextAlign.right,
                           ),
                         ),
-                      ),
-                    ],
-                    _vLine(),
-                    // RATE
-                    Expanded(
-                      flex: 5,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            CustomTextField(
-                              controller: row.rateCtrl,
-                              focusNode: row.rateFocus,
-                              height: 32,
-                              hintText: '0',
-                              hideBorderDefault: true,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              contentCase: ContentCase.none,
-                              textAlign: TextAlign.right,
-                              onTap: () =>
-                                  row.rateCtrl.selection = TextSelection(
-                                    baseOffset: 0,
-                                    extentOffset: row.rateCtrl.text.length,
-                                  ),
-                              onChanged: (_) => _calculateTotals(),
-                              onSubmitted: (_) => _handleRateCalculation(row),
+                      if (row.isHeader)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
                             ),
-                            if (row.itemId.isNotEmpty) ...[
-                              if (_showPriceList) ...[
-                                const SizedBox(height: 4),
-                                Transform.translate(
-                                  offset: Offset(notIncluded ? -4 : 0, 0),
-                                  child: Stack(
-                                    clipBehavior: Clip.none,
-                                    alignment: Alignment.centerLeft,
-                                    children: [
-                                      if (notIncluded)
-                                        Transform.translate(
-                                          offset: const Offset(-22, 0),
-                                          child: ZTooltip(
-                                            message: "This item has not been included in the selected price list. So, the item's default rate has been used.",
-                                            child: const Icon(LucideIcons.alertCircle, size: 14, color: Colors.orange),
+                            child: TextField(
+                              controller: row.descriptionCtrl,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF111827),
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: 'Type a header...',
+                                hintStyle: TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF9CA3AF),
+                                  fontWeight: FontWeight.normal,
+                                ),
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      else ...[
+                        // ITEM DETAILS
+                        Expanded(
+                          flex: 14,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                row.itemId.isEmpty
+                                    ? Row(
+                                        children: [
+                                          Container(
+                                            width: 36,
+                                            height: 36,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF3F4F6),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: const Icon(
+                                              LucideIcons.image,
+                                              size: 20,
+                                              color: Color(0xFF9CA3AF),
+                                            ),
                                           ),
-                                        ),
-                                      CompositedTransformTarget(
-                                        link: row.priceListLink,
-                                        child: SizedBox(
-                                          width: 120,
-                                          height: 32,
-                                          child: MouseRegion(
-                                            onEnter: (_) {
-                                              final pl = applicablePriceLists.where((pl) => pl.id == row.priceListId).firstOrNull;
-                                              if (pl != null) {
-                                                _showValueTooltip(context, pl.name, row.priceListLink);
-                                              }
-                                            },
-                                            onExit: (_) {
-                                              _hideValueTooltip();
-                                            },
-                                            child: FormDropdown<PriceList>(
-                                              value: applicablePriceLists.where((pl) => pl.id == row.priceListId).firstOrNull,
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: FormDropdown<Item>(
+                                              value: null,
                                               height: 32,
-                                              hint: 'Apply Price List',
-                                              padding: const EdgeInsets.only(right: 10),
-                                              menuWidth: 250,
-                                              items: applicablePriceLists,
-                                              displayStringForValue: (v) => v.name,
-                                              preferDown: true,
+                                              hint:
+                                                  'Type or click to select an item.',
+                                              hideBorderDefault: true,
+                                              items: products
+                                                  .where(
+                                                    (p) => !rows.any(
+                                                      (r) => r.itemId == p.id,
+                                                    ),
+                                                  )
+                                                  .take(20)
+                                                  .toList(),
+                                              displayStringForValue: (item) =>
+                                                  item.productName,
                                               itemBuilder:
-                                                  (item, isSelected, isHovered) =>
-                                                      _dropdownItemBuilder(
+                                                  (
+                                                    item,
+                                                    isSelected,
+                                                    isHovered,
+                                                  ) => _dropdownItemBuilder(
+                                                    item.productName,
+                                                    isSelected,
+                                                    isHovered,
+                                                    sublabel:
+                                                        item.sellingPrice !=
+                                                            null
+                                                        ? 'Selling Price: ₹${item.sellingPrice!.toStringAsFixed(2)}'
+                                                        : null,
+                                                  ),
+                                              onSearch: (query) async {
+                                                if (query.length < 3) return [];
+                                                return await ref
+                                                    .read(
+                                                      itemsControllerProvider
+                                                          .notifier,
+                                                    )
+                                                    .searchProductsNoState(
+                                                      query,
+                                                    );
+                                              },
+                                              onChanged: (p) {
+                                                if (p == null) return;
+                                                setState(() {
+                                                  row.itemId = p.id!;
+                                                  row.item = p;
+                                                  row.hsnCode = p.hsnCode;
+                                                  row.accountId =
+                                                      p.salesAccountId;
+                                                  row.accountName =
+                                                      p.salesAccountName;
+                                                  final defaultRate =
+                                                      (p.mrp ?? 0).toDouble();
+                                                  row.rateCtrl.text =
+                                                      defaultRate == 0
+                                                      ? '0'
+                                                      : defaultRate
+                                                            .toStringAsFixed(2);
+                                                  if (row.mrpCtrl.text == '0' ||
+                                                      row
+                                                          .mrpCtrl
+                                                          .text
+                                                          .isEmpty) {
+                                                    row.mrpCtrl.text =
+                                                        (p.mrp ?? 0).toString();
+                                                  }
+                                                  row.taxId ??=
+                                                      p.intraStateTaxId ??
+                                                      p.interStateTaxId;
+                                                });
+                                                final activePriceListId =
+                                                    row.priceListId ??
+                                                    priceListId;
+                                                final lists =
+                                                    priceListsAsync.value ??
+                                                    const <PriceList>[];
+                                                _updateRowRate(
+                                                  row,
+                                                  activePriceListId,
+                                                  lists,
+                                                );
+                                                _calculateTotals();
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : _buildSelectedItemView(row, products),
+                              ],
+                            ),
+                          ),
+                        ),
+                        _vLine(),
+                        // QUANTITY
+                        Expanded(
+                          flex: 5,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                CustomTextField(
+                                  controller: row.quantityCtrl,
+                                  hintText: '0',
+                                  height: 32,
+                                  hideBorderDefault: true,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  contentCase: ContentCase.none,
+                                  textAlign: TextAlign.right,
+                                  onTap: () => row.quantityCtrl.selection =
+                                      TextSelection(
+                                        baseOffset: 0,
+                                        extentOffset:
+                                            row.quantityCtrl.text.length,
+                                      ),
+                                  onChanged: (_) => _calculateTotals(),
+                                ),
+                                if (_showAvailableStock &&
+                                    row.itemId.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Available for Sale:',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF4B5563),
+                                    ),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                  const Text(
+                                    '0 pcs',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF4B5563),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Icon(
+                                          LucideIcons.home,
+                                          size: 12,
+                                          color: Color(0xFF2563EB),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: WarehouseHoverPopover(
+                                            warehouseName: warehouse ?? 'hbnm',
+                                            selectedView: 'Available for Sale',
+                                            onViewChanged: (v) {},
+                                            onWarehouseChanged: (newName) {
+                                              setState(() {
+                                                // Update warehouse name if needed
+                                              });
+                                            },
+                                            child: Text(
+                                              (warehouse ?? 'hbnm')
+                                                  .toUpperCase(),
+                                              textAlign: TextAlign.right,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Color(0xFF2563EB),
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 2,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (_saleType == 'Business') ...[
+                          _vLine(),
+                          // F.QTY
+                          Expanded(
+                            flex: 3,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              child: CustomTextField(
+                                controller: row.fQtyCtrl,
+                                height: 32,
+                                hideBorderDefault: true,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                contentCase: ContentCase.none,
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                          ),
+                        ],
+                        _vLine(),
+                        // RATE
+                        Expanded(
+                          flex: 5,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                CustomTextField(
+                                  controller: row.rateCtrl,
+                                  focusNode: row.rateFocus,
+                                  height: 32,
+                                  hintText: '0',
+                                  hideBorderDefault: true,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  contentCase: ContentCase.none,
+                                  textAlign: TextAlign.right,
+                                  onTap: () =>
+                                      row.rateCtrl.selection = TextSelection(
+                                        baseOffset: 0,
+                                        extentOffset: row.rateCtrl.text.length,
+                                      ),
+                                  onChanged: (_) => _calculateTotals(),
+                                  onSubmitted: (_) =>
+                                      _handleRateCalculation(row),
+                                ),
+                                if (row.itemId.isNotEmpty) ...[
+                                  if (_showPriceList) ...[
+                                    const SizedBox(height: 4),
+                                    Transform.translate(
+                                      offset: Offset(notIncluded ? -4 : 0, 0),
+                                      child: Stack(
+                                        clipBehavior: Clip.none,
+                                        alignment: Alignment.centerLeft,
+                                        children: [
+                                          if (notIncluded)
+                                            Transform.translate(
+                                              offset: const Offset(-22, 0),
+                                              child: ZTooltip(
+                                                message:
+                                                    "This item has not been included in the selected price list. So, the item's default rate has been used.",
+                                                child: const Icon(
+                                                  LucideIcons.alertCircle,
+                                                  size: 14,
+                                                  color: Colors.orange,
+                                                ),
+                                              ),
+                                            ),
+                                          CompositedTransformTarget(
+                                            link: row.priceListLink,
+                                            child: SizedBox(
+                                              width: 120,
+                                              height: 32,
+                                              child: MouseRegion(
+                                                onEnter: (_) {
+                                                  final pl =
+                                                      applicablePriceLists
+                                                          .where(
+                                                            (pl) =>
+                                                                pl.id ==
+                                                                row.priceListId,
+                                                          )
+                                                          .firstOrNull;
+                                                  if (pl != null) {
+                                                    _showValueTooltip(
+                                                      context,
+                                                      pl.name,
+                                                      row.priceListLink,
+                                                    );
+                                                  }
+                                                },
+                                                onExit: (_) {
+                                                  _hideValueTooltip();
+                                                },
+                                                child: FormDropdown<PriceList>(
+                                                  value: applicablePriceLists
+                                                      .where(
+                                                        (pl) =>
+                                                            pl.id ==
+                                                            row.priceListId,
+                                                      )
+                                                      .firstOrNull,
+                                                  height: 32,
+                                                  hint: 'Apply Price List',
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        right: 10,
+                                                      ),
+                                                  menuWidth: 250,
+                                                  items: applicablePriceLists,
+                                                  displayStringForValue: (v) =>
+                                                      v.name,
+                                                  preferDown: true,
+                                                  itemBuilder:
+                                                      (
+                                                        item,
+                                                        isSelected,
+                                                        isHovered,
+                                                      ) => _dropdownItemBuilder(
                                                         item.name,
                                                         isSelected,
                                                         isHovered,
                                                       ),
-                                              onChanged: (v) {
-                                                if (v != null) {
-                                                  final baseRate = row.item?.sellingPrice ?? 0;
-                                                  final rate = v.calculatePrice(row.itemId, baseRate);
-                                                  setState(() {
-                                                    row.priceListId = v.id;
-                                                    row.rateCtrl.text = rate.toStringAsFixed(2);
-                                                    _calculateTotals();
-                                                  });
-                                                }
-                                              },
+                                                  onChanged: (v) {
+                                                    if (v != null) {
+                                                      final baseRate =
+                                                          row
+                                                              .item
+                                                              ?.sellingPrice ??
+                                                          0;
+                                                      final rate = v
+                                                          .calculatePrice(
+                                                            row.itemId,
+                                                            baseRate,
+                                                          );
+                                                      setState(() {
+                                                        row.priceListId = v.id;
+                                                        row.rateCtrl.text = rate
+                                                            .toStringAsFixed(2);
+                                                        _calculateTotals();
+                                                      });
+                                                    }
+                                                  },
+                                                ),
+                                              ),
                                             ),
                                           ),
-                                        ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              if (_showRecentTransactions) ...[
-                                const SizedBox(height: 2),
-                                GestureDetector(
-                                  onTap: () {
-                                    _showItemDetailsSidebar(row, initialTabIndex: 2);
-                                  },
-                                  child: const Text(
-                                    'Recent Transactions',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFF2563EB),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    _vLine(),
-                    // DISCOUNT
-                    Expanded(
-                      flex: 5,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        child: CustomTextField(
-                          controller: row.discountCtrl,
-                          height: 32,
-                          hideBorderDefault: true,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          contentCase: ContentCase.none,
-                          textAlign: TextAlign.right,
-                          padding: const EdgeInsets.only(left: 12, right: 0),
-                          suffixSeparator: true,
-                          suffixWidget: _buildDiscountTypeSelector(row),
-                          onTap: () =>
-                              row.discountCtrl.selection = TextSelection(
-                                baseOffset: 0,
-                                extentOffset: row.discountCtrl.text.length,
-                              ),
-                          onChanged: (_) => _calculateTotals(),
-                        ),
-                      ),
-                    ),
-                    _vLine(),
-                    // TAX
-                    Expanded(
-                      flex: 4,
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: CompositedTransformTarget(
-                            link: row.taxLink,
-                            child: GestureDetector(
-                              onTap: () {
-                                _showTaxPopover(context, idx, row);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: _kBorder),
-                                  borderRadius: BorderRadius.circular(4),
-                                  color: Colors.white,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        row.taxId == null
-                                            ? 'Select Tax'
-                                            : (row.taxId == 'non_taxable'
-                                                ? 'Non-Taxable'
-                                                : (row.taxId == 'out_of_scope'
-                                                    ? 'Out of Scope'
-                                                    : (row.taxId == 'non_gst'
-                                                        ? 'Non-GST Supply'
-                                                        : taxRates
-                                                            .where((t) => t.id == row.taxId)
-                                                            .firstOrNull
-                                                            ?.taxName ??
-                                                        'Select Tax'))),
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: row.taxId == null ? _kLabelGrey : _kBodyText,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.arrow_drop_down,
-                                      color: _kLabelGrey,
-                                      size: 18,
                                     ),
                                   ],
+                                  if (_showRecentTransactions) ...[
+                                    const SizedBox(height: 2),
+                                    GestureDetector(
+                                      onTap: () {
+                                        _showItemDetailsSidebar(
+                                          row,
+                                          initialTabIndex: 2,
+                                        );
+                                      },
+                                      child: const Text(
+                                        'Recent Transactions',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF2563EB),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        _vLine(),
+                        // DISCOUNT
+                        Expanded(
+                          flex: 5,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            child: CustomTextField(
+                              controller: row.discountCtrl,
+                              height: 32,
+                              hideBorderDefault: true,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              contentCase: ContentCase.none,
+                              textAlign: TextAlign.right,
+                              padding: const EdgeInsets.only(
+                                left: 12,
+                                right: 0,
+                              ),
+                              suffixSeparator: true,
+                              suffixWidget: _buildDiscountTypeSelector(row),
+                              onTap: () =>
+                                  row.discountCtrl.selection = TextSelection(
+                                    baseOffset: 0,
+                                    extentOffset: row.discountCtrl.text.length,
+                                  ),
+                              onChanged: (_) => _calculateTotals(),
+                            ),
+                          ),
+                        ),
+                        _vLine(),
+                        // TAX
+                        Expanded(
+                          flex: 4,
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              child: CompositedTransformTarget(
+                                link: row.taxLink,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _showTaxPopover(context, idx, row);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: _kBorder),
+                                      borderRadius: BorderRadius.circular(4),
+                                      color: Colors.white,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            row.taxId == null
+                                                ? 'Select Tax'
+                                                : (row.taxId == 'non_taxable'
+                                                      ? 'Non-Taxable'
+                                                      : (row.taxId ==
+                                                                'out_of_scope'
+                                                            ? 'Out of Scope'
+                                                            : (row.taxId ==
+                                                                      'non_gst'
+                                                                  ? 'Non-GST Supply'
+                                                                  : taxRates
+                                                                            .where(
+                                                                              (
+                                                                                t,
+                                                                              ) =>
+                                                                                  t.id ==
+                                                                                  row.taxId,
+                                                                            )
+                                                                            .firstOrNull
+                                                                            ?.taxName ??
+                                                                        'Select Tax'))),
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: row.taxId == null
+                                                  ? _kLabelGrey
+                                                  : _kBodyText,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const Icon(
+                                          Icons.arrow_drop_down,
+                                          color: _kLabelGrey,
+                                          size: 18,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    _vLine(),
-                    // AMOUNT
-                    Expanded(
-                      flex: 4,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '₹${rowDiscounted.toStringAsFixed(2)}',
-                                textAlign: TextAlign.right,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: _kBodyText,
-                                ),
-                              ),
+                        _vLine(),
+                        // AMOUNT
+                        Expanded(
+                          flex: 4,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
                             ),
-                          ],
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '₹${rowDiscounted.toStringAsFixed(2)}',
+                                    textAlign: TextAlign.right,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _kBodyText,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-        // ACTIONS (Outside border)
-        Container(
-          width: 60,
-          padding: const EdgeInsets.only(left: 12, top: 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CompositedTransformTarget(
-                link: row.moreActionsLink,
-                child: InkWell(
-                  onTap: () => _toggleRowActionsOverlay(row, products),
-                  child: const Icon(
-                    LucideIcons.moreVertical,
-                    size: 18,
-                    color: Color(0xFF9CA3AF),
+                      ],
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              if (rows.length > 1)
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      rows.removeAt(idx);
-                      _calculateTotals();
-                    });
-                  },
-                  child: const Icon(LucideIcons.x, size: 18, color: Colors.red),
-                ),
+            ),
+            // ACTIONS (Outside border)
+            Container(
+              width: 60,
+              padding: const EdgeInsets.only(left: 12, top: 14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CompositedTransformTarget(
+                    link: row.moreActionsLink,
+                    child: InkWell(
+                      onTap: () => _toggleRowActionsOverlay(row, products),
+                      child: const Icon(
+                        LucideIcons.moreVertical,
+                        size: 18,
+                        color: Color(0xFF9CA3AF),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (rows.length > 1)
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          rows.removeAt(idx);
+                          _calculateTotals();
+                        });
+                      },
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 18,
+                        color: Colors.red,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (_showAdditionalInfo)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(right: 60), // Align with columns
+            constraints: const BoxConstraints(minHeight: 36),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: const BoxDecoration(color: Color(0xFFF3F4F6)),
+            child: _buildReportingTags(row, availableAccounts),
+          ),
+        if (idx < rows.length - 1 && !_showAdditionalInfo)
+          Row(
+            children: [
+              const Expanded(child: Divider(height: 1, color: _kBorder)),
+              const SizedBox(width: 60),
             ],
           ),
-        ),
       ],
-    ),
-      if (_showAdditionalInfo)
-        Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(right: 60), // Align with columns
-          constraints: const BoxConstraints(minHeight: 36),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: const BoxDecoration(
-            color: Color(0xFFF3F4F6),
-          ),
-          child: _buildReportingTags(row, availableAccounts),
-        ),
-      if (idx < rows.length - 1 && !_showAdditionalInfo)
-        Row(
-        children: [
-          const Expanded(child: Divider(height: 1, color: _kBorder)),
-          const SizedBox(width: 60),
-        ],
-      ),
-  ],
-);
-}
+    );
+  }
 
   Widget _buildSelectedItemView(SalesOrderItemRow row, List<Item> products) {
     final item = row.item;
@@ -3480,10 +3689,15 @@ class _SalesOrderCreateScreenState
     setState(() {});
   }
 
-  Widget _buildReportingTags(SalesOrderItemRow row, List<AccountNode> availableAccounts) {
+  Widget _buildReportingTags(
+    SalesOrderItemRow row,
+    List<AccountNode> availableAccounts,
+  ) {
     String? accountName = row.accountName;
     if (accountName == null && row.accountId != null) {
-      final acc = availableAccounts.where((a) => a.id == row.accountId).firstOrNull;
+      final acc = availableAccounts
+          .where((a) => a.id == row.accountId)
+          .firstOrNull;
       if (acc != null) {
         accountName = acc.name;
         row.accountName = acc.name; // Cache it
@@ -3503,7 +3717,11 @@ class _SalesOrderCreateScreenState
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(LucideIcons.building, size: 14, color: Color(0xFF6B7280)),
+                  const Icon(
+                    LucideIcons.building,
+                    size: 14,
+                    color: Color(0xFF6B7280),
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     accountName ?? 'Select an account',
@@ -3514,7 +3732,11 @@ class _SalesOrderCreateScreenState
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF6B7280)),
+                  const Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 14,
+                    color: Color(0xFF6B7280),
+                  ),
                 ],
               ),
             ),
@@ -3544,7 +3766,11 @@ class _SalesOrderCreateScreenState
                     ),
                   ),
                   SizedBox(width: 4),
-                  Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF9CA3AF)),
+                  Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 14,
+                    color: Color(0xFF9CA3AF),
+                  ),
                 ],
               ),
             ),
@@ -3628,7 +3854,10 @@ class _SalesOrderCreateScreenState
               child: Material(
                 color: Colors.transparent,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(4),
@@ -3751,92 +3980,92 @@ class _SalesOrderCreateScreenState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                  const SizedBox(height: 140), // Space to align notes lower
-                  const Text(
-                    'Customer Notes',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: _kBodyText,
-                    ),
+                const SizedBox(height: 140), // Space to align notes lower
+                const Text(
+                  'Customer Notes',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: _kBodyText,
                   ),
-                  const SizedBox(height: 8),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600),
-                    child: CustomTextField(
-                      controller: notesCtrl,
-                      maxLines: 3,
-                      height: 80,
-                      hintText:
-                          'Enter any notes to be displayed in your transaction',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 250),
-              // Right Column: Totals
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 392),
-              child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 20,
-                      horizontal: 24,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      border: Border.all(color: const Color(0xFFDBEAFE)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      children: [
-                        _summaryRow('Sub Total', subTotal),
-                        const SizedBox(height: 16),
-                        _summaryInputRow(
-                          'Shipping Charges',
-                          shippingCtrl,
-                          tooltip: 'Amount spent on shipping the goods.',
-                        ),
-                        const SizedBox(height: 16),
-                        const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                        const SizedBox(height: 16),
-                        if (_tdsTcsType == 'TDS') ...[
-                          _summaryRadioRow(),
-                          const SizedBox(height: 16),
-                          _summaryInputRow(
-                            'Adjustment',
-                            adjustmentCtrl,
-                            labelCtrl: adjustmentLabelCtrl,
-                            isAdjustment: true,
-                            tooltip:
-                                'Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.',
-                          ),
-                        ] else ...[
-                          _summaryInputRow(
-                            'Adjustment',
-                            adjustmentCtrl,
-                            labelCtrl: adjustmentLabelCtrl,
-                            isAdjustment: true,
-                            tooltip:
-                                'Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.',
-                          ),
-                          const SizedBox(height: 16),
-                          _summaryRadioRow(),
-                        ],
-                        const SizedBox(height: 16),
-                        _summaryRow('Round Off', _roundOff),
-                        const SizedBox(height: 24),
-                        _summaryRow(
-                          'Total ( ₹ )',
-                          total,
-                          isBold: true,
-                          fontSize: 16,
-                        ),
-                      ],
-                    ),
+                ),
+                const SizedBox(height: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: CustomTextField(
+                    controller: notesCtrl,
+                    maxLines: 3,
+                    height: 80,
+                    hintText:
+                        'Enter any notes to be displayed in your transaction',
                   ),
                 ),
               ],
             ),
+            const SizedBox(width: 250),
+            // Right Column: Totals
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 392),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 20,
+                  horizontal: 24,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  border: Border.all(color: const Color(0xFFDBEAFE)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    _summaryRow('Sub Total', subTotal),
+                    const SizedBox(height: 16),
+                    _summaryInputRow(
+                      'Shipping Charges',
+                      shippingCtrl,
+                      tooltip: 'Amount spent on shipping the goods.',
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const SizedBox(height: 16),
+                    if (_tdsTcsType == 'TDS') ...[
+                      _summaryRadioRow(),
+                      const SizedBox(height: 16),
+                      _summaryInputRow(
+                        'Adjustment',
+                        adjustmentCtrl,
+                        labelCtrl: adjustmentLabelCtrl,
+                        isAdjustment: true,
+                        tooltip:
+                            'Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.',
+                      ),
+                    ] else ...[
+                      _summaryInputRow(
+                        'Adjustment',
+                        adjustmentCtrl,
+                        labelCtrl: adjustmentLabelCtrl,
+                        isAdjustment: true,
+                        tooltip:
+                            'Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.',
+                      ),
+                      const SizedBox(height: 16),
+                      _summaryRadioRow(),
+                    ],
+                    const SizedBox(height: 16),
+                    _summaryRow('Round Off', _roundOff),
+                    const SizedBox(height: 24),
+                    _summaryRow(
+                      'Total ( ₹ )',
+                      total,
+                      isBold: true,
+                      fontSize: 16,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -3983,11 +4212,7 @@ class _SalesOrderCreateScreenState
                 ),
               ),
             ),
-            Container(
-              width: 1,
-              height: 20,
-              color: const Color(0xFFE5E7EB),
-            ),
+            Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
             InkWell(
               onTap: _toggleAddRowOverlay,
               borderRadius: const BorderRadius.only(
@@ -4273,7 +4498,11 @@ class _SalesOrderCreateScreenState
               const SizedBox(width: 4),
               Text(
                 '${_attachedFiles.length}',
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -4318,7 +4547,11 @@ class _SalesOrderCreateScreenState
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4)),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
                   ],
                   border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
@@ -4327,7 +4560,9 @@ class _SalesOrderCreateScreenState
                   child: SingleChildScrollView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: _attachedFiles.map((file) => _buildAttachmentListItem(file)).toList(),
+                      children: _attachedFiles
+                          .map((file) => _buildAttachmentListItem(file))
+                          .toList(),
                     ),
                   ),
                 ),
@@ -4356,7 +4591,11 @@ class _SalesOrderCreateScreenState
             ),
             child: Row(
               children: [
-                Icon(LucideIcons.file, size: 16, color: isHovered ? Colors.white : const Color(0xFF3B82F6)),
+                Icon(
+                  LucideIcons.file,
+                  size: 16,
+                  color: isHovered ? Colors.white : const Color(0xFF3B82F6),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -4366,7 +4605,9 @@ class _SalesOrderCreateScreenState
                         file.name,
                         style: TextStyle(
                           fontSize: 13,
-                          color: isHovered ? Colors.white : const Color(0xFF374151),
+                          color: isHovered
+                              ? Colors.white
+                              : const Color(0xFF374151),
                           fontWeight: FontWeight.w500,
                         ),
                         maxLines: 1,
@@ -4376,7 +4617,9 @@ class _SalesOrderCreateScreenState
                         'File Size: ${(file.size / 1024).toStringAsFixed(2)} KB',
                         style: TextStyle(
                           fontSize: 11,
-                          color: isHovered ? Colors.white.withValues(alpha: 0.8) : const Color(0xFF6B7280),
+                          color: isHovered
+                              ? Colors.white.withValues(alpha: 0.8)
+                              : const Color(0xFF6B7280),
                         ),
                       ),
                     ],
@@ -4394,7 +4637,11 @@ class _SalesOrderCreateScreenState
                       });
                       _attachmentListOverlay?.markNeedsBuild();
                     },
-                    child: const Icon(LucideIcons.trash, size: 14, color: Colors.white),
+                    child: const Icon(
+                      LucideIcons.trash,
+                      size: 14,
+                      color: Colors.white,
+                    ),
                   ),
               ],
             ),
@@ -4408,24 +4655,32 @@ class _SalesOrderCreateScreenState
     try {
       final result = await FilePicker.platform.pickFiles(allowMultiple: true);
       if (!mounted || result == null) return;
-      
+
       setState(() {
         final totalFiles = _attachedFiles.length + result.files.length;
         if (totalFiles > 10) {
-          ZerpaiToast.error(context, 'You can only attach a maximum of 10 files');
+          ZerpaiToast.error(
+            context,
+            'You can only attach a maximum of 10 files',
+          );
           return;
         }
-        
+
         // Check file size (5MB = 5 * 1024 * 1024 bytes)
-        final oversizedFiles = result.files.where((f) => f.size > 5 * 1024 * 1024).toList();
+        final oversizedFiles = result.files
+            .where((f) => f.size > 5 * 1024 * 1024)
+            .toList();
         if (oversizedFiles.isNotEmpty) {
-          ZerpaiToast.error(context, 'File size should be less than or equal to 5MB');
+          ZerpaiToast.error(
+            context,
+            'File size should be less than or equal to 5MB',
+          );
           return;
         }
-        
+
         _attachedFiles = [..._attachedFiles, ...result.files];
       });
-      
+
       final count = _attachedFiles.length;
       if (count > 0) {
         ZerpaiToast.success(
@@ -4921,7 +5176,7 @@ class _SalesOrderCreateScreenState
               children: [
                 InkWell(
                   onTap: () => _saveSalesOrder(
-                    status: widget.initialOrder?.status ?? 'sent',
+                    status: widget.initialOrder?.status ?? 'confirmed',
                   ),
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
@@ -5034,8 +5289,16 @@ class _SalesOrderCreateScreenState
       ZerpaiToast.error(context, 'Please enter Sales Order#');
       return;
     }
-    final customerFromList = ref.read(salesCustomersProvider).asData?.value.where((c) => c.id == _selectedCustomerId).firstOrNull;
-    final effectivePlaceOfSupply = placeOfSupply ?? _selectedCustomer?.placeOfSupply ?? customerFromList?.placeOfSupply;
+    final customerFromList = ref
+        .read(salesCustomersProvider)
+        .asData
+        ?.value
+        .where((c) => c.id == _selectedCustomerId)
+        .firstOrNull;
+    final effectivePlaceOfSupply =
+        placeOfSupply ??
+        _selectedCustomer?.placeOfSupply ??
+        customerFromList?.placeOfSupply;
     if (effectivePlaceOfSupply == null) {
       ZerpaiToast.error(context, 'Please select Place of Supply');
       return;
@@ -5069,7 +5332,10 @@ class _SalesOrderCreateScreenState
       return;
     }
     if (!itemsValid) {
-      ZerpaiToast.error(context, 'Please fill rate and quantity for all selected items');
+      ZerpaiToast.error(
+        context,
+        'Please fill rate and quantity for all selected items',
+      );
       return;
     }
     if (!hsnValid) {
@@ -5094,6 +5360,7 @@ class _SalesOrderCreateScreenState
             hsnCode: r.hsnCode,
             accountId: r.accountId,
             priceListId: r.priceListId,
+            isInvoiced: false,
           ),
         )
         .toList();
@@ -5142,12 +5409,11 @@ class _SalesOrderCreateScreenState
       } else {
         savedOrder = await controller.createSalesOrder(order);
         // Increment sequence only on successful creation
-        await ref.read(sequencesApiServiceProvider).incrementSequence(
-          'sale',
-          usedNumber: salesOrderNumberCtrl.text,
-        );
+        await ref
+            .read(sequencesApiServiceProvider)
+            .incrementSequence('sale', usedNumber: salesOrderNumberCtrl.text);
       }
-      
+
       if (savedOrder != null && _attachedFiles.isNotEmpty) {
         await _saveAttachments(savedOrder.id);
       }
@@ -5186,17 +5452,20 @@ class _SalesOrderCreateScreenState
           debugPrint('Skipping file ${file.name} because bytes are null');
           continue;
         }
-        
+
         final base64Data = base64Encode(file.bytes!);
-        
+
         // Upload to Cloudflare R2 via backend
-        final response = await apiClient.post('/lookups/uploads', data: {
-          'fileName': file.name,
-          'fileData': base64Data,
-          'mimeType': 'application/octet-stream',
-          'prefix': 'sales_orders',
-        });
-        
+        final response = await apiClient.post(
+          '/lookups/uploads',
+          data: {
+            'fileName': file.name,
+            'fileData': base64Data,
+            'mimeType': 'application/octet-stream',
+            'prefix': 'sales_orders',
+          },
+        );
+
         final fileKey = response.data['fileKey'] ?? 'sales_orders/${file.name}';
 
         await supabase.from('sales_order_attachments').insert({
@@ -6167,7 +6436,8 @@ class _SalesOrderCreateScreenState
                                           quantity: quantity.toString(),
                                           rate: (item.sellingPrice ?? 0) == 0
                                               ? ''
-                                              : (item.sellingPrice ?? 0).toString(),
+                                              : (item.sellingPrice ?? 0)
+                                                    .toString(),
                                           discount: '0',
                                           itemId: item.id ?? '',
                                           item: item,
@@ -6338,60 +6608,65 @@ class _SalesOrderCreateScreenState
                         const SizedBox(height: 16),
                         Row(
                           children: [
-                             ElevatedButton(
-                               onPressed: () {
-                                 if (hsnCtrl.text.isEmpty) {
-                                   ZerpaiToast.error(context, 'Please enter HSN Code');
-                                   return;
-                                 }
-                                 setState(() {
-                                   row.hsnCode = hsnCtrl.text;
-                                   if (row.item != null) {
-                                     row.item = row.item!.copyWith(
-                                       hsnCode: hsnCtrl.text,
-                                     );
-                                   }
-                                 });
-                                 _hsnOverlay?.remove();
-                                 _hsnOverlay = null;
-                                 _activeHsnRow = null;
-                                 setState(() {});
-                               },
-                               style: ElevatedButton.styleFrom(
-                                 backgroundColor: const Color(0xFF10B981),
-                                 foregroundColor: Colors.white,
-                                 padding: const EdgeInsets.symmetric(
-                                   horizontal: 16,
-                                   vertical: 8,
-                                 ),
-                                 shape: RoundedRectangleBorder(
-                                   borderRadius: BorderRadius.circular(4),
-                                 ),
-                               ),
-                               child: const Text('Save'),
-                             ),
+                            ElevatedButton(
+                              onPressed: () {
+                                if (hsnCtrl.text.isEmpty) {
+                                  ZerpaiToast.error(
+                                    context,
+                                    'Please enter HSN Code',
+                                  );
+                                  return;
+                                }
+                                setState(() {
+                                  row.hsnCode = hsnCtrl.text;
+                                  if (row.item != null) {
+                                    row.item = row.item!.copyWith(
+                                      hsnCode: hsnCtrl.text,
+                                    );
+                                  }
+                                });
+                                _hsnOverlay?.remove();
+                                _hsnOverlay = null;
+                                _activeHsnRow = null;
+                                setState(() {});
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF10B981),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              child: const Text('Save'),
+                            ),
                             const SizedBox(width: 8),
-                             OutlinedButton(
-                               onPressed: () {
-                                 _hsnOverlay?.remove();
-                                 _hsnOverlay = null;
-                                 _activeHsnRow = null;
-                                 setState(() {});
-                               },
-                               style: OutlinedButton.styleFrom(
-                                 backgroundColor: Colors.white,
-                                 foregroundColor: const Color(0xFF374151),
-                                 side: const BorderSide(color: Color(0xFFE5E7EB)),
-                                 padding: const EdgeInsets.symmetric(
-                                   horizontal: 16,
-                                   vertical: 8,
-                                 ),
-                                 shape: RoundedRectangleBorder(
-                                   borderRadius: BorderRadius.circular(4),
-                                 ),
-                               ),
-                               child: const Text('Close'),
-                             ),
+                            OutlinedButton(
+                              onPressed: () {
+                                _hsnOverlay?.remove();
+                                _hsnOverlay = null;
+                                _activeHsnRow = null;
+                                setState(() {});
+                              },
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF374151),
+                                side: const BorderSide(
+                                  color: Color(0xFFE5E7EB),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              child: const Text('Close'),
+                            ),
                           ],
                         ),
                       ],
@@ -6477,11 +6752,7 @@ class _SalesOrderCreateScreenState
           const SizedBox(width: 8),
           InkWell(
             onTap: onToggle,
-            child: const Icon(
-              LucideIcons.search,
-              size: 13,
-              color: _kLabelGrey,
-            ),
+            child: const Icon(LucideIcons.search, size: 13, color: _kLabelGrey),
           ),
         ],
       );
@@ -8748,7 +9019,8 @@ class _ItemDetailsSidebar extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_ItemDetailsSidebar> createState() => _ItemDetailsSidebarState();
+  ConsumerState<_ItemDetailsSidebar> createState() =>
+      _ItemDetailsSidebarState();
 }
 
 class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
@@ -8849,7 +9121,16 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Flexible(child: Text(widget.row.item?.productName ?? "Select Item", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF111827)))),
+                            Flexible(
+                              child: Text(
+                                widget.row.item?.productName ?? "Select Item",
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF111827),
+                                ),
+                              ),
+                            ),
                             const SizedBox(width: 4),
                             const Icon(
                               Icons.open_in_new,
@@ -9015,19 +9296,36 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
           const SizedBox(height: 24),
           const Text(
             'Sales Information',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
           ),
           const SizedBox(height: 12),
-          _detailRow('Price', '₹${widget.row.item?.sellingPrice?.toStringAsFixed(2) ?? '0.00'}'),
+          _detailRow(
+            'Price',
+            '₹${widget.row.item?.sellingPrice?.toStringAsFixed(2) ?? '0.00'}',
+          ),
           _detailRow('Account', widget.row.item?.salesAccountName ?? 'Sales'),
           const SizedBox(height: 24),
           const Text(
             'Purchase Information',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
           ),
           const SizedBox(height: 12),
-          _detailRow('Price', '₹${widget.row.item?.costPrice?.toStringAsFixed(2) ?? '0.00'}'),
-          _detailRow('Account', widget.row.item?.purchaseAccountName ?? 'Cost of Goods Sold'),
+          _detailRow(
+            'Price',
+            '₹${widget.row.item?.costPrice?.toStringAsFixed(2) ?? '0.00'}',
+          ),
+          _detailRow(
+            'Account',
+            widget.row.item?.purchaseAccountName ?? 'Cost of Goods Sold',
+          ),
         ],
       ),
     );
@@ -9049,11 +9347,21 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
             children: [
               Icon(icon, size: 16, color: const Color(0xFF2563EB)),
               const SizedBox(width: 8),
-              Text(title, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
+          ),
         ],
       ),
     );
@@ -9066,13 +9374,20 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+          ),
           const SizedBox(width: 16),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF111827)),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF111827),
+              ),
             ),
           ),
         ],
@@ -9081,7 +9396,9 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
   }
 
   Widget _buildStockLocationsTab() {
-    final stockAsync = ref.watch(itemWarehouseStocksProvider(widget.row.itemId));
+    final stockAsync = ref.watch(
+      itemWarehouseStocksProvider(widget.row.itemId),
+    );
     return stockAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
@@ -9093,7 +9410,11 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
             children: [
               const Text(
                 'Physical Stock',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
               ),
               const SizedBox(height: 12),
               Table(
@@ -9122,11 +9443,18 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
                           child: Row(
                             children: [
                               Flexible(
-                                child: Text(wh.name, style: const TextStyle(fontSize: 12)),
+                                child: Text(
+                                  wh.name,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
                               ),
                               if (isSelected) ...[
                                 const SizedBox(width: 4),
-                                const Icon(Icons.star, size: 14, color: Colors.amber),
+                                const Icon(
+                                  Icons.star,
+                                  size: 14,
+                                  color: Colors.amber,
+                                ),
                               ],
                             ],
                           ),
@@ -9151,7 +9479,11 @@ class _ItemDetailsSidebarState extends ConsumerState<_ItemDetailsSidebar> {
       padding: const EdgeInsets.all(8.0),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)),
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF6B7280),
+        ),
       ),
     );
   }
@@ -9338,10 +9670,7 @@ class _TaxSelectionPopover extends ConsumerWidget {
   final String? selectedTaxId;
   final ValueChanged<TaxRate> onTaxSelected;
 
-  const _TaxSelectionPopover({
-    this.selectedTaxId,
-    required this.onTaxSelected,
-  });
+  const _TaxSelectionPopover({this.selectedTaxId, required this.onTaxSelected});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -9349,9 +9678,21 @@ class _TaxSelectionPopover extends ConsumerWidget {
     final taxes = itemsState.taxGroups;
 
     // Create dummy objects for special options
-    final nonTaxable = TaxRate(id: 'non_taxable', taxName: 'Non-Taxable', taxRate: 0);
-    final outOfScope = TaxRate(id: 'out_of_scope', taxName: 'Out of Scope', taxRate: 0);
-    final nonGst = TaxRate(id: 'non_gst', taxName: 'Non-GST Supply', taxRate: 0);
+    final nonTaxable = TaxRate(
+      id: 'non_taxable',
+      taxName: 'Non-Taxable',
+      taxRate: 0,
+    );
+    final outOfScope = TaxRate(
+      id: 'out_of_scope',
+      taxName: 'Out of Scope',
+      taxRate: 0,
+    );
+    final nonGst = TaxRate(
+      id: 'non_gst',
+      taxName: 'Non-GST Supply',
+      taxRate: 0,
+    );
 
     return Container(
       width: 280,
@@ -9385,13 +9726,15 @@ class _TaxSelectionPopover extends ConsumerWidget {
                   ),
                   _SpecialPopoverListItem(
                     title: "Out of Scope",
-                    description: "Supplies on which you don't charge any GST or include them in the returns.",
+                    description:
+                        "Supplies on which you don't charge any GST or include them in the returns.",
                     isSelected: selectedTaxId == 'out_of_scope',
                     onTap: () => onTaxSelected(outOfScope),
                   ),
                   _SpecialPopoverListItem(
                     title: "Non-GST Supply",
-                    description: "Supplies which do not come under GST such as petroleum products and liquor.",
+                    description:
+                        "Supplies which do not come under GST such as petroleum products and liquor.",
                     isSelected: selectedTaxId == 'non_gst',
                     onTap: () => onTaxSelected(nonGst),
                   ),
@@ -9441,7 +9784,8 @@ class _SpecialPopoverListItem extends StatefulWidget {
   });
 
   @override
-  State<_SpecialPopoverListItem> createState() => _SpecialPopoverListItemState();
+  State<_SpecialPopoverListItem> createState() =>
+      _SpecialPopoverListItemState();
 }
 
 class _SpecialPopoverListItemState extends State<_SpecialPopoverListItem> {
@@ -9477,7 +9821,11 @@ class _SpecialPopoverListItemState extends State<_SpecialPopoverListItem> {
             children: [
               Text(
                 widget.title,
-                style: TextStyle(fontSize: 13, color: text, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: text,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               if (widget.description != null) ...[
                 const SizedBox(height: 2),
@@ -9573,7 +9921,11 @@ class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
                 ),
                 GestureDetector(
                   onTap: () {}, // Handled by overlay removal usually
-                  child: const Icon(Icons.close, size: 14, color: Color(0xFF6B7280)),
+                  child: const Icon(
+                    Icons.close,
+                    size: 14,
+                    color: Color(0xFF6B7280),
+                  ),
                 ),
               ],
             ),

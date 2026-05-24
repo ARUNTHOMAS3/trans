@@ -47,10 +47,19 @@ export class PackagesService {
     // Resolve SO, Picklist numbers and total quantity
     const allPkgIds = rows.map((r: any) => r.id);
 
+    if (allPkgIds.length === 0) {
+      return {
+        data: [],
+        total: count || 0,
+      };
+    }
+
     // Fetch from items table
     const { data: itemRefs } = await client
       .from("inventory_package_items")
-      .select("package_id, sales_order_id, picklist_id, quantity, product_id, bin_location, batch_no")
+      .select(
+        "package_id, sales_order_id, picklist_id, quantity, product_id, bin_location, batch_no",
+      )
       .in("package_id", allPkgIds)
       .eq("entity_id", tenant.entityId);
 
@@ -150,7 +159,9 @@ export class PackagesService {
 
     // Resolve product names for package items
     const productIds = [
-      ...new Set((itemRefs || []).map((i: any) => i.product_id).filter(Boolean)),
+      ...new Set(
+        (itemRefs || []).map((i: any) => i.product_id).filter(Boolean),
+      ),
     ] as string[];
     let productMap = new Map<string, string>();
     if (productIds.length > 0) {
@@ -267,7 +278,9 @@ export class PackagesService {
       ...new Set(items.map((i: any) => i.product_id).filter(Boolean)),
     ] as string[];
     const itemSoIds = items.map((i: any) => i.sales_order_id).filter(Boolean);
-    const joinSoIds = (soRefs || []).map((r: any) => r.sales_order_id).filter(Boolean);
+    const joinSoIds = (soRefs || [])
+      .map((r: any) => r.sales_order_id)
+      .filter(Boolean);
     const allSoIds = [...new Set([...itemSoIds, ...joinSoIds])] as string[];
     const plIdsFromItems = [
       ...new Set(items.map((i: any) => i.picklist_id).filter(Boolean)),

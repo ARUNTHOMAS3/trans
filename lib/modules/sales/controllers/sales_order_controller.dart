@@ -198,6 +198,10 @@ class SalesOrderController extends StateNotifier<AsyncValue<List<SalesOrder>>> {
           customer: current.customer,
           items: current.items,
           createdAt: current.createdAt,
+          warehouseId: current.warehouseId,
+          paymentTermId: current.paymentTermId,
+          priceListId: current.priceListId,
+          entityId: current.entityId,
         ),
       );
       await loadSalesOrders();

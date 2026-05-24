@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { products, batchMaster, organisationBranchMaster, purchaseReceives, binMaster, warehouses, taxGroups, taxGroupRates, taxRates, batchStockLayers, vendors, transactionLocks, purchaseReceiveItems, countries, states, customers, salesPaymentLinks, purchaseReceiveItemBatches, purchaseOrderItems, accounts, purchaseOrders, inventoryAdjustments, inventoryAdjustmentValueItems, purchaseOrderAttachments, brands, buyingRules, categories, manufacturers, racks, reorderTerms, drugSchedules, storageConditions, units, salesOrders, paymentTerms, priceLists, tdsRates, inventoryAdjustmentAccountEntries, fiscalYears, manualJournals, recurringJournals, journalNumberSettings, journalTemplates, salesOrderAttachments, inventoryAdjustmentItems, manualJournalAttachments, accountTransactions, branchTransactionSeries, transactionSeries, contents, productContents, drugStrengths, picklistMaster, picklistItems, branchUsers, users, lsgdLocalBodies, lsgdWards, vendorContactPersons, picklistBatchAllocation, carrier, lsgdDistricts, auditLogsArchive, salesPayments, compositeItemParts, compositeItems, vendorBankAccounts, auditLogs, tdsSections, uqc, timezones, tdsGroups, tdsGroupItems, recurringJournalItems, journalTemplateItems, inventoryAdjustmentAttachments, manualJournalItems, inventoryPackages, transferOrderMaster, branches, currencies, productVendorMappings, customerContactPersons, assembliesConstituencies, branding, zoneMaster, zoneLevels, transferOrderItems, inventoryPackageItems, transactionalSequences, roles, organization, userBranchAccess, inventoryAdjustmentReasons, inventoryAdjustmentItemBatches, businessTypes, gstTreatments, gstinRegistrationTypes, branchUserAccess, reportingTags, compositeItemBranchInventorySettings, productBranchInventorySettings, transferOrderSourceBatches, transferOrderDestinationBatches, transferOrderLogs, inventoryShipments, inventoryMoveOrders, inventoryMoveOrderItems, inventoryMoveOrderSourceBatches, inventoryMoveOrderDestinationBins, moveOrderAttachments, priceListItems, branchPriceListAssignments, priceListVolumeRanges, salesOrderItems, salesReturns, salesReturnItems, productEntitySettings, productBinMappings, manualJournalTagMappings, inventoryShipmentSalesOrders, inventoryShipmentPackages, inventoryPackageSalesOrders } from "./schema";
+import { products, batchMaster, organisationBranchMaster, purchaseReceives, binMaster, warehouses, taxGroups, taxGroupRates, taxRates, batchStockLayers, vendors, transactionLocks, purchaseReceiveItems, countries, states, customers, salesPaymentLinks, invoiceMaster, invoiceItems, purchaseReceiveItemBatches, purchaseOrderItems, accounts, purchaseOrders, inventoryAdjustments, inventoryAdjustmentValueItems, purchaseOrderAttachments, brands, buyingRules, categories, manufacturers, racks, reorderTerms, drugSchedules, storageConditions, units, salesOrders, paymentTerms, priceLists, tdsRates, inventoryAdjustmentAccountEntries, invoiceItemBatches, fiscalYears, manualJournals, recurringJournals, journalNumberSettings, journalTemplates, invoiceSalesOrders, salesOrderAttachments, inventoryAdjustmentItems, invoiceShipments, inventoryShipments, manualJournalAttachments, accountTransactions, branchTransactionSeries, transactionSeries, contents, productContents, drugStrengths, branchUsers, users, lsgdLocalBodies, lsgdWards, vendorContactPersons, picklistBatchAllocation, picklistItems, carrier, lsgdDistricts, auditLogsArchive, salesPayments, invoiceAttachments, compositeItemParts, compositeItems, vendorBankAccounts, auditLogs, tdsSections, uqc, timezones, tdsGroups, tdsGroupItems, recurringJournalItems, journalTemplateItems, inventoryAdjustmentAttachments, manualJournalItems, inventoryPackages, transferOrderMaster, branches, currencies, productVendorMappings, customerContactPersons, creditNotes, assembliesConstituencies, branding, zoneMaster, zoneLevels, transferOrderItems, inventoryPackageItems, picklistMaster, transactionalSequences, roles, organization, userBranchAccess, inventoryAdjustmentReasons, inventoryAdjustmentItemBatches, creditNoteItems, businessTypes, gstTreatments, gstinRegistrationTypes, branchUserAccess, reportingTags, creditNoteItemBatches, compositeItemBranchInventorySettings, productBranchInventorySettings, transferOrderSourceBatches, transferOrderDestinationBatches, transferOrderLogs, invoicePackages, inventoryMoveOrders, inventoryMoveOrderItems, inventoryMoveOrderSourceBatches, inventoryMoveOrderDestinationBins, moveOrderAttachments, salesOrderItems, priceListItems, branchPriceListAssignments, priceListVolumeRanges, salesReturns, salesReturnItems, productEntitySettings, productBinMappings, manualJournalTagMappings, inventoryShipmentSalesOrders, inventoryShipmentPackages, inventoryPackageSalesOrders } from "./schema";
 
 export const batchMasterRelations = relations(batchMaster, ({one, many}) => ({
 	product: one(products, {
@@ -8,8 +8,10 @@ export const batchMasterRelations = relations(batchMaster, ({one, many}) => ({
 	}),
 	batchStockLayers: many(batchStockLayers),
 	inventoryAdjustmentValueItems: many(inventoryAdjustmentValueItems),
+	invoiceItemBatches: many(invoiceItemBatches),
 	inventoryAdjustmentItems: many(inventoryAdjustmentItems),
 	inventoryAdjustmentItemBatches: many(inventoryAdjustmentItemBatches),
+	creditNoteItemBatches: many(creditNoteItemBatches),
 	transferOrderSourceBatches: many(transferOrderSourceBatches),
 }));
 
@@ -91,9 +93,10 @@ export const productsRelations = relations(products, ({one, many}) => ({
 	inventoryPackageItems: many(inventoryPackageItems),
 	inventoryAdjustments: many(inventoryAdjustments),
 	inventoryAdjustmentItemBatches: many(inventoryAdjustmentItemBatches),
+	creditNoteItems: many(creditNoteItems),
 	productBranchInventorySettings: many(productBranchInventorySettings),
-	priceListItems: many(priceListItems),
 	salesOrderItems: many(salesOrderItems),
+	priceListItems: many(priceListItems),
 	productEntitySettings: many(productEntitySettings),
 	productBinMappings: many(productBinMappings),
 }));
@@ -149,6 +152,7 @@ export const organisationBranchMasterRelations = relations(organisationBranchMas
 	transferOrderMasters: many(transferOrderMaster),
 	customers: many(customers),
 	customerContactPersons: many(customerContactPersons),
+	creditNotes: many(creditNotes),
 	brandings: many(branding),
 	users: many(users),
 	inventoryPackageItems: many(inventoryPackageItems),
@@ -167,6 +171,7 @@ export const organisationBranchMasterRelations = relations(organisationBranchMas
 	productBranchInventorySettings: many(productBranchInventorySettings),
 	warehouses: many(warehouses),
 	inventoryShipments: many(inventoryShipments),
+	salesOrderItems: many(salesOrderItems),
 	priceLists_createdByEntityId: many(priceLists, {
 		relationName: "priceLists_createdByEntityId_organisationBranchMaster_id"
 	}),
@@ -174,11 +179,11 @@ export const organisationBranchMasterRelations = relations(organisationBranchMas
 		relationName: "priceLists_entityId_organisationBranchMaster_id"
 	}),
 	branchPriceListAssignments: many(branchPriceListAssignments),
-	salesOrderItems: many(salesOrderItems),
 }));
 
 export const binMasterRelations = relations(binMaster, ({one, many}) => ({
 	purchaseReceives: many(purchaseReceives),
+	batchStockLayers: many(batchStockLayers),
 	purchaseReceiveItems: many(purchaseReceiveItems),
 	purchaseReceiveItemBatches: many(purchaseReceiveItemBatches),
 	picklistBatchAllocations: many(picklistBatchAllocation),
@@ -191,6 +196,7 @@ export const binMasterRelations = relations(binMaster, ({one, many}) => ({
 		references: [zoneMaster.id]
 	}),
 	inventoryAdjustmentItemBatches: many(inventoryAdjustmentItemBatches),
+	creditNoteItemBatches: many(creditNoteItemBatches),
 	transferOrderSourceBatches: many(transferOrderSourceBatches),
 	transferOrderDestinationBatches: many(transferOrderDestinationBatches),
 }));
@@ -214,10 +220,12 @@ export const warehousesRelations = relations(warehouses, ({one, many}) => ({
 	transferOrderMasters_sourceWarehouseId: many(transferOrderMaster, {
 		relationName: "transferOrderMaster_sourceWarehouseId_warehouses_id"
 	}),
+	creditNotes: many(creditNotes),
 	users: many(users),
 	binMasters: many(binMaster),
 	inventoryAdjustments: many(inventoryAdjustments),
 	inventoryAdjustmentItemBatches: many(inventoryAdjustmentItemBatches),
+	creditNoteItemBatches: many(creditNoteItemBatches),
 	assembliesConstituency: one(assembliesConstituencies, {
 		fields: [warehouses.assemblyId],
 		references: [assembliesConstituencies.id]
@@ -284,6 +292,10 @@ export const taxRatesRelations = relations(taxRates, ({many}) => ({
 }));
 
 export const batchStockLayersRelations = relations(batchStockLayers, ({one, many}) => ({
+	binMaster: one(binMaster, {
+		fields: [batchStockLayers.binId],
+		references: [binMaster.id]
+	}),
 	product: one(products, {
 		fields: [batchStockLayers.productId],
 		references: [products.id]
@@ -300,7 +312,9 @@ export const batchStockLayersRelations = relations(batchStockLayers, ({one, many
 		fields: [batchStockLayers.batchId],
 		references: [batchMaster.id]
 	}),
+	invoiceItemBatches: many(invoiceItemBatches),
 	inventoryAdjustmentItemBatches: many(inventoryAdjustmentItemBatches),
+	creditNoteItemBatches: many(creditNoteItemBatches),
 	transferOrderSourceBatches: many(transferOrderSourceBatches),
 }));
 
@@ -444,8 +458,26 @@ export const customersRelations = relations(customers, ({one, many}) => ({
 		relationName: "customers_shippingAddressStateId_states_id"
 	}),
 	customerContactPersons: many(customerContactPersons),
+	creditNotes: many(creditNotes),
 	warehouses: many(warehouses),
 	inventoryShipments: many(inventoryShipments),
+	salesReturns: many(salesReturns),
+}));
+
+export const invoiceItemsRelations = relations(invoiceItems, ({one, many}) => ({
+	invoiceMaster: one(invoiceMaster, {
+		fields: [invoiceItems.invoiceId],
+		references: [invoiceMaster.id]
+	}),
+	invoiceItemBatches: many(invoiceItemBatches),
+}));
+
+export const invoiceMasterRelations = relations(invoiceMaster, ({many}) => ({
+	invoiceItems: many(invoiceItems),
+	invoiceSalesOrders: many(invoiceSalesOrders),
+	invoiceShipments: many(invoiceShipments),
+	invoiceAttachments: many(invoiceAttachments),
+	invoicePackages: many(invoicePackages),
 }));
 
 export const purchaseReceiveItemBatchesRelations = relations(purchaseReceiveItemBatches, ({one}) => ({
@@ -535,7 +567,9 @@ export const accountsRelations = relations(accounts, ({one, many}) => ({
 		relationName: "compositeItems_salesAccountId_accounts_id"
 	}),
 	inventoryAdjustments: many(inventoryAdjustments),
+	creditNoteItems: many(creditNoteItems),
 	branches: many(branches),
+	salesOrderItems: many(salesOrderItems),
 }));
 
 export const purchaseOrdersRelations = relations(purchaseOrders, ({one, many}) => ({
@@ -731,6 +765,7 @@ export const salesOrdersRelations = relations(salesOrders, ({one, many}) => ({
 		fields: [salesOrders.warehouseId],
 		references: [warehouses.id]
 	}),
+	invoiceSalesOrders: many(invoiceSalesOrders),
 	salesOrderAttachments: many(salesOrderAttachments),
 	salesOrderItems: many(salesOrderItems),
 	inventoryShipmentSalesOrders: many(inventoryShipmentSalesOrders),
@@ -744,6 +779,7 @@ export const paymentTermsRelations = relations(paymentTerms, ({many}) => ({
 export const priceListsRelations = relations(priceLists, ({one, many}) => ({
 	salesOrders: many(salesOrders),
 	customers: many(customers),
+	creditNotes: many(creditNotes),
 	priceListItems: many(priceListItems),
 	organisationBranchMaster_createdByEntityId: one(organisationBranchMaster, {
 		fields: [priceLists.createdByEntityId],
@@ -790,6 +826,21 @@ export const inventoryAdjustmentAccountEntriesRelations = relations(inventoryAdj
 	organisationBranchMaster: one(organisationBranchMaster, {
 		fields: [inventoryAdjustmentAccountEntries.entityId],
 		references: [organisationBranchMaster.id]
+	}),
+}));
+
+export const invoiceItemBatchesRelations = relations(invoiceItemBatches, ({one}) => ({
+	batchMaster: one(batchMaster, {
+		fields: [invoiceItemBatches.batchId],
+		references: [batchMaster.id]
+	}),
+	invoiceItem: one(invoiceItems, {
+		fields: [invoiceItemBatches.invoiceItemId],
+		references: [invoiceItems.id]
+	}),
+	batchStockLayer: one(batchStockLayers, {
+		fields: [invoiceItemBatches.layerId],
+		references: [batchStockLayers.id]
 	}),
 }));
 
@@ -842,6 +893,17 @@ export const journalTemplatesRelations = relations(journalTemplates, ({one, many
 	journalTemplateItems: many(journalTemplateItems),
 }));
 
+export const invoiceSalesOrdersRelations = relations(invoiceSalesOrders, ({one}) => ({
+	invoiceMaster: one(invoiceMaster, {
+		fields: [invoiceSalesOrders.invoiceId],
+		references: [invoiceMaster.id]
+	}),
+	salesOrder: one(salesOrders, {
+		fields: [invoiceSalesOrders.salesOrderId],
+		references: [salesOrders.id]
+	}),
+}));
+
 export const salesOrderAttachmentsRelations = relations(salesOrderAttachments, ({one}) => ({
 	organisationBranchMaster: one(organisationBranchMaster, {
 		fields: [salesOrderAttachments.entityId],
@@ -871,6 +933,31 @@ export const inventoryAdjustmentItemsRelations = relations(inventoryAdjustmentIt
 		references: [products.id]
 	}),
 	inventoryAdjustmentItemBatches: many(inventoryAdjustmentItemBatches),
+}));
+
+export const invoiceShipmentsRelations = relations(invoiceShipments, ({one}) => ({
+	invoiceMaster: one(invoiceMaster, {
+		fields: [invoiceShipments.invoiceId],
+		references: [invoiceMaster.id]
+	}),
+	inventoryShipment: one(inventoryShipments, {
+		fields: [invoiceShipments.shipmentId],
+		references: [inventoryShipments.id]
+	}),
+}));
+
+export const inventoryShipmentsRelations = relations(inventoryShipments, ({one, many}) => ({
+	invoiceShipments: many(invoiceShipments),
+	customer: one(customers, {
+		fields: [inventoryShipments.customerId],
+		references: [customers.id]
+	}),
+	organisationBranchMaster: one(organisationBranchMaster, {
+		fields: [inventoryShipments.entityId],
+		references: [organisationBranchMaster.id]
+	}),
+	inventoryShipmentSalesOrders: many(inventoryShipmentSalesOrders),
+	inventoryShipmentPackages: many(inventoryShipmentPackages),
 }));
 
 export const manualJournalAttachmentsRelations = relations(manualJournalAttachments, ({one}) => ({
@@ -940,19 +1027,6 @@ export const contentsRelations = relations(contents, ({many}) => ({
 
 export const drugStrengthsRelations = relations(drugStrengths, ({many}) => ({
 	productContents: many(productContents),
-}));
-
-export const picklistItemsRelations = relations(picklistItems, ({one, many}) => ({
-	picklistMaster: one(picklistMaster, {
-		fields: [picklistItems.picklistId],
-		references: [picklistMaster.id]
-	}),
-	picklistBatchAllocations: many(picklistBatchAllocation),
-}));
-
-export const picklistMasterRelations = relations(picklistMaster, ({many}) => ({
-	picklistItems: many(picklistItems),
-	inventoryPackageItems: many(inventoryPackageItems),
 }));
 
 export const branchUsersRelations = relations(branchUsers, ({one}) => ({
@@ -1039,6 +1113,10 @@ export const picklistBatchAllocationRelations = relations(picklistBatchAllocatio
 	}),
 }));
 
+export const picklistItemsRelations = relations(picklistItems, ({many}) => ({
+	picklistBatchAllocations: many(picklistBatchAllocation),
+}));
+
 export const carrierRelations = relations(carrier, ({many}) => ({
 	purchaseOrders: many(purchaseOrders),
 }));
@@ -1075,6 +1153,13 @@ export const salesPaymentsRelations = relations(salesPayments, ({one}) => ({
 	organisationBranchMaster: one(organisationBranchMaster, {
 		fields: [salesPayments.entityId],
 		references: [organisationBranchMaster.id]
+	}),
+}));
+
+export const invoiceAttachmentsRelations = relations(invoiceAttachments, ({one}) => ({
+	invoiceMaster: one(invoiceMaster, {
+		fields: [invoiceAttachments.invoiceId],
+		references: [invoiceMaster.id]
 	}),
 }));
 
@@ -1254,6 +1339,7 @@ export const inventoryPackagesRelations = relations(inventoryPackages, ({one, ma
 		references: [organisationBranchMaster.id]
 	}),
 	inventoryPackageItems: many(inventoryPackageItems),
+	invoicePackages: many(invoicePackages),
 	inventoryShipmentPackages: many(inventoryShipmentPackages),
 	inventoryPackageSalesOrders: many(inventoryPackageSalesOrders),
 }));
@@ -1362,6 +1448,26 @@ export const customerContactPersonsRelations = relations(customerContactPersons,
 	}),
 }));
 
+export const creditNotesRelations = relations(creditNotes, ({one, many}) => ({
+	customer: one(customers, {
+		fields: [creditNotes.customerId],
+		references: [customers.id]
+	}),
+	organisationBranchMaster: one(organisationBranchMaster, {
+		fields: [creditNotes.entityId],
+		references: [organisationBranchMaster.id]
+	}),
+	priceList: one(priceLists, {
+		fields: [creditNotes.priceListId],
+		references: [priceLists.id]
+	}),
+	warehouse: one(warehouses, {
+		fields: [creditNotes.warehouseId],
+		references: [warehouses.id]
+	}),
+	creditNoteItems: many(creditNoteItems),
+}));
+
 export const assembliesConstituenciesRelations = relations(assembliesConstituencies, ({one, many}) => ({
 	lsgdDistrict: one(lsgdDistricts, {
 		fields: [assembliesConstituencies.districtId],
@@ -1431,6 +1537,10 @@ export const inventoryPackageItemsRelations = relations(inventoryPackageItems, (
 		fields: [inventoryPackageItems.productId],
 		references: [products.id]
 	}),
+}));
+
+export const picklistMasterRelations = relations(picklistMaster, ({many}) => ({
+	inventoryPackageItems: many(inventoryPackageItems),
 }));
 
 export const transactionalSequencesRelations = relations(transactionalSequences, ({one}) => ({
@@ -1555,6 +1665,22 @@ export const inventoryAdjustmentItemBatchesRelations = relations(inventoryAdjust
 	}),
 }));
 
+export const creditNoteItemsRelations = relations(creditNoteItems, ({one, many}) => ({
+	account: one(accounts, {
+		fields: [creditNoteItems.accountId],
+		references: [accounts.id]
+	}),
+	creditNote: one(creditNotes, {
+		fields: [creditNoteItems.creditNoteId],
+		references: [creditNotes.id]
+	}),
+	product: one(products, {
+		fields: [creditNoteItems.productId],
+		references: [products.id]
+	}),
+	creditNoteItemBatches: many(creditNoteItemBatches),
+}));
+
 export const businessTypesRelations = relations(businessTypes, ({many}) => ({
 	branches: many(branches),
 }));
@@ -1588,6 +1714,29 @@ export const reportingTagsRelations = relations(reportingTags, ({one, many}) => 
 		references: [organisationBranchMaster.id]
 	}),
 	manualJournalTagMappings: many(manualJournalTagMappings),
+}));
+
+export const creditNoteItemBatchesRelations = relations(creditNoteItemBatches, ({one}) => ({
+	batchMaster: one(batchMaster, {
+		fields: [creditNoteItemBatches.batchId],
+		references: [batchMaster.id]
+	}),
+	binMaster: one(binMaster, {
+		fields: [creditNoteItemBatches.binId],
+		references: [binMaster.id]
+	}),
+	creditNoteItem: one(creditNoteItems, {
+		fields: [creditNoteItemBatches.creditNoteItemId],
+		references: [creditNoteItems.id]
+	}),
+	batchStockLayer: one(batchStockLayers, {
+		fields: [creditNoteItemBatches.layerId],
+		references: [batchStockLayers.id]
+	}),
+	warehouse: one(warehouses, {
+		fields: [creditNoteItemBatches.warehouseId],
+		references: [warehouses.id]
+	}),
 }));
 
 export const compositeItemBranchInventorySettingsRelations = relations(compositeItemBranchInventorySettings, ({one}) => ({
@@ -1665,17 +1814,15 @@ export const transferOrderLogsRelations = relations(transferOrderLogs, ({one}) =
 	}),
 }));
 
-export const inventoryShipmentsRelations = relations(inventoryShipments, ({one, many}) => ({
-	customer: one(customers, {
-		fields: [inventoryShipments.customerId],
-		references: [customers.id]
+export const invoicePackagesRelations = relations(invoicePackages, ({one}) => ({
+	invoiceMaster: one(invoiceMaster, {
+		fields: [invoicePackages.invoiceId],
+		references: [invoiceMaster.id]
 	}),
-	organisationBranchMaster: one(organisationBranchMaster, {
-		fields: [inventoryShipments.entityId],
-		references: [organisationBranchMaster.id]
+	inventoryPackage: one(inventoryPackages, {
+		fields: [invoicePackages.packageId],
+		references: [inventoryPackages.id]
 	}),
-	inventoryShipmentSalesOrders: many(inventoryShipmentSalesOrders),
-	inventoryShipmentPackages: many(inventoryShipmentPackages),
 }));
 
 export const inventoryMoveOrderItemsRelations = relations(inventoryMoveOrderItems, ({one, many}) => ({
@@ -1713,6 +1860,33 @@ export const moveOrderAttachmentsRelations = relations(moveOrderAttachments, ({o
 	}),
 }));
 
+export const salesOrderItemsRelations = relations(salesOrderItems, ({one}) => ({
+	account: one(accounts, {
+		fields: [salesOrderItems.accounts],
+		references: [accounts.id]
+	}),
+	organisationBranchMaster: one(organisationBranchMaster, {
+		fields: [salesOrderItems.entityId],
+		references: [organisationBranchMaster.id]
+	}),
+	product: one(products, {
+		fields: [salesOrderItems.productId],
+		references: [products.id]
+	}),
+	salesOrder: one(salesOrders, {
+		fields: [salesOrderItems.salesOrderId],
+		references: [salesOrders.id]
+	}),
+	taxRate: one(taxRates, {
+		fields: [salesOrderItems.taxId],
+		references: [taxRates.id]
+	}),
+	warehouse: one(warehouses, {
+		fields: [salesOrderItems.warehouseId],
+		references: [warehouses.id]
+	}),
+}));
+
 export const priceListItemsRelations = relations(priceListItems, ({one, many}) => ({
 	priceList: one(priceLists, {
 		fields: [priceListItems.priceListId],
@@ -1743,27 +1917,12 @@ export const priceListVolumeRangesRelations = relations(priceListVolumeRanges, (
 	}),
 }));
 
-export const salesOrderItemsRelations = relations(salesOrderItems, ({one}) => ({
-	organisationBranchMaster: one(organisationBranchMaster, {
-		fields: [salesOrderItems.entityId],
-		references: [organisationBranchMaster.id]
+export const salesReturnsRelations = relations(salesReturns, ({one, many}) => ({
+	customer: one(customers, {
+		fields: [salesReturns.customerId],
+		references: [customers.id]
 	}),
-	product: one(products, {
-		fields: [salesOrderItems.productId],
-		references: [products.id]
-	}),
-	salesOrder: one(salesOrders, {
-		fields: [salesOrderItems.salesOrderId],
-		references: [salesOrders.id]
-	}),
-	taxRate: one(taxRates, {
-		fields: [salesOrderItems.taxId],
-		references: [taxRates.id]
-	}),
-	warehouse: one(warehouses, {
-		fields: [salesOrderItems.warehouseId],
-		references: [warehouses.id]
-	}),
+	salesReturnItems: many(salesReturnItems),
 }));
 
 export const salesReturnItemsRelations = relations(salesReturnItems, ({one}) => ({
@@ -1771,10 +1930,6 @@ export const salesReturnItemsRelations = relations(salesReturnItems, ({one}) => 
 		fields: [salesReturnItems.salesReturnId],
 		references: [salesReturns.id]
 	}),
-}));
-
-export const salesReturnsRelations = relations(salesReturns, ({many}) => ({
-	salesReturnItems: many(salesReturnItems),
 }));
 
 export const productEntitySettingsRelations = relations(productEntitySettings, ({one}) => ({

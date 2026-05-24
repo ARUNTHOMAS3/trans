@@ -88,6 +88,7 @@ final _salesOrderDetailProvider = FutureProvider.family<SalesOrder, String>((
       warehouseId: order.warehouseId,
       paymentTermId: order.paymentTermId,
       priceListId: order.priceListId,
+      entityId: order.entityId,
     );
   } catch (_) {
     return order;

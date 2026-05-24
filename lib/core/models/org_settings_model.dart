@@ -22,6 +22,13 @@ class OrgSettings {
   final bool hasSeparatePaymentStubAddress;
   final String accentColor;
   final String themeMode;
+  final String? attention;
+  final String? street;
+  final String? place;
+  final String? city;
+  final String? pincode;
+  final String? phone;
+  final String? country;
 
   const OrgSettings({
     required this.id,
@@ -44,6 +51,13 @@ class OrgSettings {
     this.hasSeparatePaymentStubAddress = false,
     this.accentColor = '#22A95E',
     this.themeMode = 'dark',
+    this.attention,
+    this.street,
+    this.place,
+    this.city,
+    this.pincode,
+    this.phone,
+    this.country,
   });
 
   factory OrgSettings.fromJson(Map<String, dynamic> json) => OrgSettings(
@@ -80,6 +94,13 @@ class OrgSettings {
         json['has_separate_payment_stub_address'] as bool? ?? false,
     accentColor: json['accent_color']?.toString() ?? '#22A95E',
     themeMode: json['theme_mode']?.toString() ?? 'dark',
+    attention: json['attention']?.toString(),
+    street: json['street']?.toString(),
+    place: json['place']?.toString(),
+    city: json['city']?.toString(),
+    pincode: json['pincode']?.toString(),
+    phone: json['phone']?.toString(),
+    country: json['country']?.toString(),
   );
 
   /// Returns a copy with updated fields.

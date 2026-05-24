@@ -253,7 +253,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
   void addItemRow({int? index, PurchaseOrderItem? item}) {
     final List<PurchaseOrderItem> newItems = List.from(state.items);
     final newItem = item ??
-        PurchaseOrderItem(productId: '', quantity: 1.0, rate: 0.0, amount: 0.0);
+        PurchaseOrderItem(productId: '', quantity: 0.0, rate: 0.0, amount: 0.0);
     if (index != null && index >= 0 && index <= newItems.length) {
       newItems.insert(index, newItem);
     } else {
@@ -299,7 +299,7 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     final newItems = List<PurchaseOrderItem>.from(state.items);
     newItems[index] = PurchaseOrderItem(
       productId: '',
-      quantity: 1.0,
+      quantity: 0.0,
       rate: 0.0,
       amount: 0.0,
       discount: 0.0,
@@ -398,9 +398,9 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
       hsnCode: product.hsnCode,
       accountId: product.purchaseAccountId,
       accountName: accountName,
-      quantity: 1.0,
+      quantity: 0.0,
       rate: initialRate,
-      amount: initialRate,
+      amount: 0.0,
       taxId: product.intraStateTaxId,
       taxName: taxName,
       taxRate: taxRate,

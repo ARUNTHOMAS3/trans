@@ -50,8 +50,12 @@ export const vendorTypeEnum = pgEnum("vendor_type", [
   "wholesaler",
 ]);
 export const hsnSacTypeEnum = pgEnum("hsn_sac_type", ["HSN", "SAC"]);
-export const branchTypeEnum = pgEnum("branch_type", ["FOFO", "COCO", "FRANCHISE", "WAREHOUSE"]);
-
+export const branchTypeEnum = pgEnum("branch_type", [
+  "FOFO",
+  "COCO",
+  "FRANCHISE",
+  "WAREHOUSE",
+]);
 
 // Unique Quantity Code (UQC) Table
 export const uqc = pgTable("uqc", {
@@ -246,7 +250,9 @@ export const organizations = pgTable("organization", {
   // Address & LSGD Hierarchy
   paymentStubAddress: text("payment_stub_address"),
   additionalFields: jsonb("additional_fields"),
-  hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false),
+  hasSeparatePaymentStubAddress: boolean(
+    "has_separate_payment_stub_address",
+  ).default(false),
   districtId: uuid("district_id"),
   localBodyId: uuid("local_body_id"),
   assemblyId: uuid("assembly_id").references(() => settingsAssemblies.id),
@@ -273,15 +279,18 @@ export const organisationBranchMaster = pgTable("organisation_branch_master", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-
 export const settingsRoles = pgTable("roles", {
   id: uuid("id").primaryKey().defaultRandom(),
   label: varchar("label").notNull(),
   description: text("description").notNull().default(""),
   permissions: jsonb("permissions").notNull().default({}),
   isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   entityId: uuid("entity_id")
     .notNull()
     .references(() => organisationBranchMaster.id),
@@ -381,11 +390,12 @@ export const accountTransaction = pgTable("account_transactions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-
 // Storage Location Table
 export const storageLocation = pgTable("storage_location", {
   id: uuid("id").primaryKey().defaultRandom(),
-  entityId: uuid("entity_id").notNull().references(() => organisationBranchMaster.id),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
   locationName: varchar("location_name", { length: 255 }).notNull(),
   description: text("description"),
   isActive: boolean("is_active").default(true),
@@ -396,8 +406,12 @@ export const storageLocation = pgTable("storage_location", {
 // Rack Table
 export const rack = pgTable("rack_master", {
   id: uuid("id").primaryKey().defaultRandom(),
-  entityId: uuid("entity_id").notNull().references(() => organisationBranchMaster.id),
-  warehouseId: uuid("warehouse_id").notNull().references(() => warehouses.id),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  warehouseId: uuid("warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
   rackName: varchar("rack_name", { length: 255 }).notNull(),
   rackCode: varchar("rack_code", { length: 50 }),
   isActive: boolean("is_active").default(true),
@@ -408,9 +422,15 @@ export const rack = pgTable("rack_master", {
 // Bin Table
 export const bin = pgTable("bin_master", {
   id: uuid("id").primaryKey().defaultRandom(),
-  entityId: uuid("entity_id").notNull().references(() => organisationBranchMaster.id),
-  warehouseId: uuid("warehouse_id").notNull().references(() => warehouses.id),
-  rackId: uuid("rack_id").notNull().references(() => rack.id),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  warehouseId: uuid("warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
+  rackId: uuid("rack_id")
+    .notNull()
+    .references(() => rack.id),
   binCode: varchar("bin_code", { length: 255 }).notNull(),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -420,13 +440,23 @@ export const bin = pgTable("bin_master", {
 // Batch Stock Layers Table
 export const batchStockLayers = pgTable("batch_stock_layers", {
   id: uuid("id").primaryKey().defaultRandom(),
-  entityId: uuid("entity_id").notNull().references(() => organisationBranchMaster.id),
-  warehouseId: uuid("warehouse_id").notNull().references(() => warehouses.id),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  warehouseId: uuid("warehouse_id")
+    .notNull()
+    .references(() => warehouses.id),
   binId: uuid("bin_id").references(() => bin.id),
-  productId: uuid("product_id").notNull().references(() => product.id),
-  batchId: uuid("batch_id").notNull().references(() => batches.id),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => product.id),
+  batchId: uuid("batch_id")
+    .notNull()
+    .references(() => batches.id),
   qty: numeric("qty", { precision: 15, scale: 3 }).default("0"),
-  purchaseRate: numeric("purchase_rate", { precision: 15, scale: 2 }).default("0"),
+  purchaseRate: numeric("purchase_rate", { precision: 15, scale: 2 }).default(
+    "0",
+  ),
   mrp: numeric("mrp", { precision: 15, scale: 2 }).default("0"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
@@ -800,7 +830,9 @@ export const productParts = pgTable("product_parts", {
 // Customer Table
 export const customer = pgTable("customers", {
   id: uuid("id").primaryKey().defaultRandom(),
-  entityId: uuid("entity_id").notNull().references(() => organisationBranchMaster.id),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
   customerNumber: varchar("customer_number", { length: 100 }).unique(),
   displayName: varchar("display_name", { length: 255 }).notNull(),
   customerType: varchar("customer_type", { length: 50 }).default("Business"),
@@ -856,7 +888,8 @@ export const customer = pgTable("customers", {
   // Finance Details
   currency: varchar("currency", { length: 20 }).default("INR"),
   openingBalance: decimal("opening_balance", {
-    precision: 15, scale: 2,
+    precision: 15,
+    scale: 2,
   }).default("0.00"),
   creditLimit: decimal("credit_limit", { precision: 15, scale: 2 }).default(
     "0.00",
@@ -867,7 +900,8 @@ export const customer = pgTable("customers", {
     "0.00",
   ),
   receivableBalance: decimal("receivable_balance", {
-    precision: 15, scale: 2,
+    precision: 15,
+    scale: 2,
   }).default("0.00"),
 
   // Addresses
@@ -997,6 +1031,7 @@ export const salesOrderItems = pgTable("sales_order_items", {
   hsnCode: numeric("hsn_code").notNull(),
   accounts: varchar("accounts").notNull(),
   pricelist: varchar("pricelist"),
+  isInvoiced: boolean("is_invoiced").default(false).notNull(),
 });
 
 export const salesOrderAttachments = pgTable("sales_order_attachments", {
@@ -1014,11 +1049,12 @@ export const salesOrderAttachments = pgTable("sales_order_attachments", {
     .references(() => organisationBranchMaster.id),
 });
 
-
 // Sales Payment Table
 export const salesPayment = pgTable("sales_payments", {
   id: uuid("id").primaryKey().defaultRandom(),
-  entityId: uuid("entity_id").notNull().references(() => organisationBranchMaster.id),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
   customerId: uuid("customer_id")
     .notNull()
     .references(() => customer.id),
@@ -1157,7 +1193,9 @@ export const purchaseReceives = pgTable("purchase_receives", {
   purchaseReceiveNumber: varchar("purchase_receive_number").notNull(),
   receivedDate: date("received_date").notNull(),
   vendorName: varchar("vendor_name"),
-  purchaseOrderId: uuid("purchase_order_id").references(() => purchaseOrders.id),
+  purchaseOrderId: uuid("purchase_order_id").references(
+    () => purchaseOrders.id,
+  ),
   purchaseOrderNumber: varchar("purchase_order_number"),
   warehouseId: uuid("warehouse_id").references(() => warehouses.id),
   transactionBinId: uuid("transaction_bin_id"),
@@ -1193,34 +1231,36 @@ export const purchaseReceiveItems = pgTable("purchase_receive_items", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const purchaseReceiveItemBatches = pgTable("purchase_receive_item_batches", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  purchaseReceiveItemId: uuid("purchase_receive_item_id")
-    .notNull()
-    .references(() => purchaseReceiveItems.id, { onDelete: "cascade" }),
-  productId: uuid("product_id")
-    .notNull()
-    .references(() => product.id),
-  warehouseId: uuid("warehouse_id").references(() => warehouses.id),
-  binId: uuid("bin_id"),
-  batchNo: varchar("batch_no").notNull(),
-  unitPack: varchar("unit_pack"),
-  mrp: numeric("mrp"),
-  ptr: numeric("ptr"),
-  quantity: numeric("quantity").notNull().default("0"),
-  focQty: numeric("foc_qty").notNull().default("0"),
-  manufactureBatchNumber: varchar("manufacture_batch_number"),
-  manufactureDate: date("manufacture_date"),
-  expiryDate: date("expiry_date").notNull(),
-  isDamaged: boolean("is_damaged").notNull().default(false),
-  damagedQty: numeric("damaged_qty").notNull().default("0"),
-  entityId: uuid("entity_id")
-    .notNull()
-    .references(() => organisationBranchMaster.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
+export const purchaseReceiveItemBatches = pgTable(
+  "purchase_receive_item_batches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    purchaseReceiveItemId: uuid("purchase_receive_item_id")
+      .notNull()
+      .references(() => purchaseReceiveItems.id, { onDelete: "cascade" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => product.id),
+    warehouseId: uuid("warehouse_id").references(() => warehouses.id),
+    binId: uuid("bin_id"),
+    batchNo: varchar("batch_no").notNull(),
+    unitPack: varchar("unit_pack"),
+    mrp: numeric("mrp"),
+    ptr: numeric("ptr"),
+    quantity: numeric("quantity").notNull().default("0"),
+    focQty: numeric("foc_qty").notNull().default("0"),
+    manufactureBatchNumber: varchar("manufacture_batch_number"),
+    manufactureDate: date("manufacture_date"),
+    expiryDate: date("expiry_date").notNull(),
+    isDamaged: boolean("is_damaged").notNull().default(false),
+    damagedQty: numeric("damaged_qty").notNull().default("0"),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => organisationBranchMaster.id),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+);
 
 // Organization Table (Multi-tenancy Master)
 // Branch Inventory Table
@@ -1228,7 +1268,9 @@ export const branchInventory = pgTable(
   "branch_inventory",
   {
     id: uuid().defaultRandom().primaryKey().notNull(),
-    entityId: uuid("entity_id").notNull().references(() => organisationBranchMaster.id),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => organisationBranchMaster.id),
     productId: uuid("product_id").notNull(),
     currentStock: integer("current_stock").default(0).notNull(),
     reservedStock: integer("reserved_stock").default(0),
@@ -1243,8 +1285,14 @@ export const branchInventory = pgTable(
       withTimezone: true,
       mode: "string",
     }).defaultNow(),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow(),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "string",
+    }).defaultNow(),
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+      mode: "string",
+    }).defaultNow(),
   },
   (table) => [
     index("idx_branch_inventory_expiry").using(
@@ -1277,7 +1325,9 @@ export const productBranchInventorySettings = pgTable(
   "product_branch_inventory_settings",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    entityId: uuid("entity_id").notNull().references(() => organisationBranchMaster.id),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => organisationBranchMaster.id),
     productId: uuid("product_id")
       .notNull()
       .references(() => product.id, { onDelete: "cascade" }),
@@ -1303,7 +1353,9 @@ export const settingsDistricts = pgTable("lsgd_districts", {
 export const settingsLocalBodies = pgTable("lsgd_local_bodies", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
-  districtId: uuid("district_id").notNull().references(() => settingsDistricts.id),
+  districtId: uuid("district_id")
+    .notNull()
+    .references(() => settingsDistricts.id),
   bodyType: varchar("body_type", { length: 50 }),
 });
 
@@ -1323,7 +1375,9 @@ export const settingsWards = pgTable("lsgd_wards", {
   id: uuid("id").primaryKey().defaultRandom(),
   wardNumber: integer("ward_number").notNull(),
   wardName: varchar("ward_name", { length: 255 }),
-  localBodyId: uuid("local_body_id").notNull().references(() => settingsLocalBodies.id),
+  localBodyId: uuid("local_body_id")
+    .notNull()
+    .references(() => settingsLocalBodies.id),
 });
 
 export const settingsLSGDSeedStage = pgTable("settings_lsgd_seed_stage", {
@@ -1335,7 +1389,9 @@ export const settingsLSGDSeedStage = pgTable("settings_lsgd_seed_stage", {
 // Unified Branches Table (Replacement for Locations)
 export const settingsBranches = pgTable("branches", {
   id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
   branchCode: varchar("branch_code", { length: 50 }).notNull(),
   systemId: varchar("system_id", { length: 50 }),
@@ -1398,17 +1454,30 @@ export const settingsBranches = pgTable("branches", {
   defaultTransactionSeriesId: uuid("default_transaction_series_id"),
 
   // Payment Stub Address (Independent for each branch)
-  hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false),
+  hasSeparatePaymentStubAddress: boolean(
+    "has_separate_payment_stub_address",
+  ).default(false),
   paymentStubAddress: text("payment_stub_address"),
-  paymentStubDistrictId: uuid("payment_stub_district_id").references(() => settingsDistricts.id),
-  paymentStubLocalBodyId: uuid("payment_stub_local_body_id").references(() => settingsLocalBodies.id),
-  paymentStubWardId: uuid("payment_stub_ward_id").references(() => settingsWards.id),
-  paymentStubAssemblyId: uuid("payment_stub_assembly_id").references(() => settingsAssemblies.id),
+  paymentStubDistrictId: uuid("payment_stub_district_id").references(
+    () => settingsDistricts.id,
+  ),
+  paymentStubLocalBodyId: uuid("payment_stub_local_body_id").references(
+    () => settingsLocalBodies.id,
+  ),
+  paymentStubWardId: uuid("payment_stub_ward_id").references(
+    () => settingsWards.id,
+  ),
+  paymentStubAssemblyId: uuid("payment_stub_assembly_id").references(
+    () => settingsAssemblies.id,
+  ),
 
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
-
 
 export const settingsTransactionSeries = pgTable("transaction_series", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -1424,16 +1493,19 @@ export const settingsTransactionSeries = pgTable("transaction_series", {
   branchCode: varchar("branch_code", { length: 50 }),
   warehouseCode: varchar("warehouse_code", { length: 50 }),
 });
-export const settingsBranchTransactionSeries = pgTable("branch_transaction_series", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  transactionSeriesId: uuid("transaction_series_id")
-    .notNull()
-    .references(() => settingsTransactionSeries.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  entityId: uuid("entity_id")
-    .notNull()
-    .references(() => organisationBranchMaster.id),
-});
+export const settingsBranchTransactionSeries = pgTable(
+  "branch_transaction_series",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    transactionSeriesId: uuid("transaction_series_id")
+      .notNull()
+      .references(() => settingsTransactionSeries.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => organisationBranchMaster.id),
+  },
+);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey(),
@@ -1457,7 +1529,9 @@ export const transactionalSequence = pgTable("transactional_sequences", {
   nextNumber: integer("next_number").notNull().default(1),
   suffix: varchar("suffix", { length: 20 }).notNull().default(""),
   padding: integer("padding").notNull().default(6),
-  entityId: uuid("entity_id").notNull().references(() => organisationBranchMaster.id),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -1510,7 +1584,6 @@ export const batchTransactions = pgTable("batch_transactions", {
   transDate: timestamp("trans_date").notNull().defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 });
-
 
 // HSN/SAC Codes Table
 export const hsnSacCodes = pgTable(
@@ -1567,25 +1640,22 @@ export const accountsManualJournals = pgTable("manual_journals", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const accountsManualJournalItems = pgTable(
-  "manual_journal_items",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    manualJournalId: uuid("manual_journal_id")
-      .notNull()
-      .references(() => accountsManualJournals.id, { onDelete: "cascade" }),
-    entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
-    accountId: uuid("account_id").notNull(),
-    description: text("description"),
-    contactId: uuid("contact_id"),
-    contactType: varchar("contact_type", { length: 50 }),
-    contactName: varchar("contact_name", { length: 255 }),
-    debit: numeric("debit", { precision: 15, scale: 2 }).default("0.00"),
-    credit: numeric("credit", { precision: 15, scale: 2 }).default("0.00"),
-    sortOrder: integer("sort_order").default(0),
-    createdAt: timestamp("created_at").defaultNow(),
-  },
-);
+export const accountsManualJournalItems = pgTable("manual_journal_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  manualJournalId: uuid("manual_journal_id")
+    .notNull()
+    .references(() => accountsManualJournals.id, { onDelete: "cascade" }),
+  entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
+  accountId: uuid("account_id").notNull(),
+  description: text("description"),
+  contactId: uuid("contact_id"),
+  contactType: varchar("contact_type", { length: 50 }),
+  contactName: varchar("contact_name", { length: 255 }),
+  debit: numeric("debit", { precision: 15, scale: 2 }).default("0.00"),
+  credit: numeric("credit", { precision: 15, scale: 2 }).default("0.00"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
 
 export const accountsManualJournalAttachments = pgTable(
   "manual_journal_attachments",
@@ -1639,51 +1709,45 @@ export const accountsJournalTemplates = pgTable("journal_templates", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const accountsJournalTemplateItems = pgTable(
-  "journal_template_items",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    templateId: uuid("template_id")
-      .notNull()
-      .references(() => accountsJournalTemplates.id, { onDelete: "cascade" }),
-    entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
-    accountId: uuid("account_id").notNull(),
+export const accountsJournalTemplateItems = pgTable("journal_template_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  templateId: uuid("template_id")
+    .notNull()
+    .references(() => accountsJournalTemplates.id, { onDelete: "cascade" }),
+  entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
+  accountId: uuid("account_id").notNull(),
 
-    description: text("description"),
-    contactId: uuid("contact_id"),
-    contactType: varchar("contact_type", { length: 50 }),
-    type: varchar("type", { length: 50 }),
-    debit: numeric("debit", { precision: 15, scale: 2 }).default("0.00"),
-    credit: numeric("credit", { precision: 15, scale: 2 }).default("0.00"),
-    sortOrder: integer("sort_order").default(0),
-  },
-);
+  description: text("description"),
+  contactId: uuid("contact_id"),
+  contactType: varchar("contact_type", { length: 50 }),
+  type: varchar("type", { length: 50 }),
+  debit: numeric("debit", { precision: 15, scale: 2 }).default("0.00"),
+  credit: numeric("credit", { precision: 15, scale: 2 }).default("0.00"),
+  sortOrder: integer("sort_order").default(0),
+});
 
-export const accountsRecurringJournals = pgTable(
-  "recurring_journals",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
-    profileName: varchar("profile_name", { length: 255 }).notNull(),
+export const accountsRecurringJournals = pgTable("recurring_journals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
+  profileName: varchar("profile_name", { length: 255 }).notNull(),
 
-    repeatEvery: varchar("repeat_every", { length: 50 }).notNull(),
-    interval: integer("interval").default(1),
-    startDate: date("start_date").notNull(),
-    endDate: date("end_date"),
-    neverExpires: boolean("never_expires").default(true),
-    referenceNumber: varchar("reference_number", { length: 255 }),
-    notes: text("notes"),
-    currencyCode: varchar("currency_code", { length: 10 }).default("INR"),
-    reportingMethod: varchar("reporting_method", { length: 50 }).default(
-      "accrual_and_cash",
-    ),
-    createdById: uuid("created_by"),
-    status: varchar("status", { length: 50 }).default("active"),
-    lastGeneratedDate: date("last_generated_date"),
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow(),
-  },
-);
+  repeatEvery: varchar("repeat_every", { length: 50 }).notNull(),
+  interval: integer("interval").default(1),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  neverExpires: boolean("never_expires").default(true),
+  referenceNumber: varchar("reference_number", { length: 255 }),
+  notes: text("notes"),
+  currencyCode: varchar("currency_code", { length: 10 }).default("INR"),
+  reportingMethod: varchar("reporting_method", { length: 50 }).default(
+    "accrual_and_cash",
+  ),
+  createdById: uuid("created_by"),
+  status: varchar("status", { length: 50 }).default("active"),
+  lastGeneratedDate: date("last_generated_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
 export const accountsRecurringJournalItems = pgTable(
   "recurring_journal_items",
@@ -1704,8 +1768,6 @@ export const accountsRecurringJournalItems = pgTable(
   },
 );
 
-
-
 // Transaction Locking Table
 export const transactionLocks = pgTable(
   "transaction_locks",
@@ -1721,9 +1783,7 @@ export const transactionLocks = pgTable(
     reason: text("reason"),
     updatedAt: timestamp("updated_at").defaultNow(),
   },
-  (table) => [
-    unique("idx_org_module_lock").on(table.orgId, table.moduleName),
-  ]
+  (table) => [unique("idx_org_module_lock").on(table.orgId, table.moduleName)],
 );
 
 // =====================================
@@ -1787,17 +1847,20 @@ export const picklistBatchAllocation = pgTable("picklist_batch_allocation", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const inventoryAdjustmentReasons = pgTable("inventory_adjustment_reasons", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
-  name: varchar("name").notNull(),
-  code: varchar("code"),
-  reasonType: varchar("reason_type").default("both"),
-  isActive: boolean("is_active").notNull().default(true),
-  sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const inventoryAdjustmentReasons = pgTable(
+  "inventory_adjustment_reasons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
+    name: varchar("name").notNull(),
+    code: varchar("code"),
+    reasonType: varchar("reason_type").default("both"),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+);
 
 export const inventoryAdjustments = pgTable("inventory_adjustments", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -1855,90 +1918,105 @@ export const inventoryAdjustmentItems = pgTable("inventory_adjustment_items", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const inventoryAdjustmentItemBatches = pgTable("inventory_adjustment_item_batches", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  adjustmentId: uuid("adjustment_id")
-    .notNull()
-    .references(() => inventoryAdjustments.id, { onDelete: "cascade" }),
-  adjustmentItemId: uuid("adjustment_item_id")
-    .notNull()
-    .references(() => inventoryAdjustmentItems.id, { onDelete: "cascade" }),
-  entityId: uuid("entity_id")
-    .notNull()
-    .references(() => organisationBranchMaster.id),
-  productId: uuid("product_id")
-    .notNull()
-    .references(() => product.id),
-  warehouseId: uuid("warehouse_id").references(() => warehouses.id),
-  binId: uuid("bin_id"),
-  batchId: uuid("batch_id").references(() => batches.id),
-  batchReference: varchar("batch_reference"),
-  quantityIn: numeric("quantity_in").notNull().default("0"),
-  quantityOut: numeric("quantity_out").notNull().default("0"),
-  rate: numeric("rate"),
-  batchStockLayerId: uuid("batch_stock_layer_id").references(() => batchStockLayers.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const inventoryAdjustmentItemBatches = pgTable(
+  "inventory_adjustment_item_batches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    adjustmentId: uuid("adjustment_id")
+      .notNull()
+      .references(() => inventoryAdjustments.id, { onDelete: "cascade" }),
+    adjustmentItemId: uuid("adjustment_item_id")
+      .notNull()
+      .references(() => inventoryAdjustmentItems.id, { onDelete: "cascade" }),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => organisationBranchMaster.id),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => product.id),
+    warehouseId: uuid("warehouse_id").references(() => warehouses.id),
+    binId: uuid("bin_id"),
+    batchId: uuid("batch_id").references(() => batches.id),
+    batchReference: varchar("batch_reference"),
+    quantityIn: numeric("quantity_in").notNull().default("0"),
+    quantityOut: numeric("quantity_out").notNull().default("0"),
+    rate: numeric("rate"),
+    batchStockLayerId: uuid("batch_stock_layer_id").references(
+      () => batchStockLayers.id,
+    ),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+);
 
-export const inventoryAdjustmentAccountEntries = pgTable("inventory_adjustment_account_entries", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  adjustmentId: uuid("adjustment_id")
-    .notNull()
-    .references(() => inventoryAdjustments.id, { onDelete: "cascade" }),
-  entityId: uuid("entity_id")
-    .notNull()
-    .references(() => organisationBranchMaster.id),
-  accountId: uuid("account_id")
-    .notNull()
-    .references(() => account.id),
-  debit: numeric("debit").notNull().default("0"),
-  credit: numeric("credit").notNull().default("0"),
-  description: text("description"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const inventoryAdjustmentAccountEntries = pgTable(
+  "inventory_adjustment_account_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    adjustmentId: uuid("adjustment_id")
+      .notNull()
+      .references(() => inventoryAdjustments.id, { onDelete: "cascade" }),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => organisationBranchMaster.id),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => account.id),
+    debit: numeric("debit").notNull().default("0"),
+    credit: numeric("credit").notNull().default("0"),
+    description: text("description"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+);
 
-export const inventoryAdjustmentAttachments = pgTable("inventory_adjustment_attachments", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  entityId: uuid("entity_id")
-    .notNull()
-    .references(() => organisationBranchMaster.id),
-  adjustmentId: uuid("adjustment_id")
-    .notNull()
-    .references(() => inventoryAdjustments.id, { onDelete: "cascade" }),
-  fileName: text("file_name").notNull(),
-  fileUrl: text("file_url"),
-  storageBucket: text("storage_bucket"),
-  storagePath: text("storage_path"),
-  mimeType: text("mime_type"),
-  fileSizeBytes: bigint("file_size_bytes", { mode: "number" }),
-  fileHash: text("file_hash"),
-  uploadedBy: uuid("uploaded_by").references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const inventoryAdjustmentAttachments = pgTable(
+  "inventory_adjustment_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => organisationBranchMaster.id),
+    adjustmentId: uuid("adjustment_id")
+      .notNull()
+      .references(() => inventoryAdjustments.id, { onDelete: "cascade" }),
+    fileName: text("file_name").notNull(),
+    fileUrl: text("file_url"),
+    storageBucket: text("storage_bucket"),
+    storagePath: text("storage_path"),
+    mimeType: text("mime_type"),
+    fileSizeBytes: bigint("file_size_bytes", { mode: "number" }),
+    fileHash: text("file_hash"),
+    uploadedBy: uuid("uploaded_by").references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+);
 
-export const inventoryAdjustmentValueItems = pgTable("inventory_adjustment_value_items", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  adjustmentId: uuid("adjustment_id")
-    .notNull()
-    .references(() => inventoryAdjustments.id, { onDelete: "cascade" }),
-  entityId: uuid("entity_id")
-    .notNull()
-    .references(() => organisationBranchMaster.id),
-  productId: uuid("product_id")
-    .notNull()
-    .references(() => product.id),
-  batchId: uuid("batch_id").references(() => batches.id),
-  batchStockLayerId: uuid("batch_stock_layer_id").references(() => batchStockLayers.id),
-  currentValue: numeric("current_value").notNull().default("0"),
-  changedValue: numeric("changed_value").notNull().default("0"),
-  adjustedValue: numeric("adjusted_value").notNull().default("0"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
+export const inventoryAdjustmentValueItems = pgTable(
+  "inventory_adjustment_value_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    adjustmentId: uuid("adjustment_id")
+      .notNull()
+      .references(() => inventoryAdjustments.id, { onDelete: "cascade" }),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => organisationBranchMaster.id),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => product.id),
+    batchId: uuid("batch_id").references(() => batches.id),
+    batchStockLayerId: uuid("batch_stock_layer_id").references(
+      () => batchStockLayers.id,
+    ),
+    currentValue: numeric("current_value").notNull().default("0"),
+    changedValue: numeric("changed_value").notNull().default("0"),
+    adjustedValue: numeric("adjusted_value").notNull().default("0"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+);
 
 // =====================================
 // PACKAGING MODULE
@@ -1953,18 +2031,35 @@ export const inventoryPackages = pgTable("inventory_packages", {
     .notNull()
     .references(() => customer.id),
   packageNumber: varchar("package_number").notNull().unique(),
-  packageDate: date("package_date").default(sql`CURRENT_DATE`).notNull(),
-  dimensionLength: numeric("dimension_length", { precision: 15, scale: 2 }).default("0"),
-  dimensionWidth: numeric("dimension_width", { precision: 15, scale: 2 }).default("0"),
-  dimensionHeight: numeric("dimension_height", { precision: 15, scale: 2 }).default("0"),
+  packageDate: date("package_date")
+    .default(sql`CURRENT_DATE`)
+    .notNull(),
+  dimensionLength: numeric("dimension_length", {
+    precision: 15,
+    scale: 2,
+  }).default("0"),
+  dimensionWidth: numeric("dimension_width", {
+    precision: 15,
+    scale: 2,
+  }).default("0"),
+  dimensionHeight: numeric("dimension_height", {
+    precision: 15,
+    scale: 2,
+  }).default("0"),
   dimensionUnit: varchar("dimension_unit", { length: 10 }).default("cm"),
   weight: numeric("weight", { precision: 15, scale: 2 }).default("0"),
   weightUnit: varchar("weight_unit", { length: 10 }).default("kg"),
   isManualMode: boolean("is_manual_mode").default(false),
   notes: text("notes"),
   status: varchar("status", { length: 50 }).default("Not Shipped"),
-  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow(),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "string",
+  }).defaultNow(),
+  updatedAt: timestamp("updated_at", {
+    withTimezone: true,
+    mode: "string",
+  }).defaultNow(),
   isDelete: boolean("is_delete").notNull().default(false),
   createdBy: uuid("created_by"),
 });
@@ -1980,7 +2075,9 @@ export const inventoryPackageItems = pgTable("inventory_package_items", {
   productId: uuid("product_id")
     .notNull()
     .references(() => product.id),
-  quantity: numeric("quantity", { precision: 15, scale: 3 }).default("0").notNull(),
+  quantity: numeric("quantity", { precision: 15, scale: 3 })
+    .default("0")
+    .notNull(),
   salesOrderId: uuid("sales_order_id").references(() => salesOrder.id),
   picklistId: uuid("picklist_id").references(() => inventoryPicklists.id),
   batchNo: varchar("batch_no"),
@@ -1988,23 +2085,28 @@ export const inventoryPackageItems = pgTable("inventory_package_items", {
   foc: smallint("foc"),
 });
 
-export const inventoryPackageSalesOrders = pgTable("inventory_package_sales_orders", {
-  packageId: uuid("package_id")
-    .notNull()
-    .references(() => inventoryPackages.id, { onDelete: "cascade" }),
-  salesOrderId: uuid("sales_order_id")
-    .notNull()
-    .references(() => salesOrder.id),
-  entityId: uuid("entity_id")
-    .notNull()
-    .references(() => organisationBranchMaster.id),
-  binLocation: text("bin_location"),
-  batchNo: varchar("batch_no", { length: 100 }),
-}, (table) => [
-  unique("inventory_package_sales_orders_pkey").on(table.packageId, table.salesOrderId),
-]);
-
-
+export const inventoryPackageSalesOrders = pgTable(
+  "inventory_package_sales_orders",
+  {
+    packageId: uuid("package_id")
+      .notNull()
+      .references(() => inventoryPackages.id, { onDelete: "cascade" }),
+    salesOrderId: uuid("sales_order_id")
+      .notNull()
+      .references(() => salesOrder.id),
+    entityId: uuid("entity_id")
+      .notNull()
+      .references(() => organisationBranchMaster.id),
+    binLocation: text("bin_location"),
+    batchNo: varchar("batch_no", { length: 100 }),
+  },
+  (table) => [
+    unique("inventory_package_sales_orders_pkey").on(
+      table.packageId,
+      table.salesOrderId,
+    ),
+  ],
+);
 
 export const auditLogs = pgTable("audit_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -2013,9 +2115,13 @@ export const auditLogs = pgTable("audit_logs", {
   action: varchar("action", { length: 50 }).notNull(),
   oldValues: jsonb("old_values"),
   newValues: jsonb("new_values"),
-  userId: uuid("user_id").notNull().default("00000000-0000-0000-0000-000000000000"),
+  userId: uuid("user_id")
+    .notNull()
+    .default("00000000-0000-0000-0000-000000000000"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  orgId: uuid("org_id").notNull().default("00000000-0000-0000-0000-000000000000"),
+  orgId: uuid("org_id")
+    .notNull()
+    .default("00000000-0000-0000-0000-000000000000"),
   entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
   actorName: text("actor_name").notNull().default("system"),
 
@@ -2035,9 +2141,13 @@ export const auditLogsArchive = pgTable("audit_logs_archive", {
   action: varchar("action", { length: 50 }).notNull(),
   oldValues: jsonb("old_values"),
   newValues: jsonb("new_values"),
-  userId: uuid("user_id").notNull().default("00000000-0000-0000-0000-000000000000"),
+  userId: uuid("user_id")
+    .notNull()
+    .default("00000000-0000-0000-0000-000000000000"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  orgId: uuid("org_id").notNull().default("00000000-0000-0000-0000-000000000000"),
+  orgId: uuid("org_id")
+    .notNull()
+    .default("00000000-0000-0000-0000-000000000000"),
   entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
   actorName: text("actor_name").notNull().default("system"),
 
@@ -2048,7 +2158,7 @@ export const auditLogsArchive = pgTable("audit_logs_archive", {
   source: text("source").notNull().default("system"),
   moduleName: text("module_name"),
   requestId: text("request_id"),
-  archivedAt: timestamp("archived_at", { withTimezone: true }).notNull().defaultNow(),
+  archivedAt: timestamp("archived_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
-
-

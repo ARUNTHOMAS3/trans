@@ -1,24 +1,24 @@
-.claude/settings.local.json
-.flutter-plugins-dependencies
-.gitignore
-Invoice backend Connection.docx
-backend/drizzle/schema.ts
-backend/src/db/schema.ts
-backend/src/modules/inventory/services/packages.service.ts
-backend/src/modules/sales/controllers/sales.controller.ts
-backend/src/modules/sales/services/sales.service.ts
-current schema.md
-handoff.txt
-lib/core/routing/app_router.dart
-lib/modules/purchases/bills/presentation/purchases_bills_create.dart
-lib/modules/purchases/purchase_receives/presentation/purchases_purchase_receives_create.dart
-lib/modules/sales/controllers/sales_order_controller.dart
-lib/modules/sales/models/sales_order_model.dart
-lib/modules/sales/presentation/sales_invoice_create.dart
-lib/modules/sales/presentation/sales_invoice_list.dart
-lib/modules/sales/presentation/sales_order_create.dart
-lib/modules/sales/presentation/widgets/sales_order_item_row.dart
-lib/modules/sales/services/sales_order_api_service.dart
-lib/shared/widgets/inputs/dropdown_input.dart
-log.md
-pubspec.lock
+Files Edited/Modified Today (2026-05-24):
+1. backend/drizzle/relations.ts
+2. backend/drizzle/schema.ts
+3. backend/src/db/schema.ts
+4. backend/src/modules/inventory/services/packages.service.ts
+5. backend/src/modules/purchases/purchase-orders/services/purchase-orders.service.ts
+6. backend/src/modules/sales/services/sales.service.ts
+7. backend/tsconfig.json
+8. lib/core/models/org_settings_model.dart
+9. lib/core/routing/app_router.dart
+10. lib/core/routing/app_routes.dart
+11. lib/modules/purchases/purchase_orders/notifiers/purchase_order_notifier.dart
+12. lib/modules/purchases/purchase_orders/presentation/purchases_purchase_orders_create.dart
+13. lib/modules/sales/controllers/sales_order_controller.dart
+14. lib/modules/sales/models/sales_order_item_model.dart
+15. lib/modules/sales/models/sales_order_model.dart
+16. lib/modules/sales/presentation/sales_invoice_create.dart
+17. lib/modules/sales/presentation/sales_invoice_list.dart
+18. lib/modules/sales/presentation/sales_order_create.dart
+19. lib/modules/sales/presentation/sales_order_list.dart
+
+Deleted Files:
+1. Invoice backend Connection.docx
+2. temp.txt
