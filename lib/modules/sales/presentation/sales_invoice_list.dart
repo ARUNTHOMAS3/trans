@@ -4434,69 +4434,72 @@ class _SalesInvoiceOverviewScreenState
                 ),
                 pw.Container(height: 0.5, color: PdfColors.black),
 
-                // 6. Bottom Totals Section (Using Table to guarantee matching height without infinite constraint crash)
-                pw.Table(
-                  columnWidths: const {
-                    0: pw.FixedColumnWidth(309),
-                    1: pw.FixedColumnWidth(214),
-                  },
-                  border: const pw.TableBorder(
-                    verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
-                  ),
-                  children: [
-                    pw.TableRow(
-                      children: [
-                        // Left column: Total in words
-                        pw.Container(
-                          padding: const pw.EdgeInsets.all(6),
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.Text('Total In Words', style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                              pw.SizedBox(height: 4),
-                              pw.Text(
-                                'Indian Rupee ${_numberToWordsIndian(order.total)}',
-                                style: pw.TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: pw.FontWeight.bold,
-                                  fontStyle: pw.FontStyle.italic,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Right column: Totals table & Signature
-                        pw.Container(
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                            children: [
-                              _pwTotalRowRight('Sub Total', _currency(order.subTotal)),
-                              if (isIgst) ...[
-                                _pwTotalRowRight('IGST${totalTaxRate.toStringAsFixed(1)} (${totalTaxRate.toStringAsFixed(1)}%)', _currency(order.taxTotal)),
-                              ] else ...[
-                                _pwTotalRowRight('CGST${cgstPct.toStringAsFixed(1)} (${cgstPct.toStringAsFixed(1)}%)', _currency(order.taxTotal / 2)),
-                                _pwTotalRowRight('SGST${sgstPct.toStringAsFixed(1)} (${sgstPct.toStringAsFixed(1)}%)', _currency(order.taxTotal / 2)),
-                              ],
-                              _pwTotalRowRight('Rounding', '0.00'),
-                              _pwTotalRowRight('Total', '₹' + _currency(order.total), isBold: true),
-                              _pwTotalRowRight('Balance Due', '₹' + _currency(order.total), isBold: true),
-                              pw.Container(
-                                height: 45,
-                                alignment: pw.Alignment.bottomCenter,
-                                padding: const pw.EdgeInsets.only(bottom: 4),
-                                decoration: const pw.BoxDecoration(
-                                  border: pw.Border(
-                                    top: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                // 6. Bottom Totals Section (Using Expanded to fill page height and connect all borders to the bottom)
+                pw.Expanded(
+                  child: pw.Table(
+                    columnWidths: const {
+                      0: pw.FixedColumnWidth(309),
+                      1: pw.FixedColumnWidth(214),
+                    },
+                    border: const pw.TableBorder(
+                      verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                    ),
+                    children: [
+                      pw.TableRow(
+                        children: [
+                          // Left column: Total in words
+                          pw.Container(
+                            padding: const pw.EdgeInsets.all(6),
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text('Total In Words', style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+                                pw.SizedBox(height: 4),
+                                pw.Text(
+                                  'Indian Rupee ${_numberToWordsIndian(order.total)}',
+                                  style: pw.TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: pw.FontWeight.bold,
+                                    fontStyle: pw.FontStyle.italic,
                                   ),
                                 ),
-                                child: pw.Text('Authorized Signature', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          // Right column: Totals table & Signature
+                          pw.Container(
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                              children: [
+                                _pwTotalRowRight('Sub Total', _currency(order.subTotal)),
+                                if (isIgst) ...[
+                                  _pwTotalRowRight('IGST${totalTaxRate.toStringAsFixed(1)} (${totalTaxRate.toStringAsFixed(1)}%)', _currency(order.taxTotal)),
+                                ] else ...[
+                                  _pwTotalRowRight('CGST${cgstPct.toStringAsFixed(1)} (${cgstPct.toStringAsFixed(1)}%)', _currency(order.taxTotal / 2)),
+                                  _pwTotalRowRight('SGST${sgstPct.toStringAsFixed(1)} (${sgstPct.toStringAsFixed(1)}%)', _currency(order.taxTotal / 2)),
+                                ],
+                                _pwTotalRowRight('Rounding', '0.00'),
+                                _pwTotalRowRight('Total', '₹' + _currency(order.total), isBold: true),
+                                _pwTotalRowRight('Balance Due', '₹' + _currency(order.total), isBold: true),
+                                pw.Expanded(
+                                  child: pw.Container(
+                                    alignment: pw.Alignment.bottomCenter,
+                                    padding: const pw.EdgeInsets.only(bottom: 4),
+                                    decoration: const pw.BoxDecoration(
+                                      border: pw.Border(
+                                        top: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                      ),
+                                    ),
+                                    child: pw.Text('Authorized Signature', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
