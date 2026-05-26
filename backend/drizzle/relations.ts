@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { products, batchMaster, organisationBranchMaster, purchaseReceives, binMaster, warehouses, taxGroups, taxGroupRates, taxRates, batchStockLayers, vendors, invoiceMaster, transactionLocks, billItemBatches, billItems, purchaseReceiveItems, countries, states, customers, salesPaymentLinks, invoiceItems, purchaseReceiveItemBatches, purchaseOrderItems, accounts, purchaseOrders, inventoryAdjustments, inventoryAdjustmentValueItems, purchaseOrderAttachments, brands, buyingRules, categories, manufacturers, racks, reorderTerms, drugSchedules, storageConditions, units, salesOrders, paymentTerms, priceLists, tdsRates, inventoryAdjustmentAccountEntries, invoiceItemBatches, bills, billLandedCosts, fiscalYears, manualJournals, recurringJournals, journalNumberSettings, journalTemplates, invoiceSalesOrders, salesOrderAttachments, inventoryAdjustmentItems, invoiceShipments, inventoryShipments, manualJournalAttachments, accountTransactions, branchTransactionSeries, transactionSeries, contents, productContents, drugStrengths, branchUsers, users, lsgdLocalBodies, lsgdWards, vendorContactPersons, picklistBatchAllocation, picklistItems, carrier, lsgdDistricts, auditLogsArchive, salesPayments, invoiceAttachments, salesReturns, salesReturnReceives, compositeItemParts, compositeItems, vendorBankAccounts, auditLogs, tdsSections, uqc, timezones, tdsGroups, tdsGroupItems, recurringJournalItems, journalTemplateItems, inventoryAdjustmentAttachments, manualJournalItems, inventoryPackages, transferOrderMaster, branches, currencies, productVendorMappings, customerContactPersons, creditNotes, assembliesConstituencies, branding, zoneMaster, zoneLevels, transferOrderItems, inventoryPackageItems, picklistMaster, transactionalSequences, roles, organization, userBranchAccess, inventoryAdjustmentReasons, inventoryAdjustmentItemBatches, creditNoteItems, businessTypes, gstTreatments, gstinRegistrationTypes, branchUserAccess, reportingTags, creditNoteItemBatches, salesReturnReceiveItems, salesReturnItems, compositeItemBranchInventorySettings, productBranchInventorySettings, transferOrderSourceBatches, transferOrderDestinationBatches, transferOrderLogs, invoicePackages, salesReturnReceiveBatches, inventoryMoveOrders, inventoryMoveOrderItems, inventoryMoveOrderSourceBatches, inventoryMoveOrderDestinationBins, moveOrderAttachments, paymentReceivedAllocations, paymentsReceived, salesOrderItems, priceListItems, branchPriceListAssignments, priceListVolumeRanges, productEntitySettings, productBinMappings, manualJournalTagMappings, inventoryShipmentSalesOrders, inventoryShipmentPackages, inventoryPackageSalesOrders } from "./schema";
+import { products, batchMaster, organisationBranchMaster, purchaseReceives, binMaster, warehouses, taxGroups, taxGroupRates, taxRates, batchStockLayers, vendors, invoiceMaster, transactionLocks, billItemBatches, billItems, purchaseReceiveItems, countries, states, customers, salesPaymentLinks, purchaseReceiveItemBatches, purchaseOrderItems, accounts, purchaseOrders, invoiceItems, inventoryAdjustments, inventoryAdjustmentValueItems, purchaseOrderAttachments, brands, buyingRules, categories, manufacturers, racks, reorderTerms, drugSchedules, storageConditions, units, salesOrders, paymentTerms, priceLists, tdsRates, inventoryAdjustmentAccountEntries, invoiceItemBatches, bills, billLandedCosts, fiscalYears, manualJournals, recurringJournals, journalNumberSettings, journalTemplates, invoiceSalesOrders, salesOrderAttachments, inventoryAdjustmentItems, invoiceShipments, inventoryShipments, manualJournalAttachments, accountTransactions, branchTransactionSeries, transactionSeries, contents, productContents, drugStrengths, branchUsers, users, lsgdLocalBodies, lsgdWards, vendorContactPersons, picklistBatchAllocation, picklistItems, carrier, lsgdDistricts, auditLogsArchive, salesPayments, invoiceAttachments, salesReturns, salesReturnReceives, compositeItemParts, compositeItems, vendorBankAccounts, auditLogs, tdsSections, uqc, timezones, tdsGroups, tdsGroupItems, recurringJournalItems, journalTemplateItems, inventoryAdjustmentAttachments, manualJournalItems, inventoryPackages, transferOrderMaster, branches, currencies, productVendorMappings, customerContactPersons, creditNotes, assembliesConstituencies, branding, zoneMaster, zoneLevels, transferOrderItems, inventoryPackageItems, picklistMaster, transactionalSequences, roles, organization, userBranchAccess, inventoryAdjustmentReasons, inventoryAdjustmentItemBatches, creditNoteItems, businessTypes, gstTreatments, gstinRegistrationTypes, branchUserAccess, reportingTags, creditNoteItemBatches, salesReturnReceiveItems, salesReturnItems, compositeItemBranchInventorySettings, productBranchInventorySettings, transferOrderSourceBatches, transferOrderDestinationBatches, transferOrderLogs, invoicePackages, salesReturnReceiveBatches, inventoryMoveOrders, inventoryMoveOrderItems, inventoryMoveOrderSourceBatches, inventoryMoveOrderDestinationBins, moveOrderAttachments, paymentReceivedAllocations, paymentsReceived, salesOrderItems, priceListItems, branchPriceListAssignments, priceListVolumeRanges, productEntitySettings, productBinMappings, manualJournalTagMappings, inventoryShipmentSalesOrders, inventoryShipmentPackages, inventoryPackageSalesOrders } from "./schema";
 
 export const batchMasterRelations = relations(batchMaster, ({one, many}) => ({
 	product: one(products, {
@@ -527,14 +527,6 @@ export const customersRelations = relations(customers, ({one, many}) => ({
 	paymentsReceiveds: many(paymentsReceived),
 }));
 
-export const invoiceItemsRelations = relations(invoiceItems, ({one, many}) => ({
-	invoiceMaster: one(invoiceMaster, {
-		fields: [invoiceItems.invoiceId],
-		references: [invoiceMaster.id]
-	}),
-	invoiceItemBatches: many(invoiceItemBatches),
-}));
-
 export const purchaseReceiveItemBatchesRelations = relations(purchaseReceiveItemBatches, ({one}) => ({
 	binMaster: one(binMaster, {
 		fields: [purchaseReceiveItemBatches.binId],
@@ -668,6 +660,14 @@ export const purchaseOrdersRelations = relations(purchaseOrders, ({one, many}) =
 		references: [warehouses.id],
 		relationName: "purchaseOrders_warehouseId_warehouses_id"
 	}),
+}));
+
+export const invoiceItemsRelations = relations(invoiceItems, ({one, many}) => ({
+	invoiceMaster: one(invoiceMaster, {
+		fields: [invoiceItems.invoiceId],
+		references: [invoiceMaster.id]
+	}),
+	invoiceItemBatches: many(invoiceItemBatches),
 }));
 
 export const inventoryAdjustmentValueItemsRelations = relations(inventoryAdjustmentValueItems, ({one}) => ({

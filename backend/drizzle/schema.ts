@@ -215,6 +215,7 @@ export const invoiceMaster = pgTable("invoice_master", {
 	inventoryFlowType: varchar("inventory_flow_type", { length: 50 }),
 	status: varchar({ length: 30 }).default('draft'),
 	isBatchAllocated: boolean("is_batch_allocated").default(false),
+	placeOfSupply: varchar("place_of_supply", { length: 100 }),
 	createdBy: uuid("created_by"),
 	approvedBy: uuid("approved_by"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
@@ -396,32 +397,6 @@ export const paymentTerms = pgTable("payment_terms", {
 	pgPolicy("Allow all operations on payment_terms", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
 ]);
 
-export const invoiceItems = pgTable("invoice_items", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	invoiceId: uuid("invoice_id").notNull(),
-	productId: uuid("product_id").notNull(),
-	description: text(),
-	quantity: numeric({ precision: 15, scale:  3 }).notNull(),
-	rate: numeric({ precision: 15, scale:  2 }).notNull(),
-	discountType: varchar("discount_type", { length: 20 }),
-	discountValue: numeric("discount_value", { precision: 15, scale:  2 }).default('0'),
-	taxId: uuid("tax_id"),
-	taxPercentage: numeric("tax_percentage", { precision: 8, scale:  2 }).default('0'),
-	taxableAmount: numeric("taxable_amount", { precision: 15, scale:  2 }).default('0'),
-	taxAmount: numeric("tax_amount", { precision: 15, scale:  2 }).default('0'),
-	lineTotal: numeric("line_total", { precision: 15, scale:  2 }).default('0'),
-	focQuantity: numeric("foc_quantity", { precision: 15, scale:  3 }).default('0'),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	hsnCode: numeric("hsn_code").notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.invoiceId],
-			foreignColumns: [invoiceMaster.id],
-			name: "invoice_items_invoice_id_fkey"
-		}).onDelete("cascade"),
-]);
-
 export const racks = pgTable("racks", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	rackCode: varchar("rack_code", { length: 50 }).notNull(),
@@ -531,6 +506,33 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
 			columns: [table.purchaseOrderId],
 			foreignColumns: [purchaseOrders.id],
 			name: "purchases_purchase_order_items_purchase_order_id_fkey"
+		}).onDelete("cascade"),
+]);
+
+export const invoiceItems = pgTable("invoice_items", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	invoiceId: uuid("invoice_id").notNull(),
+	productId: uuid("product_id").notNull(),
+	description: text(),
+	quantity: numeric({ precision: 15, scale:  3 }).notNull(),
+	rate: numeric({ precision: 15, scale:  2 }).notNull(),
+	discountType: varchar("discount_type", { length: 20 }),
+	discountValue: numeric("discount_value", { precision: 15, scale:  2 }).default('0'),
+	taxId: uuid("tax_id"),
+	taxPercentage: numeric("tax_percentage", { precision: 8, scale:  2 }).default('0'),
+	taxableAmount: numeric("taxable_amount", { precision: 15, scale:  2 }).default('0'),
+	taxAmount: numeric("tax_amount", { precision: 15, scale:  2 }).default('0'),
+	lineTotal: numeric("line_total", { precision: 15, scale:  2 }).default('0'),
+	focQuantity: numeric("foc_quantity", { precision: 15, scale:  3 }).default('0'),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	hsnCode: numeric("hsn_code").notNull(),
+	accounts: uuid(),
+}, (table) => [
+	foreignKey({
+			columns: [table.invoiceId],
+			foreignColumns: [invoiceMaster.id],
+			name: "invoice_items_invoice_id_fkey"
 		}).onDelete("cascade"),
 ]);
 
@@ -2005,7 +2007,7 @@ export const tdsGroups = pgTable("tds_groups", {
 	pgPolicy("Allow all operations on tds_groups", { as: "permissive", for: "all", to: ["public"], using: sql`true`, withCheck: sql`true`  }),
 ]);
 
-export const countries = pgTable("countries", {
+export const countries: any = pgTable("countries", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 100 }).notNull(),
 	fullLabel: varchar("full_label", { length: 255 }),
@@ -2017,7 +2019,7 @@ export const countries = pgTable("countries", {
 }, (table) => [
 	foreignKey({
 			columns: [table.primaryTimezoneId],
-			foreignColumns: [timezones.id],
+			foreignColumns: [timezones.id as any],
 			name: "countries_primary_timezone_id_fkey"
 		}).onDelete("set null"),
 	unique("countries_name_key").on(table.name),
@@ -2656,7 +2658,7 @@ export const customerContactPersons = pgTable("customer_contact_persons", {
 		}),
 ]);
 
-export const timezones = pgTable("timezones", {
+export const timezones: any = pgTable("timezones", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 150 }).notNull(),
 	tzdbName: varchar("tzdb_name", { length: 100 }).notNull(),
@@ -2668,7 +2670,7 @@ export const timezones = pgTable("timezones", {
 }, (table) => [
 	foreignKey({
 			columns: [table.countryId],
-			foreignColumns: [countries.id],
+			foreignColumns: [countries.id as any],
 			name: "timezones_country_id_fkey"
 		}).onDelete("set null"),
 	unique("timezones_name_key").on(table.name),
@@ -2788,7 +2790,7 @@ export const businessTypes = pgTable("business_types", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	code: varchar().notNull(),
 	label: varchar().notNull(),
-	description: text().default(').notNull(),
+	description: text().default('').notNull(),
 	sortOrder: integer("sort_order").default(0).notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -2929,8 +2931,8 @@ export const lsgdLocalBodies = pgTable("lsgd_local_bodies", {
 export const transactionalSequences = pgTable("transactional_sequences", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	module: varchar().notNull(),
-	prefix: varchar().default(').notNull(),
-	suffix: varchar().default('),
+	prefix: varchar().default('').notNull(),
+	suffix: varchar().default(''),
 	nextNumber: integer("next_number").default(1).notNull(),
 	padding: integer().default(5).notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
@@ -2951,7 +2953,7 @@ export const transactionalSequences = pgTable("transactional_sequences", {
 export const roles = pgTable("roles", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	label: varchar({ length: 100 }).notNull(),
-	description: text().default(').notNull(),
+	description: text().default('').notNull(),
 	permissions: jsonb().default({}).notNull(),
 	isActive: boolean("is_active").default(true).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -3246,7 +3248,7 @@ export const branches = pgTable("branches", {
 	districtId: uuid("district_id"),
 	localBodyId: uuid("local_body_id"),
 	wardId: uuid("ward_id"),
-	systemId: varchar("system_id", { length: 20 }).default((nextval(\'branches_system_id_seq').notNull(),
+	systemId: varchar("system_id", { length: 20 }).default(sql`nextval('branches_system_id_seq')`).notNull(),
 	pan: varchar(),
 	industry: varchar(),
 	gstTreatment: varchar("gst_treatment"),
@@ -3451,11 +3453,11 @@ export const organization = pgTable("organization", {
 	companyIdValue: varchar("company_id_value", { length: 100 }),
 	paymentStubAddress: text("payment_stub_address"),
 	hasSeparatePaymentStubAddress: boolean("has_separate_payment_stub_address").default(false).notNull(),
-	systemId: varchar("system_id", { length: 20 }).default((nextval(\'organization_system_id_seq').notNull(),
+	systemId: varchar("system_id", { length: 20 }).default(sql`nextval('organization_system_id_seq')`).notNull(),
 	baseCurrencyDecimals: smallint("base_currency_decimals"),
 	baseCurrencyFormat: varchar("base_currency_format", { length: 50 }),
 	organizationLanguage: varchar("organization_language", { length: 50 }).default('English'),
-	communicationLanguages: text("communication_languages").array().default(["RAY['English'::tex"]).notNull(),
+	communicationLanguages: text("communication_languages").array().default(sql`ARRAY['English'::text]`).notNull(),
 	paymentStubDistrictId: uuid("payment_stub_district_id"),
 	paymentStubLocalBodyId: uuid("payment_stub_local_body_id"),
 	paymentStubWardId: uuid("payment_stub_ward_id"),
@@ -4113,10 +4115,10 @@ export const priceListItems = pgTable("price_list_items", {
 export const priceLists = pgTable("price_lists", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 255 }).notNull(),
-	description: text().default('),
+	description: text().default(''),
 	currency: varchar({ length: 20 }).default('INR'),
 	pricingScheme: varchar("pricing_scheme", { length: 50 }).notNull(),
-	details: text().default('),
+	details: text().default(''),
 	roundOffPreference: varchar("round_off_preference", { length: 50 }).default('never_mind'),
 	status: varchar({ length: 20 }).default('active'),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),

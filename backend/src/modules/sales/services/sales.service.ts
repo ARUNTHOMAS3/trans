@@ -137,16 +137,20 @@ export class SalesService {
           first_name,
           last_name,
           company_name,
-          billing_address_street_1,
-          billing_address_street_2,
-          billing_city,
-          billing_pincode,
-          billing_state,
-          shipping_address_street_1,
-          shipping_address_street_2,
-          shipping_city,
-          shipping_pincode,
-          shipping_state
+          billing_address_street_1:billing_address_street,
+          billing_address_street_2:billing_address_place,
+          billing_address_city:billing_address_city,
+          billing_address_zip:billing_address_zip,
+          billing_address_state_id:billing_address_state_id,
+          billing_address_country_id:billing_address_country_id,
+          billing_address_phone:billing_address_phone,
+          shipping_address_street_1:shipping_address_street,
+          shipping_address_street_2:shipping_address_place,
+          shipping_address_city:shipping_address_city,
+          shipping_address_zip:shipping_address_zip,
+          shipping_address_state_id:shipping_address_state_id,
+          shipping_address_country_id:shipping_address_country_id,
+          shipping_address_phone:shipping_address_phone
         `,
         )
         .eq("id", order.customer_id)
@@ -743,6 +747,7 @@ export class SalesService {
       .from("invoice_master")
       .select("*")
       .eq("entity_id", orgId)
+      .neq("is_delete", true)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -836,16 +841,20 @@ export class SalesService {
           first_name,
           last_name,
           company_name,
-          billing_address_street_1,
-          billing_address_street_2,
-          billing_city,
-          billing_pincode,
-          billing_state,
-          shipping_address_street_1,
-          shipping_address_street_2,
-          shipping_city,
-          shipping_pincode,
-          shipping_state
+          billing_address_street_1:billing_address_street,
+          billing_address_street_2:billing_address_place,
+          billing_address_city:billing_address_city,
+          billing_address_zip:billing_address_zip,
+          billing_address_state_id:billing_address_state_id,
+          billing_address_country_id:billing_address_country_id,
+          billing_address_phone:billing_address_phone,
+          shipping_address_street_1:shipping_address_street,
+          shipping_address_street_2:shipping_address_place,
+          shipping_address_city:shipping_address_city,
+          shipping_address_zip:shipping_address_zip,
+          shipping_address_state_id:shipping_address_state_id,
+          shipping_address_country_id:shipping_address_country_id,
+          shipping_address_phone:shipping_address_phone
         `,
         )
         .eq("id", invoice.customer_id)
@@ -875,6 +884,7 @@ export class SalesService {
           item_code,
           unit_id,
           hsn_code,
+          sales_account_id,
           unit:units(unit_name)
         `,
         )
@@ -893,6 +903,8 @@ export class SalesService {
       const enrichedItem = {
         ...item,
         product,
+        accounts: item.accounts || product?.sales_account_id || null,
+        account_id: item.accounts || product?.sales_account_id || null,
       };
 
       const { data: batches, error: batchesError } = await client
@@ -903,22 +915,48 @@ export class SalesService {
           batch:batch_master(
             id,
             batch_no,
-            expiry_date
-          ),
-          bin:bin_master(
-            id,
-            bin_code
+            expiry_date,
+            unit_pack,
+            manufacture_batch_number,
+            manufacture_exp
           )
         `,
         )
         .eq("invoice_item_id", item.id);
 
       if (!batchesError) {
+        let enrichedBatches = batches || [];
+        if (batches && batches.length > 0) {
+          const binIds = batches.map((b) => b.bin_id).filter((id) => !!id);
+          if (binIds.length > 0) {
+            const { data: bins, error: binsError } = await client
+              .from("bin_master")
+              .select("id, bin_code")
+              .in("id", binIds);
+
+            if (!binsError && bins) {
+              const binMap = new Map(bins.map((b) => [b.id, b]));
+              enrichedBatches = batches.map((b) => ({
+                ...b,
+                bin: b.bin_id ? binMap.get(b.bin_id) || null : null,
+              }));
+            } else if (binsError) {
+              console.error(`[DEBUG] Bins query error for item ${item.id}:`, binsError.message);
+            }
+          }
+        }
+
+        console.log(`[DEBUG] Item ${item.id} batches count: ${enrichedBatches.length}`);
+        if (enrichedBatches.length > 0) {
+          console.log(`[DEBUG] First batch data:`, JSON.stringify(enrichedBatches[0], null, 2));
+        }
+
         enrichedItems.push({
           ...enrichedItem,
-          batches: batches ?? [],
+          batches: enrichedBatches,
         });
       } else {
+        console.log(`[DEBUG] Batch error for item ${item.id}:`, batchesError.message);
         enrichedItems.push(enrichedItem);
       }
     }
@@ -972,6 +1010,7 @@ export class SalesService {
       termsConditions,
       priceListId,
       warehouseId,
+      placeOfSupply,
       shippingCharges,
       adjustmentAmount,
       roundOff,
@@ -1009,6 +1048,7 @@ export class SalesService {
         terms_conditions: termsConditions || null,
         price_list_id: priceListId || null,
         warehouse_id: warehouseId || null,
+        place_of_supply: placeOfSupply || null,
         shipping_charges: Number(shippingCharges) || 0,
         adjustment_amount: Number(adjustmentAmount) || 0,
         round_off: Number(roundOff) || 0,
@@ -1186,6 +1226,7 @@ export class SalesService {
             line_total: Number(item.lineTotal) || 0,
             foc_quantity: Number(item.focQuantity) || 0,
             hsn_code: item.hsnCode || "0",
+            accounts: item.accounts || null,
           })
           .select()
           .single();
@@ -1300,6 +1341,243 @@ export class SalesService {
               .from("batch_stock_layers")
               .update({ qty: currentQty + layerUpdate.quantityAdded })
               .eq("id", layerUpdate.layerId);
+          }
+        }
+      } catch (rollbackError) {
+        console.error("Rollback failed:", rollbackError);
+      }
+      throw error;
+    }
+  }
+
+  async updateInvoice(id: string, body: any, orgId: string) {
+    const client = this.supabaseService.getClient();
+
+    const {
+      customerId,
+      invoiceNumber,
+      invoiceDate,
+      dueDate,
+      paymentTerms,
+      salespersonId,
+      subject,
+      customerNotes,
+      termsConditions,
+      priceListId,
+      warehouseId,
+      placeOfSupply,
+      shippingCharges,
+      adjustmentAmount,
+      roundOff,
+      subtotal,
+      taxTotal,
+      tdsTotal,
+      tcsTotal,
+      grandTotal,
+      inventoryFlowType,
+      status,
+      salesOrderId,
+      packageId,
+      items = [],
+    } = body;
+
+    if (!customerId) throw new BadRequestException("customerId is required");
+    if (!invoiceNumber)
+      throw new BadRequestException("invoiceNumber is required");
+    if (!invoiceDate) throw new BadRequestException("invoiceDate is required");
+
+    // 1. Resolve new items
+    const resolvedItems = await this.resolveItemFields(items, orgId);
+
+    // 2. Fetch old batch transactions for this invoice to revert stock layer quantities
+    const { data: oldTx } = await client
+      .from("batch_transactions")
+      .select("*")
+      .eq("document_id", id)
+      .eq("document_type", "sales_invoice");
+
+    const revertedLayers: { layerId: string; quantitySubtracted: number }[] = [];
+    try {
+      if (oldTx && oldTx.length > 0) {
+        for (const tx of oldTx) {
+          if (tx.layer_id && tx.quantity) {
+            const { data: layer } = await client
+              .from("batch_stock_layers")
+              .select("qty")
+              .eq("id", tx.layer_id)
+              .maybeSingle();
+            if (layer) {
+              const currentQty = Number(layer.qty) || 0;
+              const txQty = Number(tx.quantity) || 0;
+              await client
+                .from("batch_stock_layers")
+                .update({ qty: currentQty + txQty })
+                .eq("id", tx.layer_id);
+              revertedLayers.push({ layerId: tx.layer_id, quantitySubtracted: txQty });
+            }
+          }
+        }
+      }
+
+      // 3. Delete old batch transactions and old invoice items (which cascades to invoice_item_batches)
+      await client
+        .from("batch_transactions")
+        .delete()
+        .eq("document_id", id)
+        .eq("document_type", "sales_invoice");
+
+      await client
+        .from("invoice_items")
+        .delete()
+        .eq("invoice_id", id);
+
+      // 4. Update invoice_master
+      const { data: invoice, error: invoiceError } = await client
+        .from("invoice_master")
+        .update({
+          customer_id: customerId,
+          invoice_number: invoiceNumber,
+          invoice_date: invoiceDate,
+          due_date: dueDate || null,
+          payment_terms: paymentTerms || null,
+          salesperson_id: salespersonId || null,
+          subject: subject || null,
+          customer_notes: customerNotes || null,
+          terms_conditions: termsConditions || null,
+          price_list_id: priceListId || null,
+          warehouse_id: warehouseId || null,
+          place_of_supply: placeOfSupply || null,
+          shipping_charges: Number(shippingCharges) || 0,
+          adjustment_amount: Number(adjustmentAmount) || 0,
+          round_off: Number(roundOff) || 0,
+          subtotal: Number(subtotal) || 0,
+          tax_total: Number(taxTotal) || 0,
+          tds_total: Number(tdsTotal) || 0,
+          tcs_total: Number(tcsTotal) || 0,
+          grand_total: Number(grandTotal) || 0,
+          inventory_flow_type: inventoryFlowType || "DIRECT_INVOICE",
+          status: status || "draft",
+          is_batch_allocated: resolvedItems.some(
+            (i: any) => i.batches && i.batches.length > 0,
+          ),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+    // 5. Insert new items (deducting stock layer quantities and creating batches/transactions)
+    for (const item of resolvedItems) {
+      const { data: insertedItem, error: itemError } = await client
+        .from("invoice_items")
+        .insert({
+          invoice_id: id,
+          product_id: item.productId || item.itemId,
+          description: item.description || null,
+          quantity: Number(item.quantity) || 0,
+          rate: Number(item.rate) || 0,
+          discount_type: item.discountType || null,
+          discount_value: Number(item.discountValue) || 0,
+          tax_id: item.taxId || null,
+          tax_percentage: Number(item.taxPercentage) || 0,
+          taxable_amount: Number(item.taxableAmount) || 0,
+          tax_amount: Number(item.taxAmount) || 0,
+          line_total: Number(item.lineTotal) || 0,
+          foc_quantity: Number(item.focQuantity) || 0,
+          hsn_code: item.hsnCode || "0",
+          accounts: item.accounts || null,
+        })
+        .select()
+        .single();
+
+      if (itemError) throw itemError;
+
+        if (item.batches && item.batches.length > 0) {
+          for (const batch of item.batches) {
+            const qty = Number(batch.quantity) || 0;
+            const focQty = Number(batch.focQuantity) || 0;
+            const totalOutQty = qty + focQty;
+
+            const { error: itemBatchError } = await client
+              .from("invoice_item_batches")
+              .insert({
+                invoice_item_id: insertedItem.id,
+                batch_id: batch.batchId,
+                layer_id: batch.layerId || null,
+                warehouse_id: batch.warehouseId || warehouseId,
+                bin_id: batch.binId || null,
+                quantity: qty,
+                foc_quantity: focQty,
+                purchase_rate: batch.purchaseRate
+                  ? Number(batch.purchaseRate)
+                  : null,
+                sales_rate: batch.salesRate ? Number(batch.salesRate) : null,
+                mrp: batch.mrp ? Number(batch.mrp) : null,
+                expiry_date: this.parseToIsoDate(batch.expiryDate),
+                manufacturer_batch: batch.manufacturerBatch || null,
+              })
+              .select()
+              .single();
+
+            if (itemBatchError) throw itemBatchError;
+
+            const { error: transError } = await client
+              .from("batch_transactions")
+              .insert({
+                batch_id: batch.batchId,
+                layer_id: batch.layerId || null,
+                product_id: item.productId || item.itemId,
+                entity_id: orgId,
+                transaction_type: "OUT",
+                document_type: "sales_invoice",
+                document_id: id,
+                quantity: totalOutQty,
+                transaction_date: invoiceDate,
+              });
+
+            if (transError) throw transError;
+
+            // Deduct stock layer quantity
+            if (batch.layerId) {
+              const { data: layerData } = await client
+                .from("batch_stock_layers")
+                .select("qty")
+                .eq("id", batch.layerId)
+                .single();
+              if (layerData) {
+                const currentQty = Number(layerData.qty) || 0;
+                const newQty = currentQty - totalOutQty;
+
+                const { error: updateLayerErr } = await client
+                  .from("batch_stock_layers")
+                  .update({ qty: newQty })
+                  .eq("id", batch.layerId);
+
+                if (updateLayerErr) throw updateLayerErr;
+              }
+            }
+          }
+        }
+      }
+
+      return invoice;
+    } catch (error) {
+      // Revert stock layer additions made during start of transaction in case of error
+      try {
+        for (const layerRevert of revertedLayers) {
+          const { data: currentLayer } = await client
+            .from("batch_stock_layers")
+            .select("qty")
+            .eq("id", layerRevert.layerId)
+            .single();
+          if (currentLayer) {
+            const currentQty = Number(currentLayer.qty) || 0;
+            await client
+              .from("batch_stock_layers")
+              .update({ qty: currentQty - layerRevert.quantitySubtracted })
+              .eq("id", layerRevert.layerId);
           }
         }
       } catch (rollbackError) {

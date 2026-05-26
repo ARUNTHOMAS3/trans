@@ -1,0 +1,27 @@
+# Zerpai ERP - Batch Integration Instructions
+
+This handoff package contains the modified files from the recent iteration, implementing:
+1. **Invoice PDF Layout**: Extended the vertical inside border by removing the spacer gap between Details and Items Table, providing a clean continuous boundary.
+2. **Invoice Void Action**: Refactored to update invoice status in Supabase DB to `'void'`, invalidate corresponding Riverpod providers, and render a grey void ribbon banner in Details page.
+3. **Invoice Cloning**: Enabled clone retrieval inside Invoice Form `initState`, clearing original IDs to prevent PK violations, and auto-incrementing the invoice number from the highest available master sequence.
+4. **Handoff Structure & Commit**: Copied all affected files into the `handoff/` folder.
+
+## How to Integrate
+
+1. **Verify Workspace State**:
+   Make sure you are on the correct branch and your git working directory is clean.
+
+2. **Copy and Overwrite Files**:
+   Copy the `lib/` directory inside `handoff/` folder directly to your project root to overwrite the existing files:
+   ```bash
+   cp -r handoff/lib/* lib/
+   ```
+
+3. **Verify Codebase Health**:
+   Run Flutter analyzer to ensure there are no static analysis errors:
+   ```bash
+   flutter analyze
+   ```
+
+4. **Verify Build / Hot Reload**:
+   Launch the app in development mode to verify that pages (invoices, picklists, purchases bills) render and function correctly.

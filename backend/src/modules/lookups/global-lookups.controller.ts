@@ -569,7 +569,7 @@ export class GlobalLookupsController {
       client
         .from("organization")
         .select(
-          "id, system_id, name, state_id, industry, logo_url, base_currency, base_currency_decimals, base_currency_format, fiscal_year, organization_language, communication_languages, timezone, date_format, date_separator, company_id_label, company_id_value, attention, street, place, city, pincode, phone, district_id, local_body_id, assembly_id, ward_id, payment_stub_address, has_separate_payment_stub_address, payment_stub_assembly_id, additional_fields",
+          "id, system_id, name, state_id, industry, logo_url, base_currency, base_currency_decimals, base_currency_format, fiscal_year, organization_language, communication_languages, timezone, date_format, date_separator, company_id_label, company_id_value, attention, street, place, city, pincode, phone, email, district_id, local_body_id, assembly_id, ward_id, payment_stub_address, has_separate_payment_stub_address, payment_stub_assembly_id, additional_fields",
         )
         .eq("id", orgId)
         .single(),
